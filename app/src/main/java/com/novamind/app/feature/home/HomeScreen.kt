@@ -2,8 +2,9 @@ package com.novamind.app.feature.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,7 +31,6 @@ import com.novamind.app.ui.theme.AppTheme
 private val BgPage = Color(0xFFF0EFEA)
 private val BgCard = Color(0xFFFFFFFF)
 private val BgActionBar = Color(0xFFFFFFFF)
-private val ColorPrimary = Color(0xFF3D7A5A)
 private val ColorTextTitle = Color(0xFF1A1A1A)
 private val ColorTextSub = Color(0xFF6B6B6B)
 private val ColorTextHint = Color(0xFFAAAAAA)
@@ -60,7 +60,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
-                .padding(bottom = 100.dp), // 为悬浮导航栏留空间
+                .padding(bottom = 100.dp),
         ) {
             // ── 顶部栏 ──────────────────────────────────────────────────────
             TopBar(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp))
@@ -131,13 +131,12 @@ fun HomeScreen(
                     )
                 }
             } else {
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp),
+                // ── Note 卡片横向懒加载列表 ──────────────────────────────────
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    uiState.notes.forEach { note ->
+                    items(items = uiState.notes, key = { it.id }) { note ->
                         NoteCard(note = note, onClick = { onNoteClick(note.id) })
                     }
                 }
@@ -157,7 +156,6 @@ private fun TopBar(modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        // 头像
         Box(
             modifier = Modifier
                 .size(48.dp)
@@ -165,11 +163,9 @@ private fun TopBar(modifier: Modifier = Modifier) {
                 .background(Color(0xFFD0C8B8)),
             contentAlignment = Alignment.Center,
         ) {
-            // 用占位图代替真实头像
             Text(text = "👤", fontSize = 22.sp)
         }
 
-        // 通知 + 更多操作
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = BgActionBar,
@@ -343,7 +339,6 @@ private fun NoteCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // 文件夹标签
             if (note.folderName != null) {
                 Surface(
                     shape = RoundedCornerShape(50),
@@ -375,7 +370,6 @@ private fun NoteCard(
                     maxLines = 4,
                 )
             }
-            // Tags
             if (note.tags.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     note.tags.take(2).forEach { tag ->
@@ -410,9 +404,9 @@ private fun HomeScreenPreview() {
                     UpcomingItem("2", "Board meeting", "Internal stakeholder alignment", R.drawable.ic_upcoming_meeting),
                 ),
                 notes = listOf(
-                    NoteItem("1", "Market research", "Here is an overview of your competitors in 2026.\n\n3 new competitor in the market, they all boutique studios in..."),
-                    NoteItem("2", "Market research", "Here is an overview of your competitors in 2026.\n\n3 new competitor in the market, they all boutique studios in...", isSelected = true),
-                    NoteItem("3", "Market research", "Here is an overview of your competitors in 2026.\n\n3 new competitor in the market, they all boutique studios in..."),
+                    NoteItem("1", "Market research", "Here is an overview of your competitors in 2026."),
+                    NoteItem("2", "Market research", "Here is an overview of your competitors in 2026.", isSelected = true),
+                    NoteItem("3", "Market research", "Here is an overview of your competitors in 2026."),
                 ),
             ),
             onSearchQueryChange = {},

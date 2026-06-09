@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,7 +44,6 @@ class MainActivity : ComponentActivity() {
                 var currentRoute by rememberSaveable {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
-                var previousRoute by remember { mutableStateOf(currentRoute) }
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -89,7 +87,6 @@ class MainActivity : ComponentActivity() {
                         currentRoute = currentRoute,
                         onNavigate = { route ->
                             if (route == BottomNavDestination.Create.route) editingNoteId = null
-                            previousRoute = currentRoute
                             currentRoute = route
                         },
                         modifier = Modifier.align(Alignment.BottomCenter),
