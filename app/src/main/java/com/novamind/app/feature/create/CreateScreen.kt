@@ -89,7 +89,7 @@ fun CreateScreen(
                 .statusBarsPadding()
                 .imePadding(),
         ) {
-            // ── 顶部操作行：返回 + 保存 ───────────────────────────────────
+            // ── 顶部操作行 ────────────────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -97,6 +97,7 @@ fun CreateScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // 左：圆形返回按钮
                 Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {
                     Box(
                         modifier = Modifier
@@ -104,7 +105,7 @@ fun CreateScreen(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(bounded = false),
-                                onClick = onBack,
+                                onClick = { onEvent(CreateEvent.SaveNote) },
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -117,45 +118,41 @@ fun CreateScreen(
                     }
                 }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                // 右：胶囊容器 —— Share | 撤销 | 重做
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = ColorChipBg,
+                    shadowElevation = 2.dp,
                 ) {
-                    // 撤销按钮
-                    UndoRedoButton(
-                        enabled = uiState.canUndo,
-                        label = "↩",
-                        onClick = { onEvent(CreateEvent.UndoEdit) },
-                    )
-                    // 重做按钮
-                    UndoRedoButton(
-                        enabled = uiState.canRedo,
-                        label = "↪",
-                        onClick = { onEvent(CreateEvent.RedoEdit) },
-                    )
-                    // 保存按钮
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = Color(0xFF3D7A5A),
-                        shadowElevation = 2.dp,
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        TopBarIconBtn(
+                            icon = R.drawable.ic_share,
+                            contentDescription = "Share",
+                            enabled = true,
+                            onClick = {},
+                        )
                         Box(
                             modifier = Modifier
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = ripple(),
-                                    onClick = { onEvent(CreateEvent.SaveNote) },
-                                )
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "Save",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White,
-                            )
-                        }
+                                .width(1.dp)
+                                .height(20.dp)
+                                .background(Color(0xFFE0E0E0))
+                        )
+                        TopBarIconBtn(
+                            icon = R.drawable.ic_undo,
+                            contentDescription = "Undo",
+                            enabled = uiState.canUndo,
+                            onClick = { onEvent(CreateEvent.UndoEdit) },
+                        )
+                        TopBarIconBtn(
+                            icon = R.drawable.ic_redo,
+                            contentDescription = "Redo",
+                            enabled = uiState.canRedo,
+                            onClick = { onEvent(CreateEvent.RedoEdit) },
+                        )
                     }
                 }
             }
@@ -168,14 +165,14 @@ fun CreateScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp),
                 textStyle = TextStyle(
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
                     color = ColorTextTitle,
                 ),
                 cursorBrush = SolidColor(ColorTextTitle),
                 decorationBox = { inner ->
                     if (uiState.title.isEmpty()) {
-                        Text("New note", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = ColorTextTitle)
+                        Text("New note", fontSize = 15.sp, fontWeight = FontWeight.Normal, color = ColorTextHint)
                     }
                     inner()
                 },
@@ -409,36 +406,32 @@ private fun ToolbarTextBtn(
     }
 }
 
-// ─── 撤销/重做按钮 ────────────────────────────────────────────────────────────
+// ─── 顶部胶囊图标按钮 ─────────────────────────────────────────────────────────
 
 @Composable
-private fun UndoRedoButton(
+private fun TopBarIconBtn(
+    icon: Int,
+    contentDescription: String,
     enabled: Boolean,
-    label: String,
     onClick: () -> Unit,
 ) {
-    Surface(
-        shape = CircleShape,
-        color = if (enabled) ColorChipBg else ColorChipBg.copy(alpha = 0.5f),
-        shadowElevation = if (enabled) 2.dp else 0.dp,
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, radius = 20.dp),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clickable(
-                    enabled = enabled,
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = label,
-                fontSize = 18.sp,
-                color = if (enabled) ColorTextTitle else ColorTextHint,
-            )
-        }
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = contentDescription,
+            tint = if (enabled) ColorTextTitle else ColorTextHint,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

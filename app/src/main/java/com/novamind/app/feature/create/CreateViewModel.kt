@@ -1,19 +1,23 @@
 package com.novamind.app.feature.create
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.model.Tag
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.util.UUID
 
-/** 撤销/重做只针对文本内容（标题 + 正文），快照结构 */
 private data class TextSnapshot(val title: String, val body: String)
-
 private const val MAX_HISTORY = 50
+private const val AUTO_SAVE_DELAY_MS = 600L
 
 class CreateViewModel : ViewModel() {
 
@@ -23,23 +27,24 @@ class CreateViewModel : ViewModel() {
     private val _navigateBack = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val navigateBack = _navigateBack.asSharedFlow()
 
-    // 撤销栈：栈顶是最近一次变更前的状态
     private val undoStack = ArrayDeque<TextSnapshot>()
-    // 重做栈：撤销后可重做
     private val redoStack = ArrayDeque<TextSnapshot>()
+    private var autoSaveJob: Job? = null
 
-    // ── 公开方法 ──────────────────────────────────────────────────────────────
+    // ── 初始化 / 重置 ─────────────────────────────────────────────────────────
 
     fun reset() {
+        autoSaveJob?.cancel()
         undoStack.clear()
         redoStack.clear()
         _uiState.value = CreateUiState()
     }
 
     fun loadNote(noteId: String) {
-        val note = NoteRepository.notes.value.find { it.id == noteId } ?: return
+        autoSaveJob?.cancel()
         undoStack.clear()
         redoStack.clear()
+        val note = NoteRepository.notes.value.find { it.id == noteId } ?: return
         _uiState.value = CreateUiState(
             editingNoteId = note.id,
             title = note.title,
@@ -49,29 +54,34 @@ class CreateViewModel : ViewModel() {
         )
     }
 
+    // ── 事件处理 ──────────────────────────────────────────────────────────────
+
     fun onEvent(event: CreateEvent) {
         when (event) {
-            is CreateEvent.TitleChanged -> updateText(
-                newTitle = event.value,
-                newBody = _uiState.value.body,
-            )
+            is CreateEvent.TitleChanged -> {
+                updateText(newTitle = event.value, newBody = _uiState.value.body)
+                scheduleAutoSave()
+            }
 
-            is CreateEvent.BodyChanged -> updateText(
-                newTitle = _uiState.value.title,
-                newBody = event.value,
-            )
+            is CreateEvent.BodyChanged -> {
+                updateText(newTitle = _uiState.value.title, newBody = event.value)
+                scheduleAutoSave()
+            }
 
             is CreateEvent.UndoEdit -> {
                 if (undoStack.isEmpty()) return
                 val current = TextSnapshot(_uiState.value.title, _uiState.value.body)
                 redoStack.addLast(current)
                 val prev = undoStack.removeLast()
-                _uiState.update { it.copy(
-                    title = prev.title,
-                    body = prev.body,
-                    canUndo = undoStack.isNotEmpty(),
-                    canRedo = true,
-                ) }
+                _uiState.update {
+                    it.copy(
+                        title = prev.title,
+                        body = prev.body,
+                        canUndo = undoStack.isNotEmpty(),
+                        canRedo = true,
+                    )
+                }
+                scheduleAutoSave()
             }
 
             is CreateEvent.RedoEdit -> {
@@ -79,12 +89,15 @@ class CreateViewModel : ViewModel() {
                 val current = TextSnapshot(_uiState.value.title, _uiState.value.body)
                 undoStack.addLast(current)
                 val next = redoStack.removeLast()
-                _uiState.update { it.copy(
-                    title = next.title,
-                    body = next.body,
-                    canUndo = true,
-                    canRedo = redoStack.isNotEmpty(),
-                ) }
+                _uiState.update {
+                    it.copy(
+                        title = next.title,
+                        body = next.body,
+                        canUndo = true,
+                        canRedo = redoStack.isNotEmpty(),
+                    )
+                }
+                scheduleAutoSave()
             }
 
             is CreateEvent.TagToggled -> {
@@ -94,6 +107,7 @@ class CreateViewModel : ViewModel() {
                     else selected.add(event.tag)
                     state.copy(selectedTags = selected)
                 }
+                saveNow()
             }
 
             is CreateEvent.NewTagCreated -> {
@@ -104,10 +118,13 @@ class CreateViewModel : ViewModel() {
                         selectedTags = state.selectedTags + newTag,
                     )
                 }
+                saveNow()
             }
 
-            is CreateEvent.FolderSelected ->
+            is CreateEvent.FolderSelected -> {
                 _uiState.update { it.copy(selectedFolder = event.folder, showFolderPicker = false) }
+                saveNow()
+            }
 
             is CreateEvent.ShowTagPicker ->
                 _uiState.update { it.copy(showTagPicker = true) }
@@ -121,42 +138,51 @@ class CreateViewModel : ViewModel() {
             is CreateEvent.DismissFolderPicker ->
                 _uiState.update { it.copy(showFolderPicker = false) }
 
+            // 返回时立即保存并导航
             is CreateEvent.SaveNote -> {
-                val state = _uiState.value
-                NoteRepository.addOrUpdate(
-                    Note(
-                        id = state.editingNoteId ?: java.util.UUID.randomUUID().toString(),
-                        title = state.title.ifBlank { "Untitled" },
-                        body = state.body,
-                        tags = state.selectedTags,
-                        folder = state.selectedFolder,
-                    )
-                )
-                _uiState.value = CreateUiState()
-                undoStack.clear()
-                redoStack.clear()
+                autoSaveJob?.cancel()
+                saveNow()
                 _navigateBack.tryEmit(Unit)
             }
         }
     }
 
-    // ── 私有工具 ──────────────────────────────────────────────────────────────
+    // ── 私有方法 ──────────────────────────────────────────────────────────────
 
-    /** 文本变更时推入历史栈，清空重做栈 */
+    /** 600ms 防抖自动保存 */
+    private fun scheduleAutoSave() {
+        autoSaveJob?.cancel()
+        autoSaveJob = viewModelScope.launch {
+            delay(AUTO_SAVE_DELAY_MS)
+            saveNow()
+        }
+    }
+
+    /** 立即持久化到 Repository（内容为空则跳过） */
+    private fun saveNow() {
+        val state = _uiState.value
+        if (state.title.isBlank() && state.body.isBlank()) return
+        NoteRepository.addOrUpdate(
+            Note(
+                id = state.editingNoteId ?: UUID.randomUUID().toString().also { newId ->
+                    _uiState.update { it.copy(editingNoteId = newId) }
+                },
+                title = state.title.ifBlank { "Untitled" },
+                body = state.body,
+                tags = state.selectedTags,
+                folder = state.selectedFolder,
+            )
+        )
+    }
+
     private fun updateText(newTitle: String, newBody: String) {
         val current = TextSnapshot(_uiState.value.title, _uiState.value.body)
-        // 内容无变化时不入栈（例如光标移动触发的无意义更新）
         if (current.title == newTitle && current.body == newBody) return
-
         undoStack.addLast(current)
         if (undoStack.size > MAX_HISTORY) undoStack.removeFirst()
         redoStack.clear()
-
-        _uiState.update { it.copy(
-            title = newTitle,
-            body = newBody,
-            canUndo = true,
-            canRedo = false,
-        ) }
+        _uiState.update {
+            it.copy(title = newTitle, body = newBody, canUndo = true, canRedo = false)
+        }
     }
 }
