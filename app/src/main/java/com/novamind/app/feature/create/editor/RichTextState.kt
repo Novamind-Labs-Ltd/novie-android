@@ -2,55 +2,65 @@ package com.novamind.app.feature.create.editor
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 
+/** 支持的内联文字样式 */
+enum class RichSpan {
+    Bold,
+    Italic,
+}
+
 /**
- * 支持「加粗」的富文本编辑状态持有器。
+ * 支持「加粗 / 斜体」等内联样式的富文本编辑状态持有器。
  *
- * 设计：纯文本 + 一组加粗字符区间（左闭右开，已归一化）。
- * - 选区非空时点击加粗：整段已加粗则取消，否则加粗；
- * - 折叠光标时点击加粗：切换「续写加粗」开关，后续输入的文字加粗；
- * - 编辑（插入/删除）时把加粗区间重新映射到新坐标，未涉及的文字不变。
+ * 设计：纯文本 + 每种样式各自一组字符区间（左闭右开，已归一化）。
+ * - 选区非空时点击某样式：整段已应用则取消，否则应用；
+ * - 折叠光标时点击：切换该样式的「续写」开关，后续输入的文字应用该样式；
+ * - 编辑（插入/删除）时把所有样式区间重新映射到新坐标，未涉及的文字不变。
  *
  * 仅维护 UI 层格式状态，对外只暴露纯文本（[plainText]）用于持久化。
  */
 @Stable
 class RichTextState(initialText: String = "") {
 
-    // 已加粗的字符区间，左闭右开，按起点升序、互不重叠/相邻
-    private var boldRanges: List<IntRange> = emptyList()
+    // 每种样式对应的字符区间，左闭右开，已归一化
+    private val ranges: MutableMap<RichSpan, List<IntRange>> =
+        RichSpan.entries.associateWith { emptyList<IntRange>() }.toMutableMap()
 
-    // 折叠光标处的「续写加粗」开关：true 时新输入的文字会被加粗
-    private var pendingBold by mutableStateOf(false)
+    // 折叠光标处各样式的「续写」开关：true 时新输入的文字应用该样式（需可观察以驱动按钮高亮）
+    private val pending = mutableStateMapOf<RichSpan, Boolean>().apply {
+        RichSpan.entries.forEach { put(it, false) }
+    }
 
-    var value by mutableStateOf(
-        TextFieldValue(buildAnnotated(initialText, emptyList()))
-    )
+    var value by mutableStateOf(TextFieldValue(buildAnnotated(initialText)))
         private set
 
     val plainText: String get() = value.text
 
-    /** 加粗按钮是否高亮：选区全部加粗，或折叠光标处于「续写加粗」状态 */
-    val isBoldActive: Boolean
-        get() {
-            val sel = value.selection
-            return if (sel.collapsed) pendingBold
-            else (sel.min until sel.max).all { isBoldAt(it) }
-        }
+    /** 某样式按钮是否高亮：选区全部应用，或折叠光标处于该样式的「续写」状态 */
+    fun isActive(span: RichSpan): Boolean {
+        val sel = value.selection
+        return if (sel.collapsed) pending[span] == true
+        else (sel.min until sel.max).all { isStyledAt(span, it) }
+    }
 
-    /** 外部直接替换纯文本（加载笔记 / 撤销重做），清除已有格式 */
+    /** 外部直接替换纯文本（加载笔记 / 撤销重做），清除所有格式 */
     fun setPlainText(text: String) {
-        boldRanges = emptyList()
-        pendingBold = false
+        RichSpan.entries.forEach {
+            ranges[it] = emptyList()
+            pending[it] = false
+        }
         value = TextFieldValue(
-            annotatedString = buildAnnotated(text, boldRanges),
+            annotatedString = buildAnnotated(text),
             selection = TextRange(text.length),
         )
     }
@@ -60,12 +70,12 @@ class RichTextState(initialText: String = "") {
         val oldText = value.text
         val newText = new.text
 
-        // 纯选区移动：按光标前一个字符的样式决定续写加粗
+        // 纯选区移动：按光标前一个字符的样式决定各样式的续写开关
         if (oldText == newText) {
             if (new.selection.collapsed && new.selection != value.selection) {
-                pendingBold = isBoldAt(new.selection.start - 1)
+                syncPendingToCaret(new.selection.start)
             }
-            value = new.copy(annotatedString = buildAnnotated(newText, boldRanges))
+            value = new.copy(annotatedString = buildAnnotated(newText))
             return
         }
 
@@ -76,57 +86,72 @@ class RichTextState(initialText: String = "") {
         val insertedEnd = newText.length - s
         val delta = newText.length - oldText.length
 
-        // 1) 旧加粗区间映射到新坐标
-        val mapped = boldRanges.mapNotNull { r ->
-            val a = mapPos(r.first, p, removedEnd, delta)
-            val b = mapPos(r.last + 1, p, removedEnd, delta) // 端点按开区间映射
-            if (b > a) a until b else null
-        }.toMutableList()
+        RichSpan.entries.forEach { span ->
+            // 1) 旧区间映射到新坐标
+            val mapped = ranges.getValue(span).mapNotNull { r ->
+                val a = mapPos(r.first, p, removedEnd, delta)
+                val b = mapPos(r.last + 1, p, removedEnd, delta) // 端点按开区间映射
+                if (b > a) a until b else null
+            }.toMutableList()
 
-        // 2) 插入的文字是否加粗：仅取决于「续写加粗」开关
-        //    （取消加粗后 pendingBold=false，新输入不会被相邻加粗区误带上）
-        if (insertedEnd > p && pendingBold) {
-            mapped.add(p until insertedEnd)
+            // 2) 插入的文字是否应用该样式：仅取决于「续写」开关
+            //    （取消某样式后其 pending=false，新输入不会被相邻区间误带上）
+            if (insertedEnd > p && pending[span] == true) {
+                mapped.add(p until insertedEnd)
+            }
+
+            ranges[span] = normalize(mapped)
         }
-
-        boldRanges = normalize(mapped)
 
         // 续写开关：按新光标前一个字符的样式
         if (new.selection.collapsed) {
-            pendingBold = isBoldAt(new.selection.start - 1)
+            syncPendingToCaret(new.selection.start)
         }
 
-        value = new.copy(annotatedString = buildAnnotated(newText, boldRanges))
+        value = new.copy(annotatedString = buildAnnotated(newText))
     }
 
-    /** 点击「B」 */
-    fun toggleBold() {
+    /** 点击某样式按钮 */
+    fun toggle(span: RichSpan) {
         val sel = value.selection
         if (!sel.collapsed) {
             val range = sel.min until sel.max
-            val allBold = (sel.min until sel.max).all { isBoldAt(it) }
-            boldRanges = if (allBold) normalize(subtract(boldRanges, range))
-            else normalize(boldRanges + listOf(range))
-            pendingBold = !allBold
-            value = value.copy(annotatedString = buildAnnotated(value.text, boldRanges))
+            val allStyled = (sel.min until sel.max).all { isStyledAt(span, it) }
+            ranges[span] = if (allStyled) normalize(subtract(ranges.getValue(span), range))
+            else normalize(ranges.getValue(span) + listOf(range))
+            pending[span] = !allStyled
+            value = value.copy(annotatedString = buildAnnotated(value.text))
         } else {
-            // 无选区：仅切换续写加粗，等待用户输入
-            pendingBold = !pendingBold
+            // 无选区：仅切换该样式的续写开关，等待用户输入
+            pending[span] = !(pending[span] ?: false)
         }
     }
 
     // ── 内部工具 ────────────────────────────────────────────────────────────
 
-    private fun isBoldAt(charIndex: Int): Boolean =
-        charIndex >= 0 && boldRanges.any { charIndex in it }
+    // 折叠光标处：各样式续写开关取「光标前一个字符」的样式（自然延续前文）
+    private fun syncPendingToCaret(caret: Int) {
+        RichSpan.entries.forEach { pending[it] = isStyledAt(it, caret - 1) }
+    }
 
-    private fun buildAnnotated(text: String, ranges: List<IntRange>): AnnotatedString =
+    private fun isStyledAt(span: RichSpan, charIndex: Int): Boolean =
+        charIndex >= 0 && ranges.getValue(span).any { charIndex in it }
+
+    private fun spanStyleOf(span: RichSpan): SpanStyle = when (span) {
+        RichSpan.Bold -> SpanStyle(fontWeight = FontWeight.Bold)
+        RichSpan.Italic -> SpanStyle(fontStyle = FontStyle.Italic)
+    }
+
+    private fun buildAnnotated(text: String): AnnotatedString =
         buildAnnotatedString {
             append(text)
-            ranges.forEach { r ->
-                val start = r.first.coerceIn(0, text.length)
-                val end = (r.last + 1).coerceIn(0, text.length)
-                if (start < end) addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, end)
+            RichSpan.entries.forEach { span ->
+                val style = spanStyleOf(span)
+                ranges[span]?.forEach { r ->
+                    val start = r.first.coerceIn(0, text.length)
+                    val end = (r.last + 1).coerceIn(0, text.length)
+                    if (start < end) addStyle(style, start, end)
+                }
             }
         }
 
@@ -152,8 +177,7 @@ class RichTextState(initialText: String = "") {
 
     // 归一化：过滤空区间、排序、合并重叠或相邻区间
     private fun normalize(ranges: List<IntRange>): List<IntRange> {
-        val valid = ranges.filter { it.first < it.last + 1 && it.last >= it.first }
-            .sortedBy { it.first }
+        val valid = ranges.filter { it.last >= it.first }.sortedBy { it.first }
         if (valid.isEmpty()) return emptyList()
         val out = mutableListOf<IntRange>()
         var cur = valid.first()
@@ -168,7 +192,7 @@ class RichTextState(initialText: String = "") {
         return out
     }
 
-    // 从 ranges 中减去区间 r（开区间 r = [r.first, r.last]）
+    // 从 ranges 中减去闭区间 r
     private fun subtract(ranges: List<IntRange>, r: IntRange): List<IntRange> {
         val out = mutableListOf<IntRange>()
         for (range in ranges) {

@@ -23,6 +23,7 @@ import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.feature.create.components.FolderPickerSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.feature.create.components.TagPickerSheet
+import com.novamind.app.feature.create.editor.RichSpan
 import com.novamind.app.feature.create.editor.RichTextState
 import com.novamind.app.ui.theme.AppTheme
 import java.util.Date
@@ -158,8 +159,10 @@ fun CreateScreen(
             if (imeVisible || forceToolbarVisible) {
                 FormattingToolbar(
                     onHideKeyboard = { keyboardController?.hide() },
-                    onBold = { bodyState.toggleBold() },
-                    isBoldActive = bodyState.isBoldActive,
+                    onBold = { bodyState.toggle(RichSpan.Bold) },
+                    isBoldActive = bodyState.isActive(RichSpan.Bold),
+                    onItalic = { bodyState.toggle(RichSpan.Italic) },
+                    isItalicActive = bodyState.isActive(RichSpan.Italic),
                 )
             }
         }

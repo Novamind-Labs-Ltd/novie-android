@@ -32,6 +32,8 @@ fun FormattingToolbar(
     onHideKeyboard: () -> Unit = {},
     onBold: () -> Unit = {},
     isBoldActive: Boolean = false,
+    onItalic: () -> Unit = {},
+    isItalicActive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -57,7 +59,7 @@ fun FormattingToolbar(
                 item { ToolbarIcon(R.drawable.ic_attach, "Attach") }
                 item { ToolbarIcon(R.drawable.ic_magic, "Magic") }
                 item { ToolbarTextBtn("B", FontWeight.ExtraBold, active = isBoldActive, onClick = onBold) }
-                item { ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic) }
+                item { ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic, active = isItalicActive, onClick = onItalic) }
                 item { ToolbarIcon(R.drawable.ic_format_list, "List") }
             }
         }
