@@ -12,7 +12,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.novamind.app.feature.calendar.CalendarRoute
+import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
+import com.novamind.app.feature.library.LibraryRoute
 import com.novamind.app.ui.components.AppBottomNavBar
 import com.novamind.app.ui.components.BottomNavDestination
 import com.novamind.app.ui.theme.AppTheme
@@ -28,13 +31,15 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // 内容区
                     when (currentRoute) {
                         BottomNavDestination.Home.route -> HomeRoute()
-                        else -> HomeRoute() // 其他页面后续扩展
+                        BottomNavDestination.Create.route -> CreateRoute(
+                            onBack = { currentRoute = BottomNavDestination.Home.route }
+                        )
+                        BottomNavDestination.Library.route -> LibraryRoute()
+                        BottomNavDestination.Calendar.route -> CalendarRoute()
                     }
 
-                    // 悬浮导航栏
                     AppBottomNavBar(
                         currentRoute = currentRoute,
                         onNavigate = { route -> currentRoute = route },
