@@ -38,6 +38,11 @@ android {
     }
 }
 
+// Room schema 输出目录（配合 exportSchema = true 使用）
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -52,7 +57,6 @@ dependencies {
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    implementation(libs.room.ktx)
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.junit)
