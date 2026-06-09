@@ -117,28 +117,45 @@ fun CreateScreen(
                     }
                 }
 
-                // 保存按钮
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = Color(0xFF3D7A5A),
-                    shadowElevation = 2.dp,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(),
-                                onClick = { onEvent(CreateEvent.SaveNote) },
-                            )
-                            .padding(horizontal = 20.dp, vertical = 10.dp),
-                        contentAlignment = Alignment.Center,
+                    // 撤销按钮
+                    UndoRedoButton(
+                        enabled = uiState.canUndo,
+                        label = "↩",
+                        onClick = { onEvent(CreateEvent.UndoEdit) },
+                    )
+                    // 重做按钮
+                    UndoRedoButton(
+                        enabled = uiState.canRedo,
+                        label = "↪",
+                        onClick = { onEvent(CreateEvent.RedoEdit) },
+                    )
+                    // 保存按钮
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFF3D7A5A),
+                        shadowElevation = 2.dp,
                     ) {
-                        Text(
-                            text = "Save",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(),
+                                    onClick = { onEvent(CreateEvent.SaveNote) },
+                                )
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "Save",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White,
+                            )
+                        }
                     }
                 }
             }
@@ -389,6 +406,39 @@ private fun ToolbarTextBtn(
         contentAlignment = Alignment.Center,
     ) {
         Text(text, fontSize = 16.sp, fontWeight = fontWeight, fontStyle = fontStyle, color = ColorTextTitle)
+    }
+}
+
+// ─── 撤销/重做按钮 ────────────────────────────────────────────────────────────
+
+@Composable
+private fun UndoRedoButton(
+    enabled: Boolean,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        shape = CircleShape,
+        color = if (enabled) ColorChipBg else ColorChipBg.copy(alpha = 0.5f),
+        shadowElevation = if (enabled) 2.dp else 0.dp,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(bounded = false),
+                    onClick = onClick,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                fontSize = 18.sp,
+                color = if (enabled) ColorTextTitle else ColorTextHint,
+            )
+        }
     }
 }
 

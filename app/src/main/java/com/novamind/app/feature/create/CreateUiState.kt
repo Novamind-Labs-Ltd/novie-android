@@ -10,6 +10,8 @@ sealed class CreateEvent {
     data class NewTagCreated(val name: String) : CreateEvent()
     data class FolderSelected(val folder: Folder?) : CreateEvent()
     object SaveNote : CreateEvent()
+    object UndoEdit : CreateEvent()
+    object RedoEdit : CreateEvent()
     object DismissTagPicker : CreateEvent()
     object ShowTagPicker : CreateEvent()
     object DismissFolderPicker : CreateEvent()
@@ -31,6 +33,9 @@ data class CreateUiState(
     val showTagPicker: Boolean = false,
     val showFolderPicker: Boolean = false,
 
+    // 撤销/重做可用状态
+    val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
 )
 
 val defaultTags = listOf(
