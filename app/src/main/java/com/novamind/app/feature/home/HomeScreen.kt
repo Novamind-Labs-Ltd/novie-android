@@ -2,6 +2,7 @@ package com.novamind.app.feature.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -36,6 +37,17 @@ private val ColorTextSub = Color(0xFF6B6B6B)
 private val ColorTextHint = Color(0xFFAAAAAA)
 private val ColorBorder = Color(0xFFE0E0E0)
 private val ColorSelectedBorder = Color(0xFFAAD4C8)
+private val BgMenu = Color(0xFFF4F3EF)
+
+// ─── 顶部「更多」菜单项 ────────────────────────────────────────────────────────
+
+enum class HomeMenuItem(val label: String) {
+    NotificationPreferences("Notification preferences"),
+    Connectors("Connectors"),
+    SecurityPrivacy("Security & privacy"),
+    HelpFeedback("Help & feedback"),
+    Help("Help"),
+}
 
 // ─── 无状态 Screen ────────────────────────────────────────────────────────────
 
@@ -46,6 +58,8 @@ fun HomeScreen(
     onUpcomingSeeAll: () -> Unit,
     onNotesSeeAll: () -> Unit,
     onNoteClick: (noteId: String) -> Unit = {},
+    onMenuAction: (HomeMenuItem) -> Unit = {},
+    forceMenuOpen: Boolean = false,   // 预览用：默认展开「更多」菜单
     modifier: Modifier = Modifier,
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -63,7 +77,11 @@ fun HomeScreen(
                 .padding(bottom = 100.dp),
         ) {
             // ── 顶部栏 ──────────────────────────────────────────────────────
-            TopBar(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp))
+            TopBar(
+                onMenuAction = onMenuAction,
+                initialMenuExpanded = forceMenuOpen,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            )
 
             // ── 标题 ─────────────────────────────────────────────────────────
             Text(
@@ -150,7 +168,13 @@ fun HomeScreen(
 // ─── 顶部栏 ───────────────────────────────────────────────────────────────────
 
 @Composable
-private fun TopBar(modifier: Modifier = Modifier) {
+private fun TopBar(
+    onMenuAction: (HomeMenuItem) -> Unit = {},
+    initialMenuExpanded: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    var menuExpanded by remember { mutableStateOf(initialMenuExpanded) }
+
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -182,13 +206,59 @@ private fun TopBar(modifier: Modifier = Modifier) {
                     tint = ColorTextTitle,
                     modifier = Modifier.size(22.dp),
                 )
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_more),
-                    contentDescription = "More",
-                    tint = ColorTextTitle,
-                    modifier = Modifier.size(22.dp),
-                )
+                // ── 更多按钮 + 下拉菜单 ──────────────────────────────────
+                Box {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_more),
+                        contentDescription = "More",
+                        tint = ColorTextTitle,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .clickable { menuExpanded = true },
+                    )
+                    MoreMenu(
+                        expanded = menuExpanded,
+                        onDismiss = { menuExpanded = false },
+                        onItemClick = {
+                            menuExpanded = false
+                            onMenuAction(it)
+                        },
+                    )
+                }
             }
+        }
+    }
+}
+
+// ─── 「更多」下拉菜单 ──────────────────────────────────────────────────────────
+
+@Composable
+private fun MoreMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onItemClick: (HomeMenuItem) -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = BgMenu,
+        shadowElevation = 8.dp,
+        modifier = Modifier.wrapContentWidth(),
+    ) {
+        HomeMenuItem.entries.forEach { item ->
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        text = item.label,
+                        fontSize = 16.sp,
+                        color = ColorTextTitle,
+                    )
+                },
+                onClick = { onItemClick(item) },
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+            )
         }
     }
 }
@@ -412,6 +482,7 @@ private fun HomeScreenPreview() {
             onSearchQueryChange = {},
             onUpcomingSeeAll = {},
             onNotesSeeAll = {},
+            forceMenuOpen = true,
         )
     }
 }
