@@ -6,13 +6,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.ui.components.AppBottomNavBar
 import com.novamind.app.ui.components.BottomNavDestination
 import com.novamind.app.ui.theme.AppTheme
@@ -28,15 +28,13 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // 内容区铺满全屏
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(text = "当前页面：$currentRoute")
+                    // 内容区
+                    when (currentRoute) {
+                        BottomNavDestination.Home.route -> HomeRoute()
+                        else -> HomeRoute() // 其他页面后续扩展
                     }
 
-                    // 悬浮导航栏固定在底部，叠在内容之上
+                    // 悬浮导航栏
                     AppBottomNavBar(
                         currentRoute = currentRoute,
                         onNavigate = { route -> currentRoute = route },
