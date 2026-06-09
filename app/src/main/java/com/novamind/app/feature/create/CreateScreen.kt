@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,6 +76,7 @@ fun CreateScreen(
     onEvent: (CreateEvent) -> Unit,
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier,
+    forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
     val imeVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
     val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
@@ -249,7 +251,7 @@ fun CreateScreen(
             )
 
             // ── 格式工具栏 ────────────────────────────────────────────────
-            if (imeVisible) {
+            if (imeVisible || forceToolbarVisible) {
                 FormattingToolbar()
             }
         }
@@ -334,23 +336,24 @@ private fun FormattingToolbar() {
             color = ColorChipBg,
             shadowElevation = 2.dp,
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ToolbarIcon(R.drawable.ic_mic, "Voice")
-                ToolbarIcon(R.drawable.ic_attach, "Attach")
-                ToolbarIcon(R.drawable.ic_magic, "Magic")
-                ToolbarTextBtn("B", FontWeight.ExtraBold)
-                ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic)
-                ToolbarIcon(R.drawable.ic_format_list, "List")
+                item { ToolbarIcon(R.drawable.ic_mic, "Voice") }
+                item { ToolbarIcon(R.drawable.ic_attach, "Attach") }
+                item { ToolbarIcon(R.drawable.ic_magic, "Magic") }
+                item { ToolbarTextBtn("B", FontWeight.ExtraBold) }
+                item { ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic) }
+                item { ToolbarIcon(R.drawable.ic_format_list, "List") }
             }
         }
         Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(42.dp)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = false),
@@ -448,6 +451,7 @@ private fun CreateScreenPreview() {
         CreateScreen(
             uiState = CreateUiState(),
             onEvent = {},
+            forceToolbarVisible = true,
         )
     }
 }
