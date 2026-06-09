@@ -23,6 +23,7 @@ import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.feature.create.components.FolderPickerSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.feature.create.components.TagPickerSheet
+import com.novamind.app.feature.create.editor.RichTextState
 import com.novamind.app.ui.theme.AppTheme
 import java.util.Date
 
@@ -68,6 +69,13 @@ fun CreateScreen(
     val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+    // 正文富文本状态（加粗等格式），纯文本与 ViewModel 同步
+    val bodyState = remember { RichTextState(uiState.body) }
+    // 外部纯文本变化（加载笔记 / 撤销重做）时回填，避免与本地输入互相覆盖
+    LaunchedEffect(uiState.body) {
+        if (uiState.body != bodyState.plainText) bodyState.setPlainText(uiState.body)
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -123,8 +131,11 @@ fun CreateScreen(
 
             // ── 正文 ──────────────────────────────────────────────────────
             BasicTextField(
-                value = uiState.body,
-                onValueChange = { onEvent(CreateEvent.BodyChanged(it)) },
+                value = bodyState.value,
+                onValueChange = {
+                    bodyState.onValueChange(it)
+                    onEvent(CreateEvent.BodyChanged(it.text))
+                },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -136,7 +147,7 @@ fun CreateScreen(
                 ),
                 cursorBrush = SolidColor(ColorTextTitle),
                 decorationBox = { inner ->
-                    if (uiState.body.isEmpty()) {
+                    if (bodyState.value.text.isEmpty()) {
                         Text("Type here...", fontSize = 16.sp, color = ColorTextHint)
                     }
                     inner()
@@ -145,7 +156,11 @@ fun CreateScreen(
 
             // ── 格式工具栏 ────────────────────────────────────────────────
             if (imeVisible || forceToolbarVisible) {
-                FormattingToolbar(onHideKeyboard = { keyboardController?.hide() })
+                FormattingToolbar(
+                    onHideKeyboard = { keyboardController?.hide() },
+                    onBold = { bodyState.toggleBold() },
+                    isBoldActive = bodyState.isBoldActive,
+                )
             }
         }
 
