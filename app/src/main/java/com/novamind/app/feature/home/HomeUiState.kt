@@ -12,6 +12,8 @@ data class NoteItem(
     val title: String,
     val description: String,
     val isSelected: Boolean = false,
+    val tags: List<String> = emptyList(),
+    val folderName: String? = null,
 )
 
 data class HomeUiState(

@@ -1,9 +1,13 @@
 package com.novamind.app.feature.home
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.novamind.app.R
+import com.novamind.app.data.NoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 
 class HomeViewModel : ViewModel() {
@@ -24,31 +28,32 @@ class HomeViewModel : ViewModel() {
                     iconResId = R.drawable.ic_upcoming_meeting,
                 ),
             ),
-            notes = listOf(
-                NoteItem(
-                    id = "1",
-                    title = "Market research",
-                    description = "Here is an overview of your competitors in 2026.\n\n3 new competitor in the market, they all boutique studios in...",
-                    isSelected = false,
-                ),
-                NoteItem(
-                    id = "2",
-                    title = "Market research",
-                    description = "Here is an overview of your competitors in 2026.\n\n3 new competitor in the market, they all boutique studios in...",
-                    isSelected = true,
-                ),
-                NoteItem(
-                    id = "3",
-                    title = "Market research",
-                    description = "Here is an overview of your competitors in 2026.\n\n3 new competitor in the market, they all boutique studios in...",
-                    isSelected = false,
-                ),
-            ),
         )
     )
     val uiState = _uiState.asStateFlow()
 
+    init {
+        // 订阅仓库，笔记变更时同步更新 Home 状态
+        NoteRepository.notes
+            .onEach { notes ->
+                _uiState.update { state ->
+                    state.copy(
+                        notes = notes.map { note ->
+                            NoteItem(
+                                id = note.id,
+                                title = note.title,
+                                description = note.body,
+                                tags = note.tags.map { it.name },
+                                folderName = note.folder?.name,
+                            )
+                        }
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
     fun onSearchQueryChange(query: String) {
-        // TODO: filter items by query
+        // TODO: filter
     }
 }

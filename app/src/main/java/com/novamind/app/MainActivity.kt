@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
 
                     AppBottomNavBar(
                         currentRoute = currentRoute,
-                        onNavigate = { route -> currentRoute = route },
+                        onNavigate = { currentRoute = it },
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }

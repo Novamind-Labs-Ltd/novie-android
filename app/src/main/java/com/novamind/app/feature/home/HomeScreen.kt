@@ -116,14 +116,29 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                uiState.notes.forEach { note ->
-                    NoteCard(note = note)
+            if (uiState.notes.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "还没有笔记，去 Create 写一篇吧 ✍️",
+                        fontSize = 13.sp,
+                        color = ColorTextHint,
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    uiState.notes.forEach { note ->
+                        NoteCard(note = note)
+                    }
                 }
             }
 
@@ -325,20 +340,56 @@ private fun NoteCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // 文件夹标签
+            if (note.folderName != null) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color(0xFF3D7A5A).copy(alpha = 0.08f),
+                ) {
+                    Text(
+                        text = "📁 ${note.folderName}",
+                        fontSize = 10.sp,
+                        color = Color(0xFF3D7A5A),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                    )
+                }
+            }
             Text(
                 text = note.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextTitle,
+                maxLines = 2,
             )
             HorizontalDivider(Modifier, thickness = 0.8.dp, color = ColorBorder)
-            Text(
-                text = note.description,
-                fontSize = 12.sp,
-                color = ColorTextSub,
-                lineHeight = 17.sp,
-                maxLines = 5,
-            )
+            if (note.description.isNotBlank()) {
+                Text(
+                    text = note.description,
+                    fontSize = 12.sp,
+                    color = ColorTextSub,
+                    lineHeight = 17.sp,
+                    maxLines = 4,
+                )
+            }
+            // Tags
+            if (note.tags.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    note.tags.take(2).forEach { tag ->
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color(0xFF6B6B6B).copy(alpha = 0.08f),
+                        ) {
+                            Text(
+                                text = tag,
+                                fontSize = 10.sp,
+                                color = Color(0xFF6B6B6B),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
