@@ -17,6 +17,7 @@ sealed class CreateEvent {
 }
 
 data class CreateUiState(
+    val editingNoteId: String? = null,  // null = 新笔记，非 null = 编辑已有笔记
     val title: String = "",
     val body: String = "",
     val selectedTags: List<Tag> = emptyList(),

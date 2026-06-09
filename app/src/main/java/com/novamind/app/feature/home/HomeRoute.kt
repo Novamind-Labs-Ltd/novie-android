@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun HomeRoute(
     onUpcomingSeeAll: () -> Unit = {},
     onNotesSeeAll: () -> Unit = {},
+    onNoteClick: (noteId: String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
 ) {
@@ -20,6 +21,7 @@ fun HomeRoute(
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onUpcomingSeeAll = onUpcomingSeeAll,
         onNotesSeeAll = onNotesSeeAll,
+        onNoteClick = onNoteClick,
         modifier = modifier,
     )
 }

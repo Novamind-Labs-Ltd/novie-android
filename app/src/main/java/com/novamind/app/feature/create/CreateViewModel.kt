@@ -23,6 +23,17 @@ class CreateViewModel : ViewModel() {
         _uiState.value = CreateUiState()
     }
 
+    fun loadNote(noteId: String) {
+        val note = NoteRepository.notes.value.find { it.id == noteId } ?: return
+        _uiState.value = CreateUiState(
+            editingNoteId = note.id,
+            title = note.title,
+            body = note.body,
+            selectedTags = note.tags,
+            selectedFolder = note.folder,
+        )
+    }
+
     fun onEvent(event: CreateEvent) {
         when (event) {
             is CreateEvent.TitleChanged ->
@@ -72,6 +83,7 @@ class CreateViewModel : ViewModel() {
                 val state = _uiState.value
                 NoteRepository.addOrUpdate(
                     Note(
+                        id = state.editingNoteId ?: java.util.UUID.randomUUID().toString(),
                         title = state.title.ifBlank { "Untitled" },
                         body = state.body,
                         tags = state.selectedTags,

@@ -46,12 +46,14 @@ private val ColorChipBg = Color(0xFFFFFFFF)
 @Composable
 fun CreateRoute(
     onBack: () -> Unit = {},
+    noteId: String? = null,           // 非 null 时加载已有笔记
     modifier: Modifier = Modifier,
     viewModel: CreateViewModel = viewModel(),
 ) {
-    // 每次进入 Create 页面时重置表单
-    LaunchedEffect(Unit) {
-        viewModel.reset()
+    // 进入页面时：有 noteId 则加载已有笔记，否则新建
+    LaunchedEffect(noteId) {
+        if (noteId != null) viewModel.loadNote(noteId)
+        else viewModel.reset()
     }
     // 收一次性导航事件
     LaunchedEffect(Unit) {

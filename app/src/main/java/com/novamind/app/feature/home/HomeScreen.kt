@@ -45,6 +45,7 @@ fun HomeScreen(
     onSearchQueryChange: (String) -> Unit,
     onUpcomingSeeAll: () -> Unit,
     onNotesSeeAll: () -> Unit,
+    onNoteClick: (noteId: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -137,7 +138,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     uiState.notes.forEach { note ->
-                        NoteCard(note = note)
+                        NoteCard(note = note, onClick = { onNoteClick(note.id) })
                     }
                 }
             }
@@ -323,12 +324,14 @@ private fun UpcomingCard(
 @Composable
 private fun NoteCard(
     note: NoteItem,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val borderColor = if (note.isSelected) ColorSelectedBorder else ColorBorder
     val borderWidth = if (note.isSelected) 1.5.dp else 1.dp
 
     Surface(
+        onClick = onClick,
         modifier = modifier
             .width(160.dp)
             .border(borderWidth, borderColor, RoundedCornerShape(16.dp)),
