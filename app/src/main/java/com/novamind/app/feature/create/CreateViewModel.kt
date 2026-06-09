@@ -1,7 +1,9 @@
 package com.novamind.app.feature.create
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.novamind.app.NovieApplication
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.model.Tag
@@ -19,7 +21,9 @@ private data class TextSnapshot(val title: String, val body: String)
 private const val MAX_HISTORY = 50
 private const val AUTO_SAVE_DELAY_MS = 600L
 
-class CreateViewModel : ViewModel() {
+class CreateViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val noteRepository: NoteRepository = (application as NovieApplication).noteRepository
 
     private val _uiState = MutableStateFlow(CreateUiState())
     val uiState = _uiState.asStateFlow()
@@ -44,14 +48,16 @@ class CreateViewModel : ViewModel() {
         autoSaveJob?.cancel()
         undoStack.clear()
         redoStack.clear()
-        val note = NoteRepository.notes.value.find { it.id == noteId } ?: return
-        _uiState.value = CreateUiState(
-            editingNoteId = note.id,
-            title = note.title,
-            body = note.body,
-            selectedTags = note.tags,
-            selectedFolder = note.folder,
-        )
+        viewModelScope.launch {
+            val note = noteRepository.getNoteById(noteId) ?: return@launch
+            _uiState.value = CreateUiState(
+                editingNoteId = note.id,
+                title = note.title,
+                body = note.body,
+                selectedTags = note.tags,
+                selectedFolder = note.folder,
+            )
+        }
     }
 
     // ── 事件处理 ──────────────────────────────────────────────────────────────
@@ -107,7 +113,7 @@ class CreateViewModel : ViewModel() {
                     else selected.add(event.tag)
                     state.copy(selectedTags = selected)
                 }
-                saveNow()
+                viewModelScope.launch { saveNow() }
             }
 
             is CreateEvent.NewTagCreated -> {
@@ -118,12 +124,12 @@ class CreateViewModel : ViewModel() {
                         selectedTags = state.selectedTags + newTag,
                     )
                 }
-                saveNow()
+                viewModelScope.launch { saveNow() }
             }
 
             is CreateEvent.FolderSelected -> {
                 _uiState.update { it.copy(selectedFolder = event.folder, showFolderPicker = false) }
-                saveNow()
+                viewModelScope.launch { saveNow() }
             }
 
             is CreateEvent.ShowTagPicker ->
@@ -138,18 +144,18 @@ class CreateViewModel : ViewModel() {
             is CreateEvent.DismissFolderPicker ->
                 _uiState.update { it.copy(showFolderPicker = false) }
 
-            // 返回时立即保存并导航
             is CreateEvent.SaveNote -> {
                 autoSaveJob?.cancel()
-                saveNow()
-                _navigateBack.tryEmit(Unit)
+                viewModelScope.launch {
+                    saveNow()
+                    _navigateBack.tryEmit(Unit)
+                }
             }
         }
     }
 
     // ── 私有方法 ──────────────────────────────────────────────────────────────
 
-    /** 600ms 防抖自动保存 */
     private fun scheduleAutoSave() {
         autoSaveJob?.cancel()
         autoSaveJob = viewModelScope.launch {
@@ -158,15 +164,15 @@ class CreateViewModel : ViewModel() {
         }
     }
 
-    /** 立即持久化到 Repository（内容为空则跳过） */
-    private fun saveNow() {
+    private suspend fun saveNow() {
         val state = _uiState.value
         if (state.title.isBlank() && state.body.isBlank()) return
-        NoteRepository.addOrUpdate(
+        val noteId = state.editingNoteId ?: UUID.randomUUID().toString().also { newId ->
+            _uiState.update { it.copy(editingNoteId = newId) }
+        }
+        noteRepository.addOrUpdate(
             Note(
-                id = state.editingNoteId ?: UUID.randomUUID().toString().also { newId ->
-                    _uiState.update { it.copy(editingNoteId = newId) }
-                },
+                id = noteId,
                 title = state.title.ifBlank { "Untitled" },
                 body = state.body,
                 tags = state.selectedTags,

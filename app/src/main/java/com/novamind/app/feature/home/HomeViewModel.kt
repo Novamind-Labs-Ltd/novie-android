@@ -1,16 +1,19 @@
 package com.novamind.app.feature.home
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.novamind.app.NovieApplication
 import com.novamind.app.R
-import com.novamind.app.data.NoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val noteRepository = (application as NovieApplication).noteRepository
 
     private val _uiState = MutableStateFlow(
         HomeUiState(
@@ -33,8 +36,7 @@ class HomeViewModel : ViewModel() {
     val uiState = _uiState.asStateFlow()
 
     init {
-        // 订阅仓库，笔记变更时同步更新 Home 状态
-        NoteRepository.notes
+        noteRepository.notes
             .onEach { notes ->
                 _uiState.update { state ->
                     state.copy(
