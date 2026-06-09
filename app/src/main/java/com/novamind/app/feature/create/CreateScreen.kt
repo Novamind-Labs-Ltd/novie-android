@@ -2,43 +2,29 @@ package com.novamind.app.feature.create
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.*
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Text
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.novamind.app.R
+import com.novamind.app.feature.create.components.BgPage
+import com.novamind.app.feature.create.components.ColorTextHint
+import com.novamind.app.feature.create.components.ColorTextTitle
+import com.novamind.app.feature.create.components.CreateMetaRow
+import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.feature.create.components.FolderPickerSheet
-import com.novamind.app.feature.create.components.TagChip
+import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.feature.create.components.TagPickerSheet
 import com.novamind.app.ui.theme.AppTheme
 import java.util.Date
-
-private val BgPage = Color(0xFFF0EFEA)
-private val ColorTextTitle = Color(0xFF1A1A1A)
-private val ColorTextHint = Color(0xFFAAAAAA)
-private val ColorTextSub = Color(0xFF6B6B6B)
-private val ColorChipBg = Color(0xFFFFFFFF)
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -93,75 +79,17 @@ fun CreateScreen(
                 .imePadding(),
         ) {
             // ── 顶部操作行 ────────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 左：圆形返回按钮
-                Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = false),
-                                onClick = {
-                                    keyboardController?.hide()
-                                    onEvent(CreateEvent.SaveNote)
-                                },
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_arrow_back),
-                            contentDescription = "Back",
-                            tint = ColorTextTitle,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-
-                // 右：胶囊容器 —— Share | 撤销 | 重做
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = ColorChipBg,
-                    shadowElevation = 2.dp,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(0.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TopBarIconBtn(
-                            icon = R.drawable.ic_share,
-                            contentDescription = "Share",
-                            enabled = true,
-                            onClick = {},
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(20.dp)
-                                .background(Color(0xFFE0E0E0))
-                        )
-                        TopBarIconBtn(
-                            icon = R.drawable.ic_undo,
-                            contentDescription = "Undo",
-                            enabled = uiState.canUndo,
-                            onClick = { onEvent(CreateEvent.UndoEdit) },
-                        )
-                        TopBarIconBtn(
-                            icon = R.drawable.ic_redo,
-                            contentDescription = "Redo",
-                            enabled = uiState.canRedo,
-                            onClick = { onEvent(CreateEvent.RedoEdit) },
-                        )
-                    }
-                }
-            }
+            CreateTopBar(
+                canUndo = uiState.canUndo,
+                canRedo = uiState.canRedo,
+                onBack = {
+                    keyboardController?.hide()
+                    onEvent(CreateEvent.SaveNote)
+                },
+                onShare = {},
+                onUndo = { onEvent(CreateEvent.UndoEdit) },
+                onRedo = { onEvent(CreateEvent.RedoEdit) },
+            )
 
             // ── 标题 ──────────────────────────────────────────────────────
             BasicTextField(
@@ -185,48 +113,13 @@ fun CreateScreen(
             )
 
             // ── Meta 操作行 ───────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 文件夹 chip
-                MetaChip(
-                    iconResId = R.drawable.ic_nav_library,
-                    label = uiState.selectedFolder?.let { "${it.iconEmoji} ${it.name}" } ?: "Add to folder",
-                    isActive = uiState.selectedFolder != null,
-                    onClick = { onEvent(CreateEvent.ShowFolderPicker) },
-                )
-                // 标签 chip（已选标签 + 添加入口）
-                if (uiState.selectedTags.isEmpty()) {
-                    MetaChip(
-                        iconResId = R.drawable.ic_nav_brand,
-                        label = "Tags",
-                        onClick = { onEvent(CreateEvent.ShowTagPicker) },
-                    )
-                } else {
-                    uiState.selectedTags.forEach { tag ->
-                        TagChip(
-                            tag = tag,
-                            isSelected = true,
-                            onClick = { onEvent(CreateEvent.ShowTagPicker) },
-                        )
-                    }
-                    // + 添加更多标签
-                    MetaChip(
-                        iconResId = R.drawable.ic_nav_brand,
-                        label = "+",
-                        onClick = { onEvent(CreateEvent.ShowTagPicker) },
-                    )
-                }
-                // 时间 chip
-                MetaChip(
-                    iconResId = R.drawable.ic_nav_calendar,
-                    label = timeLabel,
-                )
-            }
+            CreateMetaRow(
+                selectedFolder = uiState.selectedFolder,
+                selectedTags = uiState.selectedTags,
+                timeLabel = timeLabel,
+                onShowFolderPicker = { onEvent(CreateEvent.ShowFolderPicker) },
+                onShowTagPicker = { onEvent(CreateEvent.ShowTagPicker) },
+            )
 
             // ── 正文 ──────────────────────────────────────────────────────
             BasicTextField(
@@ -252,7 +145,7 @@ fun CreateScreen(
 
             // ── 格式工具栏 ────────────────────────────────────────────────
             if (imeVisible || forceToolbarVisible) {
-                FormattingToolbar()
+                FormattingToolbar(onHideKeyboard = { keyboardController?.hide() })
             }
         }
 
@@ -275,170 +168,6 @@ fun CreateScreen(
                 onDismiss = { onEvent(CreateEvent.DismissFolderPicker) },
             )
         }
-    }
-}
-
-// ─── Meta Chip ────────────────────────────────────────────────────────────────
-
-@Composable
-private fun MetaChip(
-    iconResId: Int,
-    label: String,
-    isActive: Boolean = false,
-    onClick: (() -> Unit)? = null,
-) {
-    val primary = Color(0xFF3D7A5A)
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = if (isActive) primary.copy(alpha = 0.1f) else ColorChipBg,
-        shadowElevation = 1.dp,
-        modifier = if (onClick != null) Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = ripple(),
-            onClick = onClick,
-        ) else Modifier,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Icon(
-                painter = painterResource(id = iconResId),
-                contentDescription = null,
-                tint = if (isActive) primary else ColorTextSub,
-                modifier = Modifier.size(14.dp),
-            )
-            Text(
-                text = label,
-                fontSize = 13.sp,
-                color = if (isActive) primary else ColorTextSub,
-                fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
-            )
-        }
-    }
-}
-
-// ─── 格式工具栏 ───────────────────────────────────────────────────────────────
-
-@Composable
-private fun FormattingToolbar() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(50),
-            color = ColorChipBg,
-            shadowElevation = 2.dp,
-        ) {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                item { ToolbarIcon(R.drawable.ic_mic, "Voice") }
-                item { ToolbarIcon(R.drawable.ic_attach, "Attach") }
-                item { ToolbarIcon(R.drawable.ic_magic, "Magic") }
-                item { ToolbarTextBtn("B", FontWeight.ExtraBold) }
-                item { ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic) }
-                item { ToolbarIcon(R.drawable.ic_format_list, "List") }
-            }
-        }
-        Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false),
-                        onClick = {},
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_keyboard_hide),
-                    contentDescription = "Hide keyboard",
-                    tint = ColorTextTitle,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToolbarIcon(iconResId: Int, contentDescription: String) {
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false),
-                onClick = {},
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(id = iconResId),
-            contentDescription = contentDescription,
-            tint = ColorTextTitle,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-@Composable
-private fun ToolbarTextBtn(
-    text: String,
-    fontWeight: FontWeight,
-    fontStyle: FontStyle = FontStyle.Normal,
-) {
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false),
-                onClick = {},
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text, fontSize = 16.sp, fontWeight = fontWeight, fontStyle = fontStyle, color = ColorTextTitle)
-    }
-}
-
-// ─── 顶部胶囊图标按钮 ─────────────────────────────────────────────────────────
-
-@Composable
-private fun TopBarIconBtn(
-    icon: Int,
-    contentDescription: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clickable(
-                enabled = enabled,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, radius = 20.dp),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(id = icon),
-            contentDescription = contentDescription,
-            tint = if (enabled) ColorTextTitle else ColorTextHint,
-            modifier = Modifier.size(20.dp),
-        )
     }
 }
 

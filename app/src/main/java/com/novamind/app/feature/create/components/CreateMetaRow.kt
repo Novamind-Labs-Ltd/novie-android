@@ -1,0 +1,117 @@
+package com.novamind.app.feature.create.components
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.novamind.app.R
+import com.novamind.app.feature.create.model.Folder
+import com.novamind.app.feature.create.model.Tag
+
+/**
+ * Meta 操作行：文件夹 chip、标签 chip（已选标签 + 添加入口）、时间 chip。可横向滚动。
+ */
+@Composable
+fun CreateMetaRow(
+    selectedFolder: Folder?,
+    selectedTags: List<Tag>,
+    timeLabel: String,
+    onShowFolderPicker: () -> Unit,
+    onShowTagPicker: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 文件夹 chip
+        MetaChip(
+            iconResId = R.drawable.ic_nav_library,
+            label = selectedFolder?.let { "${it.iconEmoji} ${it.name}" } ?: "Add to folder",
+            isActive = selectedFolder != null,
+            onClick = onShowFolderPicker,
+        )
+        // 标签 chip（已选标签 + 添加入口）
+        if (selectedTags.isEmpty()) {
+            MetaChip(
+                iconResId = R.drawable.ic_nav_brand,
+                label = "Tags",
+                onClick = onShowTagPicker,
+            )
+        } else {
+            selectedTags.forEach { tag ->
+                TagChip(
+                    tag = tag,
+                    isSelected = true,
+                    onClick = onShowTagPicker,
+                )
+            }
+            // + 添加更多标签
+            MetaChip(
+                iconResId = R.drawable.ic_nav_brand,
+                label = "+",
+                onClick = onShowTagPicker,
+            )
+        }
+        // 时间 chip
+        MetaChip(
+            iconResId = R.drawable.ic_nav_calendar,
+            label = timeLabel,
+        )
+    }
+}
+
+@Composable
+private fun MetaChip(
+    iconResId: Int,
+    label: String,
+    isActive: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = if (isActive) ColorPrimary.copy(alpha = 0.1f) else ColorChipBg,
+        shadowElevation = 1.dp,
+        modifier = if (onClick != null) Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = ripple(),
+            onClick = onClick,
+        ) else Modifier,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                painter = painterResource(id = iconResId),
+                contentDescription = null,
+                tint = if (isActive) ColorPrimary else ColorTextSub,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                color = if (isActive) ColorPrimary else ColorTextSub,
+                fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
+            )
+        }
+    }
+}
