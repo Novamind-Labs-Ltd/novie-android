@@ -81,12 +81,15 @@ fun CreateScreen(
     val imeVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
     val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
 
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BgPage)
                 .statusBarsPadding()
+                .navigationBarsPadding()
                 .imePadding(),
         ) {
             // ── 顶部操作行 ────────────────────────────────────────────────
@@ -105,7 +108,10 @@ fun CreateScreen(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(bounded = false),
-                                onClick = { onEvent(CreateEvent.SaveNote) },
+                                onClick = {
+                                    keyboardController?.hide()
+                                    onEvent(CreateEvent.SaveNote)
+                                },
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
