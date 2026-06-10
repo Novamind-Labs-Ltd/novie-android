@@ -74,7 +74,8 @@ fun CreateScreen(
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
-    val imeVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+    val imeVisible =
+        WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
     val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -93,7 +94,10 @@ fun CreateScreen(
 
     // 新建笔记：进入后自动聚焦正文，弹出键盘；编辑已有笔记则保持收起
     LaunchedEffect(Unit) {
-        if (autoFocusBody) editor.requestInitialFocus()
+        if (autoFocusBody) {
+            kotlinx.coroutines.delay(200)
+            editor.requestInitialFocus()
+        }
     }
 
     // 系统照片选择器（支持多选，无需运行时权限）
@@ -150,7 +154,12 @@ fun CreateScreen(
                 cursorBrush = SolidColor(ColorTextTitle),
                 decorationBox = { inner ->
                     if (uiState.title.isEmpty()) {
-                        Text("New note", fontSize = 15.sp, fontWeight = FontWeight.Normal, color = ColorTextHint)
+                        Text(
+                            "New note",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = ColorTextHint
+                        )
                     }
                     inner()
                 },
@@ -167,17 +176,27 @@ fun CreateScreen(
                     keyboardController?.hide()
                     onEvent(CreateEvent.ShowFolderPicker)
                 },
-                onShowTagPicker = { onEvent(CreateEvent.ShowTagPicker) },
+                onShowTagPicker = {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                    onEvent(CreateEvent.ShowTagPicker)
+                },
             )
 
             // ── 正文（图文混排） ──────────────────────────────────────────
-            NoteContentEditor(
-                state = editor,
-                onContentChanged = emitContent,
+            // weight 放在普通 Box 上确保稳定撑满剩余空间，编辑器再 fillMaxSize 填满，
+            // 避免 verticalScroll 在内容较短时回退成包裹高度、导致工具栏没被顶到键盘上方
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-            )
+            ) {
+                NoteContentEditor(
+                    state = editor,
+                    onContentChanged = emitContent,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
 
             // ── 格式工具栏 ────────────────────────────────────────────────
             if (imeVisible || forceToolbarVisible) {

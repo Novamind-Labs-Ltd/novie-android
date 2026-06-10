@@ -49,6 +49,7 @@ class MainActivity : ComponentActivity() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
                         targetState = currentRoute,
+                        modifier = Modifier.fillMaxSize(),   // 填满屏幕，给子页面有界高度（CreateScreen 的 weight 依赖此）
                         transitionSpec = {
                             val fromIndex = navOrder.indexOf(initialState)
                             val toIndex = navOrder.indexOf(targetState)
