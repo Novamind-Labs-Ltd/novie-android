@@ -71,11 +71,24 @@ fun CreateMetaRow(
                 onClick = onShowTagPicker,
             )
         }
-        // 时间 chip
-        MetaChip(
-            iconResId = R.drawable.ic_nav_calendar,
-            label = timeLabel,
-        )
+        // 时间：不做成胶囊，只显示图标 + 文字
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_nav_calendar),
+                contentDescription = null,
+                tint = ColorTextSub,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                text = timeLabel,
+                fontSize = 13.sp,
+                color = ColorTextSub,
+            )
+        }
     }
 }
 
