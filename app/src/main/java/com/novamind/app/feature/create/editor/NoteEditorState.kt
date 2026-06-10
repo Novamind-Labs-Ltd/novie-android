@@ -46,6 +46,10 @@ class NoteEditorState {
     // 当前聚焦的文本块 id
     private var focusedTextId by mutableStateOf<String?>(null)
 
+    // 待请求焦点的文本块 id（插图后用：等新块组合完成再由 UI 请求焦点+弹键盘）
+    private var pendingFocusId by mutableStateOf<String?>(null)
+    val pendingFocus: String? get() = pendingFocusId
+
     init {
         _blocks.add(TextBlock())
         focusedTextId = (_blocks.first() as TextBlock).id
@@ -89,9 +93,13 @@ class NoteEditorState {
     fun insertImage(path: String) {
         val target = focusedBlock()
         if (target == null) {
-            // 没有可插入的文本块：直接追加图片 + 末尾空文本块
+            // 没有可插入的文本块：追加图片 + 末尾空文本块，光标落到末尾文本块
             _blocks.add(ImageBlock(path))
             appendTrailingTextIfNeeded()
+            (_blocks.lastOrNull { it is TextBlock } as? TextBlock)?.let {
+                focusedTextId = it.id
+                pendingFocusId = it.id
+            }
             return
         }
         val index = _blocks.indexOfFirst { it.id == target.id }
@@ -102,11 +110,22 @@ class NoteEditorState {
 
         // 原块只保留光标前文本
         target.rich.setPlainText(before)
-        // 光标后文本另起一个新文本块
+        // 光标后文本另起一个新文本块；setPlainText 把光标置于其末尾
         val afterBlock = TextBlock(after)
+        afterBlock.rich.setPlainText(after)
         _blocks.add(index + 1, ImageBlock(path))
         _blocks.add(index + 2, afterBlock)
         focusedTextId = afterBlock.id
+        pendingFocusId = afterBlock.id
+    }
+
+    /** 由 UI 在重组后调用：对待聚焦文本块请求焦点（光标到末尾、弹键盘），随后清除标记 */
+    fun consumePendingFocus() {
+        val id = pendingFocusId ?: return
+        pendingFocusId = null
+        (_blocks.firstOrNull { it.id == id } as? TextBlock)?.let {
+            runCatching { it.focusRequester.requestFocus() }
+        }
     }
 
     /** 删除指定图片块，并合并相邻文本块 */

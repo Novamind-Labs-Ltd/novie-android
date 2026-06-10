@@ -100,6 +100,14 @@ fun CreateScreen(
         }
     }
 
+    // 插入图片后：等图后文本块组合完成，聚焦它（光标在末尾、弹键盘）
+    LaunchedEffect(editor.pendingFocus) {
+        if (editor.pendingFocus != null) {
+            kotlinx.coroutines.delay(30)
+            editor.consumePendingFocus()
+        }
+    }
+
     // 系统照片选择器（支持多选，无需运行时权限）
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia()
