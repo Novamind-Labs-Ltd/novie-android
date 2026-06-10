@@ -1,12 +1,16 @@
 package com.novamind.app.feature.create
 
 import android.text.format.DateFormat
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,9 +26,11 @@ import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.feature.create.components.FolderPickerSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
+import com.novamind.app.feature.create.components.NoteContentEditor
 import com.novamind.app.feature.create.components.TagPickerSheet
+import com.novamind.app.feature.create.editor.ImageStore
+import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
-import com.novamind.app.feature.create.editor.RichTextState
 import com.novamind.app.ui.theme.AppTheme
 import java.util.Date
 
@@ -70,12 +76,32 @@ fun CreateScreen(
     val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
 
-    // 正文富文本状态（加粗等格式），纯文本与 ViewModel 同步
-    val bodyState = remember { RichTextState(uiState.body) }
-    // 外部纯文本变化（加载笔记 / 撤销重做）时回填，避免与本地输入互相覆盖
-    LaunchedEffect(uiState.body) {
-        if (uiState.body != bodyState.plainText) bodyState.setPlainText(uiState.body)
+    // 图文正文编辑器状态：文本与图片块；正文文档 JSON 存入 body 同步给 ViewModel
+    val editor = remember { NoteEditorState() }
+    // 外部内容变化（加载笔记 / 撤销重做）时回填，避免与本地编辑互相覆盖
+    LaunchedEffect(uiState.editingNoteId, uiState.body) {
+        if (uiState.body != editor.documentJson) {
+            editor.loadDocument(uiState.body, fallbackPlain = uiState.body)
+        }
+    }
+    val emitContent = { onEvent(CreateEvent.ContentChanged(editor.documentJson)) }
+
+    // 系统照片选择器（支持多选，无需运行时权限）
+    val imagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            var inserted = false
+            uris.forEach { uri ->
+                ImageStore.copyToInternal(context, uri)?.let { path ->
+                    editor.insertImage(path)
+                    inserted = true
+                }
+            }
+            if (inserted) emitContent()
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -84,7 +110,8 @@ fun CreateScreen(
                 .fillMaxSize()
                 .background(BgPage)
                 .statusBarsPadding()
-                .navigationBarsPadding()
+                // 仅处理键盘 inset；导航栏间距放到正文滚动内容末尾（见 NoteContentEditor），
+                // 避免与键盘 inset 叠加产生多余间距
                 .imePadding(),
         ) {
             // ── 顶部操作行 ────────────────────────────────────────────────
@@ -130,39 +157,28 @@ fun CreateScreen(
                 onShowTagPicker = { onEvent(CreateEvent.ShowTagPicker) },
             )
 
-            // ── 正文 ──────────────────────────────────────────────────────
-            BasicTextField(
-                value = bodyState.value,
-                onValueChange = {
-                    bodyState.onValueChange(it)
-                    onEvent(CreateEvent.BodyChanged(it.text))
-                },
+            // ── 正文（图文混排） ──────────────────────────────────────────
+            NoteContentEditor(
+                state = editor,
+                onContentChanged = emitContent,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                textStyle = TextStyle(
-                    fontSize = 16.sp,
-                    color = ColorTextTitle,
-                    lineHeight = 26.sp,
-                ),
-                cursorBrush = SolidColor(ColorTextTitle),
-                decorationBox = { inner ->
-                    if (bodyState.value.text.isEmpty()) {
-                        Text("Type here...", fontSize = 16.sp, color = ColorTextHint)
-                    }
-                    inner()
-                },
+                    .fillMaxWidth(),
             )
 
             // ── 格式工具栏 ────────────────────────────────────────────────
             if (imeVisible || forceToolbarVisible) {
                 FormattingToolbar(
                     onHideKeyboard = { keyboardController?.hide() },
-                    onBold = { bodyState.toggle(RichSpan.Bold) },
-                    isBoldActive = bodyState.isActive(RichSpan.Bold),
-                    onItalic = { bodyState.toggle(RichSpan.Italic) },
-                    isItalicActive = bodyState.isActive(RichSpan.Italic),
+                    onBold = { editor.toggle(RichSpan.Bold) },
+                    isBoldActive = editor.isActive(RichSpan.Bold),
+                    onItalic = { editor.toggle(RichSpan.Italic) },
+                    isItalicActive = editor.isActive(RichSpan.Italic),
+                    onInsertImage = {
+                        imagePicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
                 )
             }
         }

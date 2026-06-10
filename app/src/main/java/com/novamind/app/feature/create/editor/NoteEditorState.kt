@@ -1,0 +1,189 @@
+package com.novamind.app.feature.create.editor
+
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
+
+/** 编辑器内容块：文本块 or 图片块 */
+sealed interface EditorBlock {
+    val id: String
+}
+
+/** 文本块，内含富文本状态（加粗/斜体） */
+class TextBlock(
+    initialText: String = "",
+    override val id: String = UUID.randomUUID().toString(),
+) : EditorBlock {
+    val rich = RichTextState(initialText)
+}
+
+/** 图片块，path 指向内部存储中的图片文件 */
+class ImageBlock(
+    val path: String,
+    override val id: String = UUID.randomUUID().toString(),
+) : EditorBlock
+
+/**
+ * 笔记图文编辑器状态：维护一组有序的文本/图片块。
+ *
+ * - 文本块各自持有 [RichTextState]，加粗/斜体作用于「当前聚焦」的文本块；
+ * - 在聚焦文本块的光标处插入图片，会把该文本块按光标拆成前后两段，中间夹入图片块；
+ * - 对外可序列化为 [documentJson] 持久化，并提供纯文本投影 [plainText] 供列表预览/搜索。
+ */
+@Stable
+class NoteEditorState {
+
+    private val _blocks = mutableStateListOf<EditorBlock>()
+    val blocks: List<EditorBlock> get() = _blocks
+
+    // 当前聚焦的文本块 id
+    private var focusedTextId by mutableStateOf<String?>(null)
+
+    init {
+        _blocks.add(TextBlock())
+        focusedTextId = (_blocks.first() as TextBlock).id
+    }
+
+    // ── 聚焦 / 格式 ─────────────────────────────────────────────────────────
+
+    fun onTextFocused(id: String) {
+        focusedTextId = id
+    }
+
+    private fun focusedBlock(): TextBlock? =
+        _blocks.firstOrNull { it.id == focusedTextId } as? TextBlock
+            ?: _blocks.lastOrNull { it is TextBlock } as? TextBlock
+
+    fun toggle(span: RichSpan) {
+        focusedBlock()?.rich?.toggle(span)
+    }
+
+    fun isActive(span: RichSpan): Boolean =
+        focusedBlock()?.rich?.isActive(span) ?: false
+
+    // ── 插入 / 删除图片 ─────────────────────────────────────────────────────
+
+    /** 在聚焦文本块的光标处插入图片块 */
+    fun insertImage(path: String) {
+        val target = focusedBlock()
+        if (target == null) {
+            // 没有可插入的文本块：直接追加图片 + 末尾空文本块
+            _blocks.add(ImageBlock(path))
+            appendTrailingTextIfNeeded()
+            return
+        }
+        val index = _blocks.indexOfFirst { it.id == target.id }
+        val caret = target.rich.value.selection.start.coerceIn(0, target.rich.plainText.length)
+        val text = target.rich.plainText
+        val before = text.substring(0, caret)
+        val after = text.substring(caret)
+
+        // 原块只保留光标前文本
+        target.rich.setPlainText(before)
+        // 光标后文本另起一个新文本块
+        val afterBlock = TextBlock(after)
+        _blocks.add(index + 1, ImageBlock(path))
+        _blocks.add(index + 2, afterBlock)
+        focusedTextId = afterBlock.id
+    }
+
+    /** 删除指定图片块，并合并相邻文本块 */
+    fun removeImage(id: String) {
+        val idx = _blocks.indexOfFirst { it.id == id }
+        if (idx < 0 || _blocks[idx] !is ImageBlock) return
+        _blocks.removeAt(idx)
+        mergeAdjacentTextBlocks()
+        appendTrailingTextIfNeeded()
+    }
+
+    // ── 序列化 ──────────────────────────────────────────────────────────────
+
+    /** 纯文本投影：拼接所有文本块（图片忽略），用于预览与搜索 */
+    val plainText: String
+        get() = _blocks.filterIsInstance<TextBlock>()
+            .map { it.rich.plainText }
+            .filter { it.isNotEmpty() }
+            .joinToString("\n")
+
+    /** 序列化为 JSON 文档结构 */
+    val documentJson: String
+        get() {
+            val arr = JSONArray()
+            _blocks.forEach { block ->
+                when (block) {
+                    is TextBlock -> arr.put(
+                        JSONObject().put("type", "text").put("text", block.rich.plainText)
+                    )
+                    is ImageBlock -> arr.put(
+                        JSONObject().put("type", "image").put("path", block.path)
+                    )
+                }
+            }
+            return JSONObject().put("blocks", arr).toString()
+        }
+
+    /** 从 JSON 文档加载；解析失败或为空时退化为单个文本块（用 [fallbackPlain]） */
+    fun loadDocument(json: String?, fallbackPlain: String) {
+        val parsed = parse(json)
+        _blocks.clear()
+        if (parsed.isEmpty()) {
+            _blocks.add(TextBlock(fallbackPlain))
+        } else {
+            _blocks.addAll(parsed)
+        }
+        appendTrailingTextIfNeeded()
+        focusedTextId = (_blocks.firstOrNull { it is TextBlock } as? TextBlock)?.id
+    }
+
+    private fun parse(json: String?): List<EditorBlock> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val arr = JSONObject(json).getJSONArray("blocks")
+            (0 until arr.length()).mapNotNull { i ->
+                val obj = arr.getJSONObject(i)
+                when (obj.optString("type")) {
+                    "text" -> TextBlock(obj.optString("text"))
+                    "image" -> obj.optString("path").takeIf { it.isNotBlank() }?.let { ImageBlock(it) }
+                    else -> null
+                }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    // ── 内部维护 ────────────────────────────────────────────────────────────
+
+    // 末尾若是图片块（或列表为空），补一个空文本块，保证总能在最后输入
+    private fun appendTrailingTextIfNeeded() {
+        if (_blocks.isEmpty() || _blocks.last() is ImageBlock) {
+            _blocks.add(TextBlock())
+        }
+    }
+
+    // 合并相邻的文本块（删除图片后可能出现两个挨着的文本块）
+    private fun mergeAdjacentTextBlocks() {
+        var i = 0
+        while (i < _blocks.size - 1) {
+            val a = _blocks[i]
+            val b = _blocks[i + 1]
+            if (a is TextBlock && b is TextBlock) {
+                val merged = TextBlock(
+                    initialText = listOf(a.rich.plainText, b.rich.plainText)
+                        .filter { it.isNotEmpty() }
+                        .joinToString("\n")
+                )
+                _blocks[i] = merged
+                _blocks.removeAt(i + 1)
+                if (focusedTextId == a.id || focusedTextId == b.id) focusedTextId = merged.id
+            } else {
+                i++
+            }
+        }
+    }
+}

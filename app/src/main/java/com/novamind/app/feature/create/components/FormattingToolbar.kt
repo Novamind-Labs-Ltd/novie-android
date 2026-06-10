@@ -34,6 +34,7 @@ fun FormattingToolbar(
     isBoldActive: Boolean = false,
     onItalic: () -> Unit = {},
     isItalicActive: Boolean = false,
+    onInsertImage: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -56,7 +57,7 @@ fun FormattingToolbar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 item { ToolbarIcon(R.drawable.ic_mic, "Voice") }
-                item { ToolbarIcon(R.drawable.ic_attach, "Attach") }
+                item { ToolbarIcon(R.drawable.ic_attach, "Insert image", onClick = onInsertImage) }
                 item { ToolbarIcon(R.drawable.ic_magic, "Magic") }
                 item { ToolbarTextBtn("B", FontWeight.ExtraBold, active = isBoldActive, onClick = onBold) }
                 item { ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic, active = isItalicActive, onClick = onItalic) }
@@ -86,14 +87,18 @@ fun FormattingToolbar(
 }
 
 @Composable
-private fun ToolbarIcon(iconResId: Int, contentDescription: String) {
+private fun ToolbarIcon(
+    iconResId: Int,
+    contentDescription: String,
+    onClick: () -> Unit = {},
+) {
     Box(
         modifier = Modifier
             .size(28.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = false),
-                onClick = {},
+                onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
     ) {

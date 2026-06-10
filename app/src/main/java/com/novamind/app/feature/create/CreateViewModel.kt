@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.data.NoteRepository
+import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.model.Tag
 import kotlinx.coroutines.Job
@@ -69,8 +70,8 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 scheduleAutoSave()
             }
 
-            is CreateEvent.BodyChanged -> {
-                updateText(newTitle = _uiState.value.title, newBody = event.value)
+            is CreateEvent.ContentChanged -> {
+                updateText(newTitle = _uiState.value.title, newBody = event.document)
                 scheduleAutoSave()
             }
 
@@ -166,7 +167,8 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun saveNow() {
         val state = _uiState.value
-        if (state.title.isBlank() && state.body.isBlank()) return
+        // 标题为空、且正文文档无文字也无图片时，视为空笔记不保存
+        if (state.title.isBlank() && NoteDocument.previewText(state.body).isBlank()) return
         val noteId = state.editingNoteId ?: UUID.randomUUID().toString().also { newId ->
             _uiState.update { it.copy(editingNoteId = newId) }
         }

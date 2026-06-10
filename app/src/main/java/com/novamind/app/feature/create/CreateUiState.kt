@@ -5,7 +5,8 @@ import com.novamind.app.feature.create.model.Tag
 
 sealed class CreateEvent {
     data class TitleChanged(val value: String) : CreateEvent()
-    data class BodyChanged(val value: String) : CreateEvent()
+    /** 图文正文变化：传入结构化文档 JSON（存入 body） */
+    data class ContentChanged(val document: String) : CreateEvent()
     data class TagToggled(val tag: Tag) : CreateEvent()
     data class NewTagCreated(val name: String) : CreateEvent()
     data class FolderSelected(val folder: Folder?) : CreateEvent()
@@ -21,7 +22,7 @@ sealed class CreateEvent {
 data class CreateUiState(
     val editingNoteId: String? = null,  // null = 新笔记，非 null = 编辑已有笔记
     val title: String = "",
-    val body: String = "",
+    val body: String = "",              // 图文混排文档 JSON（旧数据为纯文本）
     val selectedTags: List<Tag> = emptyList(),
     val selectedFolder: Folder? = null,
 

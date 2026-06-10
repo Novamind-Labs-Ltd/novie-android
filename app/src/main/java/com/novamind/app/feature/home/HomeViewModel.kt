@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.R
+import com.novamind.app.feature.create.editor.NoteDocument
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -44,7 +45,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             NoteItem(
                                 id = note.id,
                                 title = note.title,
-                                description = note.body,
+                                description = NoteDocument.previewText(note.body),
                                 tags = note.tags.map { it.name },
                                 folderName = note.folder?.name,
                             )
