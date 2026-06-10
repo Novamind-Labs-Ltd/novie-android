@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -400,6 +401,7 @@ private fun NoteCard(
         onClick = onClick,
         modifier = modifier
             .width(160.dp)
+            .height(120.dp)
             .border(borderWidth, borderColor, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         color = BgCard,
@@ -423,17 +425,37 @@ private fun NoteCard(
                     )
                 }
             }
+            // 标题为空时：用正文作标题（限 1 行），正文区显示标题没显示完的剩余内容
+            val hasTitle = note.title.isNotBlank()
+            // 标题 1 行实际渲染到的字符末尾位置，用于截取剩余正文
+            var titleEnd by remember(note.id, note.description) { mutableStateOf(-1) }
+
             Text(
-                text = note.title,
+                text = if (hasTitle) note.title else note.description,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextTitle,
-                maxLines = 2,
+                maxLines = if (hasTitle) 2 else 1,
+                // 正文作标题时直接截断、不加省略号（剩余内容会接到下方正文区）
+                overflow = if (hasTitle) TextOverflow.Ellipsis else TextOverflow.Clip,
+                onTextLayout = { layout ->
+                    if (!hasTitle) {
+                        val end = layout.getLineEnd(0, visibleEnd = true)
+                        if (titleEnd != end) titleEnd = end
+                    }
+                },
             )
             HorizontalDivider(Modifier, thickness = 0.8.dp, color = ColorBorder)
-            if (note.description.isNotBlank()) {
+
+            val bodyText = when {
+                hasTitle -> note.description
+                titleEnd in 0 until note.description.length ->
+                    note.description.substring(titleEnd).trimStart('\n', ' ')
+                else -> ""
+            }
+            if (bodyText.isNotBlank()) {
                 Text(
-                    text = note.description,
+                    text = bodyText,
                     fontSize = 12.sp,
                     color = ColorTextSub,
                     lineHeight = 17.sp,

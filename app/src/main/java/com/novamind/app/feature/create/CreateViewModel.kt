@@ -175,7 +175,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
         noteRepository.addOrUpdate(
             Note(
                 id = noteId,
-                title = state.title.ifBlank { "Untitled" },
+                title = state.title,   // 允许为空：列表卡片会用正文内容兜底显示
                 body = state.body,
                 tags = state.selectedTags,
                 folder = state.selectedFolder,
