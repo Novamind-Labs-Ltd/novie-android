@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -20,6 +21,7 @@ class TextBlock(
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock {
     val rich = RichTextState(initialText)
+    val focusRequester = FocusRequester()
 }
 
 /** 图片块，path 指向内部存储中的图片文件 */
@@ -53,6 +55,13 @@ class NoteEditorState {
 
     fun onTextFocused(id: String) {
         focusedTextId = id
+    }
+
+    /** 请求焦点到首个文本块（新建笔记进入时调用，用于自动弹出键盘） */
+    fun requestInitialFocus() {
+        (_blocks.firstOrNull { it is TextBlock } as? TextBlock)?.let {
+            runCatching { it.focusRequester.requestFocus() }
+        }
     }
 
     private fun focusedBlock(): TextBlock? =

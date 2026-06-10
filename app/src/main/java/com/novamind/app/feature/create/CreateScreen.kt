@@ -58,6 +58,7 @@ fun CreateRoute(
         uiState = uiState,
         onEvent = viewModel::onEvent,
         onBack = onBack,
+        autoFocusBody = noteId == null,   // 新建笔记自动聚焦正文并弹出键盘
         modifier = modifier,
     )
 }
@@ -69,6 +70,7 @@ fun CreateScreen(
     uiState: CreateUiState,
     onEvent: (CreateEvent) -> Unit,
     onBack: () -> Unit = {},
+    autoFocusBody: Boolean = false,         // 新建笔记进入时自动聚焦正文（弹出键盘）
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -87,6 +89,11 @@ fun CreateScreen(
         }
     }
     val emitContent = { onEvent(CreateEvent.ContentChanged(editor.documentJson)) }
+
+    // 新建笔记：进入后自动聚焦正文，弹出键盘；编辑已有笔记则保持收起
+    LaunchedEffect(Unit) {
+        if (autoFocusBody) editor.requestInitialFocus()
+    }
 
     // 系统照片选择器（支持多选，无需运行时权限）
     val imagePicker = rememberLauncherForActivityResult(
