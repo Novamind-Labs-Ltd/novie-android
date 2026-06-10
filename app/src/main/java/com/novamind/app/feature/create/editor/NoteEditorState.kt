@@ -129,15 +129,36 @@ class NoteEditorState {
 
     /** 从 JSON 文档加载；解析失败或为空时退化为单个文本块（用 [fallbackPlain]） */
     fun loadDocument(json: String?, fallbackPlain: String) {
-        val parsed = parse(json)
-        _blocks.clear()
-        if (parsed.isEmpty()) {
-            _blocks.add(TextBlock(fallbackPlain))
-        } else {
-            _blocks.addAll(parsed)
+        val parsed = parse(json).ifEmpty { listOf(TextBlock(fallbackPlain)) }
+
+        // 结构一致（块数量/类型/图片路径相同）时，原地更新文本块内容，
+        // 保留现有块实例与输入焦点 —— 这样撤销/重做不会让键盘收起。
+        if (canReuse(parsed)) {
+            parsed.forEachIndexed { i, p ->
+                val cur = _blocks[i]
+                if (p is TextBlock && cur is TextBlock && cur.rich.plainText != p.rich.plainText) {
+                    cur.rich.setPlainText(p.rich.plainText)
+                }
+            }
+            return
         }
+
+        // 结构变化（增删图片等）：整体重建
+        _blocks.clear()
+        _blocks.addAll(parsed)
         appendTrailingTextIfNeeded()
         focusedTextId = (_blocks.firstOrNull { it is TextBlock } as? TextBlock)?.id
+    }
+
+    // 解析出的块与当前块结构是否一致（可原地复用）
+    private fun canReuse(parsed: List<EditorBlock>): Boolean {
+        if (parsed.size != _blocks.size) return false
+        return parsed.indices.all { i ->
+            val a = parsed[i]
+            val b = _blocks[i]
+            (a is TextBlock && b is TextBlock) ||
+                (a is ImageBlock && b is ImageBlock && a.path == b.path)
+        }
     }
 
     private fun parse(json: String?): List<EditorBlock> {
