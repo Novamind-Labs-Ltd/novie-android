@@ -22,6 +22,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,8 +42,20 @@ fun NoteContentEditor(
     onContentChanged: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val keyboard = LocalSoftwareKeyboardController.current
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState()),
+        modifier = modifier
+            .fillMaxSize()                 // 填满可用高度，使下方空白区也能接收点击
+            .verticalScroll(rememberScrollState())
+            // 点击正文空白处（非文本/图片块本身）时，聚焦最后一个文本块并调起键盘
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    state.focusLastTextBlock()
+                    keyboard?.show()   // 焦点未变化（键盘曾被收起）时也能重新弹出
+                },
+            ),
     ) {
         val singleEmpty = state.blocks.size == 1 &&
             (state.blocks.first() as? TextBlock)?.rich?.plainText?.isEmpty() == true

@@ -64,6 +64,14 @@ class NoteEditorState {
         }
     }
 
+    /** 请求焦点到最后一个文本块（点击正文空白区时调用，用于调起键盘） */
+    fun focusLastTextBlock() {
+        (_blocks.lastOrNull { it is TextBlock } as? TextBlock)?.let {
+            focusedTextId = it.id
+            runCatching { it.focusRequester.requestFocus() }
+        }
+    }
+
     private fun focusedBlock(): TextBlock? =
         _blocks.firstOrNull { it.id == focusedTextId } as? TextBlock
             ?: _blocks.lastOrNull { it is TextBlock } as? TextBlock
