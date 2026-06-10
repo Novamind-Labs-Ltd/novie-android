@@ -1,18 +1,8 @@
 package com.novamind.app.feature.create.model
 
+import com.novamind.app.feature.create.folder.Folder
+import com.novamind.app.feature.create.tag.Tag
 import java.util.UUID
-
-data class Tag(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String,
-    val colorHex: String = "#3D7A5A",
-)
-
-data class Folder(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String,
-    val iconEmoji: String = "📁",
-)
 
 data class Note(
     val id: String = UUID.randomUUID().toString(),

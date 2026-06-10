@@ -10,7 +10,7 @@ data class NoteEntity(
     val body: String,
     /** JSON 数组，元素格式：{"id":"…","name":"…","colorHex":"…"} */
     val tagsJson: String,
-    /** JSON 对象或 null，格式：{"id":"…","name":"…","iconEmoji":"…"} */
+    /** JSON 对象或 null，格式：{"id":"…","name":"…"} */
     val folderJson: String?,
     val createdAt: Long,
     val updatedAt: Long,

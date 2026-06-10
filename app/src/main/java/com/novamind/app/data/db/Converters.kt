@@ -1,8 +1,8 @@
 package com.novamind.app.data.db
 
-import com.novamind.app.feature.create.model.Folder
+import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.model.Note
-import com.novamind.app.feature.create.model.Tag
+import com.novamind.app.feature.create.tag.Tag
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -45,7 +45,6 @@ internal fun Folder.toJson(): String =
     JSONObject().apply {
         put("id", id)
         put("name", name)
-        put("iconEmoji", iconEmoji)
     }.toString()
 
 internal fun String.toFolder(): Folder? = try {
@@ -53,7 +52,6 @@ internal fun String.toFolder(): Folder? = try {
     Folder(
         id = obj.getString("id"),
         name = obj.getString("name"),
-        iconEmoji = obj.optString("iconEmoji", "📁"),
     )
 } catch (_: Exception) {
     null

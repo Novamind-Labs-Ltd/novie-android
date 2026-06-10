@@ -6,8 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.editor.NoteDocument
+import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.model.Note
-import com.novamind.app.feature.create.model.Tag
+import com.novamind.app.feature.create.tag.Tag
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -130,6 +131,18 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
 
             is CreateEvent.FolderSelected -> {
                 _uiState.update { it.copy(selectedFolder = event.folder, showFolderPicker = false) }
+                viewModelScope.launch { saveNow() }
+            }
+
+            is CreateEvent.NewFolderCreated -> {
+                val newFolder = Folder(name = event.name)
+                _uiState.update { state ->
+                    state.copy(
+                        availableFolders = state.availableFolders + newFolder,
+                        selectedFolder = newFolder,
+                        showFolderPicker = false,
+                    )
+                }
                 viewModelScope.launch { saveNow() }
             }
 

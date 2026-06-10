@@ -19,8 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
-import com.novamind.app.feature.create.model.Folder
-import com.novamind.app.feature.create.model.Tag
+import com.novamind.app.feature.create.folder.Folder
+import com.novamind.app.feature.create.tag.Tag
+import com.novamind.app.feature.create.tag.TagChip
 
 /**
  * Meta 操作行：文件夹 chip、标签 chip（已选标签 + 添加入口）、时间 chip。可横向滚动。
@@ -44,7 +45,7 @@ fun CreateMetaRow(
         // 文件夹 chip
         MetaChip(
             iconResId = R.drawable.ic_nav_library,
-            label = selectedFolder?.let { "${it.iconEmoji} ${it.name}" } ?: "Add to folder",
+            label = selectedFolder?.name ?: "Add to folder",
             isActive = selectedFolder != null,
             onClick = onShowFolderPicker,
         )

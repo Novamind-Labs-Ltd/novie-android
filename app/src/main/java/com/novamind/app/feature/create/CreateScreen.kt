@@ -24,10 +24,10 @@ import com.novamind.app.feature.create.components.ColorTextHint
 import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
-import com.novamind.app.feature.create.components.FolderPickerSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.feature.create.components.NoteContentEditor
-import com.novamind.app.feature.create.components.TagPickerSheet
+import com.novamind.app.feature.create.folder.FolderPickerSheet
+import com.novamind.app.feature.create.tag.TagPickerSheet
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
@@ -212,6 +212,7 @@ fun CreateScreen(
                 folders = uiState.availableFolders,
                 selectedFolder = uiState.selectedFolder,
                 onFolderSelect = { onEvent(CreateEvent.FolderSelected(it)) },
+                onNewFolder = { onEvent(CreateEvent.NewFolderCreated(it)) },
                 onDismiss = { onEvent(CreateEvent.DismissFolderPicker) },
             )
         }
