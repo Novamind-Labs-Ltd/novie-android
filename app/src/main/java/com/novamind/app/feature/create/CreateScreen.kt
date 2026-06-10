@@ -78,6 +78,7 @@ fun CreateScreen(
     val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val context = LocalContext.current
 
     // 图文正文编辑器状态：文本与图片块；正文文档 JSON 存入 body 同步给 ViewModel
@@ -160,7 +161,12 @@ fun CreateScreen(
                 selectedFolder = uiState.selectedFolder,
                 selectedTags = uiState.selectedTags,
                 timeLabel = timeLabel,
-                onShowFolderPicker = { onEvent(CreateEvent.ShowFolderPicker) },
+                onShowFolderPicker = {
+                    // 打开「Add to folder」前清除焦点并收起键盘，避免键盘自动弹出
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                    onEvent(CreateEvent.ShowFolderPicker)
+                },
                 onShowTagPicker = { onEvent(CreateEvent.ShowTagPicker) },
             )
 
