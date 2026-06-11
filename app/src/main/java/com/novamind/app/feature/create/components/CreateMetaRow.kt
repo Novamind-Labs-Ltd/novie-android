@@ -44,12 +44,19 @@ fun CreateMetaRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 文件夹 chip（编辑页仅显示 folder，不显示 tag）
+        // 文件夹 chip（编辑页仅显示 folder，不平铺已选 tag）
         MetaChip(
             iconResId = R.drawable.ic_nav_library,
             label = selectedFolder?.name ?: "Add to folder",
             isActive = selectedFolder != null,
             onClick = onShowFolderPicker,
+        )
+        // 标签入口：仅提供「新增/选择 tag」按钮，始终中性样式（不高亮选中态）
+        MetaChip(
+            iconResId = R.drawable.ic_nav_brand,
+            label = "Tags",
+            isActive = false,
+            onClick = onShowTagPicker,
         )
         // 时间：不做成胶囊，只显示图标 + 文字
         Row(
