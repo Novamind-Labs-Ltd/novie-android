@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private val SelectedGreen = Color(0xFF3D7A5A)
+
 @Composable
 fun TagChip(
     tag: Tag,
@@ -26,7 +28,8 @@ fun TagChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tagColor = parseHexColor(tag.colorHex)
+    // 选中统一用绿色，不按各 tag 的 colorHex 取色
+    val tagColor = SelectedGreen
     val bgColor = if (isSelected) tagColor.copy(alpha = 0.15f) else Color.White
     val borderColor = if (isSelected) tagColor else Color(0xFFE0E0E0)
 
