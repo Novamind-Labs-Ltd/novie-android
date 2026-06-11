@@ -2,6 +2,12 @@ package com.novamind.app.feature.create
 
 import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -331,14 +337,29 @@ fun CreateScreen(
             )
         }
 
-        // 图片预览（全屏覆盖）：左右滑动 / 缩放 / 删除
-        previewIndex?.let { idx ->
-            val images = editor.blocks.filterIsInstance<ImageBlock>()
+        // 图片预览（全屏覆盖）：左右滑动 / 缩放 / 删除，进入/退出带淡入+缩放转场
+        val liveImages = editor.blocks.filterIsInstance<ImageBlock>().map { it.path }
+        // 退出动画期间 previewIndex 已置空，用上一次的快照继续渲染避免闪白
+        var lastPreviewPaths by remember { mutableStateOf<List<String>>(emptyList()) }
+        var lastPreviewIndex by remember { mutableStateOf(0) }
+        if (previewIndex != null) {
+            lastPreviewPaths = liveImages
+            lastPreviewIndex = previewIndex!!
+        }
+        AnimatedVisibility(
+            visible = previewIndex != null,
+            enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.92f),
+            exit = fadeOut(tween(180)) + scaleOut(tween(180), targetScale = 0.92f),
+        ) {
             ImagePreviewScreen(
-                paths = images.map { it.path },
-                initialIndex = idx,
+                paths = if (previewIndex != null) liveImages else lastPreviewPaths,
+                initialIndex = lastPreviewIndex,
                 onDelete = { page ->
-                    images.getOrNull(page)?.let { editor.removeBlock(it.id); emitContent() }
+                    liveImages.getOrNull(page)?.let { path ->
+                        editor.blocks.filterIsInstance<ImageBlock>()
+                            .firstOrNull { it.path == path }
+                            ?.let { editor.removeBlock(it.id); emitContent() }
+                    }
                 },
                 onBack = { previewIndex = null },
             )
