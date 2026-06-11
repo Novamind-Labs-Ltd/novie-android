@@ -70,6 +70,9 @@ fun ImagePreviewScreen(
         pageCount = { paths.size },
     )
 
+    // 删除确认弹窗
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     // 缩放 / 平移状态（当前页），翻页时复位
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -83,10 +86,10 @@ fun ImagePreviewScreen(
             .fillMaxSize()
             .background(BgPage),
     ) {
-        // 仅在未放大时允许左右翻页；放大后水平拖动用于平移
+        // 图片数 ≥ 2 且未放大时才允许左右翻页；放大后水平拖动用于平移
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = scale <= 1f,
+            userScrollEnabled = paths.size >= 2 && scale <= 1f,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             val isCurrent = page == pagerState.currentPage
@@ -150,8 +153,22 @@ fun ImagePreviewScreen(
                 color = ColorTextTitle,
             )
             CircleIconButton(R.drawable.ic_delete, "Delete", onClick = {
-                onDelete(pagerState.currentPage)
+                showDeleteConfirm = true
             })
+        }
+
+        // 删除二次确认
+        if (showDeleteConfirm) {
+            DeleteConfirmSheet(
+                onConfirm = {
+                    showDeleteConfirm = false
+                    onDelete(pagerState.currentPage)
+                },
+                onDismiss = { showDeleteConfirm = false },
+                title = "Delete image?",
+                message = "This will remove the image from the note.",
+                confirmLabel = "Delete",
+            )
         }
     }
 }
