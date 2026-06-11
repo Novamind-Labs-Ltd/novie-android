@@ -38,6 +38,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -54,6 +58,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
@@ -131,6 +136,54 @@ fun ImagePreviewScreen(
         offset = Offset.Zero
     }
 
+    // 左右翻页的边界橡皮筋：首/末页继续外滑时，pager 整体随手平移，松手弹簧回弹
+    val overscrollX = remember { mutableFloatStateOf(0f) }
+    val scaleState = rememberUpdatedState(scale)
+    val containerWidthState = rememberUpdatedState(containerSize.width)
+    val edgeOverscroll = remember {
+        object : NestedScrollConnection {
+            private val resist = 0.4f   // 阻尼：越界位移按比例缩小，越拖越沉
+            // 先消费用于「回拉」抵消已有 overscroll 的拖动量
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                val cur = overscrollX.floatValue
+                if (cur == 0f) return Offset.Zero
+                val dx = available.x
+                // 仅当拖动方向与 overscroll 相反（回拉）时抵消
+                if ((cur > 0f && dx < 0f) || (cur < 0f && dx > 0f)) {
+                    val inputToZero = -cur / resist
+                    return if ((cur > 0f && dx <= inputToZero) || (cur < 0f && dx >= inputToZero)) {
+                        overscrollX.floatValue = 0f
+                        Offset(inputToZero, 0f)   // 抵消到 0，剩余交还 pager
+                    } else {
+                        overscrollX.floatValue = cur + dx * resist
+                        Offset(dx, 0f)            // 全部用于回拉
+                    }
+                }
+                return Offset.Zero
+            }
+            // pager 在边界消费不掉的滑动量 → 转成 overscroll 平移
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput || available.x == 0f) return Offset.Zero
+                if (scaleState.value > 1f) return Offset.Zero   // 放大时由图片平移逻辑处理
+                val maxOver = containerWidthState.value * 0.35f
+                overscrollX.floatValue =
+                    (overscrollX.floatValue + available.x * resist).coerceIn(-maxOver, maxOver)
+                return Offset(available.x, 0f)
+            }
+            // 松手：弹簧动画把 overscroll 归零
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (overscrollX.floatValue != 0f) {
+                    animate(
+                        overscrollX.floatValue, 0f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    ) { v, _ -> overscrollX.floatValue = v }
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
     // 沉浸模式：单击切换。开启时背景变黑、隐藏顶栏（顶部/底部留黑边）
     var immersive by remember { mutableStateOf(false) }
     val bgColor by animateColorAsState(
@@ -149,7 +202,10 @@ fun ImagePreviewScreen(
             state = pagerState,
             userScrollEnabled = paths.size >= 2 && scale <= 1f,
             beyondViewportPageCount = 1,   // 预组合左右各一页，提前加载，避免滑动白屏
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(edgeOverscroll)
+                .graphicsLayer { translationX = overscrollX.floatValue },
         ) { page ->
             val isCurrent = page == pagerState.currentPage
             val pageScale = if (isCurrent) scale else 1f
