@@ -53,6 +53,7 @@ import java.util.Date
 fun CreateRoute(
     onBack: () -> Unit = {},
     noteId: String? = null,           // 非 null 时加载已有笔记
+    onFullscreenChange: (Boolean) -> Unit = {},  // 全屏页（图片预览）显隐 → 宿主隐藏底部导航
     modifier: Modifier = Modifier,
     viewModel: CreateViewModel = viewModel(),
 ) {
@@ -72,6 +73,7 @@ fun CreateRoute(
         onEvent = viewModel::onEvent,
         onBack = onBack,
         autoFocusBody = noteId == null,   // 新建笔记自动聚焦正文并弹出键盘
+        onFullscreenChange = onFullscreenChange,
         modifier = modifier,
     )
 }
@@ -84,6 +86,7 @@ fun CreateScreen(
     onEvent: (CreateEvent) -> Unit,
     onBack: () -> Unit = {},
     autoFocusBody: Boolean = false,         // 新建笔记进入时自动聚焦正文（弹出键盘）
+    onFullscreenChange: (Boolean) -> Unit = {},  // 图片预览全屏页显隐回调
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -100,6 +103,9 @@ fun CreateScreen(
     var showAttachSheet by remember { mutableStateOf(false) }
     // 图片预览：当前预览的图片下标（null = 不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
+    // 预览打开 → 通知宿主隐藏底部导航栏（全屏页）；离开本页时复位
+    LaunchedEffect(previewIndex != null) { onFullscreenChange(previewIndex != null) }
+    DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current

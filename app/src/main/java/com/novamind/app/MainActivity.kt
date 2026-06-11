@@ -6,10 +6,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +52,8 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
+                // 图片预览等全屏页打开时隐藏底部导航栏
+                var hideBottomNav by rememberSaveable { mutableStateOf(false) }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
@@ -81,21 +86,29 @@ class MainActivity : ComponentActivity() {
                                 onBack = {
                                     editingNoteId = null
                                     currentRoute = BottomNavDestination.Home.route
-                                }
+                                },
+                                onFullscreenChange = { hideBottomNav = it },
                             )
                             BottomNavDestination.Library.route -> LibraryRoute()
                             BottomNavDestination.Calendar.route -> CalendarRoute()
                         }
                     }
 
-                    AppBottomNavBar(
-                        currentRoute = currentRoute,
-                        onNavigate = { route ->
-                            if (route == BottomNavDestination.Create.route) editingNoteId = null
-                            currentRoute = route
-                        },
+                    // 全屏页（如图片预览）打开时滑出隐藏底部导航栏
+                    AnimatedVisibility(
+                        visible = !hideBottomNav,
+                        enter = slideInVertically { it } + fadeIn(),
+                        exit = slideOutVertically { it } + fadeOut(),
                         modifier = Modifier.align(Alignment.BottomCenter),
-                    )
+                    ) {
+                        AppBottomNavBar(
+                            currentRoute = currentRoute,
+                            onNavigate = { route ->
+                                if (route == BottomNavDestination.Create.route) editingNoteId = null
+                                currentRoute = route
+                            },
+                        )
+                    }
                 }
             }
         }
