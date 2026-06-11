@@ -47,10 +47,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.novamind.app.R
 import kotlinx.coroutines.launch
 import java.io.File
@@ -83,6 +86,19 @@ fun ImagePreviewScreen(
         pageCount = { paths.size },
     )
 
+    // 进入时预取初始页及左右各一张（共 3 张）到 Coil 内存缓存，避免首次滑动白屏
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        val center = initialIndex.coerceIn(0, paths.lastIndex)
+        listOf(center - 1, center, center + 1)
+            .filter { it in paths.indices }
+            .forEach { i ->
+                context.imageLoader.enqueue(
+                    ImageRequest.Builder(context).data(File(paths[i])).build()
+                )
+            }
+    }
+
     // 删除确认弹窗
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -114,6 +130,7 @@ fun ImagePreviewScreen(
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = paths.size >= 2 && scale <= 1f,
+            beyondViewportPageCount = 1,   // 预组合左右各一页，提前加载，避免滑动白屏
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             val isCurrent = page == pagerState.currentPage
