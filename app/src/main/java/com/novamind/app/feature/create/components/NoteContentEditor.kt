@@ -12,10 +12,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +32,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,6 +72,15 @@ fun NoteContentEditor(
     // 滚动内容底部预留：键盘 + 工具栏约一行 + 边距，保证末尾内容能滚到工具栏之上
     val bottomPad = with(density) { imeBottomPx.toDp() } + 96.dp
 
+    // 始终读到最新的遮挡线（供已注册的 reveal 闭包使用，避免捕获到旧值）
+    val coverTopState = rememberUpdatedState(coverTopWindowY)
+    // 当前焦点文本块登记的「把光标滚到可见」回调
+    var revealFocused by remember { mutableStateOf<(() -> Unit)?>(null) }
+    // 键盘弹出 / 工具栏顶边变化时（遮挡线有效），主动把焦点光标滚到可见
+    LaunchedEffect(coverTopWindowY) {
+        if (coverTopWindowY != Float.MAX_VALUE) revealFocused?.invoke()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -97,8 +109,9 @@ fun NoteContentEditor(
                         onChanged = onContentChanged,
                         scrollState = scrollState,
                         contentCoordsProvider = { contentCoords },
-                        coverTopWindowY = coverTopWindowY,
+                        coverTopProvider = { coverTopState.value },
                         revealMarginPx = revealMarginPx,
+                        onRegisterReveal = { revealFocused = it },
                     )
 
                     is ImageBlock -> ImageBlockView(
@@ -127,14 +140,50 @@ private fun TextBlockField(
     onChanged: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentCoordsProvider: () -> LayoutCoordinates?,
-    coverTopWindowY: Float,
+    coverTopProvider: () -> Float,
     revealMarginPx: Float,
+    onRegisterReveal: ((() -> Unit)?) -> Unit,
 ) {
     var fieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var isFocused by remember { mutableStateOf(false) }
+    var latestLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
     // 上一次光标所在的视觉行号；仅当行号变化（换行/折行/上移）时才考虑滚动，
     // 同一行内连续打字行号不变 → 不滚动。
     var lastCursorLine by remember { mutableStateOf(-1) }
+
+    // 把光标滚到可见区。respectLineGate=true 时仅在「光标视觉行变化」才滚（打字/换行场景）；
+    // false 时无条件评估（键盘弹出场景，行号没变但被键盘盖住，也要滚）。
+    fun revealCursor(respectLineGate: Boolean) {
+        val content = contentCoordsProvider() ?: return
+        val field = fieldCoords ?: return
+        val layout = latestLayout ?: return
+        if (!content.isAttached || !field.isAttached) return
+        val value = block.rich.value
+        val offset = value.selection.end.coerceIn(0, value.text.length)
+        val line = layout.getLineForOffset(offset)
+        if (respectLineGate && line == lastCursorLine) return
+        lastCursorLine = line
+        val viewport = content.size.height
+        if (viewport <= 0) return
+        val rect = layout.getCursorRect(offset)
+        val cursorBottomViewportY = content.localPositionOf(field, Offset(0f, rect.bottom)).y
+        val cursorTopViewportY = content.localPositionOf(field, Offset(0f, rect.top)).y
+        // 可见下界 = 工具栏真实顶边（换算到本视口坐标）− 安全边距；
+        // 无遮挡（键盘收起）时退化为视口底 − 边距
+        val cover = coverTopProvider()
+        val coverTopLocal =
+            if (cover == Float.MAX_VALUE) viewport.toFloat()
+            else content.windowToLocal(Offset(0f, cover)).y
+        val visibleBottom = coverTopLocal.coerceAtMost(viewport.toFloat()) - revealMarginPx
+        when {
+            // 光标底被键盘/工具栏遮住 → 上滚恰好露出
+            cursorBottomViewportY > visibleBottom ->
+                scrollState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
+            // 光标在可视区上方 → 向下露出（向上滚动内容）
+            cursorTopViewportY < 0f ->
+                scrollState.dispatchRawDelta(cursorTopViewportY)
+        }
+    }
 
     BasicTextField(
         value = block.rich.value,
@@ -148,7 +197,11 @@ private fun TextBlockField(
             .focusRequester(block.focusRequester)
             .onFocusChanged {
                 isFocused = it.isFocused
-                if (it.isFocused) onFocused()
+                if (it.isFocused) {
+                    onFocused()
+                    // 登记本块的 reveal：键盘弹出时由父组件调用（忽略行号门限）
+                    onRegisterReveal { revealCursor(respectLineGate = false) }
+                }
             }
             .padding(horizontal = 20.dp, vertical = 6.dp),
         textStyle = TextStyle(
@@ -158,39 +211,8 @@ private fun TextBlockField(
         ),
         cursorBrush = SolidColor(ColorTextTitle),
         onTextLayout = { layout ->
-            val content = contentCoordsProvider()
-            val field = fieldCoords
-            if (isFocused && content != null && field != null && content.isAttached && field.isAttached) {
-                val value = block.rich.value
-                val offset = value.selection.end.coerceIn(0, value.text.length)
-                val line = layout.getLineForOffset(offset)
-                // 仅当光标所在视觉行变化时才评估滚动；同一行内打字（行号不变）直接跳过
-                if (line != lastCursorLine) {
-                    lastCursorLine = line
-                    val rect = layout.getCursorRect(offset)
-                    val viewport = content.size.height
-                    if (viewport > 0) {
-                        val cursorBottomViewportY =
-                            content.localPositionOf(field, Offset(0f, rect.bottom)).y
-                        val cursorTopViewportY =
-                            content.localPositionOf(field, Offset(0f, rect.top)).y
-                        // 可见下界 = 工具栏真实顶边（换算到本视口坐标）− 安全边距；
-                        // 无遮挡（键盘收起）时退化为视口底 − 边距
-                        val coverTopLocal =
-                            if (coverTopWindowY == Float.MAX_VALUE) viewport.toFloat()
-                            else content.windowToLocal(Offset(0f, coverTopWindowY)).y
-                        val visibleBottom = coverTopLocal.coerceAtMost(viewport.toFloat()) - revealMarginPx
-                        when {
-                            // 新行被键盘/工具栏遮住 → 同帧上滚恰好露出
-                            cursorBottomViewportY > visibleBottom ->
-                                scrollState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
-                            // 光标在可视区上方 → 向上滚动露出
-                            cursorTopViewportY < 0f ->
-                                scrollState.dispatchRawDelta(cursorTopViewportY)
-                        }
-                    }
-                }
-            }
+            latestLayout = layout
+            if (isFocused) revealCursor(respectLineGate = true)
         },
         decorationBox = { inner ->
             if (showPlaceholder && block.rich.value.text.isEmpty()) {
