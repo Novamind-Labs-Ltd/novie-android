@@ -462,23 +462,6 @@ private fun NoteCard(
                     maxLines = 4,
                 )
             }
-            if (note.tags.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    note.tags.take(2).forEach { tag ->
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = Color(0xFF6B6B6B).copy(alpha = 0.08f),
-                        ) {
-                            Text(
-                                text = tag,
-                                fontSize = 10.sp,
-                                color = Color(0xFF6B6B6B),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
