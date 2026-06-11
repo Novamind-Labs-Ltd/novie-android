@@ -131,6 +131,9 @@ private fun TextBlockField(
 ) {
     var fieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var isFocused by remember { mutableStateOf(false) }
+    // 上一次光标所在的视觉行号；仅当行号变化（换行/折行/上移）时才考虑滚动，
+    // 同一行内连续打字行号不变 → 不滚动。
+    var lastCursorLine by remember { mutableStateOf(-1) }
 
     BasicTextField(
         value = block.rich.value,
@@ -159,22 +162,27 @@ private fun TextBlockField(
             if (isFocused && content != null && field != null && content.isAttached && field.isAttached) {
                 val value = block.rich.value
                 val offset = value.selection.end.coerceIn(0, value.text.length)
-                val rect = layout.getCursorRect(offset)
-                val viewport = content.size.height
-                if (viewport > 0) {
-                    val cursorBottomViewportY =
-                        content.localPositionOf(field, Offset(0f, rect.bottom)).y
-                    val cursorTopViewportY =
-                        content.localPositionOf(field, Offset(0f, rect.top)).y
-                    // 可见下界 = 视口底 − 键盘 − 工具栏 − 安全边距
-                    val visibleBottom = viewport - bottomCoverPx
-                    when {
-                        // 光标被键盘/工具栏遮住 → 同帧上滚恰好露出
-                        cursorBottomViewportY > visibleBottom ->
-                            scrollState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
-                        // 光标在可视区上方 → 向上滚动露出
-                        cursorTopViewportY < 0f ->
-                            scrollState.dispatchRawDelta(cursorTopViewportY)
+                val line = layout.getLineForOffset(offset)
+                // 仅当光标所在视觉行变化时才评估滚动；同一行内打字（行号不变）直接跳过
+                if (line != lastCursorLine) {
+                    lastCursorLine = line
+                    val rect = layout.getCursorRect(offset)
+                    val viewport = content.size.height
+                    if (viewport > 0) {
+                        val cursorBottomViewportY =
+                            content.localPositionOf(field, Offset(0f, rect.bottom)).y
+                        val cursorTopViewportY =
+                            content.localPositionOf(field, Offset(0f, rect.top)).y
+                        // 可见下界 = 视口底 − 键盘 − 工具栏 − 安全边距
+                        val visibleBottom = viewport - bottomCoverPx
+                        when {
+                            // 新行被键盘/工具栏遮住 → 同帧上滚恰好露出
+                            cursorBottomViewportY > visibleBottom ->
+                                scrollState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
+                            // 光标在可视区上方 → 向上滚动露出
+                            cursorTopViewportY < 0f ->
+                                scrollState.dispatchRawDelta(cursorTopViewportY)
+                        }
                     }
                 }
             }
