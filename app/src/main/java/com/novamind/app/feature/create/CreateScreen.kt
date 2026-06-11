@@ -26,6 +26,7 @@ import com.novamind.app.feature.create.components.BgPage
 import com.novamind.app.feature.create.components.ColorTextHint
 import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.CreateMetaRow
+import com.novamind.app.feature.create.components.AttachmentSheet
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.feature.create.components.DeleteConfirmSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
@@ -87,6 +88,8 @@ fun CreateScreen(
 
     // 删除二次确认弹窗显隐
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    // 插入附件选择弹窗显隐
+    var showAttachSheet by remember { mutableStateOf(false) }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -134,6 +137,31 @@ fun CreateScreen(
         }
     }
 
+    // 相机拍照：先建目标文件拿到可写 URI，拍成功后该路径即图片
+    var pendingCapturePath by remember { mutableStateOf<String?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val path = pendingCapturePath
+        pendingCapturePath = null
+        if (success && path != null) {
+            editor.insertImage(path)
+            emitContent()
+        }
+    }
+
+    // 系统文件选择器（任意文档），插入为文件块
+    val documentPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
+                editor.insertFile(path, name)
+                emitContent()
+            }
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -151,7 +179,10 @@ fun CreateScreen(
                     keyboardController?.hide()
                     onEvent(CreateEvent.SaveNote)
                 },
-                onShare = {},
+                onShare = {
+                    keyboardController?.hide()
+                    showAttachSheet = true
+                },
                 onUndo = { onEvent(CreateEvent.UndoEdit) },
                 onRedo = { onEvent(CreateEvent.RedoEdit) },
                 onDelete = {
@@ -269,6 +300,25 @@ fun CreateScreen(
                     onEvent(CreateEvent.DeleteNote)
                 },
                 onDismiss = { showDeleteConfirm = false },
+            )
+        }
+
+        // 插入附件：图片 / 拍照 / 文档
+        if (showAttachSheet) {
+            AttachmentSheet(
+                onPickImage = {
+                    imagePicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                onTakePhoto = {
+                    ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
+                        pendingCapturePath = path
+                        cameraLauncher.launch(uri)
+                    }
+                },
+                onPickDocument = { documentPicker.launch(arrayOf("*/*")) },
+                onDismiss = { showAttachSheet = false },
             )
         }
     }

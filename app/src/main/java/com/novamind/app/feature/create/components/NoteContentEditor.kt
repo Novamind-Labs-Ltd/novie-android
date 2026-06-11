@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -39,6 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.ui.theme.AppTheme
+import androidx.compose.ui.res.painterResource
+import com.novamind.app.R
+import com.novamind.app.feature.create.editor.FileBlock
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.TextBlock
@@ -117,7 +122,15 @@ fun NoteContentEditor(
                     is ImageBlock -> ImageBlockView(
                         block = block,
                         onDelete = {
-                            state.removeImage(block.id)
+                            state.removeBlock(block.id)
+                            onContentChanged()
+                        },
+                    )
+
+                    is FileBlock -> FileBlockView(
+                        block = block,
+                        onDelete = {
+                            state.removeBlock(block.id)
                             onContentChanged()
                         },
                     )
@@ -258,6 +271,61 @@ private fun ImageBlockView(
             contentAlignment = Alignment.Center,
         ) {
             Text("×", color = Color.White, fontSize = 18.sp)
+        }
+    }
+}
+
+@Composable
+private fun FileBlockView(
+    block: FileBlock,
+    onDelete: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+    ) {
+        // 文件 chip：文档图标 + 文件名
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFFFFFFFF),
+            shadowElevation = 1.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_document),
+                    contentDescription = null,
+                    tint = ColorTextTitle,
+                    modifier = Modifier.size(22.dp),
+                )
+                Text(
+                    text = block.name,
+                    fontSize = 15.sp,
+                    color = ColorTextTitle,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                // 删除
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = false),
+                            onClick = onDelete,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("×", color = ColorTextSub, fontSize = 18.sp)
+                }
+            }
         }
     }
 }

@@ -21,6 +21,7 @@ object NoteDocument {
                 val piece = when (o.optString("type")) {
                     "text" -> o.optString("text")
                     "image" -> "[图片]"
+                    "file" -> o.optString("name").ifBlank { "文档" }.let { "[$it]" }
                     else -> ""
                 }
                 if (piece.isNotEmpty()) {

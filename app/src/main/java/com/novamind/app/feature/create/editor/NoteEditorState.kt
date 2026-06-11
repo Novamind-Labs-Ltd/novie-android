@@ -30,6 +30,13 @@ class ImageBlock(
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock
 
+/** 文档块，path 指向内部存储中的文件，name 为展示文件名 */
+class FileBlock(
+    val path: String,
+    val name: String,
+    override val id: String = UUID.randomUUID().toString(),
+) : EditorBlock
+
 /**
  * 笔记图文编辑器状态：维护一组有序的文本/图片块。
  *
@@ -87,14 +94,20 @@ class NoteEditorState {
     fun isActive(span: RichSpan): Boolean =
         focusedBlock()?.rich?.isActive(span) ?: false
 
-    // ── 插入 / 删除图片 ─────────────────────────────────────────────────────
+    // ── 插入 / 删除非文本块（图片 / 文档） ──────────────────────────────────
 
     /** 在聚焦文本块的光标处插入图片块 */
-    fun insertImage(path: String) {
+    fun insertImage(path: String) = insertBlockAtCaret(ImageBlock(path))
+
+    /** 在聚焦文本块的光标处插入文档块 */
+    fun insertFile(path: String, name: String) = insertBlockAtCaret(FileBlock(path, name))
+
+    /** 在聚焦文本块光标处插入任意非文本块：按光标把文本拆成前后两段，中间夹入该块 */
+    private fun insertBlockAtCaret(block: EditorBlock) {
         val target = focusedBlock()
         if (target == null) {
-            // 没有可插入的文本块：追加图片 + 末尾空文本块，光标落到末尾文本块
-            _blocks.add(ImageBlock(path))
+            // 没有可插入的文本块：追加块 + 末尾空文本块，光标落到末尾文本块
+            _blocks.add(block)
             appendTrailingTextIfNeeded()
             (_blocks.lastOrNull { it is TextBlock } as? TextBlock)?.let {
                 focusedTextId = it.id
@@ -113,7 +126,7 @@ class NoteEditorState {
         // 光标后文本另起一个新文本块；setPlainText 把光标置于其末尾
         val afterBlock = TextBlock(after)
         afterBlock.rich.setPlainText(after)
-        _blocks.add(index + 1, ImageBlock(path))
+        _blocks.add(index + 1, block)
         _blocks.add(index + 2, afterBlock)
         focusedTextId = afterBlock.id
         pendingFocusId = afterBlock.id
@@ -128,14 +141,17 @@ class NoteEditorState {
         }
     }
 
-    /** 删除指定图片块，并合并相邻文本块 */
-    fun removeImage(id: String) {
+    /** 删除指定的非文本块（图片 / 文档），并合并相邻文本块 */
+    fun removeBlock(id: String) {
         val idx = _blocks.indexOfFirst { it.id == id }
-        if (idx < 0 || _blocks[idx] !is ImageBlock) return
+        if (idx < 0 || _blocks[idx] is TextBlock) return
         _blocks.removeAt(idx)
         mergeAdjacentTextBlocks()
         appendTrailingTextIfNeeded()
     }
+
+    /** 删除指定图片块（兼容旧调用） */
+    fun removeImage(id: String) = removeBlock(id)
 
     // ── 序列化 ──────────────────────────────────────────────────────────────
 
@@ -157,6 +173,9 @@ class NoteEditorState {
                     )
                     is ImageBlock -> arr.put(
                         JSONObject().put("type", "image").put("path", block.path)
+                    )
+                    is FileBlock -> arr.put(
+                        JSONObject().put("type", "file").put("path", block.path).put("name", block.name)
                     )
                 }
             }
@@ -193,7 +212,8 @@ class NoteEditorState {
             val a = parsed[i]
             val b = _blocks[i]
             (a is TextBlock && b is TextBlock) ||
-                (a is ImageBlock && b is ImageBlock && a.path == b.path)
+                (a is ImageBlock && b is ImageBlock && a.path == b.path) ||
+                (a is FileBlock && b is FileBlock && a.path == b.path)
         }
     }
 
@@ -206,6 +226,9 @@ class NoteEditorState {
                 when (obj.optString("type")) {
                     "text" -> TextBlock(obj.optString("text"))
                     "image" -> obj.optString("path").takeIf { it.isNotBlank() }?.let { ImageBlock(it) }
+                    "file" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
+                        FileBlock(it, obj.optString("name").ifBlank { "Document" })
+                    }
                     else -> null
                 }
             }
@@ -216,9 +239,9 @@ class NoteEditorState {
 
     // ── 内部维护 ────────────────────────────────────────────────────────────
 
-    // 末尾若是图片块（或列表为空），补一个空文本块，保证总能在最后输入
+    // 末尾若是非文本块（图片/文档，或列表为空），补一个空文本块，保证总能在最后输入
     private fun appendTrailingTextIfNeeded() {
-        if (_blocks.isEmpty() || _blocks.last() is ImageBlock) {
+        if (_blocks.isEmpty() || _blocks.last() !is TextBlock) {
             _blocks.add(TextBlock())
         }
     }
