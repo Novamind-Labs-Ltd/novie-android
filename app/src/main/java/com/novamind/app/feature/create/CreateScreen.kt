@@ -27,6 +27,7 @@ import com.novamind.app.feature.create.components.ColorTextHint
 import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
+import com.novamind.app.feature.create.components.DeleteConfirmSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.feature.create.components.NoteContentEditor
 import com.novamind.app.feature.create.folder.FolderPickerSheet
@@ -83,6 +84,9 @@ fun CreateScreen(
 
     // 悬浮工具栏在屏幕上的真实顶边（窗口坐标 px）——作为遮挡线，光标须露在其上方
     var toolbarTopWindowY by remember { mutableStateOf(Float.MAX_VALUE) }
+
+    // 删除二次确认弹窗显隐
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -152,7 +156,7 @@ fun CreateScreen(
                 onRedo = { onEvent(CreateEvent.RedoEdit) },
                 onDelete = {
                     keyboardController?.hide()
-                    onEvent(CreateEvent.DeleteNote)
+                    showDeleteConfirm = true
                 },
             )
 
@@ -254,6 +258,17 @@ fun CreateScreen(
                 onFolderSelect = { onEvent(CreateEvent.FolderSelected(it)) },
                 onNewFolder = { onEvent(CreateEvent.NewFolderCreated(it)) },
                 onDismiss = { onEvent(CreateEvent.DismissFolderPicker) },
+            )
+        }
+
+        // 删除二次确认
+        if (showDeleteConfirm) {
+            DeleteConfirmSheet(
+                onConfirm = {
+                    showDeleteConfirm = false
+                    onEvent(CreateEvent.DeleteNote)
+                },
+                onDismiss = { showDeleteConfirm = false },
             )
         }
     }
