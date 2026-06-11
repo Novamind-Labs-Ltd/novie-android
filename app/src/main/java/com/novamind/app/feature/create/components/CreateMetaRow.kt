@@ -44,35 +44,13 @@ fun CreateMetaRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 文件夹 chip
+        // 文件夹 chip（编辑页仅显示 folder，不显示 tag）
         MetaChip(
             iconResId = R.drawable.ic_nav_library,
             label = selectedFolder?.name ?: "Add to folder",
             isActive = selectedFolder != null,
             onClick = onShowFolderPicker,
         )
-        // 标签 chip（已选标签 + 添加入口）
-        if (selectedTags.isEmpty()) {
-            MetaChip(
-                iconResId = R.drawable.ic_nav_brand,
-                label = "Tags",
-                onClick = onShowTagPicker,
-            )
-        } else {
-            selectedTags.forEach { tag ->
-                TagChip(
-                    tag = tag,
-                    isSelected = true,
-                    onClick = onShowTagPicker,
-                )
-            }
-            // + 添加更多标签
-            MetaChip(
-                iconResId = R.drawable.ic_nav_brand,
-                label = "+",
-                onClick = onShowTagPicker,
-            )
-        }
         // 时间：不做成胶囊，只显示图标 + 文字
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
