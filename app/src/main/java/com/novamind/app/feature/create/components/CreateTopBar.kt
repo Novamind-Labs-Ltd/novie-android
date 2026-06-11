@@ -1,26 +1,33 @@
 package com.novamind.app.feature.create.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.ui.theme.AppTheme
 
 /**
- * 顶部操作行：左侧圆形返回按钮，右侧 Share | 撤销 | 重做 胶囊。
+ * 顶部操作行：左侧圆形返回按钮，右侧 撤销 | 重做 | 更多(···) 胶囊。
+ * 更多按钮展开下拉菜单（当前含「分享」，可继续扩展）。
  */
 @Composable
 fun CreateTopBar(
@@ -32,6 +39,7 @@ fun CreateTopBar(
     onRedo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -60,7 +68,7 @@ fun CreateTopBar(
             }
         }
 
-        // 右：胶囊容器 —— Share | 撤销 | 重做
+        // 右：胶囊容器 —— 撤销 | 重做 | 更多(···)
         Surface(
             shape = RoundedCornerShape(50),
             color = ColorChipBg,
@@ -71,18 +79,6 @@ fun CreateTopBar(
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TopBarIconBtn(
-                    icon = R.drawable.ic_share,
-                    contentDescription = "Share",
-                    enabled = true,
-                    onClick = onShare,
-                )
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(20.dp)
-                        .background(ColorDivider)
-                )
                 TopBarIconBtn(
                     icon = R.drawable.ic_undo,
                     contentDescription = "Undo",
@@ -95,6 +91,33 @@ fun CreateTopBar(
                     enabled = canRedo,
                     onClick = onRedo,
                 )
+                // 更多：展开下拉菜单
+                Box {
+                    TopBarIconBtn(
+                        icon = R.drawable.ic_more,
+                        contentDescription = "More",
+                        enabled = true,
+                        onClick = { menuExpanded = true },
+                    )
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        shape = RoundedCornerShape(20.dp),
+                        containerColor = ColorChipBg,
+                        shadowElevation = 8.dp,
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text("Share", fontSize = 16.sp, color = ColorTextTitle)
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onShare()
+                            },
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                }
             }
         }
     }
