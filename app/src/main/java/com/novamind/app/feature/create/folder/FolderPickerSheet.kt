@@ -33,7 +33,6 @@ fun FolderPickerSheet(
     selectedFolder: Folder?,
     onFolderSelect: (Folder?) -> Unit,
     onNewFolder: (String) -> Unit,
-    onManageFolders: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
@@ -57,35 +56,14 @@ fun FolderPickerSheet(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 标题 + 右上角「Manage folders」
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "Select folder",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextDark,
-                )
-                Text(
-                    text = "Manage folders",
-                    fontSize = 14.sp,
-                    color = TextDark,
-                    textDecoration = TextDecoration.Underline,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(),
-                            onClick = onManageFolders,
-                        )
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                )
-            }
+            // 标题
+            Text(
+                text = "Select folder",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDark,
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
 
             // 搜索 / 新建输入框
             Surface(

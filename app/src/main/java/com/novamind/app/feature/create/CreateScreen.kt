@@ -54,7 +54,6 @@ fun CreateRoute(
     onBack: () -> Unit = {},
     noteId: String? = null,           // 非 null 时加载已有笔记
     onFullscreenChange: (Boolean) -> Unit = {},  // 全屏页（图片预览）显隐 → 宿主隐藏底部导航
-    onManageFolders: () -> Unit = {},  // 点「Manage folders」→ 宿主跳转 Library
     modifier: Modifier = Modifier,
     viewModel: CreateViewModel = viewModel(),
 ) {
@@ -75,7 +74,6 @@ fun CreateRoute(
         onBack = onBack,
         autoFocusBody = noteId == null,   // 新建笔记自动聚焦正文并弹出键盘
         onFullscreenChange = onFullscreenChange,
-        onManageFolders = onManageFolders,
         modifier = modifier,
     )
 }
@@ -89,7 +87,6 @@ fun CreateScreen(
     onBack: () -> Unit = {},
     autoFocusBody: Boolean = false,         // 新建笔记进入时自动聚焦正文（弹出键盘）
     onFullscreenChange: (Boolean) -> Unit = {},  // 图片预览全屏页显隐回调
-    onManageFolders: () -> Unit = {},  // 点「Manage folders」→ 跳转 Library
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -312,10 +309,6 @@ fun CreateScreen(
                 selectedFolder = uiState.selectedFolder,
                 onFolderSelect = { onEvent(CreateEvent.FolderSelected(it)) },
                 onNewFolder = { onEvent(CreateEvent.NewFolderCreated(it)) },
-                onManageFolders = {
-                    onEvent(CreateEvent.DismissFolderPicker)
-                    onManageFolders()
-                },
                 onDismiss = { onEvent(CreateEvent.DismissFolderPicker) },
             )
         }
