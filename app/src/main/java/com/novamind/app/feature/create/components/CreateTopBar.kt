@@ -38,6 +38,7 @@ fun CreateTopBar(
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onDelete: () -> Unit = {},
+    moreEnabled: Boolean = true,   // 笔记为空时禁用「更多(···)」
     modifier: Modifier = Modifier,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -97,8 +98,8 @@ fun CreateTopBar(
                     TopBarIconBtn(
                         icon = R.drawable.ic_more,
                         contentDescription = "More",
-                        enabled = true,
-                        onClick = { menuExpanded = true },
+                        enabled = moreEnabled,
+                        onClick = { if (moreEnabled) menuExpanded = true },
                     )
                     DropdownMenu(
                         expanded = menuExpanded,

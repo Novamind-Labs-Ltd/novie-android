@@ -41,6 +41,7 @@ import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.folder.FolderPickerSheet
 import com.novamind.app.feature.create.tag.TagPickerSheet
 import com.novamind.app.feature.create.editor.ImageStore
+import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
 import com.novamind.app.ui.theme.AppTheme
@@ -180,6 +181,10 @@ fun CreateScreen(
         }
     }
 
+    // 标题与正文均为空时视为空笔记 → 禁用「更多(···)」
+    val noteEmpty = uiState.title.isBlank() &&
+        NoteDocument.previewText(uiState.body).isBlank()
+
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -207,6 +212,7 @@ fun CreateScreen(
                     keyboardController?.hide()
                     showDeleteConfirm = true
                 },
+                moreEnabled = !noteEmpty,
             )
 
             // ── 标题 ──────────────────────────────────────────────────────
