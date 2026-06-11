@@ -88,6 +88,10 @@ class MainActivity : ComponentActivity() {
                                     currentRoute = BottomNavDestination.Home.route
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
+                                onManageFolders = {
+                                    editingNoteId = null
+                                    currentRoute = BottomNavDestination.Library.route
+                                },
                             )
                             BottomNavDestination.Library.route -> LibraryRoute()
                             BottomNavDestination.Calendar.route -> CalendarRoute()
