@@ -110,10 +110,19 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
 
             is CreateEvent.TagToggled -> {
                 _uiState.update { state ->
-                    val selected = state.selectedTags.toMutableList()
-                    if (selected.any { it.id == event.tag.id }) selected.removeAll { it.id == event.tag.id }
-                    else selected.add(event.tag)
-                    state.copy(selectedTags = selected)
+                    val isSelected = state.selectedTags.any { it.id == event.tag.id }
+                    if (isSelected) {
+                        // 取消选中：仅从已选移除，列表顺序不变
+                        state.copy(selectedTags = state.selectedTags.filterNot { it.id == event.tag.id })
+                    } else {
+                        // 新选中：把该 tag 移到可选列表最前面，并加入已选
+                        val reordered = listOf(event.tag) +
+                            state.availableTags.filterNot { it.id == event.tag.id }
+                        state.copy(
+                            availableTags = reordered,
+                            selectedTags = state.selectedTags + event.tag,
+                        )
+                    }
                 }
                 viewModelScope.launch { saveNow() }
             }
@@ -121,8 +130,9 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             is CreateEvent.NewTagCreated -> {
                 val newTag = Tag(name = event.name)
                 _uiState.update { state ->
+                    // 新建即选中：放到可选列表最前面
                     state.copy(
-                        availableTags = state.availableTags + newTag,
+                        availableTags = listOf(newTag) + state.availableTags,
                         selectedTags = state.selectedTags + newTag,
                     )
                 }
