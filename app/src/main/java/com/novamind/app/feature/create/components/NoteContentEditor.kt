@@ -31,9 +31,11 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.TextBlock
@@ -232,5 +234,28 @@ private fun ImageBlockView(
         ) {
             Text("×", color = Color.White, fontSize = 18.sp)
         }
+    }
+}
+
+// ─── Preview ────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8)
+@Composable
+private fun NoteContentEditorPreview() {
+    val editor = remember {
+        NoteEditorState().apply {
+            loadDocument(
+                json = null,
+                fallbackPlain = "买菜清单\n\n· 西红柿\n· 鸡蛋\n· 一袋米\n\n晚上记得回个电话。",
+            )
+        }
+    }
+    AppTheme {
+        NoteContentEditor(
+            state = editor,
+            onContentChanged = {},
+            toolbarHeightPx = 0,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
