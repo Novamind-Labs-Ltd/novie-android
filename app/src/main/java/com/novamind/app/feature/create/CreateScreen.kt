@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -80,8 +81,8 @@ fun CreateScreen(
         WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
     val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
 
-    // 悬浮工具栏实测高度（px）——编辑器据此把光标可见下界再上移，避免被工具栏遮住
-    var toolbarHeightPx by remember { mutableStateOf(0) }
+    // 悬浮工具栏在屏幕上的真实顶边（窗口坐标 px）——作为遮挡线，光标须露在其上方
+    var toolbarTopWindowY by remember { mutableStateOf(Float.MAX_VALUE) }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -205,7 +206,7 @@ fun CreateScreen(
                 NoteContentEditor(
                     state = editor,
                     onContentChanged = emitContent,
-                    toolbarHeightPx = if (imeVisible) toolbarHeightPx else 0,
+                    coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -227,7 +228,7 @@ fun CreateScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .imePadding()
-                    .onGloballyPositioned { toolbarHeightPx = it.size.height },
+                    .onGloballyPositioned { toolbarTopWindowY = it.boundsInWindow().top },
             )
         }
 

@@ -48,14 +48,14 @@ private val REVEAL_MARGIN = 48.dp
  * 图文正文编辑器（Block-editor 方案 Phase 1）。
  *
  * 键盘方案：配合 `adjustNothing`（见 MainActivity）——键盘弹出窗口不重排、内容/光标布局不动；
- * 键盘只是「盖」在底部。本编辑器在「光标底超过可见下界（视口底 − 键盘 − 工具栏 − 边距）」时，
- * 才用同帧滚动恰好把光标露出；其余时刻不动 → 持续输入光标位置不变、内容仅在被遮时上滚。
+ * 键盘只是「盖」在底部。本编辑器以「悬浮工具栏的真实顶边」为遮挡线（[coverTopWindowY]，窗口坐标），
+ * 在「光标底低于该顶边 − 安全边距」时才同帧上滚恰好露出；其余时刻不动。
  */
 @Composable
 fun NoteContentEditor(
     state: NoteEditorState,
     onContentChanged: () -> Unit,
-    toolbarHeightPx: Int = 0,   // 悬浮工具栏实测高度（键盘隐藏时由调用方传 0）
+    coverTopWindowY: Float = Float.MAX_VALUE,   // 工具栏顶边窗口 Y；无遮挡时传 MAX_VALUE
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -65,12 +65,9 @@ fun NoteContentEditor(
 
     // 键盘高度（adjustNothing 下窗口不缩，但 ime inset 仍上报）
     val imeBottomPx = WindowInsets.ime.getBottom(density)
-    val toolbarReservePx = if (imeBottomPx > 0) toolbarHeightPx.toFloat() else 0f
     val revealMarginPx = with(density) { REVEAL_MARGIN.toPx() }
-    // 可见区下界以下被键盘/工具栏遮挡的总高度
-    val bottomCoverPx = imeBottomPx + toolbarReservePx + revealMarginPx
-    // 滚动内容底部预留：让末尾内容能滚到键盘/工具栏之上
-    val bottomPad = with(density) { (imeBottomPx + toolbarReservePx).toDp() }
+    // 滚动内容底部预留：键盘 + 工具栏约一行 + 边距，保证末尾内容能滚到工具栏之上
+    val bottomPad = with(density) { imeBottomPx.toDp() } + 96.dp
 
     Column(
         modifier = modifier
@@ -100,7 +97,8 @@ fun NoteContentEditor(
                         onChanged = onContentChanged,
                         scrollState = scrollState,
                         contentCoordsProvider = { contentCoords },
-                        bottomCoverPx = bottomCoverPx,
+                        coverTopWindowY = coverTopWindowY,
+                        revealMarginPx = revealMarginPx,
                     )
 
                     is ImageBlock -> ImageBlockView(
@@ -129,7 +127,8 @@ private fun TextBlockField(
     onChanged: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     contentCoordsProvider: () -> LayoutCoordinates?,
-    bottomCoverPx: Float,
+    coverTopWindowY: Float,
+    revealMarginPx: Float,
 ) {
     var fieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var isFocused by remember { mutableStateOf(false) }
@@ -175,8 +174,12 @@ private fun TextBlockField(
                             content.localPositionOf(field, Offset(0f, rect.bottom)).y
                         val cursorTopViewportY =
                             content.localPositionOf(field, Offset(0f, rect.top)).y
-                        // 可见下界 = 视口底 − 键盘 − 工具栏 − 安全边距
-                        val visibleBottom = viewport - bottomCoverPx
+                        // 可见下界 = 工具栏真实顶边（换算到本视口坐标）− 安全边距；
+                        // 无遮挡（键盘收起）时退化为视口底 − 边距
+                        val coverTopLocal =
+                            if (coverTopWindowY == Float.MAX_VALUE) viewport.toFloat()
+                            else content.windowToLocal(Offset(0f, coverTopWindowY)).y
+                        val visibleBottom = coverTopLocal.coerceAtMost(viewport.toFloat()) - revealMarginPx
                         when {
                             // 新行被键盘/工具栏遮住 → 同帧上滚恰好露出
                             cursorBottomViewportY > visibleBottom ->
@@ -254,7 +257,6 @@ private fun NoteContentEditorPreview() {
         NoteContentEditor(
             state = editor,
             onContentChanged = {},
-            toolbarHeightPx = 0,
             modifier = Modifier.fillMaxSize(),
         )
     }
