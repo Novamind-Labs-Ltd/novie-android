@@ -1,6 +1,9 @@
 package com.novamind.app.feature.create.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -26,9 +29,9 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.R
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -77,12 +81,15 @@ fun ImagePreviewScreen(
     // 删除确认弹窗
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // 缩放 / 平移状态（当前页），翻页时复位
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+    // 缩放 / 平移状态（当前页）：用 Animatable 以便双击带补间动画；捏合用 snapTo 即时跟手
+    val scaleAnim = remember { Animatable(1f) }
+    val offsetAnim = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
+    val scale = scaleAnim.value
+    val scope = rememberCoroutineScope()
+    // 翻页时平滑复位
     LaunchedEffect(pagerState.currentPage) {
-        scale = 1f
-        offset = Offset.Zero
+        scaleAnim.animateTo(1f, tween(200))
+        offsetAnim.snapTo(Offset.Zero)
     }
 
     Box(
@@ -97,8 +104,8 @@ fun ImagePreviewScreen(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             val isCurrent = page == pagerState.currentPage
-            val pageScale = if (isCurrent) scale else 1f
-            val pageOffset = if (isCurrent) offset else Offset.Zero
+            val pageScale = if (isCurrent) scaleAnim.value else 1f
+            val pageOffset = if (isCurrent) offsetAnim.value else Offset.Zero
 
             Box(
                 modifier = Modifier
@@ -107,10 +114,14 @@ fun ImagePreviewScreen(
                         detectTapGestures(
                             onDoubleTap = {
                                 if (!isCurrent) return@detectTapGestures
-                                if (scale > 1f) {
-                                    scale = 1f; offset = Offset.Zero
-                                } else {
-                                    scale = 2.5f
+                                // 双击：在 1× 与 2.5× 间补间切换，不突变
+                                val target = if (scaleAnim.value > 1f) 1f else 2.5f
+                                scope.launch {
+                                    if (target == 1f) {
+                                        // 缩小：缩放与平移同步动画回位
+                                        launch { offsetAnim.animateTo(Offset.Zero, tween(250)) }
+                                    }
+                                    scaleAnim.animateTo(target, tween(250))
                                 }
                             },
                         )
@@ -126,10 +137,12 @@ fun ImagePreviewScreen(
                                 val pointers = event.changes.count { it.pressed }
                                 val zoom = event.calculateZoom()
                                 val pan = event.calculatePan()
-                                if (pointers >= 2 || scale > 1f) {
-                                    val newScale = (scale * zoom).coerceIn(1f, 5f)
-                                    scale = newScale
-                                    offset = if (newScale > 1f) offset + pan else Offset.Zero
+                                if (pointers >= 2 || scaleAnim.value > 1f) {
+                                    val newScale = (scaleAnim.value * zoom).coerceIn(1f, 5f)
+                                    val newOffset = if (newScale > 1f) offsetAnim.value + pan else Offset.Zero
+                                    // 捏合即时跟手：snapTo（无补间）
+                                    scope.launch { scaleAnim.snapTo(newScale) }
+                                    scope.launch { offsetAnim.snapTo(newOffset) }
                                     event.changes.forEach { if (it.positionChanged()) it.consume() }
                                 }
                             } while (event.changes.any { it.pressed })
