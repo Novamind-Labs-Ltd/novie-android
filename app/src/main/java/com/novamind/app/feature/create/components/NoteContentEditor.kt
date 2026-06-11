@@ -41,8 +41,8 @@ import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.TextBlock
 import java.io.File
 
-// 光标与可见下界之间的安全边距
-private val REVEAL_MARGIN = 16.dp
+// 光标与可见下界之间的安全边距（越大，光标停得离工具栏越远 / 越高）
+private val REVEAL_MARGIN = 48.dp
 
 /**
  * 图文正文编辑器（Block-editor 方案 Phase 1）。
