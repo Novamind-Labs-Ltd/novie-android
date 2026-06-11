@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -129,10 +130,9 @@ fun CreateScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BgPage)
-                .statusBarsPadding()
-                // 仅处理键盘 inset；导航栏间距放到正文滚动内容末尾（见 NoteContentEditor），
-                // 避免与键盘 inset 叠加产生多余间距
-                .imePadding(),
+                .statusBarsPadding(),
+                // adjustNothing：不在内容上用 imePadding（避免重排），键盘空间由编辑器内部处理；
+                // 工具栏作为悬浮层单独用 imePadding 抬到键盘之上。
         ) {
             // ── 顶部操作行 ────────────────────────────────────────────────
             CreateTopBar(
@@ -192,8 +192,7 @@ fun CreateScreen(
             )
 
             // ── 正文（图文混排） ──────────────────────────────────────────
-            // weight 放在普通 Box 上确保稳定撑满剩余空间，编辑器再 fillMaxSize 填满，
-            // 避免 verticalScroll 在内容较短时回退成包裹高度、导致工具栏没被顶到键盘上方
+            // 正文填满到屏幕底部；键盘在 adjustNothing 下「盖」在上面，由编辑器内部自动滚动避让。
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -205,22 +204,25 @@ fun CreateScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+        }
 
-            // ── 格式工具栏 ────────────────────────────────────────────────
-            if (imeVisible || forceToolbarVisible) {
-                FormattingToolbar(
-                    onHideKeyboard = { keyboardController?.hide() },
-                    onBold = { editor.toggle(RichSpan.Bold) },
-                    isBoldActive = editor.isActive(RichSpan.Bold),
-                    onItalic = { editor.toggle(RichSpan.Italic) },
-                    isItalicActive = editor.isActive(RichSpan.Italic),
-                    onInsertImage = {
-                        imagePicker.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
-                )
-            }
+        // ── 格式工具栏：悬浮在键盘上方（imePadding 抬升），不挤占正文 ──────────
+        if (imeVisible || forceToolbarVisible) {
+            FormattingToolbar(
+                onHideKeyboard = { keyboardController?.hide() },
+                onBold = { editor.toggle(RichSpan.Bold) },
+                isBoldActive = editor.isActive(RichSpan.Bold),
+                onItalic = { editor.toggle(RichSpan.Italic) },
+                isItalicActive = editor.isActive(RichSpan.Italic),
+                onInsertImage = {
+                    imagePicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .imePadding(),
+            )
         }
 
         // ── BottomSheet ───────────────────────────────────────────────────

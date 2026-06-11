@@ -12,16 +12,23 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -32,9 +39,17 @@ import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.TextBlock
 import java.io.File
 
+// 工具栏在键盘之上占用的高度（用于把光标的可见下界再上移一点）
+private val TOOLBAR_RESERVE = 64.dp
+// 光标与可见下界之间的安全边距
+private val REVEAL_MARGIN = 16.dp
+
 /**
- * 图文正文编辑器：按顺序渲染文本块（可编辑、支持加粗/斜体）与图片块（可删除）。
- * 任何文本/结构变化都通过 [onContentChanged] 通知上层去同步与保存。
+ * 图文正文编辑器（Block-editor 方案 Phase 1）。
+ *
+ * 键盘方案：配合 `adjustNothing`（见 MainActivity）——键盘弹出窗口不重排、内容/光标布局不动；
+ * 键盘只是「盖」在底部。本编辑器在「光标底超过可见下界（视口底 − 键盘 − 工具栏 − 边距）」时，
+ * 才用同帧滚动恰好把光标露出；其余时刻不动 → 持续输入光标位置不变、内容仅在被遮时上滚。
  */
 @Composable
 fun NoteContentEditor(
@@ -43,17 +58,31 @@ fun NoteContentEditor(
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
+    val density = LocalDensity.current
+    val scrollState = rememberScrollState()
+    var contentCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+    // 键盘高度（adjustNothing 下窗口不缩，但 ime inset 仍上报）
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val toolbarReservePx = with(density) { if (imeBottomPx > 0) TOOLBAR_RESERVE.toPx() else 0f }
+    val revealMarginPx = with(density) { REVEAL_MARGIN.toPx() }
+    // 可见区下界以下被键盘/工具栏遮挡的总高度
+    val bottomCoverPx = imeBottomPx + toolbarReservePx + revealMarginPx
+    // 滚动内容底部预留：让末尾内容能滚到键盘/工具栏之上
+    val bottomPad = with(density) { (imeBottomPx + toolbarReservePx).toDp() }
+
     Column(
         modifier = modifier
-            .fillMaxSize()                 // 填满可用高度，使下方空白区也能接收点击
-            .verticalScroll(rememberScrollState())
-            // 点击正文空白处（非文本/图片块本身）时，聚焦最后一个文本块并调起键盘
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .onGloballyPositioned { contentCoords = it }
+            // 点击正文空白处：聚焦最后一个文本块并调起键盘
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {
                     state.focusLastTextBlock()
-                    keyboard?.show()   // 焦点未变化（键盘曾被收起）时也能重新弹出
+                    keyboard?.show()
                 },
             ),
     ) {
@@ -68,6 +97,9 @@ fun NoteContentEditor(
                         showPlaceholder = singleEmpty,
                         onFocused = { state.onTextFocused(block.id) },
                         onChanged = onContentChanged,
+                        scrollState = scrollState,
+                        contentCoordsProvider = { contentCoords },
+                        bottomCoverPx = bottomCoverPx,
                     )
 
                     is ImageBlock -> ImageBlockView(
@@ -81,9 +113,10 @@ fun NoteContentEditor(
             }
         }
 
-        // 底部留白 + 导航栏高度，避免最后一块内容被导航栏遮挡
-        Spacer(modifier = Modifier.height(70.dp))
+        // 导航栏清空白
         Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        // 键盘/工具栏预留：使末尾内容/光标能滚到它们之上
+        Spacer(modifier = Modifier.height(bottomPad))
     }
 }
 
@@ -93,7 +126,13 @@ private fun TextBlockField(
     showPlaceholder: Boolean,
     onFocused: () -> Unit,
     onChanged: () -> Unit,
+    scrollState: androidx.compose.foundation.ScrollState,
+    contentCoordsProvider: () -> LayoutCoordinates?,
+    bottomCoverPx: Float,
 ) {
+    var fieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var isFocused by remember { mutableStateOf(false) }
+
     BasicTextField(
         value = block.rich.value,
         onValueChange = {
@@ -102,8 +141,12 @@ private fun TextBlockField(
         },
         modifier = Modifier
             .fillMaxWidth()
+            .onGloballyPositioned { fieldCoords = it }
             .focusRequester(block.focusRequester)
-            .onFocusChanged { if (it.isFocused) onFocused() }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
             .padding(horizontal = 20.dp, vertical = 6.dp),
         textStyle = TextStyle(
             fontSize = 16.sp,
@@ -111,6 +154,32 @@ private fun TextBlockField(
             lineHeight = 26.sp,
         ),
         cursorBrush = SolidColor(ColorTextTitle),
+        onTextLayout = { layout ->
+            val content = contentCoordsProvider()
+            val field = fieldCoords
+            if (isFocused && content != null && field != null && content.isAttached && field.isAttached) {
+                val value = block.rich.value
+                val offset = value.selection.end.coerceIn(0, value.text.length)
+                val rect = layout.getCursorRect(offset)
+                val viewport = content.size.height
+                if (viewport > 0) {
+                    val cursorBottomViewportY =
+                        content.localPositionOf(field, Offset(0f, rect.bottom)).y
+                    val cursorTopViewportY =
+                        content.localPositionOf(field, Offset(0f, rect.top)).y
+                    // 可见下界 = 视口底 − 键盘 − 工具栏 − 安全边距
+                    val visibleBottom = viewport - bottomCoverPx
+                    when {
+                        // 光标被键盘/工具栏遮住 → 同帧上滚恰好露出
+                        cursorBottomViewportY > visibleBottom ->
+                            scrollState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
+                        // 光标在可视区上方 → 向上滚动露出
+                        cursorTopViewportY < 0f ->
+                            scrollState.dispatchRawDelta(cursorTopViewportY)
+                    }
+                }
+            }
+        },
         decorationBox = { inner ->
             if (showPlaceholder && block.rich.value.text.isEmpty()) {
                 Text("Type here...", fontSize = 16.sp, color = ColorTextHint)

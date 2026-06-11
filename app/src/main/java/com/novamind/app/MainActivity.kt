@@ -1,6 +1,7 @@
 package com.novamind.app
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,6 +40,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Block-editor 光标方案：adjustNothing —— 键盘弹出窗口不重排，内容/光标布局不动，
+        // 仅由编辑器在「光标被键盘遮住」时自行滚动。
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         setContent {
             AppTheme {
                 var currentRoute by rememberSaveable {
