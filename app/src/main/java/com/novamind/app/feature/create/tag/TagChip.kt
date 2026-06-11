@@ -47,20 +47,12 @@ fun TagChip(
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .background(tagColor, shape = CircleShape)
-                )
-            }
             Text(
                 text = tag.name,
                 fontSize = 13.sp,
                 color = if (isSelected) tagColor else Color(0xFF6B6B6B),
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = FontWeight.Normal,
             )
         }
     }
