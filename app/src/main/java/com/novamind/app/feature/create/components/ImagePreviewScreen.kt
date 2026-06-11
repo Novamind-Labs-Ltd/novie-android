@@ -3,8 +3,7 @@ package com.novamind.app.feature.create.components
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -33,6 +32,7 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,20 +41,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.novamind.app.R
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -102,15 +107,26 @@ fun ImagePreviewScreen(
     // 删除确认弹窗
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // 缩放 / 平移状态（当前页）：用 Animatable 以便双击带补间动画；捏合用 snapTo 即时跟手
-    val scaleAnim = remember { Animatable(1f) }
-    val offsetAnim = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
-    val scale = scaleAnim.value
+    // 缩放 / 平移状态（当前页）。手势期间直接同步更新 state（最跟手、无协程开销），
+    // 双击用动画过渡。offset 始终夹紧在边界内，避免拖出空白。
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
     val scope = rememberCoroutineScope()
-    // 翻页时平滑复位
+    var zoomAnimJob by remember { mutableStateOf<Job?>(null) }
+
+    // 把平移夹紧在「放大后图片仍覆盖视口」的范围内：|t| ≤ 容器尺寸 × (scale−1) / 2
+    fun clampOffset(o: Offset, s: Float): Offset {
+        val maxX = (containerSize.width * (s - 1f) / 2f).coerceAtLeast(0f)
+        val maxY = (containerSize.height * (s - 1f) / 2f).coerceAtLeast(0f)
+        return Offset(o.x.coerceIn(-maxX, maxX), o.y.coerceIn(-maxY, maxY))
+    }
+
+    // 翻页时复位
     LaunchedEffect(pagerState.currentPage) {
-        scaleAnim.animateTo(1f, tween(200))
-        offsetAnim.snapTo(Offset.Zero)
+        zoomAnimJob?.cancel()
+        scale = 1f
+        offset = Offset.Zero
     }
 
     // 沉浸模式：单击切换。开启时背景变黑、隐藏顶栏（顶部/底部留黑边）
@@ -134,12 +150,13 @@ fun ImagePreviewScreen(
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             val isCurrent = page == pagerState.currentPage
-            val pageScale = if (isCurrent) scaleAnim.value else 1f
-            val pageOffset = if (isCurrent) offsetAnim.value else Offset.Zero
+            val pageScale = if (isCurrent) scale else 1f
+            val pageOffset = if (isCurrent) offset else Offset.Zero
 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .onSizeChanged { if (isCurrent) containerSize = it }
                     .pointerInput(page) {
                         detectTapGestures(
                             onTap = {
@@ -148,13 +165,17 @@ fun ImagePreviewScreen(
                             onDoubleTap = {
                                 if (!isCurrent) return@detectTapGestures
                                 // 双击：在 1× 与 2.5× 间补间切换，不突变
-                                val target = if (scaleAnim.value > 1f) 1f else 2.5f
-                                scope.launch {
-                                    if (target == 1f) {
-                                        // 缩小：缩放与平移同步动画回位
-                                        launch { offsetAnim.animateTo(Offset.Zero, tween(250)) }
+                                val targetScale = if (scale > 1f) 1f else 2.5f
+                                val startScale = scale
+                                val startOffset = offset
+                                val targetOffset =
+                                    if (targetScale > 1f) clampOffset(startOffset, targetScale) else Offset.Zero
+                                zoomAnimJob?.cancel()
+                                zoomAnimJob = scope.launch {
+                                    animate(0f, 1f, animationSpec = tween(250)) { t, _ ->
+                                        scale = lerp(startScale, targetScale, t)
+                                        offset = lerp(startOffset, targetOffset, t)
                                     }
-                                    scaleAnim.animateTo(target, tween(250))
                                 }
                             },
                         )
@@ -164,18 +185,18 @@ fun ImagePreviewScreen(
                         // 单指且未放大时不消费 → 交给 HorizontalPager 做左右翻页。
                         awaitEachGesture {
                             awaitFirstDown(requireUnconsumed = false)
+                            zoomAnimJob?.cancel()   // 触摸开始即打断进行中的双击动画
                             do {
                                 val event = awaitPointerEvent()
                                 if (!isCurrent) continue
                                 val pointers = event.changes.count { it.pressed }
                                 val zoom = event.calculateZoom()
                                 val pan = event.calculatePan()
-                                if (pointers >= 2 || scaleAnim.value > 1f) {
-                                    val newScale = (scaleAnim.value * zoom).coerceIn(1f, 5f)
-                                    val newOffset = if (newScale > 1f) offsetAnim.value + pan else Offset.Zero
-                                    // 捏合即时跟手：snapTo（无补间）
-                                    scope.launch { scaleAnim.snapTo(newScale) }
-                                    scope.launch { offsetAnim.snapTo(newOffset) }
+                                if (pointers >= 2 || scale > 1f) {
+                                    val newScale = (scale * zoom).coerceIn(1f, 5f)
+                                    // 直接同步更新 + 夹紧边界：跟手、不卡顿、不出界
+                                    scale = newScale
+                                    offset = if (newScale > 1f) clampOffset(offset + pan, newScale) else Offset.Zero
                                     event.changes.forEach { if (it.positionChanged()) it.consume() }
                                 }
                             } while (event.changes.any { it.pressed })
