@@ -25,6 +25,7 @@ sealed class CreateEvent {
 
 data class CreateUiState(
     val editingNoteId: String? = null,  // null = 新笔记，非 null = 编辑已有笔记
+    val updatedAt: Long? = null,        // 编辑已有笔记时的更新时间；新笔记为 null
     val title: String = "",
     val body: String = "",              // 图文混排文档 JSON（旧数据为纯文本）
     val selectedTags: List<Tag> = emptyList(),

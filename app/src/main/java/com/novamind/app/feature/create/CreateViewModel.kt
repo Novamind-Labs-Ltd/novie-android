@@ -54,6 +54,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             val note = noteRepository.getNoteById(noteId) ?: return@launch
             _uiState.value = CreateUiState(
                 editingNoteId = note.id,
+                updatedAt = note.updatedAt,
                 title = note.title,
                 body = note.body,
                 selectedTags = note.tags,

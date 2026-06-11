@@ -1,6 +1,5 @@
 package com.novamind.app.feature.create
 
-import android.text.format.DateFormat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -45,7 +44,7 @@ import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
 import com.novamind.app.ui.theme.AppTheme
-import java.util.Date
+import com.novamind.app.util.TimeFormat
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -92,7 +91,10 @@ fun CreateScreen(
 ) {
     val imeVisible =
         WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
-    val timeLabel = remember { DateFormat.format("Today HH:mm", Date()).toString() }
+    // 编辑已有笔记：展示其更新时间；新建：展示当前时间
+    val timeLabel = remember(uiState.updatedAt) {
+        TimeFormat.relative(uiState.updatedAt ?: System.currentTimeMillis())
+    }
 
     // 悬浮工具栏在屏幕上的真实顶边（窗口坐标 px）——作为遮挡线，光标须露在其上方
     var toolbarTopWindowY by remember { mutableStateOf(Float.MAX_VALUE) }
