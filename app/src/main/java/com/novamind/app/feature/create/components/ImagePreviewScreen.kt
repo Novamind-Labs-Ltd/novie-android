@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -192,10 +193,43 @@ fun ImagePreviewScreen(
         label = "previewBg",
     )
 
+    // 下拉关闭：竖直拖拽距离（仅向下）。图片随之缩小、背景渐隐，露出下层笔记页（近共享元素）
+    var dragDownY by remember { mutableFloatStateOf(0f) }
+    val dismissDistance = (containerSize.height.takeIf { it > 0 } ?: 1).toFloat()
+    val dismissProgress = (dragDownY / dismissDistance).coerceIn(0f, 1f)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(bgColor),
+            .background(bgColor.copy(alpha = 1f - dismissProgress * 0.85f))
+            // 下拉关闭手势：未放大时生效；向下拖动 → 关闭，向上忽略
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, dragAmount ->
+                        if (scale <= 1f) {
+                            dragDownY = (dragDownY + dragAmount).coerceAtLeast(0f)
+                            if (dragDownY > 0f) change.consume()
+                        }
+                    },
+                    onDragEnd = {
+                        if (dragDownY > dismissDistance * 0.18f) {
+                            // 超过阈值：继续缩小并关闭
+                            scope.launch {
+                                animate(dragDownY, dismissDistance, tween(200)) { v, _ -> dragDownY = v }
+                                onBack()
+                            }
+                        } else {
+                            // 未达阈值：弹回
+                            scope.launch {
+                                animate(dragDownY, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { v, _ -> dragDownY = v }
+                            }
+                        }
+                    },
+                    onDragCancel = {
+                        scope.launch { animate(dragDownY, 0f, tween(150)) { v, _ -> dragDownY = v } }
+                    },
+                )
+            },
     ) {
         // 图片数 ≥ 2 且未放大时才允许左右翻页；放大后水平拖动用于平移
         HorizontalPager(
@@ -205,7 +239,14 @@ fun ImagePreviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(edgeOverscroll)
-                .graphicsLayer { translationX = overscrollX.floatValue },
+                .graphicsLayer {
+                    translationX = overscrollX.floatValue
+                    // 下拉关闭：整体下移 + 缩小（最多缩到 0.6×）
+                    translationY = dragDownY
+                    val s = 1f - dismissProgress * 0.4f
+                    scaleX = s
+                    scaleY = s
+                },
         ) { page ->
             val isCurrent = page == pagerState.currentPage
             val pageScale = if (isCurrent) scale else 1f
@@ -296,7 +337,7 @@ fun ImagePreviewScreen(
 
         // 顶栏：返回 | N of M | 删除（沉浸模式下淡出隐藏）
         AnimatedVisibility(
-            visible = !immersive,
+            visible = !immersive && dragDownY == 0f,
             enter = fadeIn(tween(220)),
             exit = fadeOut(tween(180)),
         ) {
