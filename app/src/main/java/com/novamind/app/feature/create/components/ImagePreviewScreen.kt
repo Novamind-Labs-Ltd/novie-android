@@ -3,7 +3,9 @@ package com.novamind.app.feature.create.components
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -185,7 +187,8 @@ fun ImagePreviewScreen(
                         // 单指且未放大时不消费 → 交给 HorizontalPager 做左右翻页。
                         awaitEachGesture {
                             awaitFirstDown(requireUnconsumed = false)
-                            zoomAnimJob?.cancel()   // 触摸开始即打断进行中的双击动画
+                            zoomAnimJob?.cancel()   // 触摸开始即打断进行中的动画
+                            var moved = false
                             do {
                                 val event = awaitPointerEvent()
                                 if (!isCurrent) continue
@@ -194,12 +197,27 @@ fun ImagePreviewScreen(
                                 val pan = event.calculatePan()
                                 if (pointers >= 2 || scale > 1f) {
                                     val newScale = (scale * zoom).coerceIn(1f, 5f)
-                                    // 直接同步更新 + 夹紧边界：跟手、不卡顿、不出界
+                                    // 拖拽期间直接同步更新、允许越界（跟手、不卡顿）
                                     scale = newScale
-                                    offset = if (newScale > 1f) clampOffset(offset + pan, newScale) else Offset.Zero
+                                    offset = if (newScale > 1f) offset + pan else Offset.Zero
+                                    moved = true
                                     event.changes.forEach { if (it.positionChanged()) it.consume() }
                                 }
                             } while (event.changes.any { it.pressed })
+
+                            // 松手回弹：若越界，用弹簧动画把 offset 滚回合法边界
+                            if (moved && scale > 1f) {
+                                val start = offset
+                                val target = clampOffset(start, scale)
+                                if (start != target) {
+                                    zoomAnimJob = scope.launch {
+                                        animate(
+                                            0f, 1f,
+                                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                        ) { t, _ -> offset = lerp(start, target, t) }
+                                    }
+                                }
+                            }
                         }
                     },
                 contentAlignment = Alignment.Center,
