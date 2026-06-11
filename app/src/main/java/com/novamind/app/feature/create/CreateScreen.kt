@@ -150,6 +150,10 @@ fun CreateScreen(
                 onShare = {},
                 onUndo = { onEvent(CreateEvent.UndoEdit) },
                 onRedo = { onEvent(CreateEvent.RedoEdit) },
+                onDelete = {
+                    keyboardController?.hide()
+                    onEvent(CreateEvent.DeleteNote)
+                },
             )
 
             // ── 标题 ──────────────────────────────────────────────────────

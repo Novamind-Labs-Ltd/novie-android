@@ -37,6 +37,7 @@ fun CreateTopBar(
     onShare: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
+    onDelete: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -113,6 +114,16 @@ fun CreateTopBar(
                             onClick = {
                                 menuExpanded = false
                                 onShare()
+                            },
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text("Delete", fontSize = 16.sp, color = ColorDanger)
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onDelete()
                             },
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         )

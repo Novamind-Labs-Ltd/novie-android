@@ -14,6 +14,7 @@ sealed class CreateEvent {
     data class FolderSelected(val folder: Folder?) : CreateEvent()
     data class NewFolderCreated(val name: String) : CreateEvent()
     object SaveNote : CreateEvent()
+    object DeleteNote : CreateEvent()
     object UndoEdit : CreateEvent()
     object RedoEdit : CreateEvent()
     object DismissTagPicker : CreateEvent()
