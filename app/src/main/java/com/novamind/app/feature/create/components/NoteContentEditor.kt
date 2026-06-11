@@ -39,8 +39,6 @@ import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.TextBlock
 import java.io.File
 
-// 工具栏在键盘之上占用的高度（用于把光标的可见下界再上移一点）
-private val TOOLBAR_RESERVE = 64.dp
 // 光标与可见下界之间的安全边距
 private val REVEAL_MARGIN = 16.dp
 
@@ -55,6 +53,7 @@ private val REVEAL_MARGIN = 16.dp
 fun NoteContentEditor(
     state: NoteEditorState,
     onContentChanged: () -> Unit,
+    toolbarHeightPx: Int = 0,   // 悬浮工具栏实测高度（键盘隐藏时由调用方传 0）
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -64,7 +63,7 @@ fun NoteContentEditor(
 
     // 键盘高度（adjustNothing 下窗口不缩，但 ime inset 仍上报）
     val imeBottomPx = WindowInsets.ime.getBottom(density)
-    val toolbarReservePx = with(density) { if (imeBottomPx > 0) TOOLBAR_RESERVE.toPx() else 0f }
+    val toolbarReservePx = if (imeBottomPx > 0) toolbarHeightPx.toFloat() else 0f
     val revealMarginPx = with(density) { REVEAL_MARGIN.toPx() }
     // 可见区下界以下被键盘/工具栏遮挡的总高度
     val bottomCoverPx = imeBottomPx + toolbarReservePx + revealMarginPx
