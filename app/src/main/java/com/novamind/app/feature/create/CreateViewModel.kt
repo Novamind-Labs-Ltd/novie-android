@@ -120,7 +120,8 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                             state.availableTags.filterNot { it.id == event.tag.id }
                         state.copy(
                             availableTags = reordered,
-                            selectedTags = state.selectedTags + event.tag,
+                            // 最新选中放最前，CreateMetaRow 也按此顺序显示
+                            selectedTags = listOf(event.tag) + state.selectedTags,
                         )
                     }
                 }
@@ -133,7 +134,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                     // 新建即选中：放到可选列表最前面
                     state.copy(
                         availableTags = listOf(newTag) + state.availableTags,
-                        selectedTags = state.selectedTags + newTag,
+                        selectedTags = listOf(newTag) + state.selectedTags,
                     )
                 }
                 viewModelScope.launch { saveNow() }
