@@ -20,9 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.theme.AppTheme
 
 /**
  * 输入时显示的格式工具栏：可横向滑动的工具列表 + 固定的收起键盘按钮。
@@ -137,6 +139,19 @@ private fun ToolbarTextBtn(
             fontWeight = fontWeight,
             fontStyle = fontStyle,
             color = if (active) ColorPrimary else ColorTextTitle,
+        )
+    }
+}
+
+// ─── Preview ────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8)
+@Composable
+private fun FormattingToolbarPreview() {
+    AppTheme {
+        FormattingToolbar(
+            isBoldActive = true,
+            isItalicActive = false,
         )
     }
 }

@@ -16,12 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.tag.Tag
 import com.novamind.app.feature.create.tag.TagChip
+import com.novamind.app.ui.theme.AppTheme
 
 /**
  * Meta 操作行：文件夹 chip、标签 chip（已选标签 + 添加入口）、时间 chip。可横向滚动。
@@ -127,5 +129,38 @@ private fun MetaChip(
                 fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
             )
         }
+    }
+}
+
+// ─── Preview ────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "未选择")
+@Composable
+private fun CreateMetaRowEmptyPreview() {
+    AppTheme {
+        CreateMetaRow(
+            selectedFolder = null,
+            selectedTags = emptyList(),
+            timeLabel = "Today 14:26",
+            onShowFolderPicker = {},
+            onShowTagPicker = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "已选文件夹+标签")
+@Composable
+private fun CreateMetaRowFilledPreview() {
+    AppTheme {
+        CreateMetaRow(
+            selectedFolder = Folder(id = "f1", name = "Work"),
+            selectedTags = listOf(
+                Tag(id = "t1", name = "Research", colorHex = "#3D7A5A"),
+                Tag(id = "t3", name = "Design", colorHex = "#3D5A7A"),
+            ),
+            timeLabel = "Today 14:26",
+            onShowFolderPicker = {},
+            onShowTagPicker = {},
+        )
     }
 }

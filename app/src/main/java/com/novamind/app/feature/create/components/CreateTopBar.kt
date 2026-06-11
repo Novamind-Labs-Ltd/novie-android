@@ -14,8 +14,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.novamind.app.R
+import com.novamind.app.ui.theme.AppTheme
 
 /**
  * 顶部操作行：左侧圆形返回按钮，右侧 Share | 撤销 | 重做 胶囊。
@@ -121,6 +123,23 @@ private fun TopBarIconBtn(
             contentDescription = contentDescription,
             tint = if (enabled) ColorTextTitle else ColorTextHint,
             modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+// ─── Preview ────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8)
+@Composable
+private fun CreateTopBarPreview() {
+    AppTheme {
+        CreateTopBar(
+            canUndo = true,
+            canRedo = false,
+            onBack = {},
+            onShare = {},
+            onUndo = {},
+            onRedo = {},
         )
     }
 }
