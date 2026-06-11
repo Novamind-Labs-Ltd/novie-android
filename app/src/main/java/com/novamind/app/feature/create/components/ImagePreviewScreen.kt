@@ -215,7 +215,7 @@ fun ImagePreviewScreen(
                         if (dragDownY > dismissDistance * 0.18f) {
                             // 超过阈值：继续缩小并关闭
                             scope.launch {
-                                animate(dragDownY, dismissDistance, tween(200)) { v, _ -> dragDownY = v }
+                                animate(dragDownY, dismissDistance, animationSpec = tween(200)) { v, _ -> dragDownY = v }
                                 onBack()
                             }
                         } else {
@@ -226,7 +226,7 @@ fun ImagePreviewScreen(
                         }
                     },
                     onDragCancel = {
-                        scope.launch { animate(dragDownY, 0f, tween(150)) { v, _ -> dragDownY = v } }
+                        scope.launch { animate(dragDownY, 0f, animationSpec = tween(150)) { v, _ -> dragDownY = v } }
                     },
                 )
             },
