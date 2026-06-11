@@ -30,7 +30,9 @@ import com.novamind.app.feature.create.components.AttachmentSheet
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.feature.create.components.DeleteConfirmSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
+import com.novamind.app.feature.create.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor
+import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.folder.FolderPickerSheet
 import com.novamind.app.feature.create.tag.TagPickerSheet
 import com.novamind.app.feature.create.editor.ImageStore
@@ -90,6 +92,8 @@ fun CreateScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     // 插入附件选择弹窗显隐
     var showAttachSheet by remember { mutableStateOf(false) }
+    // 图片预览：当前预览的图片下标（null = 不显示）
+    var previewIndex by remember { mutableStateOf<Int?>(null) }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -246,6 +250,11 @@ fun CreateScreen(
                     state = editor,
                     onContentChanged = emitContent,
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
+                    onImageClick = { id ->
+                        keyboardController?.hide()
+                        val idx = editor.blocks.filterIsInstance<ImageBlock>().indexOfFirst { it.id == id }
+                        if (idx >= 0) previewIndex = idx
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -319,6 +328,19 @@ fun CreateScreen(
                 },
                 onPickDocument = { documentPicker.launch(arrayOf("*/*")) },
                 onDismiss = { showAttachSheet = false },
+            )
+        }
+
+        // 图片预览（全屏覆盖）：左右滑动 / 缩放 / 删除
+        previewIndex?.let { idx ->
+            val images = editor.blocks.filterIsInstance<ImageBlock>()
+            ImagePreviewScreen(
+                paths = images.map { it.path },
+                initialIndex = idx,
+                onDelete = { page ->
+                    images.getOrNull(page)?.let { editor.removeBlock(it.id); emitContent() }
+                },
+                onBack = { previewIndex = null },
             )
         }
     }

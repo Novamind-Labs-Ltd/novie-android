@@ -64,6 +64,7 @@ fun NoteContentEditor(
     state: NoteEditorState,
     onContentChanged: () -> Unit,
     coverTopWindowY: Float = Float.MAX_VALUE,   // 工具栏顶边窗口 Y；无遮挡时传 MAX_VALUE
+    onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -121,10 +122,7 @@ fun NoteContentEditor(
 
                     is ImageBlock -> ImageBlockView(
                         block = block,
-                        onDelete = {
-                            state.removeBlock(block.id)
-                            onContentChanged()
-                        },
+                        onClick = { onImageClick(block.id) },
                     )
 
                     is FileBlock -> FileBlockView(
@@ -239,13 +237,14 @@ private fun TextBlockField(
 @Composable
 private fun ImageBlockView(
     block: ImageBlock,
-    onDelete: () -> Unit,
+    onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
+        // 点击图片进入预览（删除在预览页内进行）
         AsyncImage(
             model = File(block.path),
             contentDescription = "Note image",
@@ -253,25 +252,13 @@ private fun ImageBlockView(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFE8E7E2)),
-        )
-        // 删除按钮
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(Color(0x99000000))
+                .background(Color(0xFFE8E7E2))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onDelete,
+                    indication = ripple(),
+                    onClick = onClick,
                 ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("×", color = Color.White, fontSize = 18.sp)
-        }
+        )
     }
 }
 
