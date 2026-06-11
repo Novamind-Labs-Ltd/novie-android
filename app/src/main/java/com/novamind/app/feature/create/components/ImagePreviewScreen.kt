@@ -1,9 +1,13 @@
 package com.novamind.app.feature.create.components
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -37,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
@@ -92,10 +97,18 @@ fun ImagePreviewScreen(
         offsetAnim.snapTo(Offset.Zero)
     }
 
+    // 沉浸模式：单击切换。开启时背景变黑、隐藏顶栏（顶部/底部留黑边）
+    var immersive by remember { mutableStateOf(false) }
+    val bgColor by animateColorAsState(
+        targetValue = if (immersive) Color.Black else BgPage,
+        animationSpec = tween(220),
+        label = "previewBg",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgPage),
+            .background(bgColor),
     ) {
         // 图片数 ≥ 2 且未放大时才允许左右翻页；放大后水平拖动用于平移
         HorizontalPager(
@@ -112,6 +125,9 @@ fun ImagePreviewScreen(
                     .fillMaxSize()
                     .pointerInput(page) {
                         detectTapGestures(
+                            onTap = {
+                                if (isCurrent) immersive = !immersive
+                            },
                             onDoubleTap = {
                                 if (!isCurrent) return@detectTapGestures
                                 // 双击：在 1× 与 2.5× 间补间切换，不突变
@@ -166,24 +182,30 @@ fun ImagePreviewScreen(
             }
         }
 
-        // 顶栏：返回 | N of M | 删除
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+        // 顶栏：返回 | N of M | 删除（沉浸模式下淡出隐藏）
+        AnimatedVisibility(
+            visible = !immersive,
+            enter = fadeIn(tween(220)),
+            exit = fadeOut(tween(180)),
         ) {
-            CircleIconButton(R.drawable.ic_arrow_back, "Back", onClick = onBack)
-            Text(
-                text = "${pagerState.currentPage + 1} of ${paths.size}",
-                fontSize = 16.sp,
-                color = ColorTextTitle,
-            )
-            CircleIconButton(R.drawable.ic_delete, "Delete", onClick = {
-                showDeleteConfirm = true
-            })
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                CircleIconButton(R.drawable.ic_arrow_back, "Back", onClick = onBack)
+                Text(
+                    text = "${pagerState.currentPage + 1} of ${paths.size}",
+                    fontSize = 16.sp,
+                    color = ColorTextTitle,
+                )
+                CircleIconButton(R.drawable.ic_delete, "Delete", onClick = {
+                    showDeleteConfirm = true
+                })
+            }
         }
 
         // 删除二次确认
