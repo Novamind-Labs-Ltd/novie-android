@@ -104,6 +104,8 @@ class MainActivity : ComponentActivity() {
                         AppBottomNavBar(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
+                                // 已在当前页（如编辑中点 Create）→ 保持不变，不重置不跳转
+                                if (route == currentRoute) return@AppBottomNavBar
                                 if (route == BottomNavDestination.Create.route) editingNoteId = null
                                 currentRoute = route
                             },
