@@ -26,6 +26,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.novamind.app.common.onboarding.OnboardingScreen
+import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateDialog
 import com.novamind.app.debug.DebugPanel
@@ -62,6 +65,11 @@ class MainActivity : ComponentActivity() {
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
                 // 图片预览等全屏页打开时隐藏底部导航栏
                 var hideBottomNav by rememberSaveable { mutableStateOf(false) }
+                // 首启引导页
+                val appContext = LocalContext.current
+                var showOnboarding by rememberSaveable {
+                    mutableStateOf(!OnboardingStore.isCompleted(appContext))
+                }
 
                 // 冷启动检查升级（Mock 策略；可在 Debug 工具箱模拟）
                 LaunchedEffect(Unit) { UpdateController.checkOnStartup(BuildConfig.VERSION_CODE) }
@@ -152,6 +160,16 @@ class MainActivity : ComponentActivity() {
                             },
                             onLater = { UpdateController.dismiss() },
                             onExit = { finish() },
+                        )
+                    }
+
+                    // 首启引导页（最顶层，覆盖全屏）
+                    if (showOnboarding) {
+                        OnboardingScreen(
+                            onFinish = {
+                                OnboardingStore.setCompleted(appContext, true)
+                                showOnboarding = false
+                            },
                         )
                     }
                 }

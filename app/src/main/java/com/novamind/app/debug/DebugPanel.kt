@@ -44,6 +44,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.NovieApplication
+import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
 import com.novamind.app.common.web.WebViewScreen
@@ -163,6 +164,9 @@ fun DebugPanel(
                     }
                     Chip("example.com") { urlInput = "https://example.com"; webUrl = urlInput }
                     Chip("Bing") { urlInput = "https://m.bing.com"; webUrl = urlInput }
+                    Chip("重置引导页") {
+                        OnboardingStore.setCompleted(context, false)
+                    }
                 }
             }
 
