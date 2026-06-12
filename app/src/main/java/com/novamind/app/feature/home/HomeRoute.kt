@@ -20,54 +20,61 @@ import com.novamind.app.feature.notifications.NotificationListScreen
 import com.novamind.app.feature.notifications.sampleNotifications
 import com.novamind.app.feature.notifications.unreadCount
 
+/** Home 下的子页面 */
+private enum class HomeOverlay { None, Notifications, Upcoming }
+
 @Composable
 fun HomeRoute(
     onUpcomingSeeAll: () -> Unit = {},
     onNotesSeeAll: () -> Unit = {},
     onNoteClick: (noteId: String) -> Unit = {},
-    onFullscreenChange: (Boolean) -> Unit = {},   // 通知列表全屏页 → 宿主隐藏底部导航
+    onFullscreenChange: (Boolean) -> Unit = {},   // 子页全屏 → 宿主隐藏底部导航
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var notifications by remember { mutableStateOf(sampleNotifications) }
-    var showNotifications by remember { mutableStateOf(false) }
-    LaunchedEffect(showNotifications) { onFullscreenChange(showNotifications) }
+    var overlay by remember { mutableStateOf(HomeOverlay.None) }
+    LaunchedEffect(overlay) { onFullscreenChange(overlay != HomeOverlay.None) }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
 
-    // 首页 / 通知页之间用与 MainActivity 完全一致的页面转场（含底层页视差）
+    // Home ↔ 子页：与 MainActivity 一致的页面转场（含底层页视差）
     AnimatedContent(
-        targetState = showNotifications,
+        targetState = overlay,
         modifier = modifier,
         transitionSpec = {
-            if (targetState) {
-                // 进入通知页（前进）
+            val forward = targetState != HomeOverlay.None   // 进入子页为前进
+            if (forward) {
                 (slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f))
                     .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut())
             } else {
-                // 退出通知页 / 返回首页（后退）
                 (slideInHorizontally { -it / 3 } + fadeIn(initialAlpha = 0.3f))
                     .togetherWith(slideOutHorizontally { it } + fadeOut())
             }
         },
-        label = "home_notifications",
-    ) { showing ->
-        if (showing) {
-            NotificationListScreen(
-                notifications = notifications,
-                onBack = { showNotifications = false },
-                onMarkAllRead = { notifications = notifications.map { it.copy(read = true) } },
-            )
-        } else {
-            HomeScreen(
+        label = "home_overlay",
+    ) { ov ->
+        when (ov) {
+            HomeOverlay.None -> HomeScreen(
                 uiState = uiState,
                 onSearchQueryChange = viewModel::onSearchQueryChange,
-                onUpcomingSeeAll = onUpcomingSeeAll,
+                onUpcomingSeeAll = { overlay = HomeOverlay.Upcoming },
                 onNotesSeeAll = onNotesSeeAll,
                 onNoteClick = onNoteClick,
-                onNotificationsClick = { showNotifications = true },
+                onNotificationsClick = { overlay = HomeOverlay.Notifications },
                 notificationCount = notifications.unreadCount(),
+            )
+
+            HomeOverlay.Notifications -> NotificationListScreen(
+                notifications = notifications,
+                onBack = { overlay = HomeOverlay.None },
+                onMarkAllRead = { notifications = notifications.map { it.copy(read = true) } },
+            )
+
+            HomeOverlay.Upcoming -> UpcomingListScreen(
+                items = sampleUpcoming,
+                onBack = { overlay = HomeOverlay.None },
             )
         }
     }
