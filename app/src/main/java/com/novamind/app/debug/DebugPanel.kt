@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -285,10 +286,8 @@ private fun Chip(label: String, danger: Boolean = false, onClick: () -> Unit) {
         color = if (danger) Danger else Accent,
         modifier = Modifier
             .padding(vertical = 4.dp)
-            .background(
-                (if (danger) Danger else Accent).copy(alpha = 0.10f),
-                RoundedCornerShape(50),
-            )
+            .clip(RoundedCornerShape(50))   // 先裁圆角，使按压 ripple 不超出控件边界
+            .background((if (danger) Danger else Accent).copy(alpha = 0.10f))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),
     )
