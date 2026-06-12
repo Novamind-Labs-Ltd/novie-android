@@ -32,6 +32,14 @@
             </intent-filter>
         </activity>
 
+        <!-- WebView 容器：独立进程，崩溃不影响主进程 -->
+        <activity
+            android:name=".common.web.WebViewActivity"
+            android:exported="false"
+            android:process=":web"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
         <!-- 相机拍照写入内部文件需要的 FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"

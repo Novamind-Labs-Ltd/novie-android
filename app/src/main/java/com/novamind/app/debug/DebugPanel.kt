@@ -40,15 +40,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.NovieApplication
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
-import com.novamind.app.common.web.WebViewScreen
+import com.novamind.app.common.web.WebViewActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -81,7 +79,6 @@ fun DebugPanel(
 
     // 组件/能力测试
     var urlInput by remember { mutableStateOf("https://m.bing.com") }
-    var webUrl by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(refresh) {
         noteCount = runCatching { app.noteRepository.count() }.getOrDefault(-1)
         recCount = File(context.filesDir, "recordings").listFiles()?.size ?: 0
@@ -161,10 +158,11 @@ fun DebugPanel(
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("打开 WebView") {
-                        urlInput.trim().takeIf { it.isNotEmpty() }?.let { webUrl = normalizeUrl(it) }
+                        urlInput.trim().takeIf { it.isNotEmpty() }
+                            ?.let { WebViewActivity.start(context, normalizeUrl(it)) }
                     }
-                    Chip("example.com") { urlInput = "https://example.com"; webUrl = urlInput }
-                    Chip("Bing") { urlInput = "https://m.bing.com"; webUrl = urlInput }
+                    Chip("example.com") { WebViewActivity.start(context, "https://example.com") }
+                    Chip("Bing") { WebViewActivity.start(context, "https://m.bing.com") }
                     Chip("重置引导页") {
                         OnboardingStore.setCompleted(context, false)
                     }
@@ -232,20 +230,6 @@ fun DebugPanel(
                     }
                 }
             }
-        }
-    }
-
-    // WebView 测试：全屏 Dialog 承载 WebViewScreen
-    webUrl?.let { u ->
-        Dialog(
-            onDismissRequest = { webUrl = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-        ) {
-            WebViewScreen(
-                url = u,
-                onBack = { webUrl = null },
-                modifier = Modifier.fillMaxSize(),
-            )
         }
     }
 }

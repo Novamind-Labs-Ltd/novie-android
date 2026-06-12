@@ -3,6 +3,7 @@ package com.novamind.app.common.web
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -68,8 +69,10 @@ fun WebViewScreen(
     var progress by remember { mutableIntStateOf(0) }
     var title by remember { mutableStateOf("") }
     var canGoBack by remember { mutableStateOf(false) }
+    var renderGone by remember { mutableStateOf(false) }
+    var reloadKey by remember { mutableIntStateOf(0) }
 
-    val webView = remember {
+    val webView = remember(reloadKey) {
         WebView(context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -97,6 +100,14 @@ fun WebViewScreen(
                 override fun onPageFinished(view: WebView, url: String?) {
                     canGoBack = view.canGoBack()
                 }
+
+                // 渲染进程崩溃：拦截默认「杀进程」行为，移除并销毁该 WebView，展示重载入口
+                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail?): Boolean {
+                    renderGone = true
+                    (view.parent as? ViewGroup)?.removeView(view)
+                    view.destroy()
+                    return true
+                }
             }
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView, newProgress: Int) {
@@ -116,10 +127,9 @@ fun WebViewScreen(
         if (webView.canGoBack()) webView.goBack() else onBack()
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(webView) {
         onDispose {
-            webView.stopLoading()
-            webView.destroy()
+            runCatching { webView.stopLoading(); webView.destroy() }
         }
     }
 
@@ -170,10 +180,26 @@ fun WebViewScreen(
             )
         }
 
-        AndroidView(
-            factory = { webView },
-            modifier = Modifier.fillMaxSize(),
-        )
+        if (renderGone) {
+            // 渲染进程崩溃后的占位 + 重新加载（重建 WebView）
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("网页已崩溃", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+                Text("渲染进程异常退出", fontSize = 13.sp, color = TextSub)
+                BarButton(R.drawable.ic_refresh, "Reload") {
+                    renderGone = false
+                    reloadKey++
+                }
+            }
+        } else {
+            AndroidView(
+                factory = { webView },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
