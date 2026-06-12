@@ -1,4 +1,4 @@
-package com.novamind.app.feature.notifications
+package com.novamind.app.common.notifications
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background

@@ -16,9 +16,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.novamind.app.feature.notifications.NotificationListScreen
-import com.novamind.app.feature.notifications.sampleNotifications
-import com.novamind.app.feature.notifications.unreadCount
+import com.novamind.app.common.notifications.NotificationListScreen
+import com.novamind.app.common.notifications.sampleNotifications
+import com.novamind.app.common.notifications.unreadCount
 
 /** Home 下的子页面 */
 private enum class HomeOverlay { None, Notifications, Upcoming }

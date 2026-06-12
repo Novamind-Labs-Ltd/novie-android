@@ -44,7 +44,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.NovieApplication
-import com.novamind.app.feature.web.WebViewScreen
+import com.novamind.app.common.web.WebViewScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

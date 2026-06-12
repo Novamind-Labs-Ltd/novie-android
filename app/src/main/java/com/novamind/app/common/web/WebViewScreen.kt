@@ -1,4 +1,4 @@
-package com.novamind.app.feature.web
+package com.novamind.app.common.web
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
