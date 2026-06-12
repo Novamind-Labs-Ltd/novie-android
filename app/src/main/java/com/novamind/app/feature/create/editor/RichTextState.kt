@@ -164,7 +164,12 @@ class RichTextState(initialText: String = "") {
             bullet -> bulletPrefix                     // 设为圆点（新增或覆盖数字）
             else -> "${prevLineNumber(text, lineStart) + 1}. "  // 设为数字
         }
-        spliceText(lineStart, lineStart + existingLen, newMarker)
+        val removedEnd = lineStart + existingLen
+        val delta = newMarker.length - existingLen
+        spliceText(lineStart, removedEnd, newMarker)
+        // 保持光标在原逻辑位置（按行首增删的偏移平移），不跳到标记之后
+        val newCaret = mapPos(caret, lineStart, removedEnd, delta).coerceIn(0, value.text.length)
+        value = value.copy(selection = TextRange(newCaret))
     }
 
     private fun prevLineNumber(text: String, lineStart: Int): Int {
