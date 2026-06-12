@@ -1,4 +1,4 @@
-package com.novamind.app.feature.create.components
+package com.novamind.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -23,11 +23,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.theme.AppTheme
+
+// 公共组件自带配色，避免依赖各 feature 内部颜色常量
+private val SheetBg = Color(0xFFFFFFFF)
+private val TextTitle = Color(0xFF1A1A1A)
+private val TextSub = Color(0xFF6B6B6B)
+private val Danger = Color(0xFFD13C3C)
 
 /**
- * 删除二次确认底部弹窗：标题 + 说明 + Cancel（描边）/ Delete（红色实心）。
+ * 通用「二次确认」底部弹窗：标题 + 说明 + Cancel（描边）/ 确认（红色实心）。
+ * 可用于删除笔记、删除图片等任意需要二次确认的场景。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +50,7 @@ fun DeleteConfirmSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = ColorChipBg,
+        containerColor = SheetBg,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         DeleteConfirmContent(
@@ -54,13 +63,14 @@ fun DeleteConfirmSheet(
     }
 }
 
+/** 确认弹窗的纯内容（不含 sheet 容器），便于在其它容器/预览中复用。 */
 @Composable
-private fun DeleteConfirmContent(
+fun DeleteConfirmContent(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    title: String,
-    message: String,
-    confirmLabel: String,
+    title: String = "Delete note?",
+    message: String = "This will permanently delete the note.",
+    confirmLabel: String = "Delete",
 ) {
     Column(
         modifier = Modifier
@@ -74,45 +84,31 @@ private fun DeleteConfirmContent(
             text = title,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = ColorTextTitle,
+            color = TextTitle,
             textAlign = TextAlign.Center,
         )
         Text(
             text = message,
             fontSize = 15.sp,
-            color = ColorTextSub,
+            color = TextSub,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 12.dp),
         )
         // Cancel —— 白底描边胶囊
         PillButton(
             label = "Cancel",
-            textColor = ColorTextTitle,
-            background = ColorChipBg,
-            border = BorderStroke(1.5.dp, ColorTextTitle),
+            textColor = TextTitle,
+            background = SheetBg,
+            border = BorderStroke(1.5.dp, TextTitle),
             onClick = onDismiss,
         )
-        // Delete —— 红色实心胶囊
+        // 确认 —— 红色实心胶囊
         PillButton(
             label = confirmLabel,
             textColor = Color.White,
-            background = ColorDanger,
+            background = Danger,
             border = null,
             onClick = onConfirm,
-        )
-    }
-}
-
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
-@Composable
-private fun DeleteConfirmContentPreview() {
-    com.novamind.app.ui.theme.AppTheme {
-        DeleteConfirmContent(
-            onConfirm = {},
-            onDismiss = {},
-            title = "Delete image?",
-            message = "This will remove the image from the note.",
-            confirmLabel = "Delete",
         )
     }
 }
@@ -150,5 +146,18 @@ private fun PillButton(
                 color = textColor,
             )
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
+@Composable
+private fun DeleteConfirmContentPreview() {
+    AppTheme {
+        DeleteConfirmContent(
+            onConfirm = {},
+            onDismiss = {},
+            title = "Delete image?",
+            message = "This will remove the image from the note.",
+        )
     }
 }

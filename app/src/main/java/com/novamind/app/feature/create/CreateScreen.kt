@@ -33,7 +33,7 @@ import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.AttachmentSheet
 import com.novamind.app.feature.create.components.CreateTopBar
-import com.novamind.app.feature.create.components.DeleteConfirmSheet
+import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.feature.create.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor

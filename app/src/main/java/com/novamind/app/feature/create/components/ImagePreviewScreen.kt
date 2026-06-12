@@ -67,6 +67,7 @@ import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.novamind.app.R
+import com.novamind.app.ui.components.DeleteConfirmSheet
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
