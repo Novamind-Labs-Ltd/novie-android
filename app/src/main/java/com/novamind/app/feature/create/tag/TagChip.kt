@@ -54,7 +54,7 @@ fun TagChip(
                 text = tag.name,
                 fontSize = 13.sp,
                 color = if (isSelected) tagColor else Color(0xFF6B6B6B),
-                fontWeight = FontWeight.Normal,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             )
         }
     }
