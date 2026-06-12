@@ -41,23 +41,30 @@ fun AttachmentSheet(
         containerColor = ColorChipBg,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 4.dp, bottom = 40.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            AttachmentItem(R.drawable.ic_image, "Image") {
-                onDismiss(); onPickImage()
-            }
-            AttachmentItem(R.drawable.ic_camera, "Camera") {
-                onDismiss(); onTakePhoto()
-            }
-            AttachmentItem(R.drawable.ic_document, "Document") {
-                onDismiss(); onPickDocument()
-            }
-        }
+        AttachmentContent(
+            onPickImage = { onDismiss(); onPickImage() },
+            onTakePhoto = { onDismiss(); onTakePhoto() },
+            onPickDocument = { onDismiss(); onPickDocument() },
+        )
+    }
+}
+
+@Composable
+private fun AttachmentContent(
+    onPickImage: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onPickDocument: () -> Unit,
+) {
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 4.dp, bottom = 40.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        AttachmentItem(R.drawable.ic_image, "Image", onClick = onPickImage)
+        AttachmentItem(R.drawable.ic_camera, "Camera", onClick = onTakePhoto)
+        AttachmentItem(R.drawable.ic_document, "Document", onClick = onPickDocument)
     }
 }
 
@@ -86,5 +93,13 @@ private fun AttachmentItem(
             modifier = Modifier.size(26.dp),
         )
         Text(label, fontSize = 14.sp, color = ColorTextTitle)
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
+@Composable
+private fun AttachmentContentPreview() {
+    com.novamind.app.ui.theme.AppTheme {
+        AttachmentContent(onPickImage = {}, onTakePhoto = {}, onPickDocument = {})
     }
 }

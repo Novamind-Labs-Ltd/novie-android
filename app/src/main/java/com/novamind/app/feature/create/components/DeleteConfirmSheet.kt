@@ -44,45 +44,76 @@ fun DeleteConfirmSheet(
         containerColor = ColorChipBg,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(top = 8.dp, bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = title,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = ColorTextTitle,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = message,
-                fontSize = 15.sp,
-                color = ColorTextSub,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 12.dp),
-            )
-            // Cancel —— 白底描边胶囊
-            PillButton(
-                label = "Cancel",
-                textColor = ColorTextTitle,
-                background = ColorChipBg,
-                border = BorderStroke(1.5.dp, ColorTextTitle),
-                onClick = onDismiss,
-            )
-            // Delete —— 红色实心胶囊
-            PillButton(
-                label = confirmLabel,
-                textColor = Color.White,
-                background = ColorDanger,
-                border = null,
-                onClick = onConfirm,
-            )
-        }
+        DeleteConfirmContent(
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+            title = title,
+            message = message,
+            confirmLabel = confirmLabel,
+        )
+    }
+}
+
+@Composable
+private fun DeleteConfirmContent(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    title: String,
+    message: String,
+    confirmLabel: String,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(top = 8.dp, bottom = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = title,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = ColorTextTitle,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = message,
+            fontSize = 15.sp,
+            color = ColorTextSub,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
+        // Cancel —— 白底描边胶囊
+        PillButton(
+            label = "Cancel",
+            textColor = ColorTextTitle,
+            background = ColorChipBg,
+            border = BorderStroke(1.5.dp, ColorTextTitle),
+            onClick = onDismiss,
+        )
+        // Delete —— 红色实心胶囊
+        PillButton(
+            label = confirmLabel,
+            textColor = Color.White,
+            background = ColorDanger,
+            border = null,
+            onClick = onConfirm,
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
+@Composable
+private fun DeleteConfirmContentPreview() {
+    com.novamind.app.ui.theme.AppTheme {
+        DeleteConfirmContent(
+            onConfirm = {},
+            onDismiss = {},
+            title = "Delete image?",
+            message = "This will remove the image from the note.",
+            confirmLabel = "Delete",
+        )
     }
 }
 

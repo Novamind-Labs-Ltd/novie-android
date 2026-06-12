@@ -404,3 +404,19 @@ private fun CircleIconButton(
         }
     }
 }
+
+// ─── Preview ────────────────────────────────────────────────────────────────
+// 注：预览中图片路径为占位，AsyncImage 不会真正加载；主要展示顶栏与背景等外框。
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, showSystemUi = true)
+@Composable
+private fun ImagePreviewScreenPreview() {
+    com.novamind.app.ui.theme.AppTheme {
+        ImagePreviewScreen(
+            paths = listOf("/sample/a.jpg", "/sample/b.jpg"),
+            initialIndex = 0,
+            onDelete = {},
+            onBack = {},
+        )
+    }
+}
