@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 摇一摇打开 Debug 面板时的振动反馈 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".NovieApplication"
         android:allowBackup="true"

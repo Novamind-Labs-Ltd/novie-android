@@ -5,6 +5,10 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberUpdatedState
@@ -31,10 +35,11 @@ fun ShakeDetector(enabled: Boolean, onShake: () -> Unit) {
             override fun onSensorChanged(event: SensorEvent) {
                 val (x, y, z) = event.values
                 val gForce = sqrt(x * x + y * y + z * z) / SensorManager.GRAVITY_EARTH
-                if (gForce > 2.7f) {
+                if (gForce > 3.2f) {   // 阈值调大，需更用力摇动才触发，减少误触
                     val now = System.currentTimeMillis()
                     if (now - lastShake > 800) {
                         lastShake = now
+                        vibrate(context)
                         currentOnShake.value()
                     }
                 }
@@ -42,7 +47,7 @@ fun ShakeDetector(enabled: Boolean, onShake: () -> Unit) {
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
-        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
         onDispose { sm.unregisterListener(listener) }
     }
 }
@@ -50,3 +55,15 @@ fun ShakeDetector(enabled: Boolean, onShake: () -> Unit) {
 private operator fun FloatArray.component1() = this[0]
 private operator fun FloatArray.component2() = this[1]
 private operator fun FloatArray.component3() = this[2]
+
+private fun vibrate(context: Context) {
+    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    }
+    runCatching {
+        vibrator?.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+    }
+}
