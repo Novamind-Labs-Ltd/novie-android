@@ -41,15 +41,18 @@ private val Card = Color(0xFFFFFFFF)
 private val TextTitle = Color(0xFF1A1A1A)
 private val TextSub = Color(0xFF6B6B6B)
 private val Unread = Color(0xFFD13C3C)
+private val Accent = Color(0xFF3D7A5A)
 
 /** 通知列表全屏页。点左上角返回或系统返回关闭。 */
 @Composable
 fun NotificationListScreen(
     notifications: List<NotificationItem>,
     onBack: () -> Unit,
+    onMarkAllRead: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     BackHandler(onBack = onBack)
+    val hasUnread = notifications.any { !it.read }
 
     Column(
         modifier = modifier
@@ -57,7 +60,7 @@ fun NotificationListScreen(
             .background(BgPage)
             .statusBarsPadding(),
     ) {
-        // 顶栏
+        // 顶栏：返回 | 标题 | 全部已读
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -85,7 +88,30 @@ fun NotificationListScreen(
                     )
                 }
             }
-            Text("Notifications", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+            Text(
+                "Notifications",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextTitle,
+                modifier = Modifier.weight(1f),
+            )
+            // 一键清除未读（全部标记已读）
+            if (hasUnread) {
+                Text(
+                    text = "全部已读",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Accent,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(),
+                            onClick = onMarkAllRead,
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
         }
 
         if (notifications.isEmpty()) {

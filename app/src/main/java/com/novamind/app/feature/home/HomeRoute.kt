@@ -31,7 +31,7 @@ fun HomeRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val notifications = remember { sampleNotifications }
+    var notifications by remember { mutableStateOf(sampleNotifications) }
     var showNotifications by remember { mutableStateOf(false) }
     LaunchedEffect(showNotifications) { onFullscreenChange(showNotifications) }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
@@ -57,6 +57,7 @@ fun HomeRoute(
             NotificationListScreen(
                 notifications = notifications,
                 onBack = { showNotifications = false },
+                onMarkAllRead = { notifications = notifications.map { it.copy(read = true) } },
             )
         } else {
             HomeScreen(
