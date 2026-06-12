@@ -1,5 +1,6 @@
 package com.novamind.app.feature.create
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -184,6 +185,13 @@ fun CreateScreen(
     // 标题与正文均为空时视为空笔记 → 禁用「更多(···)」
     val noteEmpty = uiState.title.isBlank() &&
         NoteDocument.previewText(uiState.body).isBlank()
+
+    // 系统返回（左/右边缘滑动返回）与左上角 back 一致：收键盘 + 保存并返回。
+    // 有图片预览/弹窗时交给它们各自的返回处理（预览有自己的 BackHandler，弹窗 back 自动关闭）。
+    BackHandler(enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm) {
+        keyboardController?.hide()
+        onEvent(CreateEvent.SaveNote)
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
