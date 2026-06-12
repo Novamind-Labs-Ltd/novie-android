@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -86,15 +87,19 @@ private fun MetaChip(
     isActive: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
+    val shape = RoundedCornerShape(50)
     Surface(
-        shape = RoundedCornerShape(50),
+        shape = shape,
         color = if (isActive) ColorPrimary.copy(alpha = 0.1f) else ColorChipBg,
         shadowElevation = 1.dp,
-        modifier = if (onClick != null) Modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = ripple(),
-            onClick = onClick,
-        ) else Modifier,
+        // 先按形状裁剪再 clickable，使按压 ripple 也是圆角，与 chip 形状一致
+        modifier = if (onClick != null) Modifier
+            .clip(shape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ) else Modifier,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
