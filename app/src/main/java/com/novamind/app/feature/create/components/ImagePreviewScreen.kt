@@ -244,6 +244,7 @@ fun ImagePreviewScreen(
             state = pagerState,
             userScrollEnabled = paths.size >= 2 && scale <= 1f,
             beyondViewportPageCount = 1,   // 预组合左右各一页，提前加载，避免滑动白屏
+            pageSpacing = 6.dp,           // 图片之间的间隙
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(edgeOverscroll)
