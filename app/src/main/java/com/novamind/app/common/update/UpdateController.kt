@@ -1,5 +1,6 @@
 package com.novamind.app.common.update
 
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,13 +17,20 @@ object UpdateController {
     /** 当前需要展示的升级信息；null = 不展示 */
     val state: StateFlow<UpdateInfo?> = _state.asStateFlow()
 
+    private const val PREF = "update"
+    private const val KEY_SIM = "simulate_type"   // Debug 预置：下次冷启动按此弹
+
     /**
-     * 冷启动检查（占位 Mock）。真实实现：请求服务端拿 latest / minSupported，按规则判定：
-     * - current >= latest → None
-     * - current < minSupported → Force
-     * - 否则 → Optional
+     * 冷启动检查。优先读取 Debug 预置的模拟类型（下次启动生效）；否则走真实策略
+     * （占位 Mock：无更新）。真实实现：请求服务端 latest / minSupported 判定。
      */
-    fun checkOnStartup(currentVersionCode: Int) {
+    fun checkOnStartup(context: Context, currentVersionCode: Int) {
+        val sim = prefs(context).getString(KEY_SIM, null)
+            ?.let { runCatching { UpdateType.valueOf(it) }.getOrNull() }
+        if (sim != null && sim != UpdateType.None) {
+            _state.value = mock(sim)
+            return
+        }
         val latest = currentVersionCode      // mock：最新即当前 → 无更新
         val minSupported = 0
         val type = when {
@@ -33,15 +41,23 @@ object UpdateController {
         _state.value = if (type == UpdateType.None) null else mock(type)
     }
 
-    /** Debug 模拟：直接以指定类型弹出（None = 关闭） */
-    fun simulate(type: UpdateType) {
-        _state.value = if (type == UpdateType.None) null else mock(type)
+    /** Debug 预置：不立即弹，下次冷启动再按 [type] 弹（None = 清除预置并关闭当前弹窗） */
+    fun setSimulateForNextLaunch(context: Context, type: UpdateType) {
+        if (type == UpdateType.None) {
+            prefs(context).edit().remove(KEY_SIM).apply()
+            _state.value = null
+        } else {
+            prefs(context).edit().putString(KEY_SIM, type.name).apply()
+        }
     }
 
     /** 关闭升级弹窗；强制升级不可关闭 */
     fun dismiss() {
         if (_state.value?.type != UpdateType.Force) _state.value = null
     }
+
+    private fun prefs(context: Context) =
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
     private fun mock(type: UpdateType) = UpdateInfo(
         type = type,

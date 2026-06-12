@@ -170,12 +170,12 @@ fun DebugPanel(
                 }
             }
 
-            // ── 模拟升级 ──
-            Section("模拟升级") {
+            // ── 模拟升级（下次冷启动生效，不立即弹）──
+            Section("模拟升级（下次启动生效）") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("可选升级") { UpdateController.simulate(UpdateType.Optional); onDismiss() }
-                    Chip("强制升级", danger = true) { UpdateController.simulate(UpdateType.Force); onDismiss() }
-                    Chip("无更新") { UpdateController.simulate(UpdateType.None) }
+                    Chip("可选升级") { UpdateController.setSimulateForNextLaunch(context, UpdateType.Optional) }
+                    Chip("强制升级", danger = true) { UpdateController.setSimulateForNextLaunch(context, UpdateType.Force) }
+                    Chip("无更新") { UpdateController.setSimulateForNextLaunch(context, UpdateType.None) }
                 }
             }
 

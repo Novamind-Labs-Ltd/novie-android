@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // 冷启动检查升级（Mock 策略；可在 Debug 工具箱模拟）
-                LaunchedEffect(Unit) { UpdateController.checkOnStartup(BuildConfig.VERSION_CODE) }
+                LaunchedEffect(Unit) { UpdateController.checkOnStartup(appContext, BuildConfig.VERSION_CODE) }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
