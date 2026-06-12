@@ -130,6 +130,64 @@ class RichTextState(initialText: String = "") {
         }
 
         value = new.copy(annotatedString = buildAnnotated(newText))
+
+        // 回车时自动续写列表（圆点续点、数字自增；空列表项则退出）
+        maybeContinueList(oldText, newText, new.selection)
+    }
+
+    private val bulletPrefix = "• "
+
+    // 仅当本次变化是「插入一个换行」且光标紧随其后时，处理列表续写
+    private fun maybeContinueList(oldText: String, newText: String, sel: TextRange) {
+        if (newText.length != oldText.length + 1 || !sel.collapsed) return
+        val caret = sel.start
+        val nlPos = caret - 1
+        if (nlPos < 0 || newText.getOrNull(nlPos) != '\n') return
+
+        val lineStart = newText.lastIndexOf('\n', nlPos - 1).let { if (it < 0) 0 else it + 1 }
+        val brokenLine = newText.substring(lineStart, nlPos)
+
+        when {
+            brokenLine.startsWith(bulletPrefix) -> {
+                if (brokenLine == bulletPrefix) {
+                    spliceText(lineStart, caret, "")          // 空圆点项 → 退出列表
+                } else {
+                    spliceText(caret, caret, bulletPrefix)    // 续写圆点
+                }
+            }
+            else -> {
+                val m = Regex("^(\\d+)\\.\\s").find(brokenLine)
+                if (m != null) {
+                    val num = m.groupValues[1].toIntOrNull() ?: 0
+                    val hasContent = brokenLine.length > m.value.length
+                    if (hasContent) {
+                        spliceText(caret, caret, "${num + 1}. ")   // 数字自增
+                    } else {
+                        spliceText(lineStart, caret, "")            // 空数字项 → 退出列表
+                    }
+                }
+            }
+        }
+    }
+
+    // 用 insert 替换 [start, end) 文本，重映射所有样式区间，光标置于插入末尾
+    private fun spliceText(start: Int, end: Int, insert: String) {
+        val old = value.text
+        val s = start.coerceIn(0, old.length)
+        val e = end.coerceIn(s, old.length)
+        val newText = old.substring(0, s) + insert + old.substring(e)
+        val delta = insert.length - (e - s)
+        RichSpan.entries.forEach { span ->
+            ranges[span] = normalize(ranges.getValue(span).mapNotNull { r ->
+                val a = mapPos(r.first, s, e, delta)
+                val b = mapPos(r.last + 1, s, e, delta)
+                if (b > a) a until b else null
+            })
+        }
+        value = TextFieldValue(
+            annotatedString = buildAnnotated(newText),
+            selection = TextRange(s + insert.length),
+        )
     }
 
     /** 点击某样式按钮 */
