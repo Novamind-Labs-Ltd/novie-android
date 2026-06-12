@@ -81,7 +81,8 @@ class MainActivity : ComponentActivity() {
                                 onNoteClick = { noteId ->
                                     editingNoteId = noteId
                                     currentRoute = BottomNavDestination.Create.route
-                                }
+                                },
+                                onFullscreenChange = { hideBottomNav = it },
                             )
                             BottomNavDestination.Create.route -> CreateRoute(
                                 noteId = editingNoteId,

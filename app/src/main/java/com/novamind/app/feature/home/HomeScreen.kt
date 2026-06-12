@@ -60,6 +60,8 @@ fun HomeScreen(
     onNotesSeeAll: () -> Unit,
     onNoteClick: (noteId: String) -> Unit = {},
     onMenuAction: (HomeMenuItem) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    notificationCount: Int = 0,
     forceMenuOpen: Boolean = false,   // 预览用：默认展开「更多」菜单
     modifier: Modifier = Modifier,
 ) {
@@ -80,6 +82,8 @@ fun HomeScreen(
             // ── 顶部栏 ──────────────────────────────────────────────────────
             TopBar(
                 onMenuAction = onMenuAction,
+                onNotificationsClick = onNotificationsClick,
+                notificationCount = notificationCount,
                 initialMenuExpanded = forceMenuOpen,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
             )
@@ -171,6 +175,8 @@ fun HomeScreen(
 @Composable
 private fun TopBar(
     onMenuAction: (HomeMenuItem) -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
+    notificationCount: Int = 0,
     initialMenuExpanded: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -201,12 +207,37 @@ private fun TopBar(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_notification),
-                    contentDescription = "Notifications",
-                    tint = ColorTextTitle,
-                    modifier = Modifier.size(22.dp),
-                )
+                // ── 通知按钮 + 右上角红色数量角标 ──────────────────────
+                Box {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_notification),
+                        contentDescription = "Notifications",
+                        tint = ColorTextTitle,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onNotificationsClick),
+                    )
+                    if (notificationCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 3.dp, y = (-2).dp)
+                                .size(13.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFD13C3C)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (notificationCount > 9) "9+" else "$notificationCount",
+                                color = Color.White,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 8.sp,
+                            )
+                        }
+                    }
+                }
                 // ── 更多按钮 + 下拉菜单 ──────────────────────────────────
                 Box {
                     Icon(
