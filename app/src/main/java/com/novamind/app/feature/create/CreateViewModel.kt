@@ -116,12 +116,8 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                         // 取消选中：仅从已选移除，列表顺序不变
                         state.copy(selectedTags = state.selectedTags.filterNot { it.id == event.tag.id })
                     } else {
-                        // 新选中：把该 tag 移到可选列表最前面，并加入已选
-                        val reordered = listOf(event.tag) +
-                            state.availableTags.filterNot { it.id == event.tag.id }
+                        // 新选中：可选列表顺序保持不变；只把最新选中放到 selectedTags 最前（供 meta 行显示）
                         state.copy(
-                            availableTags = reordered,
-                            // 最新选中放最前，CreateMetaRow 也按此顺序显示
                             selectedTags = listOf(event.tag) + state.selectedTags,
                         )
                     }
