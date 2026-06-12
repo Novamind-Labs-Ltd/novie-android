@@ -110,6 +110,7 @@ fun HomeRoute(
                     onNoteClick = onNoteClick,
                     onNotificationsClick = { overlay = HomeOverlay.Notifications },
                     onAvatarClick = { scope.launch { drawerState.open() } },
+                    onRefresh = viewModel::onRefresh,
                     avatarPath = avatarPath,
                     notificationCount = notifications.unreadCount(),
                 )

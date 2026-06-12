@@ -15,6 +15,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +57,7 @@ enum class HomeMenuItem(val label: String) {
 
 // ─── 无状态 Screen ────────────────────────────────────────────────────────────
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
@@ -64,6 +68,7 @@ fun HomeScreen(
     onMenuAction: (HomeMenuItem) -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     avatarPath: String? = null,
     notificationCount: Int = 0,
     forceMenuOpen: Boolean = false,   // 预览用：默认展开「更多」菜单
@@ -71,10 +76,28 @@ fun HomeScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
-    Box(
+    // 下拉刷新：每次刷新随机换一个指示器颜色
+    val pullState = rememberPullToRefreshState()
+    var indicatorColor by remember { mutableStateOf(randomVividColor()) }
+    LaunchedEffect(uiState.isRefreshing) {
+        if (uiState.isRefreshing) indicatorColor = randomVividColor()
+    }
+
+    PullToRefreshBox(
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = onRefresh,
+        state = pullState,
         modifier = modifier
             .fillMaxSize()
             .background(BgPage),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = uiState.isRefreshing,
+                color = indicatorColor,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        },
     ) {
         Column(
             modifier = Modifier
@@ -540,3 +563,11 @@ private fun HomeScreenPreview() {
         )
     }
 }
+
+// 随机鲜明颜色（下拉刷新指示器用）
+private fun randomVividColor(): Color =
+    Color.hsv(
+        hue = kotlin.random.Random.nextInt(0, 360).toFloat(),
+        saturation = 0.75f,
+        value = 0.85f,
+    )

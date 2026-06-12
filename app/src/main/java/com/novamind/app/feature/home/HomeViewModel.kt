@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.NoteDocument
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -58,5 +60,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onSearchQueryChange(query: String) {
         // TODO: filter
+    }
+
+    /** 下拉刷新：笔记由 Room Flow 实时驱动，这里仅做刷新态展示（后续可接服务端拉取） */
+    fun onRefresh() {
+        if (_uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isRefreshing = true) }
+        viewModelScope.launch {
+            delay(600)
+            _uiState.update { it.copy(isRefreshing = false) }
+        }
     }
 }

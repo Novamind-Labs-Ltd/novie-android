@@ -18,6 +18,7 @@ data class NoteItem(
 
 data class HomeUiState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val upcomingItems: List<UpcomingItem> = emptyList(),
     val notes: List<NoteItem> = emptyList(),
     val errorMessage: String? = null,
