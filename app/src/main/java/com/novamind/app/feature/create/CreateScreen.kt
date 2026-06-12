@@ -202,10 +202,7 @@ fun CreateScreen(
                     keyboardController?.hide()
                     onEvent(CreateEvent.SaveNote)
                 },
-                onShare = {
-                    keyboardController?.hide()
-                    showAttachSheet = true
-                },
+                onShare = {},   // 暂无事件（附件入口已移到工具栏）
                 onUndo = { onEvent(CreateEvent.UndoEdit) },
                 onRedo = { onEvent(CreateEvent.RedoEdit) },
                 onDelete = {
@@ -289,9 +286,9 @@ fun CreateScreen(
                 onItalic = { editor.toggle(RichSpan.Italic) },
                 isItalicActive = editor.isActive(RichSpan.Italic),
                 onInsertImage = {
-                    imagePicker.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
+                    // 工具栏附件按钮 → 打开 Image/Camera/Document 选择弹窗
+                    keyboardController?.hide()
+                    showAttachSheet = true
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
