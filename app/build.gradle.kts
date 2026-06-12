@@ -1,3 +1,6 @@
+import java.text.SimpleDateFormat
+import java.util.Date
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -40,7 +43,7 @@ android {
 
     // 供 Debug 工具箱展示构建信息
     defaultConfig {
-        buildConfigField("String", "BUILD_TIME", "\"" + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(java.util.Date()) + "\"")
+        buildConfigField("String", "BUILD_TIME", "\"" + SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date()) + "\"")
         buildConfigField("String", "GIT_SHA", "\"" + gitSha() + "\"")
     }
 }
