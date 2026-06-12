@@ -37,6 +37,8 @@ fun FormattingToolbar(
     onItalic: () -> Unit = {},
     isItalicActive: Boolean = false,
     onInsertImage: () -> Unit = {},
+    onBulletList: () -> Unit = {},
+    onNumberedList: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -63,7 +65,8 @@ fun FormattingToolbar(
                 item { ToolbarIcon(R.drawable.ic_magic, "Magic") }
                 item { ToolbarTextBtn("B", FontWeight.ExtraBold, active = isBoldActive, onClick = onBold) }
                 item { ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic, active = isItalicActive, onClick = onItalic) }
-                item { ToolbarIcon(R.drawable.ic_format_list, "List") }
+                item { ToolbarIcon(R.drawable.ic_format_list, "Bullet list", onClick = onBulletList) }
+                item { ToolbarIcon(R.drawable.ic_format_list_numbered, "Numbered list", onClick = onNumberedList) }
             }
         }
         Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {

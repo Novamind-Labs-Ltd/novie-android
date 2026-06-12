@@ -65,6 +65,27 @@ class RichTextState(initialText: String = "") {
         )
     }
 
+    /** 在「光标所在行」的行首插入标记（用于无序/有序列表前缀），已有样式区间随之右移 */
+    fun insertAtLineStart(marker: String) {
+        if (marker.isEmpty()) return
+        val caret = value.selection.start.coerceIn(0, value.text.length)
+        val text = value.text
+        val lineStart = if (caret == 0) 0 else text.lastIndexOf('\n', caret - 1).let { if (it < 0) 0 else it + 1 }
+        val insertLen = marker.length
+        val newText = text.substring(0, lineStart) + marker + text.substring(lineStart)
+        RichSpan.entries.forEach { span ->
+            ranges[span] = normalize(ranges.getValue(span).map { r ->
+                val a = if (r.first >= lineStart) r.first + insertLen else r.first
+                val b = if (r.last + 1 > lineStart) r.last + 1 + insertLen else r.last + 1
+                a until b
+            })
+        }
+        value = TextFieldValue(
+            annotatedString = buildAnnotated(newText),
+            selection = TextRange(caret + insertLen),
+        )
+    }
+
     /** 文本/选区变化回调 */
     fun onValueChange(new: TextFieldValue) {
         val oldText = value.text

@@ -290,6 +290,8 @@ fun CreateScreen(
                     keyboardController?.hide()
                     showAttachSheet = true
                 },
+                onBulletList = { editor.insertListMarker(numbered = false); emitContent() },
+                onNumberedList = { editor.insertListMarker(numbered = true); emitContent() },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .imePadding()

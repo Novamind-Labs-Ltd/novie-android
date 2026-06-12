@@ -102,6 +102,28 @@ class NoteEditorState {
     /** 在聚焦文本块的光标处插入文档块 */
     fun insertFile(path: String, name: String) = insertBlockAtCaret(FileBlock(path, name))
 
+    /**
+     * 在聚焦文本块的「当前行首」插入列表序号。
+     * [numbered] = false → 圆点「• 」；true → 数字「N. 」（按上一行数字自动递增，否则从 1 开始）。
+     */
+    fun insertListMarker(numbered: Boolean) {
+        val target = focusedBlock() ?: return
+        val marker = if (!numbered) {
+            "• "
+        } else {
+            val text = target.rich.plainText
+            val caret = target.rich.value.selection.start.coerceIn(0, text.length)
+            val curLineNl = if (caret == 0) -1 else text.lastIndexOf('\n', caret - 1)
+            val prevNum = if (curLineNl > 0) {
+                val prevStart = text.lastIndexOf('\n', curLineNl - 1) + 1
+                val prevLine = text.substring(prevStart, curLineNl)
+                Regex("^(\\d+)\\.\\s").find(prevLine)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            } else null
+            "${(prevNum ?: 0) + 1}. "
+        }
+        target.rich.insertAtLineStart(marker)
+    }
+
     /** 在聚焦文本块光标处插入任意非文本块：按光标把文本拆成前后两段，中间夹入该块 */
     private fun insertBlockAtCaret(block: EditorBlock) {
         val target = focusedBlock()
