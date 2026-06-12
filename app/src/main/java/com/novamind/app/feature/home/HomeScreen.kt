@@ -3,6 +3,8 @@ package com.novamind.app.feature.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -61,6 +63,8 @@ fun HomeScreen(
     onNoteClick: (noteId: String) -> Unit = {},
     onMenuAction: (HomeMenuItem) -> Unit = {},
     onNotificationsClick: () -> Unit = {},
+    onAvatarClick: () -> Unit = {},
+    avatarPath: String? = null,
     notificationCount: Int = 0,
     forceMenuOpen: Boolean = false,   // 预览用：默认展开「更多」菜单
     modifier: Modifier = Modifier,
@@ -83,6 +87,8 @@ fun HomeScreen(
             TopBar(
                 onMenuAction = onMenuAction,
                 onNotificationsClick = onNotificationsClick,
+                onAvatarClick = onAvatarClick,
+                avatarPath = avatarPath,
                 notificationCount = notificationCount,
                 initialMenuExpanded = forceMenuOpen,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -176,6 +182,8 @@ fun HomeScreen(
 private fun TopBar(
     onMenuAction: (HomeMenuItem) -> Unit = {},
     onNotificationsClick: () -> Unit = {},
+    onAvatarClick: () -> Unit = {},
+    avatarPath: String? = null,
     notificationCount: Int = 0,
     initialMenuExpanded: Boolean = false,
     modifier: Modifier = Modifier,
@@ -191,10 +199,20 @@ private fun TopBar(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFD0C8B8)),
+                .background(Color(0xFFD0C8B8))
+                .clickable(onClick = onAvatarClick),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = "👤", fontSize = 22.sp)
+            if (avatarPath != null) {
+                AsyncImage(
+                    model = java.io.File(avatarPath),
+                    contentDescription = "Profile",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(48.dp).clip(CircleShape),
+                )
+            } else {
+                Text(text = "👤", fontSize = 22.sp)
+            }
         }
 
         Surface(
