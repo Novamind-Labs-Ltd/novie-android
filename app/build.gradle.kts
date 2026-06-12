@@ -35,7 +35,23 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
+
+    // 供 Debug 工具箱展示构建信息
+    defaultConfig {
+        buildConfigField("String", "BUILD_TIME", "\"" + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(java.util.Date()) + "\"")
+        buildConfigField("String", "GIT_SHA", "\"" + gitSha() + "\"")
+    }
+}
+
+// 取当前 git 短 SHA，失败返回 unknown（沙箱/无 git 时安全降级）
+fun gitSha(): String = try {
+    val p = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+        .directory(rootDir).redirectErrorStream(true).start()
+    p.inputStream.bufferedReader().readText().trim().ifEmpty { "unknown" }
+} catch (_: Exception) {
+    "unknown"
 }
 
 // Room schema 输出目录（配合 exportSchema = true 使用）

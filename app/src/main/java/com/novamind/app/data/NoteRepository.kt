@@ -12,4 +12,10 @@ interface NoteRepository {
     suspend fun delete(noteId: String)
 
     suspend fun getNoteById(noteId: String): Note?
+
+    /** 清空全部笔记（Debug 工具用） */
+    suspend fun clearAll()
+
+    /** 笔记总数（Debug 工具用） */
+    suspend fun count(): Int
 }

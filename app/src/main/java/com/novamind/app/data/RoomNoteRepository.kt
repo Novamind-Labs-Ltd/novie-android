@@ -22,4 +22,8 @@ class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
 
     override suspend fun getNoteById(noteId: String): Note? =
         dao.getById(noteId)?.toNote()
+
+    override suspend fun clearAll() = dao.clearAll()
+
+    override suspend fun count(): Int = dao.count()
 }

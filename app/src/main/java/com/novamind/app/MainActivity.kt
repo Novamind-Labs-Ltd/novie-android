@@ -22,6 +22,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.novamind.app.debug.DebugPanel
+import com.novamind.app.debug.ShakeDetector
 import com.novamind.app.feature.calendar.CalendarRoute
 import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
@@ -110,6 +112,22 @@ class MainActivity : ComponentActivity() {
                                 currentRoute = route
                             },
                         )
+                    }
+
+                    // Debug 工具箱（仅 Debug 包）：摇一摇打开
+                    if (BuildConfig.DEBUG) {
+                        var showDebug by rememberSaveable { mutableStateOf(false) }
+                        ShakeDetector(enabled = true) { showDebug = true }
+                        if (showDebug) {
+                            DebugPanel(
+                                onDismiss = { showDebug = false },
+                                onNavigate = { route ->
+                                    editingNoteId = null
+                                    currentRoute = route
+                                    showDebug = false
+                                },
+                            )
+                        }
                     }
                 }
             }

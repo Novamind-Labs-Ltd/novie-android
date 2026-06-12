@@ -23,4 +23,12 @@ interface NoteDao {
     /** 删除单条 */
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    /** 清空全部（Debug 工具用） */
+    @Query("DELETE FROM notes")
+    suspend fun clearAll()
+
+    /** 笔记总数 */
+    @Query("SELECT COUNT(*) FROM notes")
+    suspend fun count(): Int
 }
