@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -37,9 +39,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.NovieApplication
+import com.novamind.app.feature.web.WebViewScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,6 +74,10 @@ fun DebugPanel(
     var noteCount by remember { mutableStateOf(-1) }
     var recCount by remember { mutableStateOf(-1) }
     var refresh by remember { mutableStateOf(0) }
+
+    // 组件/能力测试
+    var urlInput by remember { mutableStateOf("https://m.bing.com") }
+    var webUrl by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(refresh) {
         noteCount = runCatching { app.noteRepository.count() }.getOrDefault(-1)
         recCount = File(context.filesDir, "recordings").listFiles()?.size ?: 0
@@ -137,6 +146,24 @@ fun DebugPanel(
                 }
             }
 
+            // ── 组件 / 能力测试 ──
+            Section("组件 / 能力测试") {
+                OutlinedTextField(
+                    value = urlInput,
+                    onValueChange = { urlInput = it },
+                    label = { Text("URL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("打开 WebView") {
+                        urlInput.trim().takeIf { it.isNotEmpty() }?.let { webUrl = normalizeUrl(it) }
+                    }
+                    Chip("example.com") { urlInput = "https://example.com"; webUrl = urlInput }
+                    Chip("Bing") { urlInput = "https://m.bing.com"; webUrl = urlInput }
+                }
+            }
+
             // ── Feature Flags ──
             val flags by DebugFlags.flags.collectAsState()
             Section("Feature Flags") {
@@ -191,7 +218,24 @@ fun DebugPanel(
             }
         }
     }
+
+    // WebView 测试：全屏 Dialog 承载 WebViewScreen
+    webUrl?.let { u ->
+        Dialog(
+            onDismissRequest = { webUrl = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            WebViewScreen(
+                url = u,
+                onBack = { webUrl = null },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
 }
+
+private fun normalizeUrl(input: String): String =
+    if (input.startsWith("http://") || input.startsWith("https://")) input else "https://$input"
 
 @Composable
 private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {

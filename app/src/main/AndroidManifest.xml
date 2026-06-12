@@ -4,6 +4,8 @@
 
     <!-- 摇一摇打开 Debug 面板时的振动反馈 -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- WebView 容器浏览网页 -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".NovieApplication"
@@ -13,6 +15,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.App">
         <activity
