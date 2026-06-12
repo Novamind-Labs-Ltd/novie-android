@@ -136,6 +136,44 @@ class RichTextState(initialText: String = "") {
     }
 
     private val bulletPrefix = "• "
+    private val numberRegex = Regex("^(\\d+)\\.\\s")
+
+    /**
+     * 切换「当前行」的列表标记。圆点与数字互斥，每行至多一个：
+     * - 已是同类型 → 移除（再次点击关闭）；
+     * - 是另一类型 → 替换；
+     * - 无标记 → 添加（数字按上一行自增）。
+     */
+    fun toggleLineMarker(bullet: Boolean) {
+        val caret = value.selection.start.coerceIn(0, value.text.length)
+        val text = value.text
+        val lineStart = if (caret == 0) 0 else text.lastIndexOf('\n', caret - 1).let { if (it < 0) 0 else it + 1 }
+        val lineEnd = text.indexOf('\n', lineStart).let { if (it < 0) text.length else it }
+        val line = text.substring(lineStart, lineEnd)
+
+        val hasBullet = line.startsWith(bulletPrefix)
+        val numMatch = numberRegex.find(line)
+        val existingLen = when {
+            hasBullet -> bulletPrefix.length
+            numMatch != null -> numMatch.value.length
+            else -> 0
+        }
+        val newMarker = when {
+            bullet && hasBullet -> ""                 // 关闭圆点
+            !bullet && numMatch != null -> ""         // 关闭数字
+            bullet -> bulletPrefix                     // 设为圆点（新增或覆盖数字）
+            else -> "${prevLineNumber(text, lineStart) + 1}. "  // 设为数字
+        }
+        spliceText(lineStart, lineStart + existingLen, newMarker)
+    }
+
+    private fun prevLineNumber(text: String, lineStart: Int): Int {
+        if (lineStart == 0) return 0
+        val prevEnd = lineStart - 1 // 上一行末尾的 '\n'
+        val prevStart = text.lastIndexOf('\n', prevEnd - 1) + 1
+        val prevLine = text.substring(prevStart, prevEnd)
+        return numberRegex.find(prevLine)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+    }
 
     // 仅当本次变化是「插入一个换行」且光标紧随其后时，处理列表续写
     private fun maybeContinueList(oldText: String, newText: String, sel: TextRange) {
