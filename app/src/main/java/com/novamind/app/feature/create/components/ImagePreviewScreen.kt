@@ -163,22 +163,30 @@ fun ImagePreviewScreen(
                 }
                 return Offset.Zero
             }
-            // pager 在边界消费不掉的滑动量 → 转成 overscroll 平移
+            // pager 在边界消费不掉的滑动量 → 转成 overscroll 平移。
+            // 仅在「真正到首/末页」时捕获，避免快速滑动时 pager 瞬时吃不下的残余被误当作越界（导致回弹到上一页）。
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                 if (source != NestedScrollSource.UserInput || available.x == 0f) return Offset.Zero
                 if (scaleState.value > 1f) return Offset.Zero   // 放大时由图片平移逻辑处理
+                val atStart = !pagerState.canScrollBackward
+                val atEnd = !pagerState.canScrollForward
+                val overscrolling = (available.x > 0f && atStart) || (available.x < 0f && atEnd)
+                if (!overscrolling) return Offset.Zero          // 非边界的瞬时残余：不消费，交还 pager 正常翻页
                 val maxOver = containerWidthState.value * 0.35f
                 overscrollX.floatValue =
                     (overscrollX.floatValue + available.x * resist).coerceIn(-maxOver, maxOver)
                 return Offset(available.x, 0f)
             }
-            // 松手：弹簧动画把 overscroll 归零
+            // 松手：异步弹簧回弹归零，立即返回（不阻塞 pager 自身的 fling/翻页）
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (overscrollX.floatValue != 0f) {
-                    animate(
-                        overscrollX.floatValue, 0f,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                    ) { v, _ -> overscrollX.floatValue = v }
+                val cur = overscrollX.floatValue
+                if (cur != 0f) {
+                    scope.launch {
+                        animate(
+                            cur, 0f,
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        ) { v, _ -> overscrollX.floatValue = v }
+                    }
                 }
                 return Velocity.Zero
             }
