@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ fun TagChip(
 
     Surface(
         modifier = modifier
+            .clip(RoundedCornerShape(50))   // 先裁圆角，使按压 ripple 也是圆角
             .border(1.dp, borderColor, RoundedCornerShape(50))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
