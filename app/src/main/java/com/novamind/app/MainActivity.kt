@@ -1,5 +1,7 @@
 package com.novamind.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -16,12 +18,16 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.novamind.app.common.update.UpdateController
+import com.novamind.app.common.update.UpdateDialog
 import com.novamind.app.debug.DebugPanel
 import com.novamind.app.debug.ShakeDetector
 import com.novamind.app.feature.calendar.CalendarRoute
@@ -56,6 +62,9 @@ class MainActivity : ComponentActivity() {
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
                 // 图片预览等全屏页打开时隐藏底部导航栏
                 var hideBottomNav by rememberSaveable { mutableStateOf(false) }
+
+                // 冷启动检查升级（Mock 策略；可在 Debug 工具箱模拟）
+                LaunchedEffect(Unit) { UpdateController.checkOnStartup(BuildConfig.VERSION_CODE) }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
@@ -129,6 +138,21 @@ class MainActivity : ComponentActivity() {
                                 },
                             )
                         }
+                    }
+
+                    // 升级弹窗（可选可关闭；强制不可关闭）
+                    val update by UpdateController.state.collectAsState()
+                    update?.let { info ->
+                        UpdateDialog(
+                            info = info,
+                            onUpdate = {
+                                runCatching {
+                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.url)))
+                                }
+                            },
+                            onLater = { UpdateController.dismiss() },
+                            onExit = { finish() },
+                        )
                     }
                 }
             }

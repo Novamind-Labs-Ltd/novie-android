@@ -44,6 +44,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.NovieApplication
+import com.novamind.app.common.update.UpdateController
+import com.novamind.app.common.update.UpdateType
 import com.novamind.app.common.web.WebViewScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -161,6 +163,15 @@ fun DebugPanel(
                     }
                     Chip("example.com") { urlInput = "https://example.com"; webUrl = urlInput }
                     Chip("Bing") { urlInput = "https://m.bing.com"; webUrl = urlInput }
+                }
+            }
+
+            // ── 模拟升级 ──
+            Section("模拟升级") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("可选升级") { UpdateController.simulate(UpdateType.Optional); onDismiss() }
+                    Chip("强制升级", danger = true) { UpdateController.simulate(UpdateType.Force); onDismiss() }
+                    Chip("无更新") { UpdateController.simulate(UpdateType.None) }
                 }
             }
 
