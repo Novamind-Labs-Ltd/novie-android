@@ -163,6 +163,9 @@ fun DebugPanel(
                     }
                     Chip("example.com") { WebViewActivity.start(context, "https://example.com") }
                     Chip("Bing") { WebViewActivity.start(context, "https://m.bing.com") }
+                    Chip("JSBridge 测试页") {
+                        WebViewActivity.start(context, "file:///android_asset/bridge_test.html", trusted = true)
+                    }
                     Chip("重置引导页") {
                         OnboardingStore.setCompleted(context, false)
                     }

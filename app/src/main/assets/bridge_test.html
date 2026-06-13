@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>JSBridge 测试</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 16px; background: #f4f4f5; color: #1a1a1a; }
+    h1 { font-size: 18px; }
+    button { display: block; width: 100%; margin: 8px 0; padding: 12px; font-size: 15px;
+             border: none; border-radius: 10px; background: #3d7a5a; color: #fff; }
+    pre { background: #fff; border-radius: 10px; padding: 12px; font-size: 12px;
+          white-space: pre-wrap; word-break: break-all; min-height: 60px; }
+  </style>
+</head>
+<body>
+  <h1>🔌 JSBridge 测试页</h1>
+  <button onclick="callToast()">ui.toast</button>
+  <button onclick="callInfo()">device.getInfo</button>
+  <button onclick="callClose()">nav.close</button>
+  <button onclick="callMissing()">调用不存在的 API（错误码 1002）</button>
+  <pre id="out">等待 NovieBridge 就绪…</pre>
+
+  <script>
+    var out = document.getElementById('out');
+    function log(label, v) { out.textContent = label + '\n' + JSON.stringify(v, null, 2); }
+
+    function ready(fn) {
+      if (window.NovieBridge) fn();
+      else window.addEventListener('NovieBridgeReady', fn, { once: true });
+    }
+    ready(function () { out.textContent = 'NovieBridge 就绪 ✅\n已注册 API: ' + JSON.stringify(NovieBridge.apis()); });
+
+    function callToast() {
+      NovieBridge.call('ui.toast', { text: '来自 H5 的问候 👋', duration: 'short' })
+        .then(function (d) { log('toast 成功', d); })
+        .catch(function (e) { log('toast 失败', e); });
+    }
+    function callInfo() {
+      NovieBridge.call('device.getInfo')
+        .then(function (d) { log('getInfo', d); })
+        .catch(function (e) { log('getInfo 失败', e); });
+    }
+    function callClose() {
+      NovieBridge.call('nav.close').catch(function (e) { log('close 失败', e); });
+    }
+    function callMissing() {
+      NovieBridge.call('foo.bar')
+        .then(function (d) { log('?', d); })
+        .catch(function (e) { log('预期错误', e); });
+    }
+  </script>
+</body>
+</html>

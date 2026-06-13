@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.novamind.app.R
+import com.novamind.app.common.web.bridge.BridgeContext
+import com.novamind.app.common.web.bridge.BridgeDispatcher
+import com.novamind.app.common.web.bridge.BridgeJsSdk
+import com.novamind.app.common.web.bridge.DefaultApis
+import com.novamind.app.common.web.bridge.NovieBridgeInterface
+import com.novamind.app.common.web.bridge.SourceLevel
 
 private val Bar = Color(0xFFF6F6F4)
 private val TextTitle = Color(0xFF1A1A1A)
@@ -63,14 +70,20 @@ fun WebViewScreen(
     url: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    sourceLevel: SourceLevel = SourceLevel.UNKNOWN,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var progress by remember { mutableIntStateOf(0) }
     var title by remember { mutableStateOf("") }
     var canGoBack by remember { mutableStateOf(false) }
     var renderGone by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
+
+    // JSBridge：API 注册表 + 待注入的 JS SDK（onPageStarted 时注入）
+    val registry = remember { DefaultApis.registry() }
+    val sdkScript = remember(registry) { BridgeJsSdk.script(registry.names()) }
 
     val webView = remember(reloadKey) {
         WebView(context).apply {
@@ -86,7 +99,24 @@ fun WebViewScreen(
                 builtInZoomControls = true
                 displayZoomControls = false
                 setSupportZoom(true)
+                // 允许加载 file:///android_asset 下的本地页（如 Bridge 测试页）；
+                // 不开放跨 file 的 JS 访问，降低 file:// 越权读取风险。
+                allowFileAccess = true
+                allowFileAccessFromFileURLs = false
+                allowUniversalAccessFromFileURLs = false
             }
+            // 暴露唯一入口对象 window.__novieBridge__
+            val dispatcher = BridgeDispatcher(
+                webView = this,
+                registry = registry,
+                context = BridgeContext(
+                    appContext = context.applicationContext,
+                    sourceLevel = sourceLevel,
+                    onClose = onBack,
+                ),
+                scope = scope,
+            )
+            addJavascriptInterface(NovieBridgeInterface(dispatcher), "__novieBridge__")
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     // 站内链接继续在容器内加载
@@ -94,6 +124,8 @@ fun WebViewScreen(
                 }
 
                 override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                    // 首屏前注入 JS SDK，确保 window.NovieBridge 可用
+                    view.evaluateJavascript(sdkScript, null)
                     canGoBack = view.canGoBack()
                 }
 
