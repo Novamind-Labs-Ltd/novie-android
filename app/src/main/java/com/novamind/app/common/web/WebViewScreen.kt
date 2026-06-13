@@ -50,8 +50,8 @@ import com.novamind.app.common.web.bridge.BridgeContext
 import com.novamind.app.common.web.bridge.BridgeDispatcher
 import com.novamind.app.common.web.bridge.BridgeJsSdk
 import com.novamind.app.common.web.bridge.DefaultApis
+import com.novamind.app.common.web.bridge.DomainWhitelist
 import com.novamind.app.common.web.bridge.NovieBridgeInterface
-import com.novamind.app.common.web.bridge.SourceLevel
 
 private val Bar = Color(0xFFF6F6F4)
 private val TextTitle = Color(0xFF1A1A1A)
@@ -70,7 +70,6 @@ fun WebViewScreen(
     url: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    sourceLevel: SourceLevel = SourceLevel.UNKNOWN,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -80,6 +79,8 @@ fun WebViewScreen(
     var canGoBack by remember { mutableStateOf(false) }
     var renderGone by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
+    // 当前实际加载的 URL，用于按域名白名单动态评估来源等级（跳到外链即降权）
+    var currentUrl by remember { mutableStateOf(url) }
 
     // JSBridge：API 注册表 + 待注入的 JS SDK（onPageStarted 时注入）
     val registry = remember { DefaultApis.registry() }
@@ -111,7 +112,8 @@ fun WebViewScreen(
                 registry = registry,
                 context = BridgeContext(
                     appContext = context.applicationContext,
-                    sourceLevel = sourceLevel,
+                    // 按当前 URL 动态评估来源等级
+                    sourceLevelProvider = { DomainWhitelist.levelOf(currentUrl) },
                     onClose = onBack,
                 ),
                 scope = scope,
@@ -124,6 +126,8 @@ fun WebViewScreen(
                 }
 
                 override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                    // 记录当前 URL，供 Bridge 按域名白名单动态判定来源等级
+                    url?.let { currentUrl = it }
                     // 首屏前注入 JS SDK，确保 window.NovieBridge 可用
                     view.evaluateJavascript(sdkScript, null)
                     canGoBack = view.canGoBack()

@@ -19,10 +19,15 @@ interface BridgeHandler {
 
 /**
  * Handler 执行上下文：提供 App 级依赖与容器回调（不持有 WebView，避免泄漏）。
+ *
+ * [sourceLevelProvider] 按「当前 URL」动态评估来源等级——可信页跳到外链会即时降权。
  */
 class BridgeContext(
     val appContext: Context,
-    val sourceLevel: SourceLevel,
+    private val sourceLevelProvider: () -> SourceLevel,
     /** 关闭当前 WebView 页（nav.close 使用）。 */
     val onClose: () -> Unit,
-)
+) {
+    /** 当前来源等级（每次调用实时计算）。 */
+    val sourceLevel: SourceLevel get() = sourceLevelProvider()
+}
