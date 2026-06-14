@@ -82,6 +82,10 @@ fun DebugPanel(
         }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "unknown"
     }
     val installUuid = remember { InstallId.get(context) }
+    val screenInfo = remember {
+        val dm = context.resources.displayMetrics
+        "${dm.widthPixels} x ${dm.heightPixels} (${dm.densityDpi}dpi @${dm.density}x)"
+    }
 
     var noteCount by remember { mutableStateOf(-1) }
     var recCount by remember { mutableStateOf(-1) }
@@ -123,6 +127,7 @@ fun DebugPanel(
                 InfoRow("系统", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
                 InfoRow("deviceId", deviceId)
                 InfoRow("UUID", installUuid)
+                InfoRow("分辨率", screenInfo)
             }
 
             // ── 页面快速跳转 ──
