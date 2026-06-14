@@ -2,6 +2,7 @@ package com.novamind.app.debug
 
 import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,6 +75,12 @@ fun DebugPanel(
     val app = context.applicationContext as NovieApplication
     val scope = rememberCoroutineScope()
 
+    val deviceId = remember {
+        runCatching {
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "unknown"
+    }
+
     var noteCount by remember { mutableStateOf(-1) }
     var recCount by remember { mutableStateOf(-1) }
     var refresh by remember { mutableStateOf(0) }
@@ -112,6 +119,7 @@ fun DebugPanel(
                 InfoRow("打包时间", BuildConfig.BUILD_TIME)
                 InfoRow("设备", "${Build.MANUFACTURER} ${Build.MODEL}")
                 InfoRow("系统", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+                InfoRow("deviceId", deviceId)
             }
 
             // ── 页面快速跳转 ──
