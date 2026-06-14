@@ -2,7 +2,6 @@ package com.novamind.app.debug
 
 import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,7 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.NovieApplication
-import com.novamind.app.common.device.InstallId
+import com.novamind.app.common.device.DeviceIdentity
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
@@ -76,16 +75,7 @@ fun DebugPanel(
     val app = context.applicationContext as NovieApplication
     val scope = rememberCoroutineScope()
 
-    val deviceId = remember {
-        runCatching {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-        }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "unknown"
-    }
-    val installUuid = remember { InstallId.get(context) }
-    val screenInfo = remember {
-        val dm = context.resources.displayMetrics
-        "${dm.widthPixels} x ${dm.heightPixels} (${dm.densityDpi}dpi @${dm.density}x)"
-    }
+    val fingerprint = remember { DeviceIdentity.fingerprint(context) }
 
     var noteCount by remember { mutableStateOf(-1) }
     var recCount by remember { mutableStateOf(-1) }
@@ -125,9 +115,11 @@ fun DebugPanel(
                 InfoRow("打包时间", BuildConfig.BUILD_TIME)
                 InfoRow("设备", "${Build.MANUFACTURER} ${Build.MODEL}")
                 InfoRow("系统", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-                InfoRow("deviceId", deviceId)
-                InfoRow("UUID", installUuid)
-                InfoRow("分辨率", screenInfo)
+                InfoRow("deviceId", fingerprint.androidId)
+                InfoRow("UUID", fingerprint.installUuid)
+                InfoRow("分辨率", fingerprint.screen)
+                InfoRow("时区", fingerprint.timezone)
+                InfoRow("语言", fingerprint.language)
             }
 
             // ── 页面快速跳转 ──
