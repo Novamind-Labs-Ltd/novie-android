@@ -52,6 +52,7 @@ import com.novamind.app.common.web.bridge.BridgeJsSdk
 import com.novamind.app.common.web.bridge.DefaultApis
 import com.novamind.app.common.web.bridge.DomainWhitelist
 import com.novamind.app.common.web.bridge.NovieBridgeInterface
+import com.novamind.app.common.web.bridge.SourceLevel
 
 private val Bar = Color(0xFFF6F6F4)
 private val TextTitle = Color(0xFF1A1A1A)
@@ -70,6 +71,8 @@ fun WebViewScreen(
     url: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 调试用：强制来源等级；为 null 时按域名白名单动态判定。 */
+    levelOverride: SourceLevel? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -112,8 +115,8 @@ fun WebViewScreen(
                 registry = registry,
                 context = BridgeContext(
                     appContext = context.applicationContext,
-                    // 按当前 URL 动态评估来源等级
-                    sourceLevelProvider = { DomainWhitelist.levelOf(currentUrl) },
+                    // 调试覆盖优先，否则按当前 URL 动态评估来源等级
+                    sourceLevelProvider = { levelOverride ?: DomainWhitelist.levelOf(currentUrl) },
                     onClose = onBack,
                 ),
                 scope = scope,

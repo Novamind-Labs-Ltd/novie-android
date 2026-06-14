@@ -15,9 +15,12 @@
 </head>
 <body>
   <h1>🔌 JSBridge 测试页</h1>
-  <button onclick="callToast()">ui.toast</button>
-  <button onclick="callInfo()">device.getInfo</button>
-  <button onclick="callClose()">nav.close</button>
+  <p id="level" style="font-size:13px;color:#6b6b6b;">来源等级：?</p>
+  <button onclick="callToast()">ui.toast（PUBLIC）</button>
+  <button onclick="callInfo()">device.getInfo（PUBLIC）</button>
+  <button onclick="callToken()">app.getToken（AUTHED）</button>
+  <button onclick="callUser()">user.getUserInfo（PRIVATE）</button>
+  <button onclick="callClose()">nav.close（PUBLIC）</button>
   <button onclick="callMissing()">调用不存在的 API（错误码 1002）</button>
   <pre id="out">等待 NovieBridge 就绪…</pre>
 
@@ -29,7 +32,13 @@
       if (window.NovieBridge) fn();
       else window.addEventListener('NovieBridgeReady', fn, { once: true });
     }
-    ready(function () { out.textContent = 'NovieBridge 就绪 ✅\n已注册 API: ' + JSON.stringify(NovieBridge.apis()); });
+    ready(function () {
+      out.textContent = 'NovieBridge 就绪 ✅\n已注册 API: ' + JSON.stringify(NovieBridge.apis());
+      // 拉一次 getInfo 显示当前来源等级
+      NovieBridge.call('device.getInfo').then(function (d) {
+        document.getElementById('level').textContent = '来源等级：' + d.sourceLevel;
+      });
+    });
 
     function callToast() {
       NovieBridge.call('ui.toast', { text: '来自 H5 的问候 👋', duration: 'short' })
@@ -40,6 +49,16 @@
       NovieBridge.call('device.getInfo')
         .then(function (d) { log('getInfo', d); })
         .catch(function (e) { log('getInfo 失败', e); });
+    }
+    function callToken() {
+      NovieBridge.call('app.getToken')
+        .then(function (d) { log('getToken 成功（AUTHED 通过）', d); })
+        .catch(function (e) { log('getToken 被拒（应为 1003）', e); });
+    }
+    function callUser() {
+      NovieBridge.call('user.getUserInfo')
+        .then(function (d) { log('getUserInfo 成功（PRIVATE 通过）', d); })
+        .catch(function (e) { log('getUserInfo 被拒（应为 1003）', e); });
     }
     function callClose() {
       NovieBridge.call('nav.close').catch(function (e) { log('close 失败', e); });

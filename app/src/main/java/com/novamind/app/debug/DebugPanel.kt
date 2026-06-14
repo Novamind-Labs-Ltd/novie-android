@@ -47,6 +47,7 @@ import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
 import com.novamind.app.common.web.WebViewActivity
+import com.novamind.app.common.web.bridge.SourceLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -79,6 +80,8 @@ fun DebugPanel(
 
     // 组件/能力测试
     var urlInput by remember { mutableStateOf("https://m.bing.com") }
+    // JSBridge 测试页强制来源等级（null = 按域名白名单）
+    var bridgeLevel by remember { mutableStateOf<SourceLevel?>(null) }
     LaunchedEffect(refresh) {
         noteCount = runCatching { app.noteRepository.count() }.getOrDefault(-1)
         recCount = File(context.filesDir, "recordings").listFiles()?.size ?: 0
@@ -163,11 +166,22 @@ fun DebugPanel(
                     }
                     Chip("example.com") { WebViewActivity.start(context, "https://example.com") }
                     Chip("Bing") { WebViewActivity.start(context, "https://m.bing.com") }
-                    Chip("JSBridge 测试页") {
-                        WebViewActivity.start(context, "file:///android_asset/bridge_test.html")
-                    }
                     Chip("重置引导页") {
                         OnboardingStore.setCompleted(context, false)
+                    }
+                }
+                // JSBridge：选来源等级 + 打开测试页（直观验证权限拦截 1003）
+                Text(
+                    "JSBridge 来源等级：" + (bridgeLevel?.name ?: "按域名白名单"),
+                    fontSize = 12.sp, color = TextSub,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("按域名") { bridgeLevel = null }
+                    Chip("TRUSTED") { bridgeLevel = SourceLevel.TRUSTED }
+                    Chip("PARTNER") { bridgeLevel = SourceLevel.PARTNER }
+                    Chip("UNKNOWN") { bridgeLevel = SourceLevel.UNKNOWN }
+                    Chip("打开 JSBridge 测试页") {
+                        WebViewActivity.start(context, "file:///android_asset/bridge_test.html", bridgeLevel)
                     }
                 }
             }
