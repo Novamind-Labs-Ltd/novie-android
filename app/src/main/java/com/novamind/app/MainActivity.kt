@@ -37,9 +37,16 @@ import com.novamind.app.feature.calendar.CalendarRoute
 import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.feature.library.LibraryRoute
+import com.novamind.app.feature.auth.AuthViewModel
+import com.novamind.app.feature.auth.LoginRoute
 import com.novamind.app.ui.components.AppBottomNavBar
 import com.novamind.app.ui.components.BottomNavDestination
 import com.novamind.app.ui.theme.AppTheme
+import androidx.compose.foundation.background
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 // 导航顺序，用于判断滑动方向
 private val navOrder = listOf(
@@ -71,6 +78,10 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(!OnboardingStore.isCompleted(appContext))
                 }
 
+                // 认证状态（Auth0）：未登录时用登录页门控整个应用
+                val authViewModel: AuthViewModel = viewModel()
+                val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+
                 // 冷启动检查升级（Mock 策略；可在 Debug 工具箱模拟）
                 LaunchedEffect(Unit) { UpdateController.checkOnStartup(appContext, BuildConfig.VERSION_CODE) }
 
@@ -100,6 +111,7 @@ class MainActivity : ComponentActivity() {
                                     currentRoute = BottomNavDestination.Create.route
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
+                                onLogout = { authViewModel.logout(this@MainActivity) },
                             )
                             BottomNavDestination.Create.route -> CreateRoute(
                                 noteId = editingNoteId,
@@ -170,6 +182,23 @@ class MainActivity : ComponentActivity() {
                                 OnboardingStore.setCompleted(appContext, true)
                                 showOnboarding = false
                             },
+                        )
+                    }
+
+                    // 认证门控（最顶层）：检查会话时显示加载，未登录时显示登录页
+                    when {
+                        authState.isCheckingSession -> Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFFFBFAF7)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF3D7A5A))
+                        }
+
+                        !authState.isAuthenticated -> LoginRoute(
+                            viewModel = authViewModel,
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }

@@ -14,3 +14,5 @@
 .externalNativeBuild
 .cxx
 local.properties
+# Auth0 配置（含环境参数，不进版本库）
+auth0.properties

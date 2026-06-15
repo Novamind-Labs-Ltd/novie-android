@@ -47,6 +47,7 @@ fun ProfileDrawerContent(
     name: String,
     email: String,
     onChangeAvatar: () -> Unit,
+    onLogout: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     ModalDrawerSheet(
@@ -112,6 +113,13 @@ fun ProfileDrawerContent(
             ProfileMenuItem(R.drawable.ic_nav_calendar, "日程")
             ProfileMenuItem(R.drawable.ic_notification, "通知设置")
             ProfileMenuItem(R.drawable.ic_more, "设置")
+
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
+            Spacer(Modifier.height(8.dp))
+
+            // 退出登录
+            ProfileMenuItem(R.drawable.ic_arrow_back, "退出登录", onClick = onLogout)
         }
     }
 }

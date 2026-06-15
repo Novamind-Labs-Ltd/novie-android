@@ -45,6 +45,7 @@ fun HomeRoute(
     onNotesSeeAll: () -> Unit = {},
     onNoteClick: (noteId: String) -> Unit = {},
     onFullscreenChange: (Boolean) -> Unit = {},   // 子页/抽屉打开 → 宿主隐藏底部导航
+    onLogout: () -> Unit = {},                     // 退出登录（由宿主交给 AuthViewModel 处理）
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
 ) {
@@ -88,6 +89,7 @@ fun HomeRoute(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     )
                 },
+                onLogout = onLogout,
             )
         },
     ) {

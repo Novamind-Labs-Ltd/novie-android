@@ -1,11 +1,19 @@
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
+
+// 读取 gitignored 的 auth0.properties（不存在时用空值降级，保证 CI/沙箱可编译）
+val auth0Props = Properties().apply {
+    val f = rootProject.file("auth0.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun auth0(key: String, default: String = ""): String = auth0Props.getProperty(key, default)
 
 android {
     namespace = "com.novamind.app"
@@ -45,6 +53,16 @@ android {
     defaultConfig {
         buildConfigField("String", "BUILD_TIME", "\"" + SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date()) + "\"")
         buildConfigField("String", "GIT_SHA", "\"" + gitSha() + "\"")
+
+        // Auth0 配置（来自 auth0.properties，注入 BuildConfig 供代码读取）
+        buildConfigField("String", "AUTH0_CLIENT_ID", "\"${auth0("AUTH0_CLIENT_ID")}\"")
+        buildConfigField("String", "AUTH0_DOMAIN", "\"${auth0("AUTH0_DOMAIN")}\"")
+        buildConfigField("String", "AUTH0_SCHEME", "\"${auth0("AUTH0_SCHEME", "https")}\"")
+        buildConfigField("String", "AUTH0_AUDIENCE", "\"${auth0("AUTH0_AUDIENCE")}\"")
+
+        // 供 Auth0 库注册回调 intent-filter（登录/登出后浏览器跳回 App）
+        manifestPlaceholders["auth0Domain"] = auth0("AUTH0_DOMAIN")
+        manifestPlaceholders["auth0Scheme"] = auth0("AUTH0_SCHEME", "https")
     }
 }
 
@@ -79,6 +97,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     // 图片加载
     implementation(libs.coil.compose)
+    // Auth0 认证（Universal Login + 凭证管理）
+    implementation(libs.auth0)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
