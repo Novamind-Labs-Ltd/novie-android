@@ -48,6 +48,13 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
+        <!-- 图片上传测试页（仅 Debug 工具箱跳转） -->
+        <activity
+            android:name=".debug.imageupload.ImageUploadActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
         <!-- 相机拍照写入内部文件需要的 FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"

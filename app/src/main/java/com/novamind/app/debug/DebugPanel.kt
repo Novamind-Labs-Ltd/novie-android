@@ -51,6 +51,7 @@ import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
 import com.novamind.app.debug.apitest.ApiTestActivity
 import com.novamind.app.debug.apitest.ApiTarget
+import com.novamind.app.debug.imageupload.ImageUploadActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -139,6 +140,7 @@ fun DebugPanel(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("接口测试页 Python") { ApiTestActivity.start(context, ApiTarget.ITEMS) }
                     Chip("接口测试页 Java") { ApiTestActivity.start(context, ApiTarget.USERS) }
+                    Chip("图片上传测试") { ImageUploadActivity.start(context) }
                 }
             }
 
