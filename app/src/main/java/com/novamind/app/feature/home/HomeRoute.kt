@@ -1,5 +1,6 @@
 package com.novamind.app.feature.home
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,6 +10,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
@@ -28,9 +31,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.common.notifications.NotificationListScreen
 import com.novamind.app.common.notifications.sampleNotifications
 import com.novamind.app.common.notifications.unreadCount
+import com.novamind.app.common.profile.AvatarCropScreen
 import com.novamind.app.common.profile.ProfileDrawerContent
 import com.novamind.app.common.profile.ProfileStore
-import com.novamind.app.feature.create.editor.ImageStore
 import kotlinx.coroutines.launch
 
 /** Home 下的子页面 */
@@ -52,12 +55,12 @@ fun HomeRoute(
     // 个人资料（头像）
     LaunchedEffect(Unit) { ProfileStore.load(context) }
     val avatarPath by ProfileStore.avatarPath.collectAsState()
+    // 选图后先进入裁剪编辑页（圆形裁剪），确认后再落盘为头像
+    var cropUri by remember { mutableStateOf<Uri?>(null) }
     val avatarPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        if (uri != null) {
-            ImageStore.copyToInternal(context, uri)?.let { ProfileStore.setAvatar(context, it) }
-        }
+        if (uri != null) cropUri = uri
     }
 
     var notifications by remember { mutableStateOf(sampleNotifications) }
@@ -65,9 +68,12 @@ fun HomeRoute(
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val drawerOpen = drawerState.targetValue == DrawerValue.Open
-    LaunchedEffect(overlay, drawerOpen) { onFullscreenChange(overlay != HomeOverlay.None || drawerOpen) }
+    LaunchedEffect(overlay, drawerOpen, cropUri) {
+        onFullscreenChange(overlay != HomeOverlay.None || drawerOpen || cropUri != null)
+    }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
 
+  Box(modifier = Modifier.fillMaxSize()) {
     ModalNavigationDrawer(
         drawerState = drawerState,
         // 仅在首页允许侧滑开抽屉；抽屉已开时允许侧滑关
@@ -128,4 +134,18 @@ fun HomeRoute(
             }
         }
     }
+
+    // 头像裁剪编辑页：覆盖在最上层，确认后保存为头像
+    cropUri?.let { uri ->
+        AvatarCropScreen(
+            sourceUri = uri,
+            onCancel = { cropUri = null },
+            onConfirm = { path ->
+                ProfileStore.setAvatar(context, path)
+                cropUri = null
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+  }
 }

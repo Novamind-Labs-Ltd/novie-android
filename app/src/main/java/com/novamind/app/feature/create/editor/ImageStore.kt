@@ -1,6 +1,10 @@
 package com.novamind.app.feature.create.editor
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
@@ -60,6 +64,72 @@ object ImageStore {
         dest.absolutePath to uri
     } catch (_: Exception) {
         null
+    }
+
+    /**
+     * 解码 [uri] 指向的图片为 [Bitmap]，按 EXIF 方向自动旋正，并按 [maxDimension] 下采样防止 OOM。
+     * 用于头像裁剪编辑页。失败返回 null。
+     */
+    fun decodeBitmap(context: Context, uri: Uri, maxDimension: Int = 2048): Bitmap? = try {
+        // 1) 先读出宽高，计算合适的 inSampleSize（下采样）
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        }
+        var sample = 1
+        var maxSide = maxOf(bounds.outWidth, bounds.outHeight)
+        while (maxSide / sample > maxDimension) sample *= 2
+
+        // 2) 实际解码
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val raw = context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, opts)
+        } ?: return null
+
+        // 3) 读取 EXIF 方向并旋正
+        val orientation = context.contentResolver.openInputStream(uri)?.use { stream ->
+            ExifInterface(stream).getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL,
+            )
+        } ?: ExifInterface.ORIENTATION_NORMAL
+
+        applyExifOrientation(raw, orientation)
+    } catch (_: Exception) {
+        null
+    }
+
+    /** 把 [bitmap] 以 PNG（保留透明通道）写入内部存储，返回绝对路径；失败返回 null。 */
+    fun saveAvatarPng(context: Context, bitmap: Bitmap): String? = try {
+        val dir = File(context.filesDir, IMAGE_DIR).apply { mkdirs() }
+        val dest = File(dir, "avatar_${UUID.randomUUID()}.png")
+        dest.outputStream().use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        dest.absolutePath
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun applyExifOrientation(src: Bitmap, orientation: Int): Bitmap {
+        val m = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.postScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> { m.postRotate(90f); m.postScale(-1f, 1f) }
+            ExifInterface.ORIENTATION_TRANSVERSE -> { m.postRotate(270f); m.postScale(-1f, 1f) }
+            else -> return src
+        }
+        return try {
+            val rotated = Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+            if (rotated != src) src.recycle()
+            rotated
+        } catch (_: Exception) {
+            src
+        }
     }
 
     private fun queryDisplayName(context: Context, uri: Uri): String? = runCatching {
