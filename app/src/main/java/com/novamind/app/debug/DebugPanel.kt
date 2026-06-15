@@ -49,6 +49,7 @@ import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
 import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
+import com.novamind.app.debug.apitest.ApiTestActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -129,6 +130,13 @@ fun DebugPanel(
                         "calendar" to "Calendar", "brand" to "Brand").forEach { (r, label) ->
                         Chip(label) { onNavigate(r) }
                     }
+                }
+            }
+
+            // ── 接口测试 ──
+            Section("接口测试") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("打开接口测试页") { ApiTestActivity.start(context) }
                 }
             }
 
