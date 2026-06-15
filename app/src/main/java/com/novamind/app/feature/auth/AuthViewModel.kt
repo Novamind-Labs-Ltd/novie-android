@@ -52,6 +52,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     fun login(activity: Activity) {
         if (_uiState.value.isLoading) return
+        // 临时口子：不走 Auth0，点「登录/注册」直接进入应用
+        if (DEV_BYPASS_AUTH) {
+            _uiState.update { it.copy(isLoading = false, isAuthenticated = true, errorMessage = null) }
+            return
+        }
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             runCatching { authManager.login(activity) }
@@ -73,6 +78,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     fun logout(activity: Activity) {
         if (_uiState.value.isLoading) return
+        // 临时口子：本地直接登出，回到登录页
+        if (DEV_BYPASS_AUTH) {
+            _uiState.update { AuthUiState(isCheckingSession = false, isAuthenticated = false) }
+            return
+        }
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             runCatching { authManager.logout(activity) }
@@ -89,6 +99,15 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    companion object {
+        /**
+         * 临时口子（开发用）。为 true 时登录/登出不走 Auth0，
+         * 点「登录/注册」直接进入应用，方便未配置 Auth0 参数也能开发。
+         * TODO: Auth0 接入联调完成后改为 false 或删除相关分支。
+         */
+        const val DEV_BYPASS_AUTH = true
     }
 }
 
