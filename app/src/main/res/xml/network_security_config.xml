@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 默认：沿用系统信任锚点（其余请求行为不变） -->
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- 仅对接口测试服务器额外信任其证书；仍执行完整 TLS 校验，不跳过校验 -->
+    <domain-config>
+        <domain includeSubdomains="false">121.41.207.114</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/api_test_cert" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
