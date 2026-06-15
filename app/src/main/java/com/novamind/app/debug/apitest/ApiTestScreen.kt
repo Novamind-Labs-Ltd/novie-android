@@ -17,10 +17,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,8 +50,10 @@ private val Danger = Color(0xFFD13C3C)
 @Composable
 fun ApiTestRoute(
     onBack: () -> Unit,
+    target: ApiTarget = ApiTarget.ITEMS,
     viewModel: ApiTestViewModel = viewModel(),
 ) {
+    LaunchedEffect(target) { viewModel.setTarget(target) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     ApiTestScreen(
         uiState = uiState,
@@ -68,7 +74,7 @@ fun ApiTestScreen(
         containerColor = Bg,
         topBar = {
             TopAppBar(
-                title = { Text("接口测试", fontWeight = FontWeight.SemiBold) },
+                title = { Text(uiState.target.title, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Text("←", fontSize = 22.sp, color = TextMain)
@@ -84,8 +90,29 @@ fun ApiTestScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = uiState.page,
+                    onValueChange = { onEvent(ApiTestEvent.UpdatePage(it)) },
+                    label = { Text(uiState.target.pageParam) },
+                    singleLine = true,
+                    enabled = !uiState.isLoading,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = uiState.size,
+                    onValueChange = { onEvent(ApiTestEvent.UpdateSize(it)) },
+                    label = { Text(uiState.target.sizeParam) },
+                    singleLine = true,
+                    enabled = !uiState.isLoading,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
             Text(
-                ApiTestViewModel.ENDPOINT,
+                ApiTestViewModel.buildUrl(uiState.target, uiState.page, uiState.size),
                 fontSize = 12.sp,
                 color = TextSub,
                 fontFamily = FontFamily.Monospace,

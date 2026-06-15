@@ -50,6 +50,7 @@ import com.novamind.app.common.update.UpdateType
 import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
 import com.novamind.app.debug.apitest.ApiTestActivity
+import com.novamind.app.debug.apitest.ApiTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -136,7 +137,8 @@ fun DebugPanel(
             // ── 接口测试 ──
             Section("接口测试") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("打开接口测试页") { ApiTestActivity.start(context) }
+                    Chip("接口测试页 Python") { ApiTestActivity.start(context, ApiTarget.ITEMS) }
+                    Chip("接口测试页 Java") { ApiTestActivity.start(context, ApiTarget.USERS) }
                 }
             }
 

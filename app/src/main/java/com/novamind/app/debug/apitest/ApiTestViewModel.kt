@@ -30,17 +30,32 @@ class ApiTestViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ApiTestUiState())
     val uiState: StateFlow<ApiTestUiState> = _uiState.asStateFlow()
 
+    /**
+     * 初始化测试目标（来自路由）。仅在目标变化时重置页码/条数为该接口默认值，
+     * 避免重组时反复覆盖用户输入。
+     */
+    fun setTarget(target: ApiTarget) {
+        if (_uiState.value.target == target && _uiState.value.hasLoaded) return
+        _uiState.update {
+            if (it.target == target) it
+            else it.copy(target = target, page = target.defaultPage, size = target.defaultSize)
+        }
+    }
+
     fun onEvent(event: ApiTestEvent) {
         when (event) {
             ApiTestEvent.Fetch -> fetch()
+            is ApiTestEvent.UpdatePage -> _uiState.update { it.copy(page = event.value.filter(Char::isDigit)) }
+            is ApiTestEvent.UpdateSize -> _uiState.update { it.copy(size = event.value.filter(Char::isDigit)) }
         }
     }
 
     private fun fetch() {
         if (_uiState.value.isLoading) return
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        val url = buildUrl(_uiState.value.target, _uiState.value.page, _uiState.value.size)
         viewModelScope.launch {
-            val result = runCatching { withContext(Dispatchers.IO) { request(ENDPOINT) } }
+            val result = runCatching { withContext(Dispatchers.IO) { request(url) } }
             result.onSuccess { body ->
                 val items = parseItems(body)
                 _uiState.update {
@@ -138,7 +153,13 @@ class ApiTestViewModel : ViewModel() {
 
     companion object {
         private const val TAG = "ApiTest"
-        const val ENDPOINT = "https://121.41.207.114/items?page=1&size=10"
+
+        /** 根据目标、页码与每页条数拼接完整请求地址；空值回退到该接口默认值。 */
+        fun buildUrl(target: ApiTarget, page: String, size: String): String {
+            val p = page.ifBlank { target.defaultPage }
+            val s = size.ifBlank { target.defaultSize }
+            return "${target.baseUrl}?${target.pageParam}=$p&${target.sizeParam}=$s"
+        }
 
         /** 需要放宽主机名校验的目标主机。 */
         private const val PINNED_HOST = "121.41.207.114"
@@ -171,4 +192,6 @@ class ApiTestViewModel : ViewModel() {
 /** UI → ViewModel 事件。 */
 sealed interface ApiTestEvent {
     data object Fetch : ApiTestEvent
+    data class UpdatePage(val value: String) : ApiTestEvent
+    data class UpdateSize(val value: String) : ApiTestEvent
 }

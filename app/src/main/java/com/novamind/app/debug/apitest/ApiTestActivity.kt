@@ -17,16 +17,24 @@ class ApiTestActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val target = runCatching {
+            ApiTarget.valueOf(intent.getStringExtra(EXTRA_TARGET) ?: ApiTarget.ITEMS.name)
+        }.getOrDefault(ApiTarget.ITEMS)
         setContent {
             AppTheme {
-                ApiTestRoute(onBack = { finish() })
+                ApiTestRoute(onBack = { finish() }, target = target)
             }
         }
     }
 
     companion object {
-        fun start(context: Context) {
-            context.startActivity(Intent(context, ApiTestActivity::class.java))
+        private const val EXTRA_TARGET = "extra_target"
+
+        fun start(context: Context, target: ApiTarget = ApiTarget.ITEMS) {
+            context.startActivity(
+                Intent(context, ApiTestActivity::class.java)
+                    .putExtra(EXTRA_TARGET, target.name)
+            )
         }
     }
 }

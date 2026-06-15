@@ -7,8 +7,9 @@
         </trust-anchors>
     </base-config>
 
-    <!-- 仅对接口测试服务器额外信任其证书；仍执行完整 TLS 校验，不跳过校验 -->
-    <domain-config>
+    <!-- 仅对接口测试服务器额外信任其证书；仍执行完整 TLS 校验，不跳过校验。
+         同时放开明文 HTTP（用户接口走 http://121.41.207.114:8080）。 -->
+    <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">121.41.207.114</domain>
         <trust-anchors>
             <certificates src="system" />
