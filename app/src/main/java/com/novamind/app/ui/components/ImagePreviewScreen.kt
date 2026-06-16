@@ -1,4 +1,4 @@
-package com.novamind.app.feature.create.components
+package com.novamind.app.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -67,25 +67,34 @@ import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.novamind.app.R
-import com.novamind.app.ui.components.DeleteConfirmSheet
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 
+// 公共组件自带配色，避免依赖各 feature 内部颜色常量
+private val PreviewBg = Color(0xFFF0EFEA)
+private val PreviewText = Color(0xFF1A1A1A)
+private val PreviewBtnBg = Color(0xFFFFFFFF)
+
 /**
- * 图片预览全屏页：左右滑动翻页（[HorizontalPager]）、双指缩放 / 双击放大、删除当前图片。
+ * 图片预览全屏页：左右滑动翻页（[HorizontalPager]）、双指缩放 / 双击放大、下拉关闭，
+ * 可选删除当前图片。通用组件，笔记编辑、Ask Novie 等场景均可复用。
  *
- * @param paths 笔记内全部图片的有序路径
+ * @param paths 全部图片的有序路径
  * @param initialIndex 进入时显示的图片下标
- * @param onDelete 删除第 index 张图片（由上层从编辑器移除对应块）
  * @param onBack 关闭预览
+ * @param onDelete 删除第 index 张图片；为 null 时隐藏删除按钮
+ * @param deleteTitle / deleteMessage / deleteConfirmLabel 删除二次确认文案（按场景定制）
  */
 @Composable
 fun ImagePreviewScreen(
     paths: List<String>,
     initialIndex: Int,
-    onDelete: (Int) -> Unit,
     onBack: () -> Unit,
+    onDelete: ((Int) -> Unit)? = null,
+    deleteTitle: String = "Delete image?",
+    deleteMessage: String = "This will remove the image.",
+    deleteConfirmLabel: String = "Delete",
 ) {
     if (paths.isEmpty()) {
         // 没有可显示的图片（例如删到空）：直接关闭
@@ -197,12 +206,12 @@ fun ImagePreviewScreen(
     // 沉浸模式：单击切换。开启时背景变黑、隐藏顶栏（顶部/底部留黑边）
     var immersive by remember { mutableStateOf(false) }
     val bgColor by animateColorAsState(
-        targetValue = if (immersive) Color.Black else BgPage,
+        targetValue = if (immersive) Color.Black else PreviewBg,
         animationSpec = tween(220),
         label = "previewBg",
     )
 
-    // 下拉关闭：竖直拖拽距离（仅向下）。图片随之缩小、背景渐隐，露出下层笔记页（近共享元素）
+    // 下拉关闭：竖直拖拽距离（仅向下）。图片随之缩小、背景渐隐，露出下层页面（近共享元素）
     var dragDownY by remember { mutableFloatStateOf(0f) }
     val dismissDistance = (containerSize.height.takeIf { it > 0 } ?: 1).toFloat()
     val dismissProgress = (dragDownY / dismissDistance).coerceIn(0f, 1f)
@@ -363,25 +372,30 @@ fun ImagePreviewScreen(
                 Text(
                     text = "${pagerState.currentPage + 1} of ${paths.size}",
                     fontSize = 16.sp,
-                    color = ColorTextTitle,
+                    color = PreviewText,
                 )
-                CircleIconButton(R.drawable.ic_delete, "Delete", onClick = {
-                    showDeleteConfirm = true
-                })
+                if (onDelete != null) {
+                    CircleIconButton(R.drawable.ic_delete, "Delete", onClick = {
+                        showDeleteConfirm = true
+                    })
+                } else {
+                    // 占位，保持标题居中
+                    Box(modifier = Modifier.size(44.dp))
+                }
             }
         }
 
         // 删除二次确认
-        if (showDeleteConfirm) {
+        if (showDeleteConfirm && onDelete != null) {
             DeleteConfirmSheet(
                 onConfirm = {
                     showDeleteConfirm = false
                     onDelete(pagerState.currentPage)
                 },
                 onDismiss = { showDeleteConfirm = false },
-                title = "Delete image?",
-                message = "This will remove the image from the note.",
-                confirmLabel = "Delete",
+                title = deleteTitle,
+                message = deleteMessage,
+                confirmLabel = deleteConfirmLabel,
             )
         }
     }
@@ -393,7 +407,7 @@ private fun CircleIconButton(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
-    Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {
+    Surface(shape = CircleShape, color = PreviewBtnBg, shadowElevation = 2.dp) {
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -408,7 +422,7 @@ private fun CircleIconButton(
             Icon(
                 painter = painterResource(id = iconResId),
                 contentDescription = contentDescription,
-                tint = ColorTextTitle,
+                tint = PreviewText,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -425,8 +439,8 @@ private fun ImagePreviewScreenPreview() {
         ImagePreviewScreen(
             paths = listOf("/sample/a.jpg", "/sample/b.jpg"),
             initialIndex = 0,
-            onDelete = {},
             onBack = {},
+            onDelete = {},
         )
     }
 }

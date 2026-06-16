@@ -69,6 +69,7 @@ import coil.compose.AsyncImage
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
+import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.VoiceRecordingBar
 import kotlinx.coroutines.launch
@@ -165,6 +166,8 @@ fun AskNovieScreen(
     // 待发送附件（图片/文件）+ 「+」选择菜单显隐
     var attachments by remember { mutableStateOf(listOf<Attachment>()) }
     var showAttachMenu by remember { mutableStateOf(false) }
+    // 全屏图片预览：当前查看的图片在「图片附件」中的下标（null 表示不显示）
+    var previewIndex by remember { mutableStateOf<Int?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -329,8 +332,9 @@ fun AskNovieScreen(
         androidx.activity.compose.BackHandler(enabled = isRecording) { isRecording = false }
     }
 
+    Box(modifier = modifier.fillMaxSize()) {
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .background(Bg)
             // 点击输入框以外的空白区域 → 清焦点收起键盘（子组件各自消费点击不受影响）
@@ -483,7 +487,16 @@ fun AskNovieScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         attachments.forEach { att ->
-                            AttachmentChip(att = att, onRemove = { attachments = attachments - att })
+                            AttachmentChip(
+                                att = att,
+                                onRemove = { attachments = attachments - att },
+                                onClick = {
+                                    val idx = attachments
+                                        .filter { it.type == AttachType.Image }
+                                        .indexOfFirst { it.path == att.path }
+                                    if (idx >= 0) previewIndex = idx
+                                },
+                            )
                         }
                     }
                 }
@@ -547,6 +560,39 @@ fun AskNovieScreen(
                 }
             }
         }
+        }
+    }
+
+        // 图片附件全屏预览（覆盖整页）：左右滑动 / 缩放 / 下拉关闭 / 删除，进出带淡入缩放转场
+        val imagePaths = attachments.filter { it.type == AttachType.Image }.map { it.path }
+        // 退出动画期间 previewIndex 已置空，用上一次的快照继续渲染避免闪白
+        var lastPreviewPaths by remember { mutableStateOf<List<String>>(emptyList()) }
+        var lastPreviewIndex by remember { mutableStateOf(0) }
+        if (previewIndex != null) {
+            lastPreviewPaths = imagePaths
+            lastPreviewIndex = previewIndex!!
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = previewIndex != null,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(220)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(220), initialScale = 0.92f),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(180)) +
+                androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(180), targetScale = 0.92f),
+        ) {
+            val shownPaths = if (previewIndex != null) imagePaths else lastPreviewPaths
+            ImagePreviewScreen(
+                paths = shownPaths,
+                initialIndex = lastPreviewIndex,
+                onDelete = { page ->
+                    shownPaths.getOrNull(page)?.let { path ->
+                        attachments = attachments.filterNot { it.type == AttachType.Image && it.path == path }
+                    }
+                },
+                deleteTitle = "Remove image?",
+                deleteMessage = "This will remove the image from your message.",
+                deleteConfirmLabel = "Remove",
+                onBack = { previewIndex = null },
+            )
         }
     }
 
@@ -784,23 +830,28 @@ private fun MicButton(onClick: () -> Unit) {
 
 /** 已选附件 chip：图片显示圆角预览缩略图（不展示文件名）；文件显示图标 + 文件名。 */
 @Composable
-private fun AttachmentChip(att: Attachment, onRemove: () -> Unit) {
+private fun AttachmentChip(att: Attachment, onRemove: () -> Unit, onClick: () -> Unit = {}) {
     if (att.type == AttachType.Image) {
-        ImageAttachmentPreview(att = att, onRemove = onRemove)
+        ImageAttachmentPreview(att = att, onRemove = onRemove, onClick = onClick)
     } else {
         FileAttachmentChip(att = att, onRemove = onRemove)
     }
 }
 
-/** 图片附件：圆角预览缩略图 + 右上角移除按钮，不展示文件名。 */
+/** 图片附件：胶囊预览缩略图 + 右端移除按钮，不展示文件名；点击打开全屏预览。 */
 @Composable
-private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit) {
+private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(width = 72.dp, height = 40.dp)
             // 胶囊型裁剪：圆角半径 = 高度的一半，两端呈半圆
             .clip(RoundedCornerShape(50))
-            .background(Color(0xFFD8D5CC)),
+            .background(Color(0xFFD8D5CC))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
     ) {
         AsyncImage(
             model = File(att.path),

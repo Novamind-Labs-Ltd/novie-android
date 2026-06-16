@@ -36,7 +36,7 @@ import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
-import com.novamind.app.feature.create.components.ImagePreviewScreen
+import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.folder.FolderPickerSheet
@@ -382,6 +382,7 @@ fun CreateScreen(
                             ?.let { editor.removeBlock(it.id); emitContent() }
                     }
                 },
+                deleteMessage = "This will remove the image from the note.",
                 onBack = { previewIndex = null },
             )
         }
