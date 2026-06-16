@@ -1,7 +1,13 @@
 package com.novamind.app.feature.asknovie
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.ui.components.VoiceRecordingBar
+import kotlinx.coroutines.launch
 
 private val Bg = Color(0xFFF1EEE6)
 private val Card = Color(0xFFFFFFFF)
@@ -64,6 +71,24 @@ private val suggestions = listOf(
     "Who have I promised to follow up",
     "Summarize my notes",
 )
+
+/** 一条对话消息。 */
+private enum class Role { User, Assistant }
+private data class ChatMessage(val role: Role, val text: String)
+
+/** 临时 mock 回复（后续替换为真实接口）。 */
+private fun mockReply(prompt: String): String {
+    val p = prompt.lowercase()
+    val offTopic = listOf("movie", "cinema", "weather", "news", "stock", "score", "lottery", "电影", "天气")
+    if (offTopic.any { p.contains(it) }) {
+        return "That’s a bit outside my current scope. I’m best at helping with " +
+            "project management, strategic planning, brainstorming, and creative tasks. " +
+            "Is there something in those areas I can help you with instead?"
+    }
+    return "Here’s a quick take on “${prompt.trim()}”. " +
+        "(This is a mock reply for now — I’ll connect to the real assistant later.) " +
+        "Want me to break it into next steps?"
+}
 
 /**
  * Ask Novie 聊天入口页（空状态）。匹配设计稿：
@@ -83,8 +108,36 @@ fun AskNovieScreen(
     var input by remember { mutableStateOf("") }
     // 点麦克风后进入录音状态
     var isRecording by remember { mutableStateOf(false) }
+    // 对话消息列表 + 助手是否正在回复
+    var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
+    var isResponding by remember { mutableStateOf(false) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+
+    // 发送：追加用户消息 → mock 回复（模拟思考延迟）
+    val send: (String) -> Unit = { raw ->
+        val text = raw.trim()
+        if (text.isNotEmpty() && !isResponding) {
+            messages = messages + ChatMessage(Role.User, text)
+            input = ""
+            isResponding = true
+            onSend(text)
+            scope.launch {
+                kotlinx.coroutines.delay(700)
+                messages = messages + ChatMessage(Role.Assistant, mockReply(text))
+                isResponding = false
+            }
+        }
+    }
+
+    // 新消息时滚到底部
+    androidx.compose.runtime.LaunchedEffect(messages.size, isResponding) {
+        val count = messages.size + if (isResponding) 1 else 0
+        if (count > 0) listState.animateScrollToItem(count - 1)
+    }
+
     // 录音时系统返回先退出录音
     androidx.activity.compose.BackHandler(enabled = isRecording) { isRecording = false }
 
@@ -119,27 +172,46 @@ fun AskNovieScreen(
             }
         }
 
-        // ── 中部问候 ──
+        // ── 中部：空状态问候 / 对话列表 ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
             contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Hi, $userName",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextTitle,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "What’s on your mind?",
-                    fontSize = 15.sp,
-                    color = TextSub,
-                    textAlign = TextAlign.Center,
-                )
+            if (messages.isEmpty() && !isResponding) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Hi, $userName",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextTitle,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "What’s on your mind?",
+                        fontSize = 15.sp,
+                        color = TextSub,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 16.dp,
+                        vertical = 12.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    items(messages) { msg ->
+                        if (msg.role == Role.User) UserBubble(msg.text) else AssistantText(msg.text)
+                    }
+                    if (isResponding) {
+                        item { TypingIndicator() }
+                    }
+                }
             }
         }
 
@@ -202,26 +274,14 @@ fun AskNovieScreen(
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(Dark),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(
-                                onSend = {
-                                    if (input.isNotBlank()) {
-                                        onSend(input.trim())
-                                        input = ""
-                                    }
-                                },
-                            ),
+                            keyboardActions = KeyboardActions(onSend = { send(input) }),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
                     // 右侧按钮：有内容 → 绿色发送；无内容 → 语音
                     if (input.isNotBlank()) {
-                        SendButton(
-                            onClick = {
-                                onSend(input.trim())
-                                input = ""
-                            },
-                        )
+                        SendButton(onClick = { send(input) })
                     } else {
                         MicButton(
                             onClick = {
@@ -348,6 +408,65 @@ private fun MicButton(onClick: () -> Unit) {
             tint = Color.White,
             modifier = Modifier.size(20.dp),
         )
+    }
+}
+
+/** 用户消息气泡：右对齐，浅色圆角。 */
+@Composable
+private fun UserBubble(text: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Surface(
+            color = Card,
+            shape = RoundedCornerShape(18.dp),
+            shadowElevation = 1.dp,
+            modifier = Modifier.padding(start = 36.dp),
+        ) {
+            Text(
+                text = text,
+                color = TextTitle,
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+        }
+    }
+}
+
+/** 助手消息：整行纯文本，无气泡。 */
+@Composable
+private fun AssistantText(text: String) {
+    Text(
+        text = text,
+        color = TextTitle,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** 助手「正在输入」的三点动画。 */
+@Composable
+private fun TypingIndicator() {
+    val transition = rememberInfiniteTransition(label = "typing")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        repeat(3) { i ->
+            val alpha by transition.animateFloat(
+                initialValue = 0.25f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600, delayMillis = i * 150),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "dot$i",
+            )
+            Box(
+                modifier = Modifier
+                    .padding(end = 5.dp)
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(TextSub.copy(alpha = alpha)),
+            )
+        }
     }
 }
 
