@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,9 +63,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.novamind.app.R
+import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.VoiceRecordingBar
 import kotlinx.coroutines.launch
+import java.io.File
 
 private val Bg = Color(0xFFF1EEE6)
 private val Card = Color(0xFFFFFFFF)
@@ -74,6 +78,7 @@ private val Dark = Color(0xFF1A1A1A)
 private val ChipText = Color(0xFF3A3A3A)
 private val SendGreen = Color(0xFF2E9E5B)
 private val MenuBg = Color(0xFFF4F2EA)
+private val AttachChipBg = Color(0xFFE9E7DF)
 
 /** 预设的快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
@@ -82,9 +87,25 @@ private val suggestions = listOf(
     "Summarize my notes",
 )
 
-/** 一条对话消息。 */
+/** 待发送 / 已发送附件。 */
+private enum class AttachType { Image, File }
+private data class Attachment(val type: AttachType, val path: String, val name: String)
+
+/** 一条对话消息（可带附件）。 */
 private enum class Role { User, Assistant }
-private data class ChatMessage(val role: Role, val text: String)
+private data class ChatMessage(
+    val role: Role,
+    val text: String,
+    val attachments: List<Attachment> = emptyList(),
+)
+
+/** 查询 content uri 的展示文件名。 */
+private fun queryDisplayName(context: android.content.Context, uri: android.net.Uri): String? =
+    runCatching {
+        context.contentResolver.query(
+            uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null,
+        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+    }.getOrNull()
 
 /** 临时 mock 回复（后续替换为真实接口）。 */
 private fun mockReply(prompt: String): String {
@@ -129,6 +150,9 @@ fun AskNovieScreen(
     // 对话消息列表 + 助手是否正在回复
     var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
     var isResponding by remember { mutableStateOf(false) }
+    // 待发送附件（图片/文件）+ 「+」选择菜单显隐
+    var attachments by remember { mutableStateOf(listOf<Attachment>()) }
+    var showAttachMenu by remember { mutableStateOf(false) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -150,18 +174,46 @@ fun AskNovieScreen(
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "novie-tts")
     }
 
-    // 发送：追加用户消息 → mock 回复（模拟思考延迟）
-    val send: (String) -> Unit = { raw ->
-        val text = raw.trim()
-        if (text.isNotEmpty() && !isResponding) {
-            messages = messages + ChatMessage(Role.User, text)
-            input = ""
-            isResponding = true
-            onSend(text)
-            scope.launch {
-                kotlinx.coroutines.delay(700)
-                messages = messages + ChatMessage(Role.Assistant, mockReply(text))
-                isResponding = false
+    // 图片选择器（系统照片选择器，支持多选，无需权限）
+    val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris ->
+        uris.forEach { uri ->
+            ImageStore.copyToInternal(context, uri)?.let { path ->
+                attachments = attachments + Attachment(
+                    AttachType.Image, path, queryDisplayName(context, uri) ?: "image.jpg",
+                )
+            }
+        }
+    }
+    // 文件选择器
+    val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
+                attachments = attachments + Attachment(AttachType.File, path, name)
+            }
+        }
+    }
+
+    // 发送：文本 + 附件 → 追加用户消息（附件随消息展示）→ mock 回复
+    val send: () -> Unit = {
+        if (!isResponding) {
+            val prompt = input.trim()
+            val atts = attachments
+            if (prompt.isNotEmpty() || atts.isNotEmpty()) {
+                messages = messages + ChatMessage(Role.User, prompt, atts)
+                input = ""
+                attachments = emptyList()
+                isResponding = true
+                onSend(prompt)
+                scope.launch {
+                    kotlinx.coroutines.delay(700)
+                    val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
+                    messages = messages + ChatMessage(Role.Assistant, mockReply(basis))
+                    isResponding = false
+                }
             }
         }
     }
@@ -250,7 +302,7 @@ fun AskNovieScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     items(messages) { msg ->
-                        if (msg.role == Role.User) UserBubble(msg.text)
+                        if (msg.role == Role.User) UserBubble(msg)
                         else AssistantText(msg.text, onSpeak = speak)
                     }
                     if (isResponding) {
@@ -293,6 +345,21 @@ fun AskNovieScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // 已选附件 chips（横向滚动）
+            if (attachments.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    attachments.forEach { att ->
+                        AttachmentChip(att = att, onRemove = { attachments = attachments - att })
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
             // 输入框
             Surface(color = Card, shape = RoundedCornerShape(28.dp), shadowElevation = 1.dp) {
                 Row(
@@ -301,7 +368,26 @@ fun AskNovieScreen(
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    BareIconButton(R.drawable.ic_add, "添加")
+                    Box {
+                        BareIconButton(R.drawable.ic_add, "添加", onClick = { showAttachMenu = true })
+                        AttachMenu(
+                            expanded = showAttachMenu,
+                            onDismiss = { showAttachMenu = false },
+                            onPickImage = {
+                                showAttachMenu = false
+                                imagePicker.launch(
+                                    androidx.activity.result.PickVisualMediaRequest(
+                                        androidx.activity.result.contract.ActivityResultContracts
+                                            .PickVisualMedia.ImageOnly,
+                                    ),
+                                )
+                            },
+                            onPickFile = {
+                                showAttachMenu = false
+                                filePicker.launch(arrayOf("*/*"))
+                            },
+                        )
+                    }
 
                     Box(
                         modifier = Modifier
@@ -319,14 +405,14 @@ fun AskNovieScreen(
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(Dark),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(onSend = { send(input) }),
+                            keyboardActions = KeyboardActions(onSend = { send() }),
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
                     // 右侧按钮：有内容 → 绿色发送；无内容 → 语音
-                    if (input.isNotBlank()) {
-                        SendButton(onClick = { send(input) })
+                    if (input.isNotBlank() || attachments.isNotEmpty()) {
+                        SendButton(onClick = { send() })
                     } else {
                         MicButton(
                             onClick = {
@@ -469,6 +555,108 @@ private fun MicButton(onClick: () -> Unit) {
     }
 }
 
+/** 「+」附件选择菜单：图片 / 文件。 */
+@Composable
+private fun AttachMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onPickImage: () -> Unit,
+    onPickFile: () -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        containerColor = MenuBg,
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 12.dp,
+        tonalElevation = 0.dp,
+    ) {
+        DropdownMenuItem(
+            text = { Text("图片", color = TextTitle, fontSize = 15.sp) },
+            leadingIcon = {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_image),
+                    contentDescription = null, tint = TextTitle, modifier = Modifier.size(20.dp),
+                )
+            },
+            onClick = onPickImage,
+        )
+        DropdownMenuItem(
+            text = { Text("文件", color = TextTitle, fontSize = 15.sp) },
+            leadingIcon = {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
+                    contentDescription = null, tint = TextTitle, modifier = Modifier.size(20.dp),
+                )
+            },
+            onClick = onPickFile,
+        )
+    }
+}
+
+/** 已选附件 chip：缩略图/图标 + 文件名 + 移除。 */
+@Composable
+private fun AttachmentChip(att: Attachment, onRemove: () -> Unit) {
+    Surface(color = AttachChipBg, shape = RoundedCornerShape(50)) {
+        Row(
+            modifier = Modifier.padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFD8D5CC)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (att.type == AttachType.Image) {
+                    AsyncImage(
+                        model = File(att.path),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.size(28.dp).clip(CircleShape),
+                    )
+                } else {
+                    Icon(
+                        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
+                        contentDescription = null,
+                        tint = TextSub,
+                        modifier = Modifier.size(15.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = att.name,
+                color = TextTitle,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 120.dp),
+            )
+            Spacer(Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(bounded = false),
+                        onClick = onRemove,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_close),
+                    contentDescription = "移除",
+                    tint = TextSub,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+    }
+}
+
 /** 右上角「更多」下拉菜单。 */
 @Composable
 private fun MoreMenu(
@@ -507,24 +695,74 @@ private fun MoreMenuItem(label: String, onClick: () -> Unit) {
     )
 }
 
-/** 用户消息气泡：右对齐，浅色圆角。 */
+/** 用户消息气泡：右对齐。附件（图片预览 / 文件 chip）在上，文本在下。 */
 @Composable
-private fun UserBubble(text: String) {
+private fun UserBubble(msg: ChatMessage) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        Surface(
-            color = Card,
-            shape = RoundedCornerShape(18.dp),
-            shadowElevation = 1.dp,
-            modifier = Modifier.padding(start = 36.dp),
+        Column(
+            modifier = Modifier.padding(start = 48.dp),
+            horizontalAlignment = Alignment.End,
         ) {
-            SelectionContainer {
-                Text(
-                    text = text,
-                    color = TextTitle,
-                    fontSize = 15.sp,
-                    lineHeight = 21.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            // 图片附件：圆角预览
+            msg.attachments.filter { it.type == AttachType.Image }.forEach { att ->
+                AsyncImage(
+                    model = File(att.path),
+                    contentDescription = att.name,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .widthIn(max = 220.dp)
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFE3E0D8)),
                 )
+            }
+            // 文件附件：静态 chip
+            msg.attachments.filter { it.type == AttachType.File }.forEach { att ->
+                Surface(
+                    color = AttachChipBg,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.padding(bottom = 6.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
+                            contentDescription = null,
+                            tint = TextSub,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            att.name,
+                            color = TextTitle,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 160.dp),
+                        )
+                    }
+                }
+            }
+            // 文本气泡（有文字才显示）
+            if (msg.text.isNotEmpty()) {
+                Surface(
+                    color = Card,
+                    shape = RoundedCornerShape(18.dp),
+                    shadowElevation = 1.dp,
+                ) {
+                    SelectionContainer {
+                        Text(
+                            text = msg.text,
+                            color = TextTitle,
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        )
+                    }
+                }
             }
         }
     }
