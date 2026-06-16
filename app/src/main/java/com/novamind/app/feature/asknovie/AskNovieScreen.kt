@@ -7,7 +7,9 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.items
@@ -432,10 +434,7 @@ fun AskNovieScreen(
                     .padding(bottom = 8.dp),
             ) {
                 ScrollToBottomButton(onClick = {
-                    scope.launch {
-                        val last = (messages.size + (if (isResponding) 1 else 0) - 1).coerceAtLeast(0)
-                        listState.animateScrollToItem(last)
-                    }
+                    scope.launch { listState.smoothScrollToBottom() }
                 })
             }
         }
@@ -676,6 +675,22 @@ fun AskNovieScreen(
             },
             onDismiss = { showDeleteConfirm = false },
         )
+    }
+}
+
+/**
+ * 平滑滚动到底部：逐屏匀速滚动，直到无法再向下滚动。
+ *
+ * 避免 [androidx.compose.foundation.lazy.LazyListState.animateScrollToItem] 对远距离目标
+ * 会先「瞬间跳转」再动画收尾的行为（观感上像是立即跳到底）。每屏用线性缓动衔接，保证连续顺滑。
+ */
+private suspend fun androidx.compose.foundation.lazy.LazyListState.smoothScrollToBottom() {
+    while (canScrollForward) {
+        val step = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset)
+            .toFloat()
+            .coerceAtLeast(1f)
+        val consumed = animateScrollBy(step, animationSpec = tween(durationMillis = 240, easing = LinearEasing))
+        if (consumed == 0f) break   // 已到底 / 滚不动：退出，防止死循环
     }
 }
 
