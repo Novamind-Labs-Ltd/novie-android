@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.ImageStore
+import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.VoiceRecordingBar
 import kotlinx.coroutines.launch
 import java.io.File
@@ -159,6 +160,7 @@ fun AskNovieScreen(
         mutableStateOf<String?>(null)
     }
     var showRename by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     // 待发送附件（图片/文件）+ 「+」选择菜单显隐
     var attachments by remember { mutableStateOf(listOf<Attachment>()) }
     var showAttachMenu by remember { mutableStateOf(false) }
@@ -302,14 +304,19 @@ fun AskNovieScreen(
                 ) {
                     BareIconButton(R.drawable.ic_history, "历史", onClick = { showHistory = true })
                     Box {
-                        BareIconButton(R.drawable.ic_more, "更多", onClick = { showMoreMenu = true })
+                        BareIconButton(
+                            R.drawable.ic_more,
+                            "更多",
+                            enabled = messages.isNotEmpty(),
+                            onClick = { showMoreMenu = true },
+                        )
                         MoreMenu(
                             expanded = showMoreMenu,
                             onDismiss = { showMoreMenu = false },
                             onShare = { showMoreMenu = false; onShare() },
                             onRename = { showMoreMenu = false; onRename(); showRename = true },
                             onExportToNotes = { showMoreMenu = false; onExportToNotes() },
-                            onDelete = { showMoreMenu = false; onDelete() },
+                            onDelete = { showMoreMenu = false; showDeleteConfirm = true },
                         )
                     }
                 }
@@ -522,6 +529,26 @@ fun AskNovieScreen(
             },
         )
     }
+
+    // 删除会话二次确认
+    if (showDeleteConfirm) {
+        DeleteConfirmSheet(
+            title = "Delete conversation?",
+            message = "This will permanently delete this conversation.",
+            onConfirm = {
+                ChatSessionStore.delete(context, sessionId)
+                // 删除后重置为新会话
+                messages = emptyList()
+                input = ""
+                attachments = emptyList()
+                customTitle = null
+                sessionId = java.util.UUID.randomUUID().toString()
+                showDeleteConfirm = false
+                onDelete()
+            },
+            onDismiss = { showDeleteConfirm = false },
+        )
+    }
 }
 
 @Composable
@@ -548,12 +575,18 @@ private fun CircleIconButton(iconRes: Int, desc: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun BareIconButton(iconRes: Int, desc: String, onClick: () -> Unit = {}) {
+private fun BareIconButton(
+    iconRes: Int,
+    desc: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit = {},
+) {
     Box(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
             .clickable(
+                enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = false),
                 onClick = onClick,
@@ -563,7 +596,7 @@ private fun BareIconButton(iconRes: Int, desc: String, onClick: () -> Unit = {})
         Icon(
             painter = androidx.compose.ui.res.painterResource(iconRes),
             contentDescription = desc,
-            tint = TextTitle,
+            tint = if (enabled) TextTitle else TextTitle.copy(alpha = 0.3f),
             modifier = Modifier.size(22.dp),
         )
     }
