@@ -154,6 +154,11 @@ fun AskNovieScreen(
     var sessionId by androidx.compose.runtime.saveable.rememberSaveable {
         mutableStateOf(java.util.UUID.randomUUID().toString())
     }
+    // 手动重命名的标题（为空则用第一句话）
+    var customTitle by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
+    var showRename by remember { mutableStateOf(false) }
     // 待发送附件（图片/文件）+ 「+」选择菜单显隐
     var attachments by remember { mutableStateOf(listOf<Attachment>()) }
     var showAttachMenu by remember { mutableStateOf(false) }
@@ -250,11 +255,12 @@ fun AskNovieScreen(
         if (count > 0) listState.animateScrollToItem(count - 1)
     }
 
-    // 会话持久化：消息变化即存储，标题默认取第一句话
-    androidx.compose.runtime.LaunchedEffect(messages) {
+    // 会话持久化：消息或标题变化即存储；标题优先用手动重命名，否则取第一句话
+    androidx.compose.runtime.LaunchedEffect(messages, customTitle) {
         if (messages.isNotEmpty()) {
             val first = messages.first()
-            val title = first.text.trim().takeIf { it.isNotEmpty() }
+            val title = customTitle?.takeIf { it.isNotBlank() }
+                ?: first.text.trim().takeIf { it.isNotEmpty() }
                 ?: first.attachments.firstOrNull()?.name
                 ?: "New chat"
             ChatSessionStore.upsert(
@@ -301,7 +307,7 @@ fun AskNovieScreen(
                             expanded = showMoreMenu,
                             onDismiss = { showMoreMenu = false },
                             onShare = { showMoreMenu = false; onShare() },
-                            onRename = { showMoreMenu = false; onRename() },
+                            onRename = { showMoreMenu = false; onRename(); showRename = true },
                             onExportToNotes = { showMoreMenu = false; onExportToNotes() },
                             onDelete = { showMoreMenu = false; onDelete() },
                         )
@@ -486,14 +492,33 @@ fun AskNovieScreen(
                 messages = emptyList()
                 input = ""
                 attachments = emptyList()
+                customTitle = null
                 sessionId = java.util.UUID.randomUUID().toString()
             },
             onSelectSession = { s ->
                 showHistory = false
                 messages = s.messages
                 sessionId = s.id
+                customTitle = s.title
                 input = ""
                 attachments = emptyList()
+            },
+        )
+    }
+
+    // 重命名会话标题
+    if (showRename) {
+        val currentTitle = customTitle
+            ?: messages.firstOrNull()?.let {
+                it.text.trim().ifBlank { it.attachments.firstOrNull()?.name ?: "" }
+            }
+            ?: ""
+        RenameSheet(
+            initialTitle = currentTitle,
+            onDismiss = { showRename = false },
+            onSave = { newTitle ->
+                customTitle = newTitle.ifBlank { null }
+                showRename = false
             },
         )
     }
