@@ -32,6 +32,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -64,6 +66,7 @@ private val TextSub = Color(0xFF6B6B6B)
 private val Dark = Color(0xFF1A1A1A)
 private val ChipText = Color(0xFF3A3A3A)
 private val SendGreen = Color(0xFF2E9E5B)
+private val MenuBg = Color(0xFFF4F2EA)
 
 /** 预设的快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
@@ -103,11 +106,17 @@ fun AskNovieScreen(
     userName: String = "Jerry",
     onBack: () -> Unit = {},
     onSend: (String) -> Unit = {},
+    onShare: () -> Unit = {},
+    onRename: () -> Unit = {},
+    onExportToNotes: () -> Unit = {},
+    onDelete: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var input by remember { mutableStateOf("") }
     // 点麦克风后进入录音状态
     var isRecording by remember { mutableStateOf(false) }
+    // 右上角「更多」菜单显隐
+    var showMoreMenu by remember { mutableStateOf(false) }
     // 对话消息列表 + 助手是否正在回复
     var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
     var isResponding by remember { mutableStateOf(false) }
@@ -167,7 +176,17 @@ fun AskNovieScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     BareIconButton(R.drawable.ic_history, "历史")
-                    BareIconButton(R.drawable.ic_more, "更多")
+                    Box {
+                        BareIconButton(R.drawable.ic_more, "更多", onClick = { showMoreMenu = true })
+                        MoreMenu(
+                            expanded = showMoreMenu,
+                            onDismiss = { showMoreMenu = false },
+                            onShare = { showMoreMenu = false; onShare() },
+                            onRename = { showMoreMenu = false; onRename() },
+                            onExportToNotes = { showMoreMenu = false; onExportToNotes() },
+                            onDelete = { showMoreMenu = false; onDelete() },
+                        )
+                    }
                 }
             }
         }
@@ -409,6 +428,44 @@ private fun MicButton(onClick: () -> Unit) {
             modifier = Modifier.size(20.dp),
         )
     }
+}
+
+/** 右上角「更多」下拉菜单。 */
+@Composable
+private fun MoreMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onShare: () -> Unit,
+    onRename: () -> Unit,
+    onExportToNotes: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        containerColor = MenuBg,
+        shape = RoundedCornerShape(22.dp),
+        shadowElevation = 12.dp,
+        tonalElevation = 0.dp,
+        modifier = Modifier.width(220.dp),
+    ) {
+        MoreMenuItem("Share", onShare)
+        MoreMenuItem("Rename", onRename)
+        MoreMenuItem("Export to notes", onExportToNotes)
+        MoreMenuItem("Delete", onDelete)
+    }
+}
+
+@Composable
+private fun MoreMenuItem(label: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label, color = TextTitle, fontSize = 16.sp) },
+        onClick = onClick,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 24.dp,
+            vertical = 12.dp,
+        ),
+    )
 }
 
 /** 用户消息气泡：右对齐，浅色圆角。 */
