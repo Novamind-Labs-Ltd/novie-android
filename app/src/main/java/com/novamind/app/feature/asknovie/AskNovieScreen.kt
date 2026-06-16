@@ -117,6 +117,8 @@ fun AskNovieScreen(
     var isRecording by remember { mutableStateOf(false) }
     // 右上角「更多」菜单显隐
     var showMoreMenu by remember { mutableStateOf(false) }
+    // 聊天历史弹窗显隐
+    var showHistory by remember { mutableStateOf(false) }
     // 对话消息列表 + 助手是否正在回复
     var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
     var isResponding by remember { mutableStateOf(false) }
@@ -175,7 +177,7 @@ fun AskNovieScreen(
                     modifier = Modifier.padding(horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    BareIconButton(R.drawable.ic_history, "历史")
+                    BareIconButton(R.drawable.ic_history, "历史", onClick = { showHistory = true })
                     Box {
                         BareIconButton(R.drawable.ic_more, "更多", onClick = { showMoreMenu = true })
                         MoreMenu(
@@ -314,6 +316,19 @@ fun AskNovieScreen(
             }
         }
         }
+    }
+
+    // 聊天历史底部弹窗
+    if (showHistory) {
+        ChatHistorySheet(
+            onDismiss = { showHistory = false },
+            onNewChat = {
+                showHistory = false
+                messages = emptyList()
+                input = ""
+            },
+            onSelectChat = { showHistory = false },
+        )
     }
 }
 
