@@ -51,6 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -157,6 +159,7 @@ fun AskNovieScreen(
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val inputFocusRequester = remember { FocusRequester() }
     val context = LocalContext.current
 
     // 语音播报（Android TTS），随页面生命周期创建与释放
@@ -197,24 +200,32 @@ fun AskNovieScreen(
         }
     }
 
-    // 发送：文本 + 附件 → 追加用户消息（附件随消息展示）→ mock 回复
-    val send: () -> Unit = {
-        if (!isResponding) {
-            val prompt = input.trim()
-            val atts = attachments
-            if (prompt.isNotEmpty() || atts.isNotEmpty()) {
-                messages = messages + ChatMessage(Role.User, prompt, atts)
-                input = ""
-                attachments = emptyList()
-                isResponding = true
-                onSend(prompt)
-                scope.launch {
-                    kotlinx.coroutines.delay(700)
-                    val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
-                    messages = messages + ChatMessage(Role.Assistant, mockReply(basis))
-                    isResponding = false
-                }
+    // 追加用户消息（含附件）→ mock 回复
+    val sendMessage: (String, List<Attachment>) -> Unit = { prompt, atts ->
+        if (!isResponding && (prompt.isNotEmpty() || atts.isNotEmpty())) {
+            messages = messages + ChatMessage(Role.User, prompt, atts)
+            isResponding = true
+            onSend(prompt)
+            scope.launch {
+                kotlinx.coroutines.delay(700)
+                val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
+                messages = messages + ChatMessage(Role.Assistant, mockReply(basis))
+                isResponding = false
             }
+        }
+    }
+
+    // 输入框发送：取当前文本 + 附件，发送后清空
+    val send: () -> Unit = {
+        val prompt = input.trim()
+        val atts = attachments
+        if (prompt.isNotEmpty() || atts.isNotEmpty()) {
+            input = ""
+            attachments = emptyList()
+            sendMessage(prompt, atts)
+            // 发送后保持输入框聚焦，键盘不收起
+            inputFocusRequester.requestFocus()
+            keyboardController?.show()
         }
     }
 
@@ -339,7 +350,7 @@ fun AskNovieScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 suggestions.forEach { s ->
-                    SuggestionChip(text = s, onClick = { input = s })
+                    SuggestionChip(text = s, onClick = { sendMessage(s, emptyList()) })
                 }
             }
 
@@ -406,7 +417,9 @@ fun AskNovieScreen(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = { send() }),
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(inputFocusRequester),
                         )
                     }
 
@@ -570,6 +583,8 @@ private fun AttachMenu(
         shape = RoundedCornerShape(18.dp),
         shadowElevation = 12.dp,
         tonalElevation = 0.dp,
+        // 不抢焦点，避免打开菜单时键盘被收起
+        properties = androidx.compose.ui.window.PopupProperties(focusable = false),
     ) {
         DropdownMenuItem(
             text = { Text("图片", color = TextTitle, fontSize = 15.sp) },
