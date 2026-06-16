@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.components.VoiceRecordingBar
 
 private val Bg = Color(0xFFF1EEE6)
 private val Card = Color(0xFFFFFFFF)
@@ -76,6 +77,11 @@ fun AskNovieScreen(
     modifier: Modifier = Modifier,
 ) {
     var input by remember { mutableStateOf("") }
+    // 点麦克风后进入录音状态
+    var isRecording by remember { mutableStateOf(false) }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    // 录音时系统返回先退出录音
+    androidx.activity.compose.BackHandler(enabled = isRecording) { isRecording = false }
 
     Column(
         modifier = modifier
@@ -128,7 +134,17 @@ fun AskNovieScreen(
             }
         }
 
-        // ── 底部：快捷建议 + 输入框 ──
+        // ── 底部：录音条 / 快捷建议 + 输入框 ──
+        if (isRecording) {
+            VoiceRecordingBar(
+                onCancel = { isRecording = false },
+                onConfirm = { _ ->
+                    // TODO: 保存录音并发送（需 MediaRecorder + RECORD_AUDIO 权限）
+                    isRecording = false
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -198,7 +214,11 @@ fun AskNovieScreen(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(bounded = false, color = Color.White),
-                                onClick = { /* TODO: 语音输入 */ },
+                                onClick = {
+                                    // 点麦克风 → 收键盘并弹出录音条
+                                    keyboardController?.hide()
+                                    isRecording = true
+                                },
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -211,6 +231,7 @@ fun AskNovieScreen(
                     }
                 }
             }
+        }
         }
     }
 }
