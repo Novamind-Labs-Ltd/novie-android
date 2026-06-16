@@ -48,30 +48,25 @@ private val ItemColor = Color(0xFF2A2A2A)
 private val DarkPill = Color(0xFF1A1A1A)
 private val SearchBg = Color(0xFFFFFFFF)
 
-/** 示例历史会话（后续替换为真实数据）。 */
-private val sampleChats = listOf(
-    "Strategy session",
-    "Strategic Objectives & Key Results review",
-    "Market Analysis & Competitive landscape",
-    "Actionable Initiatives & Resource planning",
-)
-
 /**
  * 「Chat history」底部弹窗：搜索框 + 最近会话列表 + 新建会话。
- * 点 AskNovie 顶栏历史按钮弹出。
+ * 点 AskNovie 顶栏历史按钮弹出。读取已保存会话。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatHistorySheet(
     onDismiss: () -> Unit,
     onNewChat: () -> Unit = {},
-    onSelectChat: (String) -> Unit = {},
+    onSelectSession: (ChatSession) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = androidx.compose.ui.platform.LocalContext.current
     var query by remember { mutableStateOf("") }
-    val filtered = remember(query) {
-        if (query.isBlank()) sampleChats
-        else sampleChats.filter { it.contains(query, ignoreCase = true) }
+    // 打开时加载已保存会话
+    val sessions = remember { ChatSessionStore.load(context) }
+    val filtered = remember(query, sessions) {
+        if (query.isBlank()) sessions
+        else sessions.filter { it.title.contains(query, ignoreCase = true) }
     }
 
     ModalBottomSheet(
@@ -103,8 +98,17 @@ fun ChatHistorySheet(
             Text("Recent", fontSize = 14.sp, color = SubColor)
             Spacer(Modifier.height(4.dp))
 
-            filtered.forEach { title ->
-                ChatRow(title = title, onClick = { onSelectChat(title) })
+            if (filtered.isEmpty()) {
+                Text(
+                    if (sessions.isEmpty()) "暂无历史会话" else "没有匹配的会话",
+                    fontSize = 14.sp,
+                    color = SubColor,
+                    modifier = Modifier.padding(vertical = 16.dp),
+                )
+            } else {
+                filtered.forEach { session ->
+                    ChatRow(title = session.title, onClick = { onSelectSession(session) })
+                }
             }
         }
     }

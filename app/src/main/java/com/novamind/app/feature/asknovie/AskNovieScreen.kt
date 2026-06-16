@@ -89,10 +89,6 @@ private val suggestions = listOf(
     "Summarize my notes",
 )
 
-/** 待发送 / 已发送附件。 */
-private enum class AttachType { Image, File, Audio }
-private data class Attachment(val type: AttachType, val path: String, val name: String)
-
 /** 录音是否已授权。 */
 private fun hasAudioPermission(context: android.content.Context): Boolean =
     androidx.core.content.ContextCompat.checkSelfPermission(
@@ -102,13 +98,6 @@ private fun hasAudioPermission(context: android.content.Context): Boolean =
 /** 秒 → m:ss。 */
 private fun formatDuration(sec: Int): String = "${sec / 60}:${(sec % 60).toString().padStart(2, '0')}"
 
-/** 一条对话消息（可带附件）。 */
-private enum class Role { User, Assistant }
-private data class ChatMessage(
-    val role: Role,
-    val text: String,
-    val attachments: List<Attachment> = emptyList(),
-)
 
 /** 查询 content uri 的展示文件名。 */
 private fun queryDisplayName(context: android.content.Context, uri: android.net.Uri): String? =
@@ -161,6 +150,10 @@ fun AskNovieScreen(
     // 对话消息列表 + 助手是否正在回复
     var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
     var isResponding by remember { mutableStateOf(false) }
+    // 当前会话 id（用于保存到会话历史）
+    var sessionId by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf(java.util.UUID.randomUUID().toString())
+    }
     // 待发送附件（图片/文件）+ 「+」选择菜单显隐
     var attachments by remember { mutableStateOf(listOf<Attachment>()) }
     var showAttachMenu by remember { mutableStateOf(false) }
@@ -255,6 +248,20 @@ fun AskNovieScreen(
     androidx.compose.runtime.LaunchedEffect(messages.size, isResponding) {
         val count = messages.size + if (isResponding) 1 else 0
         if (count > 0) listState.animateScrollToItem(count - 1)
+    }
+
+    // 会话持久化：消息变化即存储，标题默认取第一句话
+    androidx.compose.runtime.LaunchedEffect(messages) {
+        if (messages.isNotEmpty()) {
+            val first = messages.first()
+            val title = first.text.trim().takeIf { it.isNotEmpty() }
+                ?: first.attachments.firstOrNull()?.name
+                ?: "New chat"
+            ChatSessionStore.upsert(
+                context,
+                ChatSession(sessionId, title, System.currentTimeMillis(), messages),
+            )
+        }
     }
 
     // 录音时系统返回先退出录音
@@ -478,8 +485,16 @@ fun AskNovieScreen(
                 showHistory = false
                 messages = emptyList()
                 input = ""
+                attachments = emptyList()
+                sessionId = java.util.UUID.randomUUID().toString()
             },
-            onSelectChat = { showHistory = false },
+            onSelectSession = { s ->
+                showHistory = false
+                messages = s.messages
+                sessionId = s.id
+                input = ""
+                attachments = emptyList()
+            },
         )
     }
 }
