@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -493,27 +494,31 @@ private fun UserBubble(text: String) {
             shadowElevation = 1.dp,
             modifier = Modifier.padding(start = 36.dp),
         ) {
-            Text(
-                text = text,
-                color = TextTitle,
-                fontSize = 15.sp,
-                lineHeight = 21.sp,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            )
+            SelectionContainer {
+                Text(
+                    text = text,
+                    color = TextTitle,
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            }
         }
     }
 }
 
-/** 助手消息：整行纯文本，无气泡。 */
+/** 助手消息：整行纯文本，无气泡，可选中复制。 */
 @Composable
 private fun AssistantText(text: String) {
-    Text(
-        text = text,
-        color = TextTitle,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
-        modifier = Modifier.fillMaxWidth(),
-    )
+    SelectionContainer {
+        Text(
+            text = text,
+            color = TextTitle,
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 /** 助手「正在输入」的三点动画。 */
