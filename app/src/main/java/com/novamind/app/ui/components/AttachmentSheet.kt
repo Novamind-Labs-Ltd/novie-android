@@ -1,9 +1,10 @@
-package com.novamind.app.feature.create.components
+package com.novamind.app.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,13 +20,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.theme.AppTheme
+
+// 公共组件自带配色，避免依赖各 feature 内部颜色常量
+private val SheetBg = Color(0xFFFFFFFF)
+private val TextTitle = Color(0xFF1A1A1A)
 
 /**
- * 插入附件选择弹窗：Image / Camera / Document 三列。
+ * 通用「插入附件」选择弹窗：Image / Camera / Document 三列。
+ * 可用于笔记编辑、Ask Novie 等任意需要选择附件的场景。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,7 +47,7 @@ fun AttachmentSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = ColorChipBg,
+        containerColor = SheetBg,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         AttachmentContent(
@@ -55,7 +64,7 @@ private fun AttachmentContent(
     onTakePhoto: () -> Unit,
     onPickDocument: () -> Unit,
 ) {
-    androidx.compose.foundation.layout.Row(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
@@ -89,17 +98,17 @@ private fun AttachmentItem(
         Icon(
             painter = painterResource(id = iconResId),
             contentDescription = label,
-            tint = ColorTextTitle,
+            tint = TextTitle,
             modifier = Modifier.size(26.dp),
         )
-        Text(label, fontSize = 14.sp, color = ColorTextTitle)
+        Text(label, fontSize = 14.sp, color = TextTitle)
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
 @Composable
 private fun AttachmentContentPreview() {
-    com.novamind.app.ui.theme.AppTheme {
+    AppTheme {
         AttachmentContent(onPickImage = {}, onTakePhoto = {}, onPickDocument = {})
     }
 }

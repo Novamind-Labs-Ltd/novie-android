@@ -32,8 +32,8 @@ import com.novamind.app.feature.create.components.BgPage
 import com.novamind.app.feature.create.components.ColorTextHint
 import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.CreateMetaRow
-import com.novamind.app.feature.create.components.AttachmentSheet
 import com.novamind.app.feature.create.components.CreateTopBar
+import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.feature.create.components.ImagePreviewScreen

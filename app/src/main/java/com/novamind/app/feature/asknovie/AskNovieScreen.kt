@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.ImageStore
+import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.VoiceRecordingBar
 import kotlinx.coroutines.launch
@@ -211,6 +212,17 @@ fun AskNovieScreen(
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
                 attachments = attachments + Attachment(AttachType.File, path, name)
             }
+        }
+    }
+    // 相机拍照：先建目标文件拿到可写 URI，拍成功后该路径即图片；预览时不创建
+    var pendingCapturePath by remember { mutableStateOf<String?>(null) }
+    val cameraLauncher = if (inPreview) null else androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicture()
+    ) { success ->
+        val path = pendingCapturePath
+        pendingCapturePath = null
+        if (success && path != null) {
+            attachments = attachments + Attachment(AttachType.Image, path, "photo.jpg")
         }
     }
     // 通知权限（Android 13+）：录音常驻通知需要它才能在通知栏 / 锁屏显示
@@ -481,26 +493,15 @@ fun AskNovieScreen(
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box {
-                        BareIconButton(R.drawable.ic_add, "添加", onClick = { showAttachMenu = true })
-                        AttachMenu(
-                            expanded = showAttachMenu,
-                            onDismiss = { showAttachMenu = false },
-                            onPickImage = {
-                                showAttachMenu = false
-                                imagePicker?.launch(
-                                    androidx.activity.result.PickVisualMediaRequest(
-                                        androidx.activity.result.contract.ActivityResultContracts
-                                            .PickVisualMedia.ImageOnly,
-                                    ),
-                                )
-                            },
-                            onPickFile = {
-                                showAttachMenu = false
-                                filePicker?.launch(arrayOf("*/*"))
-                            },
-                        )
-                    }
+                    BareIconButton(
+                        R.drawable.ic_add,
+                        "添加",
+                        onClick = {
+                            // 打开底部弹窗前先收起键盘，与笔记编辑页一致
+                            keyboardController?.hide()
+                            showAttachMenu = true
+                        },
+                    )
 
                     Box(
                         modifier = Modifier
@@ -546,6 +547,28 @@ fun AskNovieScreen(
             }
         }
         }
+    }
+
+    // 「+」附件选择底部弹窗：Image / Camera / Document（与笔记编辑页一致）
+    if (showAttachMenu) {
+        AttachmentSheet(
+            onPickImage = {
+                imagePicker?.launch(
+                    androidx.activity.result.PickVisualMediaRequest(
+                        androidx.activity.result.contract.ActivityResultContracts
+                            .PickVisualMedia.ImageOnly,
+                    ),
+                )
+            },
+            onTakePhoto = {
+                ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
+                    pendingCapturePath = path
+                    cameraLauncher?.launch(uri)
+                }
+            },
+            onPickDocument = { filePicker?.launch(arrayOf("*/*")) },
+            onDismiss = { showAttachMenu = false },
+        )
     }
 
     // 聊天历史底部弹窗
@@ -754,47 +777,6 @@ private fun MicButton(onClick: () -> Unit) {
             contentDescription = "语音",
             tint = Color.White,
             modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-/** 「+」附件选择菜单：图片 / 文件。 */
-@Composable
-private fun AttachMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    onPickImage: () -> Unit,
-    onPickFile: () -> Unit,
-) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        containerColor = MenuBg,
-        shape = RoundedCornerShape(18.dp),
-        shadowElevation = 12.dp,
-        tonalElevation = 0.dp,
-        // 不抢焦点，避免打开菜单时键盘被收起
-        properties = androidx.compose.ui.window.PopupProperties(focusable = false),
-    ) {
-        DropdownMenuItem(
-            text = { Text("图片", color = TextTitle, fontSize = 15.sp) },
-            leadingIcon = {
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_image),
-                    contentDescription = null, tint = TextTitle, modifier = Modifier.size(20.dp),
-                )
-            },
-            onClick = onPickImage,
-        )
-        DropdownMenuItem(
-            text = { Text("文件", color = TextTitle, fontSize = 15.sp) },
-            leadingIcon = {
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
-                    contentDescription = null, tint = TextTitle, modifier = Modifier.size(20.dp),
-                )
-            },
-            onClick = onPickFile,
         )
     }
 }
