@@ -90,8 +90,17 @@ private val suggestions = listOf(
 )
 
 /** 待发送 / 已发送附件。 */
-private enum class AttachType { Image, File }
+private enum class AttachType { Image, File, Audio }
 private data class Attachment(val type: AttachType, val path: String, val name: String)
+
+/** 录音是否已授权。 */
+private fun hasAudioPermission(context: android.content.Context): Boolean =
+    androidx.core.content.ContextCompat.checkSelfPermission(
+        context, android.Manifest.permission.RECORD_AUDIO,
+    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+/** 秒 → m:ss。 */
+private fun formatDuration(sec: Int): String = "${sec / 60}:${(sec % 60).toString().padStart(2, '0')}"
 
 /** 一条对话消息（可带附件）。 */
 private enum class Role { User, Assistant }
@@ -199,6 +208,17 @@ fun AskNovieScreen(
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
                 attachments = attachments + Attachment(AttachType.File, path, name)
             }
+        }
+    }
+    // 录音权限申请；授权后进入录音
+    val recordPermission = if (inPreview) null else androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            keyboardController?.hide()
+            isRecording = true
+        } else {
+            Toast.makeText(context, "需要麦克风权限才能录音", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -331,9 +351,10 @@ fun AskNovieScreen(
         if (isRecording) {
             VoiceRecordingBar(
                 onCancel = { isRecording = false },
-                onConfirm = { _ ->
-                    // TODO: 保存录音并发送（需 MediaRecorder + RECORD_AUDIO 权限）
+                onConfirm = { path, dur ->
                     isRecording = false
+                    // 录音作为语音消息发送
+                    sendMessage("", listOf(Attachment(AttachType.Audio, path, "Voice ${formatDuration(dur)}")))
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -433,9 +454,13 @@ fun AskNovieScreen(
                     } else {
                         MicButton(
                             onClick = {
-                                // 点麦克风 → 收键盘并弹出录音条
-                                keyboardController?.hide()
-                                isRecording = true
+                                // 点麦克风：已授权直接录音，否则先申请权限
+                                if (hasAudioPermission(context)) {
+                                    keyboardController?.hide()
+                                    isRecording = true
+                                } else {
+                                    recordPermission?.launch(android.Manifest.permission.RECORD_AUDIO)
+                                }
                             },
                         )
                     }
@@ -714,6 +739,64 @@ private fun MoreMenuItem(label: String, onClick: () -> Unit) {
     )
 }
 
+/** 语音气泡：播放/暂停 + 名称（含时长）。点击播放录音文件。 */
+@Composable
+private fun AudioBubble(att: Attachment) {
+    val player = remember { android.media.MediaPlayer() }
+    var playing by remember { mutableStateOf(false) }
+    var prepared by remember { mutableStateOf(false) }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { runCatching { player.release() } }
+    }
+    player.setOnCompletionListener { playing = false }
+
+    Surface(
+        color = Card,
+        shape = RoundedCornerShape(50),
+        shadowElevation = 1.dp,
+        modifier = Modifier.padding(bottom = 6.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(),
+                    onClick = {
+                        runCatching {
+                            if (playing) {
+                                player.pause(); playing = false
+                            } else {
+                                if (!prepared) {
+                                    player.setDataSource(att.path); player.prepare(); prepared = true
+                                }
+                                player.start(); playing = true
+                            }
+                        }
+                    },
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier.size(28.dp).clip(CircleShape).background(SendGreen),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(
+                        if (playing) R.drawable.ic_pause else R.drawable.ic_play,
+                    ),
+                    contentDescription = if (playing) "暂停" else "播放",
+                    tint = Color.White,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(att.name, color = TextTitle, fontSize = 14.sp)
+        }
+    }
+}
+
 /** 用户消息气泡：右对齐。附件（图片预览 / 文件 chip）在上，文本在下。 */
 @Composable
 private fun UserBubble(msg: ChatMessage) {
@@ -722,6 +805,10 @@ private fun UserBubble(msg: ChatMessage) {
             modifier = Modifier.padding(start = 48.dp),
             horizontalAlignment = Alignment.End,
         ) {
+            // 语音附件：可播放气泡
+            msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
+                AudioBubble(att)
+            }
             // 图片附件：圆角预览
             msg.attachments.filter { it.type == AttachType.Image }.forEach { att ->
                 AsyncImage(

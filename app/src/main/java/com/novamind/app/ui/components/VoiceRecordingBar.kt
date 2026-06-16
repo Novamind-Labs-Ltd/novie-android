@@ -1,11 +1,5 @@
 package com.novamind.app.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,13 +35,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
-import kotlin.math.abs
-import kotlin.math.sin
+import kotlin.math.sqrt
 
 private val BarBg = Color(0xFF1E1E1E)
 private val WaveColor = Color(0xFFE9E9E9)
 private val ControlBg = Color(0xFFFFFFFF)
 private val SendGreen = Color(0xFF2E9E5B)
+private const val WAVE_BARS = 48
+private const val WAVE_BASELINE = 0.06f
 
 /**
  * 录音条（点击工具栏「Voice」后出现）。自管计时与暂停状态。
@@ -60,17 +55,39 @@ private val SendGreen = Color(0xFF2E9E5B)
 @Composable
 fun VoiceRecordingBar(
     onCancel: () -> Unit,
-    onConfirm: (durationSeconds: Int) -> Unit,
+    onConfirm: (path: String, durationSeconds: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var paused by remember { mutableStateOf(false) }
     var elapsed by remember { mutableIntStateOf(0) }
 
-    // 计时：未暂停时每秒 +1
-    LaunchedEffect(paused) {
-        while (!paused) {
+    // 真实录音器：进入即开始，离开即释放
+    val recorder = remember { com.novamind.app.common.audio.AudioRecorder(context) }
+    var started by remember { mutableStateOf(false) }
+    var finished by remember { mutableStateOf(false) }   // 已确认/取消，避免 onDispose 误删
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        started = recorder.start()
+        onDispose { if (!finished) recorder.cancel() }
+    }
+
+    // 计时：录音中且未暂停时每秒 +1
+    LaunchedEffect(paused, started) {
+        while (started && !paused) {
             kotlinx.coroutines.delay(1000)
             elapsed += 1
+        }
+    }
+
+    // 波形振幅：定时读取麦克风最大振幅，滚动推入
+    var levels by remember { mutableStateOf(List(WAVE_BARS) { WAVE_BASELINE }) }
+    LaunchedEffect(paused, started) {
+        while (started && !paused) {
+            kotlinx.coroutines.delay(70)
+            val amp = recorder.maxAmplitude()                 // 0..32767
+            val norm = (amp / 18000f).coerceIn(0f, 1f)
+            val level = sqrt(norm).coerceAtLeast(WAVE_BASELINE) // sqrt 让动态更自然
+            levels = levels.drop(1) + level
         }
     }
 
@@ -87,17 +104,16 @@ fun VoiceRecordingBar(
                 .background(BarBg)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
-            // 顶部：波形 + 计时（右对齐）
+            // 顶部：波形铺满整行 + 计时（右）
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Waveform(
-                    active = !paused,
+                    levels = levels,
                     modifier = Modifier
-                        .width(120.dp)
-                        .height(22.dp),
+                        .weight(1f)
+                        .height(26.dp),
                 )
                 Spacer(Modifier.width(12.dp))
                 Text(
@@ -120,47 +136,49 @@ fun VoiceRecordingBar(
                     desc = "取消",
                     bg = ControlBg,
                     tint = Color(0xFF1A1A1A),
-                    onClick = onCancel,
+                    onClick = {
+                        finished = true
+                        recorder.cancel()
+                        onCancel()
+                    },
                 )
                 RoundButton(
                     iconRes = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
                     desc = if (paused) "继续" else "暂停",
                     bg = ControlBg,
                     tint = Color(0xFF1A1A1A),
-                    onClick = { paused = !paused },
+                    onClick = {
+                        paused = !paused
+                        if (paused) recorder.pause() else recorder.resume()
+                    },
                 )
                 RoundButton(
                     iconRes = R.drawable.ic_arrow_up,
                     desc = "完成",
                     bg = SendGreen,
                     tint = Color.White,
-                    onClick = { onConfirm(elapsed) },
+                    onClick = {
+                        finished = true
+                        val path = recorder.stop()
+                        if (path != null) onConfirm(path, elapsed) else onCancel()
+                    },
                 )
             }
         }
     }
 }
 
+/** 按 [levels]（0..1，最新值在右侧）绘制随音量变化的波形。 */
 @Composable
-private fun Waveform(active: Boolean, modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "wave")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2 * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(1100, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "phase",
-    )
+private fun Waveform(levels: List<Float>, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
-        val barCount = 22
-        val gap = 3f
+        val barCount = levels.size
+        if (barCount == 0) return@Canvas
+        val gap = 3.5f
         val barWidth = (size.width - gap * (barCount - 1)) / barCount
         val maxH = size.height
         for (i in 0 until barCount) {
-            val f = if (active) 0.25f + 0.75f * abs(sin(phase + i * 0.5f)) else 0.18f
-            val h = maxH * f
+            val h = (maxH * levels[i]).coerceAtLeast(barWidth)
             val x = i * (barWidth + gap)
             val y = (maxH - h) / 2f
             drawRoundRect(

@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- WebView 容器浏览网页 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 语音录制 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".NovieApplication"
