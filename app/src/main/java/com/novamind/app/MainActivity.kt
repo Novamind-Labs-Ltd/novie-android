@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -37,6 +38,7 @@ import com.novamind.app.feature.calendar.CalendarRoute
 import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.feature.library.LibraryRoute
+import com.novamind.app.feature.asknovie.AskNovieScreen
 import com.novamind.app.feature.auth.AuthViewModel
 import com.novamind.app.feature.auth.LoginRoute
 import com.novamind.app.ui.components.AppBottomNavBar
@@ -72,6 +74,9 @@ class MainActivity : ComponentActivity() {
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
                 // 图片预览等全屏页打开时隐藏底部导航栏
                 var hideBottomNav by rememberSaveable { mutableStateOf(false) }
+                // Ask Novie 聊天页（点底部导航最左品牌按钮打开）
+                var showAskNovie by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = showAskNovie) { showAskNovie = false }
                 // 首启引导页
                 val appContext = LocalContext.current
                 var showOnboarding by rememberSaveable {
@@ -136,11 +141,28 @@ class MainActivity : ComponentActivity() {
                         AppBottomNavBar(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
+                                // 最左品牌按钮 → 打开 Ask Novie，不切换底部 tab
+                                if (route == BottomNavDestination.Brand.route) {
+                                    showAskNovie = true
+                                    return@AppBottomNavBar
+                                }
                                 // 已在当前页（如编辑中点 Create）→ 保持不变，不重置不跳转
                                 if (route == currentRoute) return@AppBottomNavBar
                                 if (route == BottomNavDestination.Create.route) editingNoteId = null
                                 currentRoute = route
                             },
+                        )
+                    }
+
+                    // Ask Novie 聊天页（全屏覆盖，自带返回；带左右滑动转场）
+                    AnimatedVisibility(
+                        visible = showAskNovie,
+                        enter = slideInHorizontally { it } + fadeIn(),
+                        exit = slideOutHorizontally { it } + fadeOut(),
+                    ) {
+                        AskNovieScreen(
+                            onBack = { showAskNovie = false },
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
 
