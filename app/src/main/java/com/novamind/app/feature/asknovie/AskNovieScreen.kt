@@ -388,6 +388,23 @@ fun AskNovieScreen(
                     }
                 }
             }
+
+            // 内容未到底部时：悬浮「滚到最新」按钮
+            androidx.compose.animation.AnimatedVisibility(
+                visible = listState.canScrollForward,
+                enter = androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp),
+            ) {
+                ScrollToBottomButton(onClick = {
+                    scope.launch {
+                        val last = (messages.size + (if (isResponding) 1 else 0) - 1).coerceAtLeast(0)
+                        listState.animateScrollToItem(last)
+                    }
+                })
+            }
         }
 
         // ── 底部：录音条 / 快捷建议 + 输入框 ──
@@ -571,6 +588,36 @@ fun AskNovieScreen(
             },
             onDismiss = { showDeleteConfirm = false },
         )
+    }
+}
+
+/** 悬浮「滚到最新」按钮（圆形白底 + 向下箭头）。 */
+@Composable
+private fun ScrollToBottomButton(onClick: () -> Unit) {
+    Surface(color = Card, shape = CircleShape, shadowElevation = 4.dp) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    // 按压状态与圆形按钮等大（bounded + 半径=按钮半径），并带半透明
+                    indication = ripple(
+                        bounded = true,
+                        radius = 18.dp,
+                        color = TextTitle.copy(alpha = 0.18f),
+                    ),
+                    onClick = onClick,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_arrow_down),
+                contentDescription = "滚到最新",
+                tint = TextTitle,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
