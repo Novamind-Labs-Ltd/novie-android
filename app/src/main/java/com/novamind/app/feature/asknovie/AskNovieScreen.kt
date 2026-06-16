@@ -1,5 +1,8 @@
 package com.novamind.app.feature.asknovie
 
+import android.content.Intent
+import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -49,6 +52,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -127,6 +133,22 @@ fun AskNovieScreen(
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val context = LocalContext.current
+
+    // 语音播报（Android TTS），随页面生命周期创建与释放
+    val tts = remember {
+        lateinit var engine: TextToSpeech
+        engine = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) engine.language = java.util.Locale.getDefault()
+        }
+        engine
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { tts.stop(); tts.shutdown() }
+    }
+    val speak: (String) -> Unit = { text ->
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "novie-tts")
+    }
 
     // 发送：追加用户消息 → mock 回复（模拟思考延迟）
     val send: (String) -> Unit = { raw ->
@@ -228,7 +250,8 @@ fun AskNovieScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     items(messages) { msg ->
-                        if (msg.role == Role.User) UserBubble(msg.text) else AssistantText(msg.text)
+                        if (msg.role == Role.User) UserBubble(msg.text)
+                        else AssistantText(msg.text, onSpeak = speak)
                     }
                     if (isResponding) {
                         item { TypingIndicator() }
@@ -507,16 +530,67 @@ private fun UserBubble(text: String) {
     }
 }
 
-/** 助手消息：整行纯文本，无气泡，可选中复制。 */
+/** 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/翻译/语音播报）。 */
 @Composable
-private fun AssistantText(text: String) {
-    SelectionContainer {
-        Text(
-            text = text,
-            color = TextTitle,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
-            modifier = Modifier.fillMaxWidth(),
+private fun AssistantText(text: String, onSpeak: (String) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SelectionContainer {
+            Text(
+                text = text,
+                color = TextTitle,
+                fontSize = 15.sp,
+                lineHeight = 22.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        AssistantActions(text = text, onSpeak = onSpeak)
+    }
+}
+
+/** 助手回复下方的操作行：复制 / 分享 / 翻译 / 语音播报。 */
+@Composable
+private fun AssistantActions(text: String, onSpeak: (String) -> Unit) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        ActionIcon(R.drawable.ic_copy, "复制") {
+            clipboard.setText(AnnotatedString(text))
+            Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+        }
+        ActionIcon(R.drawable.ic_share, "分享") {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            context.startActivity(Intent.createChooser(intent, "分享"))
+        }
+        ActionIcon(R.drawable.ic_translate, "翻译") {
+            // TODO: 接入翻译服务（如 ML Kit / 翻译 API）
+            Toast.makeText(context, "翻译功能即将上线", Toast.LENGTH_SHORT).show()
+        }
+        ActionIcon(R.drawable.ic_volume, "语音播报") { onSpeak(text) }
+    }
+}
+
+@Composable
+private fun ActionIcon(iconRes: Int, desc: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(iconRes),
+            contentDescription = desc,
+            tint = TextSub,
+            modifier = Modifier.size(19.dp),
         )
     }
 }
