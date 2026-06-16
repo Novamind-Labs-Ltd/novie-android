@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -43,6 +44,8 @@ private val ControlBg = Color(0xFFFFFFFF)
 private val SendGreen = Color(0xFF2E9E5B)
 private const val WAVE_BARS = 48
 private const val WAVE_BASELINE = 0.06f
+// 峰值振幅低于此值（0..32767）视为「没有声音」
+private const val NO_VOICE_THRESHOLD = 1800
 
 /**
  * 录音条（点击工具栏「Voice」后出现）。自管计时与暂停状态。
@@ -79,16 +82,29 @@ fun VoiceRecordingBar(
         }
     }
 
-    // 波形振幅：定时读取麦克风最大振幅，滚动推入
+    // 波形振幅：定时读取麦克风最大振幅，滚动推入；同时记录峰值用于「没有声音」判定
     var levels by remember { mutableStateOf(List(WAVE_BARS) { WAVE_BASELINE }) }
+    var peakAmp by remember { mutableIntStateOf(0) }
+    var showNoVoice by remember { mutableStateOf(false) }
     LaunchedEffect(paused, started) {
         while (started && !paused) {
             kotlinx.coroutines.delay(70)
             val amp = recorder.maxAmplitude()                 // 0..32767
+            if (amp > peakAmp) peakAmp = amp
             val norm = (amp / 18000f).coerceIn(0f, 1f)
             val level = sqrt(norm).coerceAtLeast(WAVE_BASELINE) // sqrt 让动态更自然
             levels = levels.drop(1) + level
         }
+    }
+
+    // 重新录制（「Try again」）
+    fun restartRecording() {
+        elapsed = 0
+        peakAmp = 0
+        levels = List(WAVE_BARS) { WAVE_BASELINE }
+        paused = false
+        showNoVoice = false
+        started = recorder.start()
     }
 
     Box(
@@ -158,12 +174,90 @@ fun VoiceRecordingBar(
                     bg = SendGreen,
                     tint = Color.White,
                     onClick = {
-                        finished = true
                         val path = recorder.stop()
-                        if (path != null) onConfirm(path, elapsed) else onCancel()
+                        started = false
+                        if (path != null && peakAmp >= NO_VOICE_THRESHOLD) {
+                            finished = true
+                            onConfirm(path, elapsed)
+                        } else {
+                            // 没有检测到声音：丢弃并提示
+                            recorder.cancel()
+                            showNoVoice = true
+                        }
                     },
                 )
             }
+        }
+    }
+
+    if (showNoVoice) {
+        NoVoiceDialog(onTryAgain = { restartRecording() })
+    }
+}
+
+/** 「没有检测到声音」弹窗（底部弹出）。 */
+@Composable
+private fun NoVoiceDialog(onTryAgain: () -> Unit) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onTryAgain,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+        ),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color(0xFFFBFAF7))
+                .padding(horizontal = 24.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "No voice detected",
+                color = Color(0xFF1A1A1A),
+                fontSize = 20.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "We couldn't hear any audio. Please check your microphone, " +
+                    "ensure you're in a quiet environment, and try again.",
+                color = Color(0xFF6B6B6B),
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(Color(0xFF1A1A1A))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(color = Color.White),
+                        onClick = onTryAgain,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "Try again",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                )
+            }
+        }
         }
     }
 }
