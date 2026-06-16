@@ -213,12 +213,29 @@ fun AskNovieScreen(
             }
         }
     }
+    // 通知权限（Android 13+）：录音常驻通知需要它才能在通知栏 / 锁屏显示
+    val notifPermission = if (inPreview) null else androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { /* 录音不依赖结果，授权与否都继续；仅影响通知是否可见 */ }
+
+    // 确保通知权限（不阻塞录音）
+    val ensureNotifPermission = {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.POST_NOTIFICATIONS,
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermission?.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     // 录音权限申请；授权后进入录音
     val recordPermission = if (inPreview) null else androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
             keyboardController?.hide()
+            ensureNotifPermission()
             isRecording = true
         } else {
             Toast.makeText(context, "需要麦克风权限才能录音", Toast.LENGTH_SHORT).show()
@@ -517,6 +534,7 @@ fun AskNovieScreen(
                                 // 点麦克风：已授权直接录音，否则先申请权限
                                 if (hasAudioPermission(context)) {
                                     keyboardController?.hide()
+                                    ensureNotifPermission()
                                     isRecording = true
                                 } else {
                                     recordPermission?.launch(android.Manifest.permission.RECORD_AUDIO)

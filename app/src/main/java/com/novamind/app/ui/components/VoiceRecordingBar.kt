@@ -24,10 +24,10 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,12 +48,14 @@ private const val WAVE_BASELINE = 0.06f
 private const val NO_VOICE_THRESHOLD = 1800
 
 /**
- * 录音条（点击工具栏「Voice」后出现）。自管计时与暂停状态。
+ * 录音条（点击工具栏「Voice」后出现）。
+ *
+ * 计时 / 暂停 / 振幅等真实状态由前台服务 [com.novamind.app.common.audio.RecordingService]
+ * 持有并回写到 [com.novamind.app.common.audio.RecordingController]，因此锁屏 / 切后台时
+ * 录音不中断，且会在通知栏 / 锁屏常驻一条录音通知。本组件只负责观察状态、下发指令。
  *
  * @param onCancel 取消录音（丢弃）
  * @param onConfirm 完成录音，回传时长（秒）
- *
- * 注：当前为录制 UI + 计时占位；真正音频采集（MediaRecorder + RECORD_AUDIO 权限）后续接入。
  */
 @Composable
 fun VoiceRecordingBar(
@@ -62,35 +64,51 @@ fun VoiceRecordingBar(
     modifier: Modifier = Modifier,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var paused by remember { mutableStateOf(false) }
-    var elapsed by remember { mutableIntStateOf(0) }
+    val snapshot by com.novamind.app.common.audio.RecordingController.state
+        .collectAsStateWithLifecycle()
 
-    // 真实录音器：进入即开始，离开即释放
-    val recorder = remember { com.novamind.app.common.audio.AudioRecorder(context) }
+    val paused = snapshot.paused
+    val elapsed = snapshot.elapsedSeconds
+
     var started by remember { mutableStateOf(false) }
-    var finished by remember { mutableStateOf(false) }   // 已确认/取消，避免 onDispose 误删
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        started = recorder.start()
-        onDispose { if (!finished) recorder.cancel() }
-    }
+    var showNoVoice by remember { mutableStateOf(false) }
 
-    // 计时：录音中且未暂停时每秒 +1
-    LaunchedEffect(paused, started) {
-        while (started && !paused) {
-            kotlinx.coroutines.delay(1000)
-            elapsed += 1
+    // 进入即启动前台录音服务；若离开页面时仍在录音（用户直接返回）则取消丢弃
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.novamind.app.common.audio.RecordingController.reset()
+        com.novamind.app.common.audio.RecordingService.start(context)
+        started = true
+        onDispose {
+            if (com.novamind.app.common.audio.RecordingController.state.value.active) {
+                com.novamind.app.common.audio.RecordingService.cancel(context)
+            }
         }
     }
 
-    // 波形振幅：定时读取麦克风最大振幅，滚动推入；同时记录峰值用于「没有声音」判定
+    // 完成 / 取消的一次性事件统一在此处理（无论来自界面按钮还是通知操作）
+    LaunchedEffect(snapshot.result, snapshot.cancelled) {
+        val result = snapshot.result
+        if (result != null) {
+            com.novamind.app.common.audio.RecordingController.consumeResult()
+            if (result.peakAmplitude >= NO_VOICE_THRESHOLD) {
+                com.novamind.app.common.audio.RecordingController.reset()
+                onConfirm(result.path, result.durationSeconds)
+            } else {
+                runCatching { java.io.File(result.path).delete() }
+                showNoVoice = true
+            }
+        } else if (snapshot.cancelled && !showNoVoice) {
+            com.novamind.app.common.audio.RecordingController.consumeCancelled()
+            onCancel()
+        }
+    }
+
+    // 波形振幅：定时读取服务上报的最大振幅，滚动推入
     var levels by remember { mutableStateOf(List(WAVE_BARS) { WAVE_BASELINE }) }
-    var peakAmp by remember { mutableIntStateOf(0) }
-    var showNoVoice by remember { mutableStateOf(false) }
-    LaunchedEffect(paused, started) {
-        while (started && !paused) {
+    LaunchedEffect(started, paused, showNoVoice) {
+        while (started && !paused && !showNoVoice) {
             kotlinx.coroutines.delay(70)
-            val amp = recorder.maxAmplitude()                 // 0..32767
-            if (amp > peakAmp) peakAmp = amp
+            val amp = com.novamind.app.common.audio.RecordingController.state.value.amplitude
             val norm = (amp / 18000f).coerceIn(0f, 1f)
             val level = sqrt(norm).coerceAtLeast(WAVE_BASELINE) // sqrt 让动态更自然
             levels = levels.drop(1) + level
@@ -99,12 +117,10 @@ fun VoiceRecordingBar(
 
     // 重新录制（「Try again」）
     fun restartRecording() {
-        elapsed = 0
-        peakAmp = 0
         levels = List(WAVE_BARS) { WAVE_BASELINE }
-        paused = false
         showNoVoice = false
-        started = recorder.start()
+        com.novamind.app.common.audio.RecordingController.reset()
+        com.novamind.app.common.audio.RecordingService.start(context)
     }
 
     Box(
@@ -153,9 +169,8 @@ fun VoiceRecordingBar(
                     bg = ControlBg,
                     tint = Color(0xFF1A1A1A),
                     onClick = {
-                        finished = true
-                        recorder.cancel()
-                        onCancel()
+                        // 取消由服务下发，onCancel 在状态回写后统一触发
+                        com.novamind.app.common.audio.RecordingService.cancel(context)
                     },
                 )
                 RoundButton(
@@ -164,8 +179,11 @@ fun VoiceRecordingBar(
                     bg = ControlBg,
                     tint = Color(0xFF1A1A1A),
                     onClick = {
-                        paused = !paused
-                        if (paused) recorder.pause() else recorder.resume()
+                        if (paused) {
+                            com.novamind.app.common.audio.RecordingService.resume(context)
+                        } else {
+                            com.novamind.app.common.audio.RecordingService.pause(context)
+                        }
                     },
                 )
                 RoundButton(
@@ -174,16 +192,8 @@ fun VoiceRecordingBar(
                     bg = SendGreen,
                     tint = Color.White,
                     onClick = {
-                        val path = recorder.stop()
-                        started = false
-                        if (path != null && peakAmp >= NO_VOICE_THRESHOLD) {
-                            finished = true
-                            onConfirm(path, elapsed)
-                        } else {
-                            // 没有检测到声音：丢弃并提示
-                            recorder.cancel()
-                            showNoVoice = true
-                        }
+                        // 停止由服务下发，完成 / 无声判定在状态回写后统一处理
+                        com.novamind.app.common.audio.RecordingService.stop(context)
                     },
                 )
             }
