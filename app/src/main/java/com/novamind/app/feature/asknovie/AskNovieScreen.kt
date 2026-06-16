@@ -470,23 +470,23 @@ fun AskNovieScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // 已选附件 chips（横向滚动）
-            if (attachments.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    attachments.forEach { att ->
-                        AttachmentChip(att = att, onRemove = { attachments = attachments - att })
+            // 输入框（已选附件预览置于输入框内部顶部）
+            Surface(color = Card, shape = RoundedCornerShape(28.dp), shadowElevation = 1.dp) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                // 已选附件预览（横向滚动），位于输入框内部上方
+                if (attachments.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(start = 14.dp, end = 14.dp, top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        attachments.forEach { att ->
+                            AttachmentChip(att = att, onRemove = { attachments = attachments - att })
+                        }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-            }
-
-            // 输入框
-            Surface(color = Card, shape = RoundedCornerShape(28.dp), shadowElevation = 1.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -543,6 +543,7 @@ fun AskNovieScreen(
                             },
                         )
                     }
+                }
                 }
             }
         }
@@ -781,9 +782,60 @@ private fun MicButton(onClick: () -> Unit) {
     }
 }
 
-/** 已选附件 chip：缩略图/图标 + 文件名 + 移除。 */
+/** 已选附件 chip：图片显示圆角预览缩略图（不展示文件名）；文件显示图标 + 文件名。 */
 @Composable
 private fun AttachmentChip(att: Attachment, onRemove: () -> Unit) {
+    if (att.type == AttachType.Image) {
+        ImageAttachmentPreview(att = att, onRemove = onRemove)
+    } else {
+        FileAttachmentChip(att = att, onRemove = onRemove)
+    }
+}
+
+/** 图片附件：圆角预览缩略图 + 右上角移除按钮，不展示文件名。 */
+@Composable
+private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(width = 72.dp, height = 40.dp)
+            // 胶囊型裁剪：圆角半径 = 高度的一半，两端呈半圆
+            .clip(RoundedCornerShape(50))
+            .background(Color(0xFFD8D5CC)),
+    ) {
+        AsyncImage(
+            model = File(att.path),
+            contentDescription = null,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        // 右端移除按钮（白底圆形，叠在预览图上，垂直居中）
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 5.dp)
+                .size(18.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.92f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(bounded = false),
+                    onClick = onRemove,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_close),
+                contentDescription = "移除",
+                tint = TextTitle,
+                modifier = Modifier.size(11.dp),
+            )
+        }
+    }
+}
+
+/** 文件 / 语音附件：图标 + 文件名 + 移除。 */
+@Composable
+private fun FileAttachmentChip(att: Attachment, onRemove: () -> Unit) {
     Surface(color = AttachChipBg, shape = RoundedCornerShape(50)) {
         Row(
             modifier = Modifier.padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -796,21 +848,12 @@ private fun AttachmentChip(att: Attachment, onRemove: () -> Unit) {
                     .background(Color(0xFFD8D5CC)),
                 contentAlignment = Alignment.Center,
             ) {
-                if (att.type == AttachType.Image) {
-                    AsyncImage(
-                        model = File(att.path),
-                        contentDescription = null,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.size(28.dp).clip(CircleShape),
-                    )
-                } else {
-                    Icon(
-                        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
-                        contentDescription = null,
-                        tint = TextSub,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
+                    contentDescription = null,
+                    tint = TextSub,
+                    modifier = Modifier.size(15.dp),
+                )
             }
             Spacer(Modifier.width(8.dp))
             Text(
