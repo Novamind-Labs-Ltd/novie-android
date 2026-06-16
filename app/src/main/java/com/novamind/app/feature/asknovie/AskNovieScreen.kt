@@ -169,7 +169,10 @@ fun AskNovieScreen(
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val inputFocusRequester = remember { FocusRequester() }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val context = LocalContext.current
+    // 助手回复逐字输出中（避免流式期间频繁写存储）
+    var isStreaming by remember { mutableStateOf(false) }
     // 预览/Inspection 环境：跳过依赖 Activity 的能力（TTS、选择器、BackHandler）
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -222,17 +225,37 @@ fun AskNovieScreen(
         }
     }
 
-    // 追加用户消息（含附件）→ mock 回复
+    // 追加用户消息（含附件）→ mock 回复（逐字输出 + 打字振动）
     val sendMessage: (String, List<Attachment>) -> Unit = { prompt, atts ->
         if (!isResponding && (prompt.isNotEmpty() || atts.isNotEmpty())) {
             messages = messages + ChatMessage(Role.User, prompt, atts)
             isResponding = true
             onSend(prompt)
             scope.launch {
-                kotlinx.coroutines.delay(700)
+                kotlinx.coroutines.delay(450)            // 思考中（显示三点）
                 val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
-                messages = messages + ChatMessage(Role.Assistant, mockReply(basis))
+                val full = mockReply(basis)
+                // 开始逐字输出
                 isResponding = false
+                isStreaming = true
+                val replyIndex = messages.size
+                messages = messages + ChatMessage(Role.Assistant, "")
+                val sb = StringBuilder()
+                full.forEachIndexed { i, ch ->
+                    sb.append(ch)
+                    val text = sb.toString()
+                    messages = messages.toMutableList().also { list ->
+                        if (replyIndex < list.size) list[replyIndex] = list[replyIndex].copy(text = text)
+                    }
+                    // 每隔几个字符来一次轻触感
+                    if (i % 3 == 0) {
+                        haptic.performHapticFeedback(
+                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove
+                        )
+                    }
+                    kotlinx.coroutines.delay(24)
+                }
+                isStreaming = false
             }
         }
     }
@@ -251,15 +274,15 @@ fun AskNovieScreen(
         }
     }
 
-    // 新消息时滚到底部
-    androidx.compose.runtime.LaunchedEffect(messages.size, isResponding) {
+    // 新消息 / 流式增长时滚到底部
+    androidx.compose.runtime.LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length, isResponding) {
         val count = messages.size + if (isResponding) 1 else 0
         if (count > 0) listState.animateScrollToItem(count - 1)
     }
 
-    // 会话持久化：消息或标题变化即存储；标题优先用手动重命名，否则取第一句话
-    androidx.compose.runtime.LaunchedEffect(messages, customTitle) {
-        if (messages.isNotEmpty()) {
+    // 会话持久化：消息或标题变化即存储（流式输出期间不写，结束后保存一次）
+    androidx.compose.runtime.LaunchedEffect(messages, customTitle, isStreaming) {
+        if (messages.isNotEmpty() && !isStreaming) {
             val first = messages.first()
             val title = customTitle?.takeIf { it.isNotBlank() }
                 ?: first.text.trim().takeIf { it.isNotEmpty() }
