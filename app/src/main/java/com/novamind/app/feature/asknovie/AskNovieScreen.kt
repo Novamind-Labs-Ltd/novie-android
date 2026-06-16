@@ -161,9 +161,11 @@ fun AskNovieScreen(
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val inputFocusRequester = remember { FocusRequester() }
     val context = LocalContext.current
+    // 预览/Inspection 环境：跳过依赖 Activity 的能力（TTS、选择器、BackHandler）
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
-    // 语音播报（Android TTS），随页面生命周期创建与释放
-    val tts = remember {
+    // 语音播报（Android TTS），随页面生命周期创建与释放；预览时不创建
+    val tts = if (inPreview) null else remember {
         lateinit var engine: TextToSpeech
         engine = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) engine.language = java.util.Locale.getDefault()
@@ -171,14 +173,14 @@ fun AskNovieScreen(
         engine
     }
     androidx.compose.runtime.DisposableEffect(Unit) {
-        onDispose { tts.stop(); tts.shutdown() }
+        onDispose { tts?.stop(); tts?.shutdown() }
     }
     val speak: (String) -> Unit = { text ->
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "novie-tts")
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "novie-tts")
     }
 
-    // 图片选择器（系统照片选择器，支持多选，无需权限）
-    val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+    // 图片选择器（系统照片选择器，支持多选，无需权限）；预览时不创建
+    val imagePicker = if (inPreview) null else androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia()
     ) { uris ->
         uris.forEach { uri ->
@@ -189,8 +191,8 @@ fun AskNovieScreen(
             }
         }
     }
-    // 文件选择器
-    val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+    // 文件选择器；预览时不创建
+    val filePicker = if (inPreview) null else androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
@@ -236,7 +238,9 @@ fun AskNovieScreen(
     }
 
     // 录音时系统返回先退出录音
-    androidx.activity.compose.BackHandler(enabled = isRecording) { isRecording = false }
+    if (!inPreview) {
+        androidx.activity.compose.BackHandler(enabled = isRecording) { isRecording = false }
+    }
 
     Column(
         modifier = modifier
@@ -386,7 +390,7 @@ fun AskNovieScreen(
                             onDismiss = { showAttachMenu = false },
                             onPickImage = {
                                 showAttachMenu = false
-                                imagePicker.launch(
+                                imagePicker?.launch(
                                     androidx.activity.result.PickVisualMediaRequest(
                                         androidx.activity.result.contract.ActivityResultContracts
                                             .PickVisualMedia.ImageOnly,
@@ -395,7 +399,7 @@ fun AskNovieScreen(
                             },
                             onPickFile = {
                                 showAttachMenu = false
-                                filePicker.launch(arrayOf("*/*"))
+                                filePicker?.launch(arrayOf("*/*"))
                             },
                         )
                     }
