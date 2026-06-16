@@ -1,6 +1,7 @@
 package com.novamind.app.feature.asknovie
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -37,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -53,6 +56,7 @@ private val TextTitle = Color(0xFF1A1A1A)
 private val TextSub = Color(0xFF6B6B6B)
 private val Dark = Color(0xFF1A1A1A)
 private val ChipText = Color(0xFF3A3A3A)
+private val SendGreen = Color(0xFF2E9E5B)
 
 /** 预设的快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
@@ -80,13 +84,18 @@ fun AskNovieScreen(
     // 点麦克风后进入录音状态
     var isRecording by remember { mutableStateOf(false) }
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     // 录音时系统返回先退出录音
     androidx.activity.compose.BackHandler(enabled = isRecording) { isRecording = false }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Bg),
+            .background(Bg)
+            // 点击输入框以外的空白区域 → 清焦点收起键盘（子组件各自消费点击不受影响）
+            .pointerInput(Unit) {
+                detectTapGestures { focusManager.clearFocus() }
+            },
     ) {
         // ── 顶部栏 ──
         Row(
@@ -205,28 +214,21 @@ fun AskNovieScreen(
                         )
                     }
 
-                    // 麦克风（深色圆形）
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Dark)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = false, color = Color.White),
-                                onClick = {
-                                    // 点麦克风 → 收键盘并弹出录音条
-                                    keyboardController?.hide()
-                                    isRecording = true
-                                },
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_mic),
-                            contentDescription = "语音",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp),
+                    // 右侧按钮：有内容 → 绿色发送；无内容 → 语音
+                    if (input.isNotBlank()) {
+                        SendButton(
+                            onClick = {
+                                onSend(input.trim())
+                                input = ""
+                            },
+                        )
+                    } else {
+                        MicButton(
+                            onClick = {
+                                // 点麦克风 → 收键盘并弹出录音条
+                                keyboardController?.hide()
+                                isRecording = true
+                            },
                         )
                     }
                 }
@@ -297,6 +299,54 @@ private fun SuggestionChip(text: String, onClick: () -> Unit) {
                     onClick = onClick,
                 )
                 .padding(horizontal = 16.dp, vertical = 10.dp),
+        )
+    }
+}
+
+/** 发送按钮：绿色圆形，仅在有输入内容时显示。 */
+@Composable
+private fun SendButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(SendGreen)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, color = Color.White),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_arrow_up),
+            contentDescription = "发送",
+            tint = Color.White,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+/** 语音按钮（深色圆形）：失焦时显示。 */
+@Composable
+private fun MicButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(Dark)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, color = Color.White),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_mic),
+            contentDescription = "语音",
+            tint = Color.White,
+            modifier = Modifier.size(20.dp),
         )
     }
 }
