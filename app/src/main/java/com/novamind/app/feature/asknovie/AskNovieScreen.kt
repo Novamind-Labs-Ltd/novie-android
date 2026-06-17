@@ -1101,25 +1101,7 @@ private fun UserBubble(msg: ChatMessage) {
             modifier = Modifier.padding(start = 48.dp),
             horizontalAlignment = Alignment.End,
         ) {
-            // 语音附件：可播放气泡
-            msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
-                AudioBubble(att)
-            }
-            // 图片附件：圆角预览
-            msg.attachments.filter { it.type == AttachType.Image }.forEach { att ->
-                AsyncImage(
-                    model = File(att.path),
-                    contentDescription = att.name,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    modifier = Modifier
-                        .padding(bottom = 6.dp)
-                        .widthIn(max = 220.dp)
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFFE3E0D8)),
-                )
-            }
-            // 文件附件：静态 chip
+            // 文件附件：静态 chip（置于最前）
             msg.attachments.filter { it.type == AttachType.File }.forEach { att ->
                 Surface(
                     color = AttachChipBg,
@@ -1137,16 +1119,33 @@ private fun UserBubble(msg: ChatMessage) {
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.width(6.dp))
+                        // 文件名完整显示（过长则换行，不省略）
                         Text(
                             att.name,
                             color = TextTitle,
                             fontSize = 13.sp,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 160.dp),
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                     }
                 }
+            }
+            // 语音附件：可播放气泡
+            msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
+                AudioBubble(att)
+            }
+            // 图片附件：圆角预览
+            msg.attachments.filter { it.type == AttachType.Image }.forEach { att ->
+                AsyncImage(
+                    model = File(att.path),
+                    contentDescription = att.name,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .widthIn(max = 220.dp)
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFFE3E0D8)),
+                )
             }
             // 文本气泡（有文字才显示）
             if (msg.text.isNotEmpty()) {
