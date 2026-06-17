@@ -179,6 +179,8 @@ fun AskNovieScreen(
     val context = LocalContext.current
     // 助手回复逐字输出中（避免流式期间频繁写存储）
     var isStreaming by remember { mutableStateOf(false) }
+    // 当前回复生成的协程（用于「停止」按钮取消）
+    var responseJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     // 预览/Inspection 环境：跳过依赖 Activity 的能力（TTS、选择器、BackHandler）
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -259,46 +261,61 @@ fun AskNovieScreen(
         }
     }
 
-    // 追加用户消息（含附件）→ mock 回复（逐字输出 + 打字振动）
+    // 追加用户消息（含附件）→ mock 回复（逐字输出 + 打字振动）。
+    // 回复生成（思考 + 流式）期间不接受新发送；可由「停止」按钮取消。
     val sendMessage: (String, List<Attachment>) -> Unit = { prompt, atts ->
-        if (!isResponding && (prompt.isNotEmpty() || atts.isNotEmpty())) {
+        if (!isResponding && !isStreaming && (prompt.isNotEmpty() || atts.isNotEmpty())) {
             messages = messages + ChatMessage(Role.User, prompt, atts)
             isResponding = true
             onSend(prompt)
-            scope.launch {
-                kotlinx.coroutines.delay(450)            // 思考中（显示三点）
-                val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
-                val full = mockReply(basis)
-                // 开始逐字输出
-                isResponding = false
-                isStreaming = true
-                val replyIndex = messages.size
-                messages = messages + ChatMessage(Role.Assistant, "")
-                val sb = StringBuilder()
-                full.forEachIndexed { i, ch ->
-                    sb.append(ch)
-                    val text = sb.toString()
-                    messages = messages.toMutableList().also { list ->
-                        if (replyIndex < list.size) list[replyIndex] = list[replyIndex].copy(text = text)
+            responseJob = scope.launch {
+                try {
+                    kotlinx.coroutines.delay(450)            // 思考中（显示三点）
+                    val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
+                    val full = mockReply(basis)
+                    // 开始逐字输出
+                    isResponding = false
+                    isStreaming = true
+                    val replyIndex = messages.size
+                    messages = messages + ChatMessage(Role.Assistant, "")
+                    val sb = StringBuilder()
+                    full.forEachIndexed { i, ch ->
+                        sb.append(ch)
+                        val text = sb.toString()
+                        messages = messages.toMutableList().also { list ->
+                            if (replyIndex < list.size) list[replyIndex] = list[replyIndex].copy(text = text)
+                        }
+                        // 每隔几个字符来一次轻触感
+                        if (i % 3 == 0) {
+                            haptic.performHapticFeedback(
+                                androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove
+                            )
+                        }
+                        kotlinx.coroutines.delay(24)
                     }
-                    // 每隔几个字符来一次轻触感
-                    if (i % 3 == 0) {
-                        haptic.performHapticFeedback(
-                            androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove
-                        )
-                    }
-                    kotlinx.coroutines.delay(24)
+                } finally {
+                    // 正常结束或被「停止」取消都在此复位（已输出的部分文本保留）
+                    isResponding = false
+                    isStreaming = false
                 }
-                isStreaming = false
             }
         }
+    }
+
+    // 停止当前回复生成（保留已输出的部分内容）
+    val stopResponse: () -> Unit = {
+        responseJob?.cancel()
+        responseJob = null
+        isResponding = false
+        isStreaming = false
     }
 
     // 输入框发送：取当前文本 + 附件，发送后清空
     val send: () -> Unit = {
         val prompt = input.trim()
         val atts = attachments
-        if (prompt.isNotEmpty() || atts.isNotEmpty()) {
+        // 回复生成中不发送（避免键盘 Send 键在此期间清空输入）
+        if (!isResponding && !isStreaming && (prompt.isNotEmpty() || atts.isNotEmpty())) {
             input = ""
             attachments = emptyList()
             sendMessage(prompt, atts)
@@ -538,8 +555,10 @@ fun AskNovieScreen(
                         )
                     }
 
-                    // 右侧按钮：有内容 → 绿色发送；无内容 → 语音
-                    if (input.isNotBlank() || attachments.isNotEmpty()) {
+                    // 右侧按钮：回复生成中 → 停止；有内容 → 绿色发送；无内容 → 语音
+                    if (isResponding || isStreaming) {
+                        StopButton(onClick = stopResponse)
+                    } else if (input.isNotBlank() || attachments.isNotEmpty()) {
                         SendButton(onClick = { send() })
                     } else {
                         MicButton(
@@ -839,6 +858,31 @@ private fun MicButton(onClick: () -> Unit) {
             contentDescription = "语音",
             tint = Color.White,
             modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/** 停止按钮（深色圆形 + 白色方块）：回复生成中显示，点击取消本次回复。 */
+@Composable
+private fun StopButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(Dark)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, color = Color.White),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        // 实心圆角方块表示「停止」
+        Box(
+            modifier = Modifier
+                .size(13.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color.White),
         )
     }
 }
