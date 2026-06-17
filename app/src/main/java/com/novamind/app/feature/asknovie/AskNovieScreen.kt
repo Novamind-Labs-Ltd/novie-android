@@ -7,6 +7,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -492,7 +493,12 @@ fun AskNovieScreen(
 
             // 输入框（已选附件预览置于输入框内部顶部）
             Surface(color = Card, shape = RoundedCornerShape(28.dp), shadowElevation = 1.dp) {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                // animateContentSize：附件增删导致的高度变化平滑过渡，避免突变
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(),
+                ) {
                 // 已选附件预览（横向滚动），位于输入框内部上方
                 if (attachments.isNotEmpty()) {
                     Row(
