@@ -387,9 +387,9 @@ fun AskNovieScreen(
         if (sendTick > 0) listState.animateScrollToItem(anchorIndex)
     }
 
-    // 会话持久化：消息或标题变化即存储（流式输出期间不写，结束后保存一次）
-    androidx.compose.runtime.LaunchedEffect(messages, customTitle, isStreaming) {
-        if (messages.isNotEmpty() && !isStreaming) {
+    // 保存当前会话到本地（含实时 / 部分回复）。切断或切换会话前调用，避免丢失正在生成的内容。
+    val persistCurrentSession: () -> Unit = {
+        if (messages.isNotEmpty()) {
             val first = messages.first()
             val title = customTitle?.takeIf { it.isNotBlank() }
                 ?: first.text.trim().takeIf { it.isNotEmpty() }
@@ -400,6 +400,11 @@ fun AskNovieScreen(
                 ChatSession(sessionId, title, System.currentTimeMillis(), messages),
             )
         }
+    }
+
+    // 会话持久化：消息或标题变化即存储（流式输出期间不写，结束后保存一次）
+    androidx.compose.runtime.LaunchedEffect(messages, customTitle, isStreaming) {
+        if (!isStreaming) persistCurrentSession()
     }
 
     // 录音时系统返回先退出录音
@@ -726,6 +731,11 @@ fun AskNovieScreen(
             onDismiss = { showHistory = false },
             onNewChat = {
                 showHistory = false
+                // 先保存当前会话（含实时 / 部分回复），再取消生成并清空
+                persistCurrentSession()
+                responseJob?.cancel(); responseJob = null
+                isResponding = false
+                isStreaming = false
                 messages = emptyList()
                 input = ""
                 attachments = emptyList()
@@ -735,6 +745,11 @@ fun AskNovieScreen(
             },
             onSelectSession = { s ->
                 showHistory = false
+                // 先保存当前会话（含实时 / 部分回复），再取消生成并切换
+                persistCurrentSession()
+                responseJob?.cancel(); responseJob = null
+                isResponding = false
+                isStreaming = false
                 messages = s.messages
                 sessionId = s.id
                 customTitle = s.title
@@ -769,6 +784,10 @@ fun AskNovieScreen(
             message = "This will permanently delete this conversation.",
             onConfirm = {
                 ChatSessionStore.delete(context, sessionId)
+                // 取消正在生成的回复，避免其内容串入新会话
+                responseJob?.cancel(); responseJob = null
+                isResponding = false
+                isStreaming = false
                 // 删除后重置为新会话
                 messages = emptyList()
                 input = ""
