@@ -326,10 +326,17 @@ fun AskNovieScreen(
         }
     }
 
-    // 新消息 / 流式增长时滚到底部
-    androidx.compose.runtime.LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length, isResponding) {
-        val count = messages.size + if (isResponding) 1 else 0
-        if (count > 0) listState.animateScrollToItem(count - 1)
+    // 新消息 / 思考指示出现时：平滑滚动到底部（发送后不突兀跳动）
+    androidx.compose.runtime.LaunchedEffect(messages.size, isResponding) {
+        if (messages.size + (if (isResponding) 1 else 0) > 0) {
+            listState.smoothScrollToBottom()
+        }
+    }
+    // 流式输出增长时：小幅平滑跟随，保持贴在底部
+    androidx.compose.runtime.LaunchedEffect(messages.lastOrNull()?.text?.length) {
+        if (isStreaming && messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
     }
 
     // 会话持久化：消息或标题变化即存储（流式输出期间不写，结束后保存一次）
