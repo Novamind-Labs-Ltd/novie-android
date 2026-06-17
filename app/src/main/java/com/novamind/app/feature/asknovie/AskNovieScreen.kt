@@ -172,9 +172,25 @@ fun AskNovieScreen(
     // 全屏图片预览：当前查看的图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    // 列表视口高度（用于底部占位，让最新消息能滚到顶部）；仅高度变化时才重组
-    val viewportHeightPx by remember {
-        androidx.compose.runtime.derivedStateOf { listState.layoutInfo.viewportSize.height }
+    // 是否显示「回到底部」按钮：仅当最后一条真实消息的内容超出视口下方时才显示，
+    // 忽略底部占位 Spacer（内容没填满屏幕 / 已在底部时不显示）。
+    val showScrollDown by remember {
+        androidx.compose.runtime.derivedStateOf {
+            val info = listState.layoutInfo
+            val lastMsgIndex = messages.lastIndex
+            if (lastMsgIndex < 0 || info.totalItemsCount == 0) {
+                false
+            } else {
+                val visible = info.visibleItemsInfo.firstOrNull { it.index == lastMsgIndex }
+                if (visible != null) {
+                    // 最后一条可见：其底部超过视口下边沿 → 还有内容在下方
+                    (visible.offset + visible.size) > info.viewportEndOffset + 2
+                } else {
+                    // 不可见：在视口上方（已滚过）→ 不显示；在下方 → 显示
+                    listState.firstVisibleItemIndex < lastMsgIndex
+                }
+            }
+        }
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -189,6 +205,34 @@ fun AskNovieScreen(
     // 仿 ChatGPT：刚发送的用户消息滚动到顶部（自增以触发滚动，即使连续相同位置）
     var sendTick by remember { mutableStateOf(0) }
     var anchorIndex by remember { mutableStateOf(0) }
+    // 当前轮保持底部留白：发送后置 true，回复不足一屏也保留占位，避免回复完成时文字跳动；
+    // 新建会话 / 切换历史时复位。
+    var keepBottomSpace by remember { mutableStateOf(false) }
+    // 列表项间距（与 LazyColumn 的 Arrangement.spacedBy 一致）
+    val listItemSpacingPx = with(androidx.compose.ui.platform.LocalDensity.current) { 14.dp.roundToPx() }
+    // 底部占位高度（px）：仅填满「本轮内容（锚点用户消息→最后一条消息）」之外的剩余视口，
+    // 使最新用户消息最多停在顶部、绝不被推出屏幕外（最高也能看到输入的文字）。
+    val bottomSpacerPx by remember {
+        androidx.compose.runtime.derivedStateOf {
+            if (!keepBottomSpace) return@derivedStateOf 0
+            val info = listState.layoutInfo
+            val vp = info.viewportSize.height
+            val lastMsgIndex = messages.lastIndex
+            if (vp <= 0 || lastMsgIndex < 0) return@derivedStateOf 0
+            val anchor = info.visibleItemsInfo.firstOrNull { it.index == anchorIndex }
+            val lastReal = info.visibleItemsInfo
+                .filter { it.index in 0..lastMsgIndex }
+                .maxByOrNull { it.index }
+            if (anchor != null && lastReal != null) {
+                // 本轮内容高度 = 置顶的用户消息 + 已输出回复（与滚动位置、占位本身无关）
+                val contentH = (lastReal.offset + lastReal.size) - anchor.offset
+                // 剩余空白 = 视口 − 本轮内容 − 占位与上一项之间的间距（回复越长，空白越少，直至为 0）
+                (vp - contentH - listItemSpacingPx).coerceAtLeast(0)
+            } else {
+                vp   // 测不到时退化为整屏（极少）
+            }
+        }
+    }
     // 预览/Inspection 环境：跳过依赖 Activity 的能力（TTS、选择器、BackHandler）
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -276,6 +320,8 @@ fun AskNovieScreen(
             messages = messages + ChatMessage(Role.User, prompt, atts)
             anchorIndex = messages.lastIndex   // 刚发送的用户消息位置
             sendTick++                          // 触发「滚动到顶部」
+            keepBottomSpace = true              // 本轮保留底部留白
+
             isResponding = true
             onSend(prompt)
             responseJob = scope.launch {
@@ -451,11 +497,12 @@ fun AskNovieScreen(
                     if (isResponding) {
                         item { Box(modifier = Modifier.animateItem()) { TypingIndicator() } }
                     }
-                    // 底部占位：当前轮回复期间撑出一屏高度，使最新用户消息能停在顶部（仿 ChatGPT）
-                    if ((isResponding || isStreaming) && viewportHeightPx > 0) {
+                    // 底部占位：只填满本轮内容之外的剩余视口（仿 ChatGPT）；整轮保留，
+                    // 回复不足一屏时底部留白且文字位置不跳动，最高也能看到输入的文字。
+                    if (bottomSpacerPx > 0) {
                         item {
                             val spacerH = with(androidx.compose.ui.platform.LocalDensity.current) {
-                                viewportHeightPx.toDp()
+                                bottomSpacerPx.toDp()
                             }
                             Spacer(Modifier.height(spacerH))
                         }
@@ -463,9 +510,9 @@ fun AskNovieScreen(
                 }
             }
 
-            // 内容未到底部时：悬浮「滚到最新」按钮
+            // 内容未到底部时：悬浮「滚到最新」按钮（忽略底部占位，内容未填满屏幕时不显示）
             androidx.compose.animation.AnimatedVisibility(
-                visible = listState.canScrollForward,
+                visible = showScrollDown,
                 enter = androidx.compose.animation.fadeIn(),
                 exit = androidx.compose.animation.fadeOut(),
                 modifier = Modifier
@@ -683,6 +730,7 @@ fun AskNovieScreen(
                 input = ""
                 attachments = emptyList()
                 customTitle = null
+                keepBottomSpace = false
                 sessionId = java.util.UUID.randomUUID().toString()
             },
             onSelectSession = { s ->
@@ -692,6 +740,7 @@ fun AskNovieScreen(
                 customTitle = s.title
                 input = ""
                 attachments = emptyList()
+                keepBottomSpace = false
             },
         )
     }
@@ -725,6 +774,7 @@ fun AskNovieScreen(
                 input = ""
                 attachments = emptyList()
                 customTitle = null
+                keepBottomSpace = false
                 sessionId = java.util.UUID.randomUUID().toString()
                 showDeleteConfirm = false
                 onDelete()
