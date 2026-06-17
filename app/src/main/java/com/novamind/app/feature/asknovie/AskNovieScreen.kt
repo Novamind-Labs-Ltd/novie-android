@@ -720,7 +720,7 @@ fun AskNovieScreen(
                     cameraLauncher?.launch(uri)
                 }
             },
-            onPickDocument = { filePicker?.launch(arrayOf("*/*")) },
+            onPickDocument = { filePicker?.launch(arrayOf("application/pdf")) },
             onDismiss = { showAttachMenu = false },
         )
     }

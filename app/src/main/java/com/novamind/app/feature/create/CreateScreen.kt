@@ -353,7 +353,7 @@ fun CreateScreen(
                         cameraLauncher.launch(uri)
                     }
                 },
-                onPickDocument = { documentPicker.launch(arrayOf("*/*")) },
+                onPickDocument = { documentPicker.launch(arrayOf("application/pdf")) },
                 onDismiss = { showAttachSheet = false },
             )
         }
