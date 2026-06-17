@@ -716,16 +716,16 @@ private suspend fun androidx.compose.foundation.lazy.LazyListState.smoothScrollT
 /** 悬浮「滚到最新」按钮（圆形白底 + 向下箭头）。 */
 @Composable
 private fun ScrollToBottomButton(onClick: () -> Unit) {
-    Surface(color = Card, shape = CircleShape, shadowElevation = 4.dp) {
+    Surface(color = Card, shape = CircleShape, shadowElevation = 0.dp) {
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    // 按压状态与圆形按钮等大（bounded + 半径=按钮半径），并带半透明
+                    // 按压高亮跟随圆形（bounded=false → 圆形状态层），半径=按钮半径，半透明
                     indication = ripple(
-                        bounded = true,
+                        bounded = false,
                         radius = 18.dp,
                         color = TextTitle.copy(alpha = 0.18f),
                     ),
