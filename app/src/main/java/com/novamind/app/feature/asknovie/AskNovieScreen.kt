@@ -433,11 +433,14 @@ fun AskNovieScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     items(messages) { msg ->
-                        if (msg.role == Role.User) UserBubble(msg)
-                        else AssistantText(msg.text, onSpeak = speak)
+                        // animateItem：新消息淡入 + 位置平滑过渡，发送时不突兀
+                        Box(modifier = Modifier.fillMaxWidth().animateItem()) {
+                            if (msg.role == Role.User) UserBubble(msg)
+                            else AssistantText(msg.text, onSpeak = speak)
+                        }
                     }
                     if (isResponding) {
-                        item { TypingIndicator() }
+                        item { Box(modifier = Modifier.animateItem()) { TypingIndicator() } }
                     }
                 }
             }
