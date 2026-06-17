@@ -510,7 +510,12 @@ fun AskNovieScreen(
                                     val idx = attachments
                                         .filter { it.type == AttachType.Image }
                                         .indexOfFirst { it.path == att.path }
-                                    if (idx >= 0) previewIndex = idx
+                                    if (idx >= 0) {
+                                        // 打开全屏预览前收起键盘并清焦点
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        previewIndex = idx
+                                    }
                                 },
                             )
                         }
