@@ -320,9 +320,9 @@ fun AskNovieScreen(
             input = ""
             attachments = emptyList()
             sendMessage(prompt, atts)
-            // 发送后保持输入框聚焦，键盘不收起
-            inputFocusRequester.requestFocus()
-            keyboardController?.show()
+            // 发送后收起键盘并清焦点
+            keyboardController?.hide()
+            focusManager.clearFocus()
         }
     }
 
@@ -495,7 +495,12 @@ fun AskNovieScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 suggestions.forEach { s ->
-                    SuggestionChip(text = s, onClick = { sendMessage(s, emptyList()) })
+                    SuggestionChip(text = s, onClick = {
+                        // 快捷发送同样收起键盘并清焦点
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        sendMessage(s, emptyList())
+                    })
                 }
             }
 
