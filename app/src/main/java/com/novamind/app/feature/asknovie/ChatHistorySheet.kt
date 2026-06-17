@@ -8,12 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,16 +70,34 @@ fun ChatHistorySheet(
         if (query.isBlank()) sessions
         else sessions.filter { it.title.contains(query, ignoreCase = true) }
     }
+    // 列表消费不掉的滚动 / fling 全部在此吃掉，不再上抛给 ModalBottomSheet，
+    // 避免内容不足一屏时手势在列表与弹窗之间来回争夺而剧烈抖动。
+    val keepScrollInList = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: androidx.compose.ui.geometry.Offset,
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset = available
+
+            override suspend fun onPostFling(
+                consumed: androidx.compose.ui.unit.Velocity,
+                available: androidx.compose.ui.unit.Velocity,
+            ): androidx.compose.ui.unit.Velocity = available
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = SheetBg,
     ) {
+        // 固定较高的整体高度（用屏幕高度的固定比例，避免相对约束在拖动时抖动）
+        val sheetHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.85f
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.9f)
+                .height(sheetHeight)
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
         ) {
@@ -106,8 +126,17 @@ fun ChatHistorySheet(
                     modifier = Modifier.padding(vertical = 16.dp),
                 )
             } else {
-                filtered.forEach { session ->
-                    ChatRow(title = session.title, onClick = { onSelectSession(session) })
+                // 用 LazyColumn 作为唯一滚动容器：与 ModalBottomSheet 的嵌套滚动正确协作，
+                // fling 到边界时不会与弹窗拖拽来回争夺手势（避免剧烈抖动）。
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .nestedScroll(keepScrollInList),
+                ) {
+                    items(filtered) { session ->
+                        ChatRow(title = session.title, onClick = { onSelectSession(session) })
+                    }
                 }
             }
         }
