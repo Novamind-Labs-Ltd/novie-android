@@ -172,6 +172,10 @@ fun AskNovieScreen(
     // 全屏图片预览：当前查看的图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // 列表视口高度（用于底部占位，让最新消息能滚到顶部）；仅高度变化时才重组
+    val viewportHeightPx by remember {
+        androidx.compose.runtime.derivedStateOf { listState.layoutInfo.viewportSize.height }
+    }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -182,6 +186,9 @@ fun AskNovieScreen(
     var isStreaming by remember { mutableStateOf(false) }
     // 当前回复生成的协程（用于「停止」按钮取消）
     var responseJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    // 仿 ChatGPT：刚发送的用户消息滚动到顶部（自增以触发滚动，即使连续相同位置）
+    var sendTick by remember { mutableStateOf(0) }
+    var anchorIndex by remember { mutableStateOf(0) }
     // 预览/Inspection 环境：跳过依赖 Activity 的能力（TTS、选择器、BackHandler）
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
 
@@ -267,6 +274,8 @@ fun AskNovieScreen(
     val sendMessage: (String, List<Attachment>) -> Unit = { prompt, atts ->
         if (!isResponding && !isStreaming && (prompt.isNotEmpty() || atts.isNotEmpty())) {
             messages = messages + ChatMessage(Role.User, prompt, atts)
+            anchorIndex = messages.lastIndex   // 刚发送的用户消息位置
+            sendTick++                          // 触发「滚动到顶部」
             isResponding = true
             onSend(prompt)
             responseJob = scope.launch {
@@ -326,17 +335,10 @@ fun AskNovieScreen(
         }
     }
 
-    // 新消息 / 思考指示出现时：平滑滚动到底部（发送后不突兀跳动）
-    androidx.compose.runtime.LaunchedEffect(messages.size, isResponding) {
-        if (messages.size + (if (isResponding) 1 else 0) > 0) {
-            listState.smoothScrollToBottom()
-        }
-    }
-    // 流式输出增长时：小幅平滑跟随，保持贴在底部
-    androidx.compose.runtime.LaunchedEffect(messages.lastOrNull()?.text?.length) {
-        if (isStreaming && messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.lastIndex)
-        }
+    // 发送后：把刚发送的用户消息平滑滚动到顶部（仿 ChatGPT「新一页」，
+    // 底部占位 Spacer 腾出空间，回复在其下方生成）。
+    androidx.compose.runtime.LaunchedEffect(sendTick) {
+        if (sendTick > 0) listState.animateScrollToItem(anchorIndex)
     }
 
     // 会话持久化：消息或标题变化即存储（流式输出期间不写，结束后保存一次）
@@ -448,6 +450,15 @@ fun AskNovieScreen(
                     }
                     if (isResponding) {
                         item { Box(modifier = Modifier.animateItem()) { TypingIndicator() } }
+                    }
+                    // 底部占位：当前轮回复期间撑出一屏高度，使最新用户消息能停在顶部（仿 ChatGPT）
+                    if ((isResponding || isStreaming) && viewportHeightPx > 0) {
+                        item {
+                            val spacerH = with(androidx.compose.ui.platform.LocalDensity.current) {
+                                viewportHeightPx.toDp()
+                            }
+                            Spacer(Modifier.height(spacerH))
+                        }
                     }
                 }
             }
