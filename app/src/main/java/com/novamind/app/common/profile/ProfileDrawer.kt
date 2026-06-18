@@ -47,6 +47,7 @@ fun ProfileDrawerContent(
     name: String,
     email: String,
     onChangeAvatar: () -> Unit,
+    onOpenPermissions: () -> Unit = {},
     onLogout: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -112,6 +113,7 @@ fun ProfileDrawerContent(
             ProfileMenuItem(R.drawable.ic_nav_library, "我的收藏")
             ProfileMenuItem(R.drawable.ic_nav_calendar, "日程")
             ProfileMenuItem(R.drawable.ic_notification, "通知设置")
+            ProfileMenuItem(R.drawable.ic_shield_check, "权限管理", onClick = onOpenPermissions)
             ProfileMenuItem(R.drawable.ic_more, "设置")
 
             Spacer(Modifier.height(8.dp))

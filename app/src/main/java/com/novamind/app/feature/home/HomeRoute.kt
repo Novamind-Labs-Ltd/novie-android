@@ -31,13 +31,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.common.notifications.NotificationListScreen
 import com.novamind.app.common.notifications.sampleNotifications
 import com.novamind.app.common.notifications.unreadCount
+import com.novamind.app.common.permission.PermissionManagerScreen
 import com.novamind.app.common.profile.AvatarCropScreen
 import com.novamind.app.common.profile.ProfileDrawerContent
 import com.novamind.app.common.profile.ProfileStore
 import kotlinx.coroutines.launch
 
 /** Home 下的子页面 */
-private enum class HomeOverlay { None, Notifications, Upcoming }
+private enum class HomeOverlay { None, Notifications, Upcoming, Permissions }
 
 @Composable
 fun HomeRoute(
@@ -89,6 +90,12 @@ fun HomeRoute(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     )
                 },
+                onOpenPermissions = {
+                    scope.launch {
+                        drawerState.close()
+                        overlay = HomeOverlay.Permissions
+                    }
+                },
                 onLogout = onLogout,
             )
         },
@@ -131,6 +138,10 @@ fun HomeRoute(
 
                 HomeOverlay.Upcoming -> UpcomingListScreen(
                     items = sampleUpcoming,
+                    onBack = { overlay = HomeOverlay.None },
+                )
+
+                HomeOverlay.Permissions -> PermissionManagerScreen(
                     onBack = { overlay = HomeOverlay.None },
                 )
             }
