@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -23,6 +24,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,7 +62,13 @@ fun RenameSheet(
         mutableStateOf(TextFieldValue(initialTitle, TextRange(initialTitle.length)))
     }
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+    // 等底部弹窗完全展开后再聚焦，避免“键盘先于弹窗出现”
+    LaunchedEffect(Unit) {
+        snapshotFlow { sheetState.currentValue }
+            .filter { it == SheetValue.Expanded }
+            .first()
+        runCatching { focusRequester.requestFocus() }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
