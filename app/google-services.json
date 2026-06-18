@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1007450065793",
+    "project_id": "fir-2811f",
+    "storage_bucket": "fir-2811f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1007450065793:android:cc24eb323cefca98fdb680",
+        "android_client_info": {
+          "package_name": "com.novamind.app.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBETsBJG3lMS_KPscvVUq9ggCUeci9RbBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

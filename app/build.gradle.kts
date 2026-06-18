@@ -125,6 +125,8 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.crashlytics)
     implementation(libs.firebase.messaging)
+    // In-App Messaging（自动展示控制台活动；A/B 实验在控制台对其直接配置）
+    implementation(libs.firebase.inappmessaging.display)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
