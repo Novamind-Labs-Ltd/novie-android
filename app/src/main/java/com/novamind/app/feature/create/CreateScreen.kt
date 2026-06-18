@@ -220,51 +220,8 @@ fun CreateScreen(
                 moreEnabled = !noteEmpty,
             )
 
-            // ── 标题 ──────────────────────────────────────────────────────
-            BasicTextField(
-                value = uiState.title,
-                onValueChange = { onEvent(CreateEvent.TitleChanged(it)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                textStyle = TextStyle(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = ColorTextTitle,
-                ),
-                cursorBrush = SolidColor(ColorTextTitle),
-                decorationBox = { inner ->
-                    if (uiState.title.isEmpty()) {
-                        Text(
-                            "New note",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = ColorTextHint
-                        )
-                    }
-                    inner()
-                },
-            )
-
-            // ── Meta 操作行 ───────────────────────────────────────────────
-            CreateMetaRow(
-                selectedFolder = uiState.selectedFolder,
-                selectedTags = uiState.selectedTags,
-                timeLabel = timeLabel,
-                onShowFolderPicker = {
-                    // 打开「Add to folder」前清除焦点并收起键盘，避免键盘自动弹出
-                    focusManager.clearFocus(force = true)
-                    keyboardController?.hide()
-                    onEvent(CreateEvent.ShowFolderPicker)
-                },
-                onShowTagPicker = {
-                    focusManager.clearFocus(force = true)
-                    keyboardController?.hide()
-                    onEvent(CreateEvent.ShowTagPicker)
-                },
-            )
-
             // ── 正文（图文混排） ──────────────────────────────────────────
+            // 标题 + Meta 行作为 header 移入编辑器滚动容器，与正文一起滚动；
             // 正文填满到屏幕底部；键盘在 adjustNothing 下「盖」在上面，由编辑器内部自动滚动避让。
             Box(
                 modifier = Modifier
@@ -279,6 +236,51 @@ fun CreateScreen(
                         keyboardController?.hide()
                         val idx = editor.blocks.filterIsInstance<ImageBlock>().indexOfFirst { it.id == id }
                         if (idx >= 0) previewIndex = idx
+                    },
+                    header = {
+                        // ── 标题 ──────────────────────────────────────────
+                        BasicTextField(
+                            value = uiState.title,
+                            onValueChange = { onEvent(CreateEvent.TitleChanged(it)) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                            textStyle = TextStyle(
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ColorTextTitle,
+                            ),
+                            cursorBrush = SolidColor(ColorTextTitle),
+                            decorationBox = { inner ->
+                                if (uiState.title.isEmpty()) {
+                                    Text(
+                                        "New note",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = ColorTextHint
+                                    )
+                                }
+                                inner()
+                            },
+                        )
+
+                        // ── Meta 操作行 ───────────────────────────────────
+                        CreateMetaRow(
+                            selectedFolder = uiState.selectedFolder,
+                            selectedTags = uiState.selectedTags,
+                            timeLabel = timeLabel,
+                            onShowFolderPicker = {
+                                // 打开「Add to folder」前清除焦点并收起键盘，避免键盘自动弹出
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
+                                onEvent(CreateEvent.ShowFolderPicker)
+                            },
+                            onShowTagPicker = {
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
+                                onEvent(CreateEvent.ShowTagPicker)
+                            },
+                        )
                     },
                     modifier = Modifier.fillMaxSize(),
                 )

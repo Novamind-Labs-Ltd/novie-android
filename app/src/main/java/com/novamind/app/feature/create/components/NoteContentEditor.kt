@@ -65,6 +65,7 @@ fun NoteContentEditor(
     onContentChanged: () -> Unit,
     coverTopWindowY: Float = Float.MAX_VALUE,   // 工具栏顶边窗口 Y；无遮挡时传 MAX_VALUE
     onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
+    header: (@Composable () -> Unit)? = null,   // 随正文一起滚动的头部（标题 / folder / tags 等）
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -102,6 +103,9 @@ fun NoteContentEditor(
                 },
             ),
     ) {
+        // 头部（标题 / folder / tags 等）：置于滚动列首位，随正文一起滚动
+        header?.invoke()
+
         val singleEmpty = state.blocks.size == 1 &&
             (state.blocks.first() as? TextBlock)?.rich?.plainText?.isEmpty() == true
 
