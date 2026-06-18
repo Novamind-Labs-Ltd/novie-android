@@ -68,6 +68,20 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Firebase Cloud Messaging 接收服务 -->
+        <service
+            android:name=".common.push.FcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- FCM 默认通知渠道：后台仅含 notification 负载的消息由系统直接展示时使用 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="fcm_default" />
+
         <!-- 相机拍照写入内部文件需要的 FileProvider -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -1,3 +1,4 @@
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Properties
@@ -7,6 +8,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 // 读取 gitignored 的 auth0.properties（不存在时用空值降级，保证 CI/沙箱可编译）
@@ -33,6 +36,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            // debug 独立包名：与 release 同机共存，且在 Firebase 注册为单独的 App
+            // （数据进 com.novamind.app.debug，不污染生产看板）。
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            // debug 无混淆，跳过 mapping 上传以加快构建
+            configure<CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -107,6 +120,11 @@ dependencies {
     implementation(libs.retrofit.kotlinx.serialization)
     // 日志拦截器仅打进 Debug 包（抓包联调用）
     debugImplementation(libs.okhttp.logging)
+    // Firebase（BoM 统一管理版本）：Analytics + Crashlytics + Cloud Messaging
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.messaging)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

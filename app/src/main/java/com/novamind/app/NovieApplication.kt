@@ -2,6 +2,7 @@ package com.novamind.app
 
 import android.app.Application
 import com.novamind.app.common.net.CommonHeaders
+import com.novamind.app.common.push.PushChannels
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.data.RoomNoteRepository
 import com.novamind.app.data.db.AppDatabase
@@ -15,5 +16,7 @@ class NovieApplication : Application() {
         super.onCreate()
         // 构建并缓存 HTTPS 公用头部（平台/版本/设备标识等静态字段）
         CommonHeaders.init(this)
+        // 预创建 FCM 默认通知渠道（后台推送到达时渠道须已存在）
+        PushChannels.ensureDefault(this)
     }
 }
