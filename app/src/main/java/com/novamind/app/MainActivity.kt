@@ -142,7 +142,12 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
                             )
-                            BottomNavDestination.Library.route -> LibraryRoute()
+                            BottomNavDestination.Library.route -> LibraryRoute(
+                                onCreateNote = {
+                                    editingNoteId = null
+                                    currentRoute = BottomNavDestination.Create.route
+                                },
+                            )
                             BottomNavDestination.Calendar.route -> CalendarRoute()
                         }
                     }
