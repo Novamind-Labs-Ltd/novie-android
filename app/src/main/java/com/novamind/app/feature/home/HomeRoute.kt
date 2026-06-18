@@ -1,9 +1,5 @@
 package com.novamind.app.feature.home
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,13 +28,13 @@ import com.novamind.app.common.notifications.NotificationListScreen
 import com.novamind.app.common.notifications.sampleNotifications
 import com.novamind.app.common.notifications.unreadCount
 import com.novamind.app.common.permission.PermissionManagerScreen
-import com.novamind.app.common.profile.AvatarCropScreen
+import com.novamind.app.common.profile.AvatarViewerScreen
 import com.novamind.app.common.profile.ProfileDrawerContent
 import com.novamind.app.common.profile.ProfileStore
 import kotlinx.coroutines.launch
 
 /** Home 下的子页面 */
-private enum class HomeOverlay { None, Notifications, Upcoming, Permissions }
+private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Avatar }
 
 @Composable
 fun HomeRoute(
@@ -57,21 +53,22 @@ fun HomeRoute(
     // 个人资料（头像）
     LaunchedEffect(Unit) { ProfileStore.load(context) }
     val avatarPath by ProfileStore.avatarPath.collectAsState()
-    // 选图后先进入裁剪编辑页（圆形裁剪），确认后再落盘为头像
-    var cropUri by remember { mutableStateOf<Uri?>(null) }
-    val avatarPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        if (uri != null) cropUri = uri
-    }
 
     var notifications by remember { mutableStateOf(sampleNotifications) }
     var overlay by remember { mutableStateOf(HomeOverlay.None) }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val drawerOpen = drawerState.targetValue == DrawerValue.Open
-    LaunchedEffect(overlay, drawerOpen, cropUri) {
-        onFullscreenChange(overlay != HomeOverlay.None || drawerOpen || cropUri != null)
+    LaunchedEffect(overlay, drawerOpen) {
+        onFullscreenChange(overlay != HomeOverlay.None || drawerOpen)
+    }
+
+    // 打开头像编辑页（关抽屉后切到 Avatar 子页）
+    fun openAvatar() {
+        scope.launch {
+            drawerState.close()
+            overlay = HomeOverlay.Avatar
+        }
     }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
 
@@ -85,11 +82,8 @@ fun HomeRoute(
                 avatarPath = avatarPath,
                 name = "chenbin.zhou",
                 email = "chenbin.zhou@novamind-labs.ai",
-                onChangeAvatar = {
-                    avatarPicker.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                },
+                onChangeAvatar = { openAvatar() },
+                onViewAvatar = { openAvatar() },
                 onOpenPermissions = {
                     scope.launch {
                         drawerState.close()
@@ -144,21 +138,14 @@ fun HomeRoute(
                 HomeOverlay.Permissions -> PermissionManagerScreen(
                     onBack = { overlay = HomeOverlay.None },
                 )
+
+                HomeOverlay.Avatar -> AvatarViewerScreen(
+                    avatarPath = avatarPath,
+                    onBack = { overlay = HomeOverlay.None },
+                    onAvatarPicked = { path -> ProfileStore.setAvatar(context, path) },
+                )
             }
         }
-    }
-
-    // 头像裁剪编辑页：覆盖在最上层，确认后保存为头像
-    cropUri?.let { uri ->
-        AvatarCropScreen(
-            sourceUri = uri,
-            onCancel = { cropUri = null },
-            onConfirm = { path ->
-                ProfileStore.setAvatar(context, path)
-                cropUri = null
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
     }
   }
 }

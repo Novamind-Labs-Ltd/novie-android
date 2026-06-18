@@ -47,6 +47,7 @@ fun ProfileDrawerContent(
     name: String,
     email: String,
     onChangeAvatar: () -> Unit,
+    onViewAvatar: () -> Unit = onChangeAvatar,
     onOpenPermissions: () -> Unit = {},
     onLogout: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -70,7 +71,7 @@ fun ProfileDrawerContent(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(),
-                        onClick = onChangeAvatar,
+                        onClick = onViewAvatar,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -100,7 +101,7 @@ fun ProfileDrawerContent(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(),
-                        onClick = onChangeAvatar,
+                        onClick = onViewAvatar,
                     )
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             )
