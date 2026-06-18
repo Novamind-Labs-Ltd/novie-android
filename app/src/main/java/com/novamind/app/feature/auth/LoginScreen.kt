@@ -15,6 +15,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -39,6 +40,7 @@ private val ErrorColor = Color(0xFFB3261E)
 fun LoginScreen(
     uiState: AuthUiState,
     onLogin: () -> Unit,
+    onSkipLogin: () -> Unit = {},
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -98,6 +100,17 @@ fun LoginScreen(
                 } else {
                     Text("登录 / 注册", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White)
                 }
+            }
+
+            Spacer(8)
+
+            // 免登录（游客模式）：不登录直接进入应用
+            TextButton(
+                onClick = onSkipLogin,
+                enabled = !uiState.isLoading,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+            ) {
+                Text("免登录，先逛逛", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextSub)
             }
 
             if (uiState.errorMessage != null) {

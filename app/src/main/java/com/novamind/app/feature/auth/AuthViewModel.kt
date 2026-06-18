@@ -76,6 +76,20 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** 免登录（游客模式）：不经过 Auth0，直接进入应用。 */
+    fun loginAsGuest() {
+        if (_uiState.value.isLoading) return
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                isAuthenticated = true,
+                errorMessage = null,
+                userName = null,
+                userEmail = null,
+            )
+        }
+    }
+
     fun logout(activity: Activity) {
         if (_uiState.value.isLoading) return
         // 临时口子：本地直接登出，回到登录页
@@ -105,9 +119,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         /**
          * 临时口子（开发用）。为 true 时登录/登出不走 Auth0，
          * 点「登录/注册」直接进入应用，方便未配置 Auth0 参数也能开发。
-         * TODO: Auth0 接入联调完成后改为 false 或删除相关分支。
+         * 已接入真实 Auth0：置为 false，登录走 Universal Login（PKCE）。
          */
-        const val DEV_BYPASS_AUTH = true
+        const val DEV_BYPASS_AUTH = false
     }
 }
 
