@@ -2,6 +2,7 @@ package com.novamind.app.debug.apitest
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.debug.DebugLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,14 +13,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 /**
  * 接口测试页 ViewModel：发起网络请求并解析为列表。
  *
- * 仅依赖 JDK 自带的 [HttpURLConnection] 与 org.json，无需引入额外网络库。
- * 网络 IO 在 [Dispatchers.IO] 上执行，UI 状态通过 [uiState] 单一不可变对象暴露。
+ * 通过 Retrofit [NetworkModule] 发起请求（公用头/TLS 钉定/Debug 日志统一处理），
+ * 响应原文用 org.json 容错解析。UI 状态通过 [uiState] 单一不可变对象暴露。
  */
 class ApiTestViewModel : ViewModel() {
 
@@ -77,25 +76,18 @@ class ApiTestViewModel : ViewModel() {
         }
     }
 
-    /** 同步 GET 请求，返回响应体字符串；非 2xx 抛异常。 */
-    private fun request(urlStr: String): String {
-        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 10_000
-            readTimeout = 10_000
-            setRequestProperty("Accept", "application/json")
-            // 接口服务器证书无 SAN，仅 CN 含 IP，对该主机放宽主机名绑定（见 ApiTls）。
-            ApiTls.apply(this)
-        }
-        try {
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) error("HTTP $code: ${body.take(200)}")
-            return body
-        } finally {
-            conn.disconnect()
-        }
+    /**
+     * GET 请求，返回响应体字符串；非 2xx 抛异常。
+     *
+     * 走 Retrofit [NetworkModule.apiService]：公用头部、TLS 钉定、（Debug）日志均由 OkHttpClient 统一处理。
+     * 响应保持原文（ResponseBody），交由 [parseItems] 容错解析。
+     */
+    private suspend fun request(urlStr: String): String {
+        val resp = NetworkModule.apiService.get(urlStr)
+        val code = resp.code()
+        val body = (if (resp.isSuccessful) resp.body() else resp.errorBody())?.string().orEmpty()
+        if (!resp.isSuccessful) error("HTTP $code: ${body.take(200)}")
+        return body
     }
 
     /**

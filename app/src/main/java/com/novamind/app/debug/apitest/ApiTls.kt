@@ -28,7 +28,8 @@ internal object ApiTls {
      * 仅对 [PINNED_HOST] 放宽主机名绑定：校验对端证书指纹与 [PINNED_CERT_SHA256] 一致即放行。
      * 其它主机一律走系统默认校验。指纹不匹配则拒绝。
      */
-    private val PINNED_HOSTNAME_VERIFIER = HostnameVerifier { hostname, session ->
+    /** 钉定主机名校验器：对 [PINNED_HOST] 校验证书指纹，其它主机走系统默认。供 OkHttp / HttpURLConnection 复用。 */
+    val PINNED_HOSTNAME_VERIFIER = HostnameVerifier { hostname, session ->
         if (hostname == PINNED_HOST) {
             runCatching {
                 val cert = session.peerCertificates.firstOrNull() as? X509Certificate

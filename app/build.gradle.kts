@@ -5,6 +5,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
 }
 
@@ -99,6 +100,13 @@ dependencies {
     implementation(libs.coil.compose)
     // Auth0 认证（Universal Login + 凭证管理）
     implementation(libs.auth0)
+    // 网络：OkHttp + Retrofit + kotlinx.serialization
+    implementation(libs.okhttp)
+    implementation(libs.retrofit)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.retrofit.kotlinx.serialization)
+    // 日志拦截器仅打进 Debug 包（抓包联调用）
+    debugImplementation(libs.okhttp.logging)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

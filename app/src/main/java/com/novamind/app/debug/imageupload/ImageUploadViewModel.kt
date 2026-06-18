@@ -2,8 +2,8 @@ package com.novamind.app.debug.imageupload
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.debug.DebugLog
-import com.novamind.app.debug.apitest.ApiTls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,16 +11,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.DataOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
-import java.util.UUID
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * 图片上传测试页 ViewModel：以 multipart/form-data 方式 POST 选中的图片。
  *
- * 与 ApiTestViewModel 一致，仅依赖 JDK 自带的 [HttpURLConnection]，
- * 网络 IO 在 [Dispatchers.IO] 上执行，复用 [ApiTls] 做主机名钉定。
+ * 与 ApiTestViewModel 一致，通过 Retrofit [NetworkModule] 发起请求，
+ * 公用头部、TLS 钉定与（Debug）日志均由共享 OkHttpClient 统一处理。
  */
 class ImageUploadViewModel : ViewModel() {
 
@@ -105,50 +104,23 @@ class ImageUploadViewModel : ViewModel() {
     }
 
     /**
-     * 手写 multipart/form-data 请求体，返回 (状态码, 响应体)。
-     * 单文件字段，无额外文本字段；如需扩展可在边界之间追加 part。
+     * 以 multipart/form-data 上传单个文件，返回 (状态码, 响应体)。
+     *
+     * 走 Retrofit [NetworkModule.apiService]：边界与 Content-Type 由 OkHttp 自动生成，
+     * 公用头部、TLS 钉定、（Debug）日志由 OkHttpClient 统一处理。
      */
-    private fun postMultipart(
+    private suspend fun postMultipart(
         urlStr: String,
         field: String,
         fileName: String,
         mime: String,
         bytes: ByteArray,
     ): Pair<Int, String> {
-        val boundary = "----NovieBoundary${UUID.randomUUID().toString().replace("-", "")}"
-        val lineEnd = "\r\n"
-        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 15_000
-            readTimeout = 30_000
-            doOutput = true
-            useCaches = false
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Connection", "Keep-Alive")
-            setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            ApiTls.apply(this)
-        }
-        try {
-            DataOutputStream(conn.outputStream).use { out ->
-                out.writeBytes("--$boundary$lineEnd")
-                out.writeBytes(
-                    "Content-Disposition: form-data; name=\"$field\"; " +
-                        "filename=\"$fileName\"$lineEnd"
-                )
-                out.writeBytes("Content-Type: $mime$lineEnd")
-                out.writeBytes(lineEnd)
-                out.write(bytes)
-                out.writeBytes(lineEnd)
-                out.writeBytes("--$boundary--$lineEnd")
-                out.flush()
-            }
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            return code to body
-        } finally {
-            conn.disconnect()
-        }
+        val body = bytes.toRequestBody(mime.toMediaTypeOrNull())
+        val part = MultipartBody.Part.createFormData(field, fileName, body)
+        val resp = NetworkModule.apiService.upload(urlStr, part)
+        val text = (if (resp.isSuccessful) resp.body() else resp.errorBody())?.string().orEmpty()
+        return resp.code() to text
     }
 
     /**
