@@ -1,10 +1,14 @@
 package com.novamind.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -47,8 +51,11 @@ import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.foundation.background
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.messaging.FirebaseMessaging
+import com.novamind.app.debug.DebugLog
 
 // 导航顺序，用于判断滑动方向
 private val navOrder = listOf(
@@ -60,9 +67,18 @@ private val navOrder = listOf(
 )
 
 class MainActivity : ComponentActivity() {
+
+    // Android 13+ 通知权限申请器；授予与否都不阻塞主流程
+    private val requestNotificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            DebugLog.i("Fcm", "POST_NOTIFICATIONS granted=$granted")
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        askNotificationPermission()
+        logFcmToken()
         // Block-editor 光标方案：adjustNothing —— 键盘弹出窗口不重排，内容/光标布局不动，
         // 仅由编辑器在「光标被键盘遮住」时自行滚动。
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
@@ -225,6 +241,26 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Android 13+（TIRAMISU）需运行时授予 POST_NOTIFICATIONS 才能显示通知。
+     * 这里在未授权时直接请求；如需更友好的体验，可在请求前用
+     * shouldShowRequestPermissionRationale 弹一段说明 UI。
+     */
+    private fun askNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    /** 获取当前 FCM 注册令牌（用于测试/上报服务端）。 */
+    private fun logFcmToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) DebugLog.i("Fcm", "current token: ${task.result}")
+            else DebugLog.w("Fcm", "fetch token failed: ${task.exception?.message}")
         }
     }
 }

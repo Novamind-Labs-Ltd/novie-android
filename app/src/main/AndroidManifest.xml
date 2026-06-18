@@ -81,6 +81,13 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="fcm_default" />
+        <!-- FCM 默认通知图标与颜色：消息未显式指定时使用 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
 
         <!-- 相机拍照写入内部文件需要的 FileProvider -->
         <provider
