@@ -47,6 +47,10 @@ class AuthManager(context: Context) {
             val builder = WebAuthProvider.login(account)
                 .withScheme(BuildConfig.AUTH0_SCHEME)
                 .withScope("openid profile email offline_access")
+                // 强制每次都展示登录页，忽略已有 SSO 会话，
+                // 从而允许用户在重新登录时切换账户。
+                // 如需账户选择器可改为 "select_account"（取决于上游 IdP 支持）。
+                .withParameters(mapOf("prompt" to "login"))
             if (BuildConfig.AUTH0_AUDIENCE.isNotBlank()) {
                 builder.withAudience(BuildConfig.AUTH0_AUDIENCE)
             }
