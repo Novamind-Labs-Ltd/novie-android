@@ -31,6 +31,7 @@ import com.novamind.app.common.permission.PermissionManagerScreen
 import com.novamind.app.common.profile.AvatarViewerScreen
 import com.novamind.app.common.profile.ProfileDrawerContent
 import com.novamind.app.common.profile.ProfileStore
+import com.novamind.app.ui.components.DeleteConfirmSheet
 import kotlinx.coroutines.launch
 
 /** Home 下的子页面 */
@@ -56,6 +57,8 @@ fun HomeRoute(
 
     var notifications by remember { mutableStateOf(sampleNotifications) }
     var overlay by remember { mutableStateOf(HomeOverlay.None) }
+    // 退出登录二次确认弹窗
+    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val drawerOpen = drawerState.targetValue == DrawerValue.Open
@@ -90,7 +93,8 @@ fun HomeRoute(
                         overlay = HomeOverlay.Permissions
                     }
                 },
-                onLogout = onLogout,
+                // 点退出登录先弹二次确认，确认后才真正登出
+                onLogout = { showLogoutConfirm = true },
             )
         },
     ) {
@@ -146,6 +150,21 @@ fun HomeRoute(
                 )
             }
         }
+    }
+
+    // 退出登录二次确认
+    if (showLogoutConfirm) {
+        DeleteConfirmSheet(
+            onConfirm = {
+                showLogoutConfirm = false
+                scope.launch { drawerState.close() }
+                onLogout()
+            },
+            onDismiss = { showLogoutConfirm = false },
+            title = "退出登录?",
+            message = "退出后需重新登录才能继续同步你的笔记与设置。",
+            confirmLabel = "退出登录",
+        )
     }
   }
 }
