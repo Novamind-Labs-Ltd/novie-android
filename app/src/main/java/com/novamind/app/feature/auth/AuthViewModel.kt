@@ -90,13 +90,20 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * 退出登录：仅清本地凭证、不打开浏览器，因而不会弹出浏览器「打开 App」确认框。
+     * 如需连同 Auth0 的 SSO 会话一起清除（彻底登出），改用 [logoutFederated]。
+     * 保留 activity 形参以兼容调用方。
+     */
     fun logout(activity: Activity) {
         if (_uiState.value.isLoading) return
-        // 临时口子：本地直接登出，回到登录页
-        if (DEV_BYPASS_AUTH) {
-            _uiState.update { AuthUiState(isCheckingSession = false, isAuthenticated = false) }
-            return
-        }
+        authManager.logoutLocal()
+        _uiState.update { AuthUiState(isCheckingSession = false, isAuthenticated = false) }
+    }
+
+    /** 彻底登出：打开浏览器清空 Auth0 SSO 会话（会出现浏览器跳转 / 「打开 App」弹窗）。 */
+    fun logoutFederated(activity: Activity) {
+        if (_uiState.value.isLoading) return
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             runCatching { authManager.logout(activity) }

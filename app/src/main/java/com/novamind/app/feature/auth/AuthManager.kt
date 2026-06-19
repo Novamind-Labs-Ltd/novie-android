@@ -62,7 +62,16 @@ class AuthManager(context: Context) {
             })
         }
 
-    /** 登出并清空 SSO cookie 与本地凭证。失败抛 [AuthenticationException]。 */
+    /**
+     * 仅本地登出：只清除本地凭证，不打开浏览器清 SSO cookie。
+     * 因此不会触发浏览器「打开 App」确认弹窗；代价是 Auth0 的浏览器会话仍在，
+     * 下次登录可能因 SSO 直接登入（不再要求输入密码）。
+     */
+    fun logoutLocal() {
+        credentialsManager.clearCredentials()
+    }
+
+    /** 完整登出：打开浏览器清空 SSO cookie 与本地凭证。失败抛 [AuthenticationException]。 */
     suspend fun logout(activity: Activity) =
         suspendCancellableCoroutine { cont ->
             WebAuthProvider.logout(account)
