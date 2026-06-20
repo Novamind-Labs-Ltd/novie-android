@@ -88,7 +88,9 @@ fun ProfileDrawerContent(
             }
             Spacer(Modifier.height(12.dp))
             Text(name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextTitle)
-            Text(email, fontSize = 13.sp, color = TextSub)
+            if (email.isNotBlank()) {
+                Text(email, fontSize = 13.sp, color = TextSub)
+            }
 
             Spacer(Modifier.height(8.dp))
             Text(

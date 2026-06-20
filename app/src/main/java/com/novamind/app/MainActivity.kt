@@ -133,6 +133,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
+                                userName = authState.userName,
+                                userEmail = authState.userEmail,
                             )
                             BottomNavDestination.Create.route -> CreateRoute(
                                 noteId = editingNoteId,

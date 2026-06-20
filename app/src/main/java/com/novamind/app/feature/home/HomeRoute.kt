@@ -44,6 +44,8 @@ fun HomeRoute(
     onNoteClick: (noteId: String) -> Unit = {},
     onFullscreenChange: (Boolean) -> Unit = {},   // 子页/抽屉打开 → 宿主隐藏底部导航
     onLogout: () -> Unit = {},                     // 退出登录（由宿主交给 AuthViewModel 处理）
+    userName: String? = null,                      // 登录用户名（来自 Auth0 id_token，游客为空）
+    userEmail: String? = null,                     // 登录邮箱（来自 Auth0 id_token，游客为空）
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
 ) {
@@ -83,8 +85,8 @@ fun HomeRoute(
         drawerContent = {
             ProfileDrawerContent(
                 avatarPath = avatarPath,
-                name = "chenbin.zhou",
-                email = "chenbin.zhou@novamind-labs.ai",
+                name = userName?.takeIf { it.isNotBlank() } ?: "游客",
+                email = userEmail.orEmpty(),
                 onChangeAvatar = { openAvatar() },
                 onViewAvatar = { openAvatar() },
                 onOpenPermissions = {
