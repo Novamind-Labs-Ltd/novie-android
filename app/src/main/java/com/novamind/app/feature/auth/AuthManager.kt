@@ -9,6 +9,8 @@ import com.auth0.android.authentication.storage.CredentialsManager
 import com.auth0.android.authentication.storage.CredentialsManagerException
 import com.auth0.android.authentication.storage.SharedPreferencesStorage
 import com.auth0.android.callback.Callback
+import com.auth0.android.provider.BrowserPicker
+import com.auth0.android.provider.CustomTabsOptions
 import com.auth0.android.provider.WebAuthProvider
 import com.auth0.android.result.Credentials
 import com.novamind.app.BuildConfig
@@ -25,6 +27,8 @@ import kotlin.coroutines.resumeWithException
  * 这里统一使用稳定的回调式 API，并用协程包装，避免依赖具体扩展函数。
  */
 class AuthManager(context: Context) {
+
+    private val appContext = context.applicationContext
 
     private val account: Auth0 = Auth0.getInstance(
         BuildConfig.AUTH0_CLIENT_ID,
@@ -47,6 +51,8 @@ class AuthManager(context: Context) {
             val builder = WebAuthProvider.login(account)
                 .withScheme(BuildConfig.AUTH0_SCHEME)
                 .withScope("openid profile email offline_access")
+                // 优先 Chrome，缺失则降级系统默认浏览器（详见 buildCustomTabsOptions）。
+                .withCustomTabsOptions(buildCustomTabsOptions())
                 // 强制每次都展示登录页，忽略已有 SSO 会话，
                 // 从而允许用户在重新登录时切换账户。
                 // 如需账户选择器可改为 "select_account"（取决于上游 IdP 支持）。
@@ -80,6 +86,7 @@ class AuthManager(context: Context) {
         suspendCancellableCoroutine { cont ->
             WebAuthProvider.logout(account)
                 .withScheme(BuildConfig.AUTH0_SCHEME)
+                .withCustomTabsOptions(buildCustomTabsOptions())
                 .start(activity, object : Callback<Void?, AuthenticationException> {
                     override fun onSuccess(result: Void?) {
                         credentialsManager.clearCredentials()
@@ -106,4 +113,33 @@ class AuthManager(context: Context) {
                 }
             })
         }
+
+    /**
+     * 构造 Custom Tabs 选项：优先用 Chrome，缺失或被禁用时降级到系统默认浏览器。
+     *
+     * 注意不能用 [BrowserPicker.withAllowedPackages] 硬白名单只放 Chrome——那样
+     * 没装 Chrome 会直接打不开登录页。因此先运行时检测 Chrome 是否可用：
+     * 可用才限定到 Chrome，否则返回不限制的默认选项（Auth0 自行挑选支持
+     * Custom Tabs 的默认浏览器）。
+     */
+    private fun buildCustomTabsOptions(): CustomTabsOptions {
+        val builder = CustomTabsOptions.newBuilder()
+        if (isChromeUsable()) {
+            builder.withBrowserPicker(
+                BrowserPicker.newBuilder()
+                    .withAllowedPackages(listOf(CHROME_PACKAGE))
+                    .build(),
+            )
+        }
+        return builder.build()
+    }
+
+    /** Chrome 正式版是否已安装且未被禁用。 */
+    private fun isChromeUsable(): Boolean = runCatching {
+        appContext.packageManager.getApplicationInfo(CHROME_PACKAGE, 0).enabled
+    }.getOrDefault(false)
+
+    private companion object {
+        const val CHROME_PACKAGE = "com.android.chrome"
+    }
 }
