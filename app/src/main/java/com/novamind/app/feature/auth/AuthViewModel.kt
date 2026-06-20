@@ -36,6 +36,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                             it.copy(
                                 isCheckingSession = false,
                                 isAuthenticated = true,
+                                isGuest = false,
                                 userName = creds.nameOrNull(),
                                 userEmail = creds.emailOrNull(),
                             )
@@ -65,6 +66,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                         it.copy(
                             isLoading = false,
                             isAuthenticated = true,
+                            isGuest = false,
                             userName = creds.nameOrNull(),
                             userEmail = creds.emailOrNull(),
                         )
@@ -83,6 +85,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(
                 isLoading = false,
                 isAuthenticated = true,
+                isGuest = true,
                 errorMessage = null,
                 userName = null,
                 userEmail = null,
@@ -116,6 +119,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "登出失败") }
                 }
         }
+    }
+
+    /** 游客切换到登录：重置为未登录状态，宿主门控会显示登录页。 */
+    fun exitGuest() {
+        _uiState.update { AuthUiState(isCheckingSession = false, isAuthenticated = false) }
     }
 
     fun dismissError() {

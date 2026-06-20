@@ -50,6 +50,9 @@ fun ProfileDrawerContent(
     onViewAvatar: () -> Unit = onChangeAvatar,
     onOpenPermissions: () -> Unit = {},
     onLogout: () -> Unit = {},
+    showLogout: Boolean = true,   // 游客模式无 Auth0 会话，隐藏退出登录
+    onLogin: () -> Unit = {},     // 游客切换到登录
+    showLogin: Boolean = false,   // 游客模式显示「登录 / 注册」入口
     modifier: Modifier = Modifier,
 ) {
     ModalDrawerSheet(
@@ -119,12 +122,18 @@ fun ProfileDrawerContent(
             ProfileMenuItem(R.drawable.ic_shield_check, "权限管理", onClick = onOpenPermissions)
             ProfileMenuItem(R.drawable.ic_more, "设置")
 
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
-            Spacer(Modifier.height(8.dp))
-
-            // 退出登录
-            ProfileMenuItem(R.drawable.ic_arrow_back, "退出登录", onClick = onLogout)
+            // 账户出口：真实登录显示「退出登录」，游客显示「登录 / 注册」
+            if (showLogout || showLogin) {
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
+                Spacer(Modifier.height(8.dp))
+                if (showLogout) {
+                    ProfileMenuItem(R.drawable.ic_arrow_back, "退出登录", onClick = onLogout)
+                }
+                if (showLogin) {
+                    ProfileMenuItem(R.drawable.ic_arrow_back, "登录 / 注册", onClick = onLogin)
+                }
+            }
         }
     }
 }
