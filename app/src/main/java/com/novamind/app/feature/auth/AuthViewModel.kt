@@ -2,6 +2,7 @@ package com.novamind.app.feature.auth
 
 import android.app.Activity
 import android.app.Application
+import android.os.SystemClock
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -111,6 +112,35 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.update { it.copy(biometricEnabled = enabled) }
     }
 
+    // 进入后台的时刻（单调时钟，不受系统时间调整影响）。0 表示当前不在后台。
+    private var backgroundedAt: Long = 0L
+
+    /** App 整体进入后台：记录时刻，供回前台判断是否超时上锁。 */
+    fun onAppBackgrounded() {
+        backgroundedAt = SystemClock.elapsedRealtime()
+    }
+
+    /**
+     * App 回到前台：若已真实登录、开启了生物识别、且后台停留超过
+     * [BACKGROUND_LOCK_TIMEOUT_MS]，则重新上锁（转到指纹/人脸解锁页）。
+     */
+    fun onAppForegrounded() {
+        val enteredBackgroundAt = backgroundedAt
+        backgroundedAt = 0L
+        if (enteredBackgroundAt == 0L) return // 冷启动首次前台，无需处理
+
+        val state = _uiState.value
+        if (!state.isAuthenticated || state.isGuest) return
+        if (!(biometricPrefs.enabled && authManager.isBiometricAvailable())) return
+
+        val elapsed = SystemClock.elapsedRealtime() - enteredBackgroundAt
+        if (elapsed >= BACKGROUND_LOCK_TIMEOUT_MS) {
+            _uiState.update {
+                it.copy(isAuthenticated = false, needsBiometricUnlock = true, errorMessage = null)
+            }
+        }
+    }
+
     fun login(activity: Activity) {
         if (_uiState.value.isLoading) return
         // 临时口子：不走 Auth0，点「登录/注册」直接进入应用
@@ -206,6 +236,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
          * 已接入真实 Auth0：置为 false，登录走 Universal Login（PKCE）。
          */
         const val DEV_BYPASS_AUTH = false
+
+        /** 后台停留超过此时长（毫秒）再回前台，要求重新生物识别。默认 5 分钟。 */
+        private const val BACKGROUND_LOCK_TIMEOUT_MS = 5 * 60 * 1000L
     }
 }
 

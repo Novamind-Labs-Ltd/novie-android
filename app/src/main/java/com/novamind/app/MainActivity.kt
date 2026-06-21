@@ -22,6 +22,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,6 +54,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
@@ -103,6 +107,17 @@ class MainActivity : FragmentActivity() {
                 // 认证状态（Auth0）：未登录时用登录页门控整个应用
                 val authViewModel: AuthViewModel = viewModel()
                 val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+
+                // 进程级前后台监听：后台超时后回前台触发生物识别重新上锁
+                DisposableEffect(authViewModel) {
+                    val owner = ProcessLifecycleOwner.get()
+                    val observer = object : DefaultLifecycleObserver {
+                        override fun onStop(owner: LifecycleOwner) = authViewModel.onAppBackgrounded()
+                        override fun onStart(owner: LifecycleOwner) = authViewModel.onAppForegrounded()
+                    }
+                    owner.lifecycle.addObserver(observer)
+                    onDispose { owner.lifecycle.removeObserver(observer) }
+                }
 
                 // 冷启动检查升级（Mock 策略；可在 Debug 工具箱模拟）
                 LaunchedEffect(Unit) { UpdateController.checkOnStartup(appContext, BuildConfig.VERSION_CODE) }
