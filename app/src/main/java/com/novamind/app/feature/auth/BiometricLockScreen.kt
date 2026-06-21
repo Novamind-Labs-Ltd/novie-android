@@ -54,10 +54,10 @@ fun BiometricLockScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("指纹登录", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+        Text("指纹 / 人脸登录", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
         Spacer(Modifier.height(8.dp))
         Text(
-            text = errorMessage ?: "请验证指纹以继续",
+            text = errorMessage ?: "请验证身份以继续",
             fontSize = 14.sp,
             color = if (errorMessage != null) Color(0xFFB00020) else TextSub,
         )
@@ -70,7 +70,7 @@ fun BiometricLockScreen(
                 onClick = onUnlock,
                 colors = ButtonDefaults.buttonColors(containerColor = Accent),
             ) {
-                Text("使用指纹解锁")
+                Text("使用指纹 / 人脸解锁")
             }
         }
 

@@ -128,7 +128,7 @@ fun ProfileDrawerContent(
             if (showBiometricToggle) {
                 ProfileSwitchItem(
                     iconRes = R.drawable.ic_shield_check,
-                    label = "指纹登录",
+                    label = "指纹 / 人脸登录",
                     checked = biometricEnabled,
                     onCheckedChange = onToggleBiometric,
                 )

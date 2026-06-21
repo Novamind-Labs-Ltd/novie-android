@@ -2,7 +2,6 @@ package com.novamind.app.feature.auth
 
 import android.app.Activity
 import android.content.Context
-import android.os.Build
 import androidx.biometric.BiometricManager
 import androidx.fragment.app.FragmentActivity
 import com.auth0.android.Auth0
@@ -157,27 +156,22 @@ class AuthManager(context: Context) {
     /**
      * 生物识别提示框配置。
      *
-     * 认证级别取设备可用的最高等级（STRONG 优先，否则 WEAK）。允许回退到设备
-     * PIN/图案/密码,但要避开官方限制：API 28/29 上 STRONG + 设备凭证回退不被支持,
-     * 这两个版本若用 STRONG 则关闭回退（仅生物识别）以免崩溃。
+     * 用 [AuthenticationLevel.WEAK]（Class 2）：请求 WEAK 时系统会接受「不低于
+     * Class 2」的全部生物特征——既包含多数机型的人脸（通常被归为 Class 2），
+     * 也包含指纹（Class 3 同样满足）。这样指纹与人脸都能用，代价是安全门槛降到
+     * Class 2。如需仅强生物识别，把级别改回 STRONG（但多数机型人脸将不可用）。
+     *
+     * 允许回退到设备 PIN/图案/密码。WEAK + 设备凭证回退在各 API 上均受支持
+     * （受限的只是 STRONG+回退于 API 28/29、以及 DEVICE_CREDENTIAL 单独用于 ≤29）。
      */
-    private fun buildLocalAuthOptions(): LocalAuthenticationOptions {
-        val bm = BiometricManager.from(appContext)
-        val strongOk = bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
-            BiometricManager.BIOMETRIC_SUCCESS
-        val level = if (strongOk) AuthenticationLevel.STRONG else AuthenticationLevel.WEAK
-
-        val isApi28or29 = Build.VERSION.SDK_INT in 28..29
-        val allowDeviceCredential = !(level == AuthenticationLevel.STRONG && isApi28or29)
-
-        return LocalAuthenticationOptions.Builder()
-            .setTitle("指纹登录")
+    private fun buildLocalAuthOptions(): LocalAuthenticationOptions =
+        LocalAuthenticationOptions.Builder()
+            .setTitle("指纹 / 人脸登录")
             .setDescription("验证身份以继续")
-            .setAuthenticationLevel(level)
-            .setDeviceCredentialFallback(allowDeviceCredential)
+            .setAuthenticationLevel(AuthenticationLevel.WEAK)
+            .setDeviceCredentialFallback(true)
             .setNegativeButtonText("取消")
             .build()
-    }
 
     /**
      * 构造 Custom Tabs 选项：优先用 Chrome，缺失或被禁用时降级到系统默认浏览器。
