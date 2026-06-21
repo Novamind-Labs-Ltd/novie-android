@@ -55,6 +55,7 @@
             android:name=".common.web.WebViewActivity"
             android:exported="false"
             android:process=":web"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
@@ -62,6 +63,7 @@
         <activity
             android:name=".debug.apitest.ApiTestActivity"
             android:exported="false"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
@@ -69,6 +71,7 @@
         <activity
             android:name=".debug.imageupload.ImageUploadActivity"
             android:exported="false"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
