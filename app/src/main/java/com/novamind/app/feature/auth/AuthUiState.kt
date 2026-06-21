@@ -7,6 +7,9 @@ package com.novamind.app.feature.auth
  * @property isLoading 正在执行登录 / 登出
  * @property isAuthenticated 是否已登录
  * @property isGuest 是否游客模式（免登录进入，无 Auth0 会话）
+ * @property needsBiometricUnlock 本地有会话且开启了指纹登录，等待指纹解锁
+ * @property biometricAvailable 设备是否支持生物识别（已录入）
+ * @property biometricEnabled 用户是否开启了「指纹登录」
  * @property userName / userEmail 从 id_token 解析出的用户信息（可能为空）
  * @property errorMessage 一次性错误提示，消费后置空
  */
@@ -15,6 +18,9 @@ data class AuthUiState(
     val isLoading: Boolean = false,
     val isAuthenticated: Boolean = false,
     val isGuest: Boolean = false,
+    val needsBiometricUnlock: Boolean = false,
+    val biometricAvailable: Boolean = false,
+    val biometricEnabled: Boolean = false,
     val userName: String? = null,
     val userEmail: String? = null,
     val errorMessage: String? = null,

@@ -113,6 +113,9 @@ dependencies {
     implementation(libs.coil.compose)
     // Auth0 认证（Universal Login + 凭证管理）
     implementation(libs.auth0)
+    // 指纹/生物识别（SecureCredentialsManager 生物识别门控；fragment 提供 FragmentActivity）
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment.ktx)
     // 网络：OkHttp + Retrofit + kotlinx.serialization
     implementation(libs.okhttp)
     implementation(libs.retrofit)

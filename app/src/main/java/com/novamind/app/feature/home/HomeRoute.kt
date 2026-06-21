@@ -48,6 +48,9 @@ fun HomeRoute(
     userName: String? = null,                      // 登录用户名（来自 Auth0 id_token，游客为空）
     userEmail: String? = null,                     // 登录邮箱（来自 Auth0 id_token，游客为空）
     isGuest: Boolean = false,                      // 游客模式（无 Auth0 会话，隐藏退出登录）
+    biometricAvailable: Boolean = false,           // 设备是否支持生物识别（已录入）
+    biometricEnabled: Boolean = false,             // 是否已开启指纹登录
+    onToggleBiometric: (Boolean) -> Unit = {},     // 切换指纹登录开关
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
 ) {
@@ -105,6 +108,10 @@ fun HomeRoute(
                     onSwitchToLogin()
                 },
                 showLogin = isGuest,
+                // 指纹登录开关：仅真实登录用户、且设备支持生物识别时显示
+                showBiometricToggle = biometricAvailable && !isGuest,
+                biometricEnabled = biometricEnabled,
+                onToggleBiometric = onToggleBiometric,
             )
         },
     ) {

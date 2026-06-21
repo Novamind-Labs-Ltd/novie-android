@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- WebView 容器浏览网页 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 指纹/生物识别登录（SecureCredentialsManager + BiometricPrompt） -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- 语音录制 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- 锁屏 / 后台持续录音的前台服务 -->

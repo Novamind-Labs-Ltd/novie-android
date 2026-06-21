@@ -2,6 +2,7 @@ package com.novamind.app.feature.auth
 
 import android.app.Activity
 import android.app.Application
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.auth0.android.result.Credentials
@@ -18,37 +19,96 @@ import kotlinx.coroutines.launch
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authManager = AuthManager(app)
+    private val biometricPrefs = BiometricPreferences(app)
 
-    private val _uiState = MutableStateFlow(AuthUiState())
+    private val _uiState = MutableStateFlow(
+        AuthUiState(
+            biometricAvailable = authManager.isBiometricAvailable(),
+            biometricEnabled = biometricPrefs.enabled,
+        ),
+    )
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     init {
         checkSession()
     }
 
-    /** 启动时检查是否已有有效会话。 */
+    /**
+     * 启动时检查会话：
+     * - 无凭证 → 未登录，显示登录页。
+     * - 有凭证且开启指纹且设备可用 → 进入「待指纹解锁」状态（不直接放行）。
+     * - 有凭证但未开启/不可用指纹 → 静默续期直接登录（沿用原行为）。
+     */
     private fun checkSession() {
+        val biometricGate = biometricPrefs.enabled && authManager.isBiometricAvailable()
         viewModelScope.launch {
-            if (authManager.hasValidCredentials()) {
-                runCatching { authManager.getCredentials() }
-                    .onSuccess { creds ->
-                        _uiState.update {
-                            it.copy(
-                                isCheckingSession = false,
-                                isAuthenticated = true,
-                                isGuest = false,
-                                userName = creds.nameOrNull(),
-                                userEmail = creds.emailOrNull(),
-                            )
-                        }
-                    }
-                    .onFailure {
-                        _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false) }
-                    }
-            } else {
-                _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false) }
+            if (!authManager.hasValidCredentials()) {
+                _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false, needsBiometricUnlock = false) }
+                return@launch
             }
+            if (biometricGate) {
+                // 等待用户指纹解锁（由 UI 调用 unlockWithBiometric 触发系统指纹框）。
+                _uiState.update {
+                    it.copy(isCheckingSession = false, isAuthenticated = false, needsBiometricUnlock = true)
+                }
+                return@launch
+            }
+            // 无需指纹门控：静默取凭证直接登录。
+            runCatching { authManager.getCredentials() }
+                .onSuccess { creds ->
+                    _uiState.update {
+                        it.copy(
+                            isCheckingSession = false,
+                            isAuthenticated = true,
+                            isGuest = false,
+                            needsBiometricUnlock = false,
+                            userName = creds.nameOrNull(),
+                            userEmail = creds.emailOrNull(),
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false) }
+                }
         }
+    }
+
+    /** 指纹解锁：弹系统生物识别框，通过后用本地凭证登入。失败保持待解锁态。 */
+    fun unlockWithBiometric(activity: FragmentActivity) {
+        if (_uiState.value.isLoading) return
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        viewModelScope.launch {
+            runCatching { authManager.getCredentials(activity, requireBiometric = true) }
+                .onSuccess { creds ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isAuthenticated = true,
+                            isGuest = false,
+                            needsBiometricUnlock = false,
+                            userName = creds.nameOrNull(),
+                            userEmail = creds.emailOrNull(),
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    // 用户取消或验证失败：留在解锁页，可重试或改用账号登录。
+                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "指纹验证失败") }
+                }
+        }
+    }
+
+    /** 放弃指纹解锁，改用账号登录：清除待解锁态，门控转到登录页。 */
+    fun cancelBiometricUnlock() {
+        _uiState.update {
+            it.copy(needsBiometricUnlock = false, isAuthenticated = false, errorMessage = null)
+        }
+    }
+
+    /** 设置「指纹登录」开关（持久化）。仅在已登录、设备支持时由 UI 调用。 */
+    fun setBiometricEnabled(enabled: Boolean) {
+        biometricPrefs.enabled = enabled
+        _uiState.update { it.copy(biometricEnabled = enabled) }
     }
 
     fun login(activity: Activity) {
@@ -67,6 +127,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                             isLoading = false,
                             isAuthenticated = true,
                             isGuest = false,
+                            needsBiometricUnlock = false,
                             userName = creds.nameOrNull(),
                             userEmail = creds.emailOrNull(),
                         )
@@ -101,7 +162,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     fun logout(activity: Activity) {
         if (_uiState.value.isLoading) return
         authManager.logoutLocal()
-        _uiState.update { AuthUiState(isCheckingSession = false, isAuthenticated = false) }
+        _uiState.update { loggedOutState() }
     }
 
     /** 彻底登出：打开浏览器清空 Auth0 SSO 会话（会出现浏览器跳转 / 「打开 App」弹窗）。 */
@@ -123,12 +184,20 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 游客切换到登录：重置为未登录状态，宿主门控会显示登录页。 */
     fun exitGuest() {
-        _uiState.update { AuthUiState(isCheckingSession = false, isAuthenticated = false) }
+        _uiState.update { loggedOutState() }
     }
 
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
+
+    /** 未登录初始态，保留生物识别能力/开关标记供 UI 一致显示。 */
+    private fun loggedOutState() = AuthUiState(
+        isCheckingSession = false,
+        isAuthenticated = false,
+        biometricAvailable = authManager.isBiometricAvailable(),
+        biometricEnabled = biometricPrefs.enabled,
+    )
 
     companion object {
         /**

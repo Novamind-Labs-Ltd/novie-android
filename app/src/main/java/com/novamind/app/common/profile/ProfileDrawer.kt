@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -53,6 +55,9 @@ fun ProfileDrawerContent(
     showLogout: Boolean = true,   // 游客模式无 Auth0 会话，隐藏退出登录
     onLogin: () -> Unit = {},     // 游客切换到登录
     showLogin: Boolean = false,   // 游客模式显示「登录 / 注册」入口
+    showBiometricToggle: Boolean = false,        // 设备支持生物识别且非游客时显示指纹开关
+    biometricEnabled: Boolean = false,           // 指纹登录是否已开启
+    onToggleBiometric: (Boolean) -> Unit = {},   // 切换指纹登录
     modifier: Modifier = Modifier,
 ) {
     ModalDrawerSheet(
@@ -120,6 +125,14 @@ fun ProfileDrawerContent(
             ProfileMenuItem(R.drawable.ic_nav_calendar, "日程")
             ProfileMenuItem(R.drawable.ic_notification, "通知设置")
             ProfileMenuItem(R.drawable.ic_shield_check, "权限管理", onClick = onOpenPermissions)
+            if (showBiometricToggle) {
+                ProfileSwitchItem(
+                    iconRes = R.drawable.ic_shield_check,
+                    label = "指纹登录",
+                    checked = biometricEnabled,
+                    onCheckedChange = onToggleBiometric,
+                )
+            }
             ProfileMenuItem(R.drawable.ic_more, "设置")
 
             // 账户出口：真实登录显示「退出登录」，游客显示「登录 / 注册」
@@ -135,6 +148,41 @@ fun ProfileDrawerContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileSwitchItem(
+    iconRes: Int,
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = { onCheckedChange(!checked) },
+            )
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            tint = TextSub,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(label, fontSize = 15.sp, color = TextTitle, modifier = Modifier.weight(1f))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = Accent),
+        )
     }
 }
 

@@ -2,11 +2,16 @@ package com.novamind.app.feature.auth
 
 import android.app.Activity
 import android.content.Context
+import android.os.Build
+import androidx.biometric.BiometricManager
+import androidx.fragment.app.FragmentActivity
 import com.auth0.android.Auth0
 import com.auth0.android.authentication.AuthenticationAPIClient
 import com.auth0.android.authentication.AuthenticationException
-import com.auth0.android.authentication.storage.CredentialsManager
+import com.auth0.android.authentication.storage.AuthenticationLevel
 import com.auth0.android.authentication.storage.CredentialsManagerException
+import com.auth0.android.authentication.storage.LocalAuthenticationOptions
+import com.auth0.android.authentication.storage.SecureCredentialsManager
 import com.auth0.android.authentication.storage.SharedPreferencesStorage
 import com.auth0.android.callback.Callback
 import com.auth0.android.provider.BrowserPicker
@@ -21,10 +26,15 @@ import kotlin.coroutines.resumeWithException
 /**
  * Auth0 认证封装层。集中处理：
  * - Universal Login 登录 / 登出（[WebAuthProvider]，走系统浏览器，PKCE）
- * - 凭证持久化与自动续期（[CredentialsManager] + SharedPreferences）
+ * - 凭证持久化与自动续期（[SecureCredentialsManager] + SharedPreferences）
+ * - 指纹/生物识别门控取凭证（借助 Android 原生 BiometricPrompt）
+ *
+ * 凭证用 [SecureCredentialsManager] 加密落盘（Keystore + RSA/AES）。取凭证时
+ * 是否要求指纹，取决于构造时是否传入 FragmentActivity + [LocalAuthenticationOptions]：
+ * - 传入 → [getCredentials] 会先弹生物识别框，通过才返回凭证；
+ * - 不传 → 静默返回。两种方式共用同一加密存储（KEY_ALIAS 固定），可自由切换。
  *
  * 配置（Client ID / Domain / Scheme / Audience）来自 auth0.properties → BuildConfig。
- * 这里统一使用稳定的回调式 API，并用协程包装，避免依赖具体扩展函数。
  */
 class AuthManager(context: Context) {
 
@@ -35,15 +45,26 @@ class AuthManager(context: Context) {
         BuildConfig.AUTH0_DOMAIN,
     )
 
-    private val authClient = AuthenticationAPIClient(account)
+    private val storage = SharedPreferencesStorage(appContext)
 
-    private val credentialsManager = CredentialsManager(
-        authClient,
-        SharedPreferencesStorage(context.applicationContext),
-    )
+    /** 静默凭证管理器：保存/清除/检查/无指纹取凭证。 */
+    private val baseManager = SecureCredentialsManager(appContext, account, storage)
 
     /** 本地是否已有未过期（或可凭 refresh_token 续期）的凭证，无网络请求。 */
-    fun hasValidCredentials(): Boolean = credentialsManager.hasValidCredentials()
+    fun hasValidCredentials(): Boolean = baseManager.hasValidCredentials()
+
+    /**
+     * 设备是否可用生物识别（已录入指纹/人脸等，Class 2 或以上）。
+     * 决定「指纹登录」开关是否对用户显示、以及启动时是否走指纹门控。
+     */
+    fun isBiometricAvailable(): Boolean {
+        val manager = BiometricManager.from(appContext)
+        val strong = manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+        val weak = manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+        return strong || weak
+    }
 
     /** 发起 Universal Login。成功后凭证已落盘。失败抛 [AuthenticationException]。 */
     suspend fun login(activity: Activity): Credentials =
@@ -62,7 +83,7 @@ class AuthManager(context: Context) {
             }
             builder.start(activity, object : Callback<Credentials, AuthenticationException> {
                 override fun onSuccess(result: Credentials) {
-                    credentialsManager.saveCredentials(result)
+                    baseManager.saveCredentials(result)
                     if (cont.isActive) cont.resume(result)
                 }
 
@@ -78,7 +99,7 @@ class AuthManager(context: Context) {
      * 下次登录可能因 SSO 直接登入（不再要求输入密码）。
      */
     fun logoutLocal() {
-        credentialsManager.clearCredentials()
+        baseManager.clearCredentials()
     }
 
     /** 完整登出：打开浏览器清空 SSO cookie 与本地凭证。失败抛 [AuthenticationException]。 */
@@ -89,7 +110,7 @@ class AuthManager(context: Context) {
                 .withCustomTabsOptions(buildCustomTabsOptions())
                 .start(activity, object : Callback<Void?, AuthenticationException> {
                     override fun onSuccess(result: Void?) {
-                        credentialsManager.clearCredentials()
+                        baseManager.clearCredentials()
                         if (cont.isActive) cont.resume(Unit)
                     }
 
@@ -99,10 +120,29 @@ class AuthManager(context: Context) {
                 })
         }
 
-    /** 取有效凭证，过期会用 refresh_token 自动续期并保存。失败抛 [CredentialsManagerException]。 */
-    suspend fun getCredentials(): Credentials =
+    /**
+     * 取有效凭证，过期会用 refresh_token 自动续期并保存。失败抛 [CredentialsManagerException]。
+     *
+     * @param activity 非空且 [requireBiometric] 为 true 时，取凭证前会弹生物识别框（需 FragmentActivity）。
+     * @param requireBiometric 是否要求指纹/生物识别门控。
+     */
+    suspend fun getCredentials(
+        activity: FragmentActivity? = null,
+        requireBiometric: Boolean = false,
+    ): Credentials =
         suspendCancellableCoroutine { cont ->
-            credentialsManager.getCredentials(object :
+            val manager = if (requireBiometric && activity != null) {
+                SecureCredentialsManager(
+                    appContext,
+                    account,
+                    storage,
+                    activity,
+                    buildLocalAuthOptions(),
+                )
+            } else {
+                baseManager
+            }
+            manager.getCredentials(object :
                 Callback<Credentials, CredentialsManagerException> {
                 override fun onSuccess(result: Credentials) {
                     if (cont.isActive) cont.resume(result)
@@ -113,6 +153,31 @@ class AuthManager(context: Context) {
                 }
             })
         }
+
+    /**
+     * 生物识别提示框配置。
+     *
+     * 认证级别取设备可用的最高等级（STRONG 优先，否则 WEAK）。允许回退到设备
+     * PIN/图案/密码,但要避开官方限制：API 28/29 上 STRONG + 设备凭证回退不被支持,
+     * 这两个版本若用 STRONG 则关闭回退（仅生物识别）以免崩溃。
+     */
+    private fun buildLocalAuthOptions(): LocalAuthenticationOptions {
+        val bm = BiometricManager.from(appContext)
+        val strongOk = bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+        val level = if (strongOk) AuthenticationLevel.STRONG else AuthenticationLevel.WEAK
+
+        val isApi28or29 = Build.VERSION.SDK_INT in 28..29
+        val allowDeviceCredential = !(level == AuthenticationLevel.STRONG && isApi28or29)
+
+        return LocalAuthenticationOptions.Builder()
+            .setTitle("指纹登录")
+            .setDescription("验证身份以继续")
+            .setAuthenticationLevel(level)
+            .setDeviceCredentialFallback(allowDeviceCredential)
+            .setNegativeButtonText("取消")
+            .build()
+    }
 
     /**
      * 构造 Custom Tabs 选项：优先用 Chrome，缺失或被禁用时降级到系统默认浏览器。

@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -44,6 +43,7 @@ import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.feature.library.LibraryRoute
 import com.novamind.app.feature.asknovie.AskNovieScreen
 import com.novamind.app.feature.auth.AuthViewModel
+import com.novamind.app.feature.auth.BiometricLockScreen
 import com.novamind.app.feature.auth.LoginRoute
 import com.novamind.app.ui.components.AppBottomNavBar
 import com.novamind.app.ui.components.BottomNavDestination
@@ -52,6 +52,7 @@ import androidx.compose.foundation.background
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
@@ -66,7 +67,7 @@ private val navOrder = listOf(
     BottomNavDestination.Calendar.route,
 )
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     // Android 13+ 通知权限申请器；授予与否都不阻塞主流程
     private val requestNotificationPermission =
@@ -137,6 +138,9 @@ class MainActivity : ComponentActivity() {
                                 userName = authState.userName,
                                 userEmail = authState.userEmail,
                                 isGuest = authState.isGuest,
+                                biometricAvailable = authState.biometricAvailable,
+                                biometricEnabled = authState.biometricEnabled,
+                                onToggleBiometric = { authViewModel.setBiometricEnabled(it) },
                             )
                             BottomNavDestination.Create.route -> CreateRoute(
                                 noteId = editingNoteId,
@@ -232,7 +236,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 认证门控（最顶层）：检查会话时显示加载，未登录时显示登录页
+                    // 认证门控（最顶层）：检查会话→加载；待指纹解锁→指纹页；未登录→登录页
                     when {
                         authState.isCheckingSession -> Box(
                             modifier = Modifier
@@ -242,6 +246,14 @@ class MainActivity : ComponentActivity() {
                         ) {
                             CircularProgressIndicator(color = Color(0xFF3D7A5A))
                         }
+
+                        authState.needsBiometricUnlock -> BiometricLockScreen(
+                            isLoading = authState.isLoading,
+                            errorMessage = authState.errorMessage,
+                            onUnlock = { authViewModel.unlockWithBiometric(this@MainActivity) },
+                            onUsePassword = { authViewModel.cancelBiometricUnlock() },
+                            modifier = Modifier.fillMaxSize(),
+                        )
 
                         !authState.isAuthenticated -> LoginRoute(
                             viewModel = authViewModel,
