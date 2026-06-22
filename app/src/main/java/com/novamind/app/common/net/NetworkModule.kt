@@ -39,17 +39,22 @@ object NetworkModule {
             .writeTimeout(30, TimeUnit.SECONDS)
             .hostnameVerifier(ApiTls.PINNED_HOSTNAME_VERIFIER)
             .addInterceptor(CommonHeadersInterceptor())
+            .addInterceptor(AuthInterceptor())
             .apply { HttpLoggers.create()?.let(::addInterceptor) }
             .build()
     }
 
-    private val retrofit: Retrofit by lazy {
+    /** 按 baseUrl 构建 Retrofit，共用同一 [okHttpClient]。 */
+    private fun retrofit(url: String): Retrofit =
         Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(url)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
-    }
 
-    val apiService: ApiService by lazy { retrofit.create(ApiService::class.java) }
+    /** 通用接口（@Url 绝对地址；供调试工具与历史调用）。 */
+    val apiService: ApiService by lazy { retrofit(baseUrl).create(ApiService::class.java) }
+
+    /** 认证域（auth.*）类型化接口。lazy → 切换环境下次冷启动生效。 */
+    val authApi: AuthApi by lazy { retrofit(ApiConfig.authBaseUrl).create(AuthApi::class.java) }
 }

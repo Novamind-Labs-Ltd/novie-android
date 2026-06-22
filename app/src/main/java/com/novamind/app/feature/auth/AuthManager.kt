@@ -18,6 +18,7 @@ import com.auth0.android.provider.CustomTabsOptions
 import com.auth0.android.provider.WebAuthProvider
 import com.auth0.android.result.Credentials
 import com.novamind.app.BuildConfig
+import com.novamind.app.common.net.TokenProvider
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -83,6 +84,7 @@ class AuthManager(context: Context) {
             builder.start(activity, object : Callback<Credentials, AuthenticationException> {
                 override fun onSuccess(result: Credentials) {
                     baseManager.saveCredentials(result)
+                    TokenProvider.accessToken = result.accessToken
                     if (cont.isActive) cont.resume(result)
                 }
 
@@ -99,6 +101,7 @@ class AuthManager(context: Context) {
      */
     fun logoutLocal() {
         baseManager.clearCredentials()
+        TokenProvider.accessToken = null
     }
 
     /** 完整登出：打开浏览器清空 SSO cookie 与本地凭证。失败抛 [AuthenticationException]。 */
@@ -110,6 +113,7 @@ class AuthManager(context: Context) {
                 .start(activity, object : Callback<Void?, AuthenticationException> {
                     override fun onSuccess(result: Void?) {
                         baseManager.clearCredentials()
+                        TokenProvider.accessToken = null
                         if (cont.isActive) cont.resume(Unit)
                     }
 
@@ -144,6 +148,7 @@ class AuthManager(context: Context) {
             manager.getCredentials(object :
                 Callback<Credentials, CredentialsManagerException> {
                 override fun onSuccess(result: Credentials) {
+                    TokenProvider.accessToken = result.accessToken
                     if (cont.isActive) cont.resume(result)
                 }
 
