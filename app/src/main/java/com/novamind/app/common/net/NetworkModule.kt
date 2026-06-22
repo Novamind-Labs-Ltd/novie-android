@@ -18,8 +18,11 @@ import java.util.concurrent.TimeUnit
  */
 object NetworkModule {
 
-    /** 占位 baseUrl：实际请求均通过 `@Url` 传入绝对地址，这里仅满足 Retrofit 构建约束。 */
-    private const val PLACEHOLDER_BASE_URL = "https://121.41.207.114/"
+    /**
+     * baseUrl 取自 [ApiConfig]（可在 Debug 工具箱切换域名）。当前接口多用 `@Url` 绝对地址，
+     * 故此值主要供后续相对路径接口拼接；Retrofit 实例懒加载，切换域名下次冷启动生效。
+     */
+    private val baseUrl: String get() = ApiConfig.baseUrl
 
     /** 全局 JSON 解析配置：容忍未知字段、按需省略默认值，供后续接入类型化响应模型复用。 */
     private val json = Json {
@@ -41,7 +44,7 @@ object NetworkModule {
 
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(PLACEHOLDER_BASE_URL)
+            .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()

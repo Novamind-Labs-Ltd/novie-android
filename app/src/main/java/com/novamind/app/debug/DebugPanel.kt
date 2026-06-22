@@ -44,6 +44,7 @@ import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.NovieApplication
 import com.novamind.app.common.device.DeviceIdentity
+import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
@@ -123,6 +124,20 @@ fun DebugPanel(
                 InfoRow("分辨率", fingerprint.screen)
                 InfoRow("时区", fingerprint.timezone)
                 InfoRow("语言", fingerprint.language)
+            }
+
+            // ── 域名 / 环境 ──
+            val activeBaseUrl by ApiConfig.baseUrlFlow.collectAsState()
+            Section("域名 / 环境（切换后冷启动生效）") {
+                InfoRow("当前", activeBaseUrl)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ApiConfig.ENVIRONMENTS.forEach { env ->
+                        val selected = env.baseUrl == activeBaseUrl
+                        Chip(if (selected) "✓ ${env.label}" else env.label) {
+                            ApiConfig.select(env.baseUrl)
+                        }
+                    }
+                }
             }
 
             // ── 页面快速跳转 ──
