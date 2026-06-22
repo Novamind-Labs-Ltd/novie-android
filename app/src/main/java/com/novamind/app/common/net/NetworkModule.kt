@@ -19,10 +19,11 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
     /**
-     * baseUrl 取自 [ApiConfig]（可在 Debug 工具箱切换域名）。当前接口多用 `@Url` 绝对地址，
-     * 故此值主要供后续相对路径接口拼接；Retrofit 实例懒加载，切换域名下次冷启动生效。
+     * baseUrl 取自 [ApiConfig] 的通用接口域名（可在 Debug 工具箱切换环境）。当前接口多用
+     * `@Url` 绝对地址，故此值主要供后续相对路径接口拼接；Retrofit 懒加载，切换下次冷启动生效。
+     * auth / chat 两类域名由各自的调用层读取 [ApiConfig.authBaseUrl] / [ApiConfig.chatBaseUrl]。
      */
-    private val baseUrl: String get() = ApiConfig.baseUrl
+    private val baseUrl: String get() = ApiConfig.apiBaseUrl
 
     /** 全局 JSON 解析配置：容忍未知字段、按需省略默认值，供后续接入类型化响应模型复用。 */
     private val json = Json {

@@ -6,50 +6,75 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 后端 API 域名（环境）配置。支持在 Debug 工具箱里切换,选择会持久化。
+ * 后端域名（环境）配置。
  *
- * 注意：[NetworkModule] 的 Retrofit 在首次使用时读取 [baseUrl] 并缓存,因此切换域名
- * **下次冷启动生效**;若代码在请求时直接读取 [baseUrl]/[ENVIRONMENTS] 则即时生效。
+ * 两个正交维度：
+ * - **环境（[Env]）**：唯一的切换开关，一次只选一套（co.nz / co）。
+ * - **用途（[Endpoints]）**：每套环境内并存的三类域名——auth（认证）、chat（聊天）、api（通用接口）。
+ *
+ * 切环境时三类域名整体一起变，杜绝「生产 auth + 测试 api」之类的跨环境错配。
+ * 选择会持久化；[NetworkModule] 的 Retrofit 懒加载，切换**下次冷启动生效**。
  *
  * 用前需在 Application.onCreate 调用 [init]。
  */
 object ApiConfig {
 
-    /** 可选环境：展示名 → base URL（均以 "/" 结尾，便于与相对路径拼接）。 */
-    val ENVIRONMENTS: List<Environment> = listOf(
-        Environment(label = "co.nz", baseUrl = "https://app.novamind-labs.co.nz/"),
-        Environment(label = "co", baseUrl = "https://app.novamind-labs.co/"),
+    enum class Env(val label: String) { CO_NZ("co.nz"), CO("co") }
+
+    /** 一套环境下的三类域名（均以 "/" 结尾，便于与相对路径拼接）。 */
+    data class Endpoints(
+        val auth: String,   // 认证：如 {auth}/api/auth/me
+        val chat: String,   // 聊天
+        val api: String,    // 通用接口
     )
 
-    /** 默认环境：co.nz。 */
-    private val DEFAULT = ENVIRONMENTS.first()
+    private val TABLE: Map<Env, Endpoints> = mapOf(
+        Env.CO_NZ to Endpoints(
+            auth = "https://auth.novamind-labs.co.nz/",
+            chat = "https://chat.novamind-labs.co.nz/",
+            api = "https://api.novamind-labs.co.nz/",
+        ),
+        // 注意：.co 的三个地址按 co.nz 的子域规律推断，如与后端实际不符请更正。
+        Env.CO to Endpoints(
+            auth = "https://auth.novamind-labs.co/",
+            chat = "https://chat.novamind-labs.co/",
+            api = "https://api.novamind-labs.co/",
+        ),
+    )
+
+    private val DEFAULT = Env.CO_NZ
 
     private const val PREFS_NAME = "api_config"
-    private const val KEY_BASE_URL = "base_url"
+    private const val KEY_ENV = "env"
 
     private lateinit var prefs: android.content.SharedPreferences
 
-    private val _baseUrl = MutableStateFlow(DEFAULT.baseUrl)
-    /** 当前选中的 base URL（响应式）。 */
-    val baseUrlFlow: StateFlow<String> = _baseUrl.asStateFlow()
+    private val _env = MutableStateFlow(DEFAULT)
+    /** 当前环境（响应式）。 */
+    val envFlow: StateFlow<Env> = _env.asStateFlow()
 
-    /** 当前选中的 base URL（同步取值，供 [NetworkModule] 等读取）。 */
-    val baseUrl: String get() = _baseUrl.value
+    /** 当前环境（同步取值）。 */
+    val env: Env get() = _env.value
 
-    /** 在 Application.onCreate 调用，载入已持久化的选择。 */
+    /** 当前环境下的三类域名。 */
+    val endpoints: Endpoints get() = TABLE.getValue(_env.value)
+
+    /** 便捷取值。 */
+    val authBaseUrl: String get() = endpoints.auth
+    val chatBaseUrl: String get() = endpoints.chat
+    val apiBaseUrl: String get() = endpoints.api
+
+    /** 在 Application.onCreate 调用，载入已持久化的环境选择。 */
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val saved = prefs.getString(KEY_BASE_URL, null)
-        // 仅接受白名单内的值，避免脏数据导致指向未知域名。
-        _baseUrl.value = ENVIRONMENTS.firstOrNull { it.baseUrl == saved }?.baseUrl ?: DEFAULT.baseUrl
+        val saved = prefs.getString(KEY_ENV, null)
+        // 仅接受枚举内的值，脏数据回退默认。
+        _env.value = Env.entries.firstOrNull { it.name == saved } ?: DEFAULT
     }
 
-    /** 切换环境并持久化。传入的 [baseUrl] 必须是 [ENVIRONMENTS] 中之一。 */
-    fun select(baseUrl: String) {
-        if (ENVIRONMENTS.none { it.baseUrl == baseUrl }) return
-        _baseUrl.value = baseUrl
-        prefs.edit().putString(KEY_BASE_URL, baseUrl).apply()
+    /** 切换环境并持久化。 */
+    fun select(env: Env) {
+        _env.value = env
+        prefs.edit().putString(KEY_ENV, env.name).apply()
     }
-
-    data class Environment(val label: String, val baseUrl: String)
 }
