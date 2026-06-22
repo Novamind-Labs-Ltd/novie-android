@@ -1,6 +1,7 @@
 package com.novamind.app.feature.auth
 
 import com.novamind.app.common.net.NetworkModule
+import com.novamind.app.debug.DebugLog
 import java.util.UUID
 
 /**
@@ -14,22 +15,39 @@ class ProfileRepository {
      * 非 2xx 或 schema mismatch（如缺 sub 导致反序列化失败）一律返回 null——
      * 与后端文档约定的前端行为一致。
      */
-    suspend fun fetchAuthMe(): AuthUser? =
-        runCatching { NetworkModule.authApi.me(traceId = UUID.randomUUID().toString()) }
-            .getOrNull()
-            ?.takeIf { it.isSuccessful }
-            ?.body()
-            ?.let { dto ->
-                AuthUser(
-                    sub = dto.sub,
-                    email = dto.email,
-                    // name 优先用 name，否则用 given/family 拼接，再否则留空
-                    name = dto.name
-                        ?: listOfNotNull(dto.givenName, dto.familyName)
-                            .joinToString(" ")
-                            .ifBlank { null },
-                    picture = dto.picture,
-                    emailVerified = dto.emailVerified,
-                )
+    suspend fun fetchAuthMe(): AuthUser? {
+        val traceId = UUID.randomUUID().toString()
+        val resp = runCatching { NetworkModule.authApi.me(traceId = traceId) }
+            .onFailure {
+                // 网络异常或反序列化失败（如缺 sub 的 schema mismatch）
+                DebugLog.w(TAG, "/api/auth/me 请求失败 trace-id=$traceId: ${it.message}")
             }
+            .getOrNull() ?: return null
+
+        if (!resp.isSuccessful) {
+            DebugLog.w(TAG, "/api/auth/me 非2xx code=${resp.code()} trace-id=$traceId")
+            return null
+        }
+        val dto = resp.body()
+        if (dto == null) {
+            DebugLog.w(TAG, "/api/auth/me 响应体为空 trace-id=$traceId")
+            return null
+        }
+        DebugLog.i(TAG, "/api/auth/me 成功 sub=${dto.sub} trace-id=$traceId")
+        return AuthUser(
+            sub = dto.sub,
+            email = dto.email,
+            // name 优先用 name，否则用 given/family 拼接，再否则留空
+            name = dto.name
+                ?: listOfNotNull(dto.givenName, dto.familyName)
+                    .joinToString(" ")
+                    .ifBlank { null },
+            picture = dto.picture,
+            emailVerified = dto.emailVerified,
+        )
+    }
+
+    private companion object {
+        const val TAG = "AuthMe"
+    }
 }
