@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.novamind.app.common.deeplink.DeepLinks
 import com.novamind.app.common.onboarding.OnboardingScreen
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
@@ -73,6 +74,9 @@ private val navOrder = listOf(
 
 class MainActivity : FragmentActivity() {
 
+    // App Links 进入时的目标 route：由 onCreate / onNewIntent 写入，Compose 侧 LaunchedEffect 消费后清空
+    private var deepLinkRoute by mutableStateOf<String?>(null)
+
     // Android 13+ 通知权限申请器；授予与否都不阻塞主流程
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -82,6 +86,8 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // 冷启动若由 App Link 拉起，解析目标页（Compose 侧消费）
+        deepLinkRoute = DeepLinks.resolve(intent)
         askNotificationPermission()
         logFcmToken()
         // Block-editor 光标方案：adjustNothing —— 键盘弹出窗口不重排，内容/光标布局不动，
@@ -121,6 +127,16 @@ class MainActivity : FragmentActivity() {
 
                 // 冷启动检查升级（Mock 策略；可在 Debug 工具箱模拟）
                 LaunchedEffect(Unit) { UpdateController.checkOnStartup(appContext, BuildConfig.VERSION_CODE) }
+
+                // App Link 进入：切到目标页并退出覆盖层，消费后清空避免重复触发
+                LaunchedEffect(deepLinkRoute) {
+                    deepLinkRoute?.let { target ->
+                        currentRoute = target
+                        editingNoteId = null
+                        showAskNovie = false
+                        deepLinkRoute = null
+                    }
+                }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
@@ -278,6 +294,15 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * App 已在运行时再点链接进入（singleTask 复用实例）：更新目标页。
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        DeepLinks.resolve(intent)?.let { deepLinkRoute = it }
     }
 
     /**

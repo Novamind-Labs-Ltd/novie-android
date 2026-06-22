@@ -40,6 +40,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTask"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.App">
@@ -47,6 +48,21 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- App Links：浏览器输入 https://app.novamind-labs.ai/... 直接调起本应用。
+                 autoVerify=true 让系统在安装时校验 /.well-known/assetlinks.json，
+                 校验通过后没有“用浏览器还是 App 打开”的选择弹窗。
+                 未写 path 过滤 → 该 host 下所有路径都命中，具体页面由 DeepLinks 解析。 -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="https"
+                    android:host="app.novamind-labs.ai" />
             </intent-filter>
         </activity>
 
