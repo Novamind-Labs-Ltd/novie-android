@@ -21,6 +21,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authManager = AuthManager(app)
     private val biometricPrefs = BiometricPreferences(app)
+    private val profileRepository = ProfileRepository()
 
     private val _uiState = MutableStateFlow(
         AuthUiState(
@@ -67,6 +68,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                             userEmail = creds.emailOrNull(),
                         )
                     }
+                    refreshUserFromServer()
                 }
                 .onFailure {
                     _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false) }
@@ -91,6 +93,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                             userEmail = creds.emailOrNull(),
                         )
                     }
+                    refreshUserFromServer()
                 }
                 .onFailure { e ->
                     // 用户取消或验证失败：留在解锁页，可重试或改用账号登录。
@@ -103,6 +106,24 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelBiometricUnlock() {
         _uiState.update {
             it.copy(needsBiometricUnlock = false, isAuthenticated = false, errorMessage = null)
+        }
+    }
+
+    /**
+     * 已认证后用 /api/auth/me 校验 token 并刷新用户信息（异步、不阻塞进入应用）。
+     * 成功则用服务端 claims 覆盖本地 id_token 解析值；返回 null（非 2xx / schema mismatch /
+     * 离线）则保留本地值，不强制登出——保证离线可用。
+     */
+    private fun refreshUserFromServer() {
+        viewModelScope.launch {
+            val user = profileRepository.fetchAuthMe() ?: return@launch
+            _uiState.update {
+                if (!it.isAuthenticated) it else it.copy(
+                    userName = user.name ?: it.userName,
+                    userEmail = user.email ?: it.userEmail,
+                    userPicture = user.picture ?: it.userPicture,
+                )
+            }
         }
     }
 
@@ -162,6 +183,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                             userEmail = creds.emailOrNull(),
                         )
                     }
+                    refreshUserFromServer()
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "登录失败") }
