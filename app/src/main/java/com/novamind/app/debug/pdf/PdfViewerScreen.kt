@@ -22,12 +22,16 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -51,6 +55,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -169,6 +174,9 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
 private fun PdfPager(pages: List<Bitmap>) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
 
+    val scope = rememberCoroutineScope()
+    var showJump by remember { mutableStateOf(false) }
+
     // 缩放/平移状态（按当前页生效，翻页时重置）
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -252,15 +260,49 @@ private fun PdfPager(pages: List<Bitmap>) {
                 scale = (scale / 1.5f).coerceAtLeast(MIN_SCALE)
                 if (scale <= 1f) offset = Offset.Zero else offset = clamp(offset, scale)
             }
+            // 点击页码 → 跳转到指定页
             Text(
                 "${pagerState.currentPage + 1} / ${pages.size}",
                 color = OnDark,
                 fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable { showJump = true }
+                    .padding(horizontal = 10.dp, vertical = 2.dp),
             )
             ZoomButton("+") {
                 scale = (scale * 1.5f).coerceAtMost(MAX_SCALE)
             }
+        }
+
+        // 跳转到指定页
+        if (showJump) {
+            var input by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { showJump = false },
+                title = { Text("跳转到页") },
+                text = {
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { v -> input = v.filter { it.isDigit() }.take(6) },
+                        singleLine = true,
+                        label = { Text("页码 (1 - ${pages.size})") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        input.toIntOrNull()?.let { n ->
+                            val target = (n - 1).coerceIn(0, pages.size - 1)
+                            scope.launch { pagerState.animateScrollToPage(target) }
+                        }
+                        showJump = false
+                    }) { Text("跳转") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showJump = false }) { Text("取消") }
+                },
+            )
         }
     }
 }
