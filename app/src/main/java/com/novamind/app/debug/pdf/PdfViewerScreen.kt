@@ -42,9 +42,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,7 +72,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import com.novamind.app.R
-import com.novamind.app.common.pdf.PdfPageRenderer
+import com.novamind.app.common.pdf.PdfPageCache
+import com.novamind.app.common.pdf.PdfRenderSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -97,20 +100,27 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
     val targetWidth = context.resources.displayMetrics.widthPixels
 
     var fileName by remember { mutableStateOf<String?>(null) }
-    var pages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+    var session by remember { mutableStateOf<PdfRenderSession?>(null) }
+    var pageCount by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // 以指定文件路径打开（从笔记的 PDF 块点开时走这里），直接渲染、跳过选择器
+    // 关闭旧 session（切换文件或离开界面时），释放渲染器与文件描述符。
+    // 捕获本次的 session 值：key 变化时 onDispose 关闭的应是「上一个」session，而非已更新的新值。
+    DisposableEffect(session) {
+        val current = session
+        onDispose { current?.close() }
+    }
+
+    // 以指定文件路径打开（从笔记的 PDF 块点开时走这里），跳过选择器
     LaunchedEffect(initialPath) {
         if (initialPath != null) {
-            loading = true; error = null; pages = emptyList()
+            loading = true; error = null; session = null; pageCount = 0
             val f = File(initialPath)
             fileName = f.name
-            pages = withContext(Dispatchers.IO) {
-                runCatching { PdfPageRenderer.render(f, targetWidth) }.getOrDefault(emptyList())
-            }
-            if (pages.isEmpty()) error = "无法渲染该 PDF"
+            val s = withContext(Dispatchers.IO) { PdfRenderSession.open(f, targetWidth) }
+            if (s == null) error = "无法渲染该 PDF"
+            else { session = s; pageCount = s.pageCount }
             loading = false
         }
     }
@@ -120,13 +130,13 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
     ) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
-                loading = true; error = null; pages = emptyList()
+                loading = true; error = null; session = null; pageCount = 0
                 runCatching {
                     fileName = withContext(Dispatchers.IO) { queryName(context, uri) }
-                    withContext(Dispatchers.IO) { renderPdf(context, uri, targetWidth) }
-                }.onSuccess {
-                    pages = it
-                    if (it.isEmpty()) error = "无法渲染该 PDF（空文档或格式不支持）"
+                    withContext(Dispatchers.IO) { openSession(context, uri, targetWidth) }
+                }.onSuccess { s ->
+                    if (s == null) error = "无法渲染该 PDF（空文档或格式不支持）"
+                    else { session = s; pageCount = s.pageCount }
                 }.onFailure { error = it.message ?: "打开 PDF 失败" }
                 loading = false
             }
@@ -172,8 +182,8 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
                     CircularProgressIndicator(color = Accent)
                 }
                 error != null -> Text(error!!, color = Danger, modifier = Modifier.padding(20.dp))
-                pages.isEmpty() -> EmptyState(onPick = openPicker)
-                else -> PdfPager(pages = pages)
+                session == null || pageCount == 0 -> EmptyState(onPick = openPicker)
+                else -> PdfPager(session = session!!, pageCount = pageCount)
             }
         }
     }
@@ -182,11 +192,18 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
 // ─── 分页 + 缩放阅读器 ──────────────────────────────────────────────────────
 
 @Composable
-private fun PdfPager(pages: List<Bitmap>) {
-    val pagerState = rememberPagerState(pageCount = { pages.size })
+private fun PdfPager(session: PdfRenderSession, pageCount: Int) {
+    val pagerState = rememberPagerState(pageCount = { pageCount })
 
     val scope = rememberCoroutineScope()
     var showJump by remember { mutableStateOf(false) }
+
+    // 按需渲染 + LRU 缓存：内存峰值 ≈ 容量 × 单页。容量 5 ≥ Pager 同屏页数(current ± 1)，
+    // 保证正在显示的页不会被回收。离开界面时回收全部位图。
+    val cache = remember(session) { PdfPageCache(session, capacity = 5) }
+    DisposableEffect(cache) {
+        onDispose { cache.clear() }
+    }
 
     // 缩放/平移状态（按当前页生效，翻页时重置）
     var scale by remember { mutableFloatStateOf(1f) }
@@ -209,6 +226,8 @@ private fun PdfPager(pages: List<Bitmap>) {
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
+            // 预组合左右各一页，提前渲染相邻页，滑动到位即可显示
+            beyondViewportPageCount = 1,
             // 放大时禁用横向翻页，让横向拖动用于平移；回到 1x 才能翻页
             userScrollEnabled = scale <= 1.01f,
             modifier = Modifier.fillMaxSize(),
@@ -224,8 +243,20 @@ private fun PdfPager(pages: List<Bitmap>) {
                 val pScale = if (isCurrent) scale else 1f
                 val pOffset = if (isCurrent) offset else Offset.Zero
 
+                // 按需渲染该页：进入组合时取（缓存命中或渲染），渲染中显示进度
+                var bmp by remember(pageIndex, session) { mutableStateOf<Bitmap?>(null) }
+                LaunchedEffect(pageIndex, session) {
+                    bmp = cache.get(pageIndex)
+                }
+
+                val pageBmp = bmp
+                if (pageBmp == null) {
+                    CircularProgressIndicator(color = Accent)
+                    return@Box
+                }
+
                 Image(
-                    bitmap = pages[pageIndex].asImageBitmap(),
+                    bitmap = pageBmp.asImageBitmap(),
                     contentDescription = "第 ${pageIndex + 1} 页",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
@@ -318,7 +349,7 @@ private fun PdfPager(pages: List<Bitmap>) {
             }
             // 点击页码 → 跳转到指定页
             Text(
-                "${pagerState.currentPage + 1} / ${pages.size}",
+                "${pagerState.currentPage + 1} / $pageCount",
                 color = OnDark,
                 fontSize = 13.sp,
                 modifier = Modifier
@@ -330,7 +361,7 @@ private fun PdfPager(pages: List<Bitmap>) {
                 scale = (scale * 1.5f).coerceAtMost(MAX_SCALE)
             }
             // 下一页：到末页时置灰禁用
-            PagerButton("›", enabled = pagerState.currentPage < pages.lastIndex) {
+            PagerButton("›", enabled = pagerState.currentPage < pageCount - 1) {
                 scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
             }
         }
@@ -346,14 +377,14 @@ private fun PdfPager(pages: List<Bitmap>) {
                         value = input,
                         onValueChange = { v -> input = v.filter { it.isDigit() }.take(6) },
                         singleLine = true,
-                        label = { Text("页码 (1 - ${pages.size})") },
+                        label = { Text("页码 (1 - $pageCount)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     )
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         input.toIntOrNull()?.let { n ->
-                            val target = (n - 1).coerceIn(0, pages.size - 1)
+                            val target = (n - 1).coerceIn(0, pageCount - 1)
                             scope.launch { pagerState.animateScrollToPage(target) }
                         }
                         showJump = false
@@ -426,13 +457,13 @@ private fun EmptyState(onPick: () -> Unit) {
 
 // ─── 渲染 / 工具 ────────────────────────────────────────────────────────────
 
-private fun renderPdf(context: Context, uri: Uri, targetWidth: Int): List<Bitmap> {
-    // 复制到 cache 文件，保证 PdfRenderer 拿到可随机读取(seek)的描述符，再交给共享渲染器。
+private fun openSession(context: Context, uri: Uri, targetWidth: Int): PdfRenderSession? {
+    // 复制到 cache 文件，保证 PdfRenderer 拿到可随机读取(seek)的描述符；session 会一直持有它按需渲染。
     val cacheFile = File(context.cacheDir, "debug_pdf_preview.pdf")
     context.contentResolver.openInputStream(uri)?.use { input ->
         cacheFile.outputStream().use { output -> input.copyTo(output) }
-    } ?: return emptyList()
-    return PdfPageRenderer.render(cacheFile, targetWidth)
+    } ?: return null
+    return PdfRenderSession.open(cacheFile, targetWidth)
 }
 
 private fun queryName(context: Context, uri: Uri): String {
