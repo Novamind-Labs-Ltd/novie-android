@@ -1,6 +1,9 @@
 package com.novamind.app.feature.create.components
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -65,16 +68,20 @@ fun FastScrollbar(
     val canScroll = listState.canScrollForward || listState.canScrollBackward
     if (!canScroll) return
 
-    // 滚动进度（0..1）：变高 item 用「首个可见 index + 其内偏移」近似
+    // 滚动进度（0..1）：用「可见 item 平均高度」按像素估算，避免按 index / 首项高度换算
+    // 在文本块与 PDF/图片等高矮悬殊的 item 间切换时造成的速度突变（跳变）。
     val progress by remember {
         derivedStateOf {
             val info = listState.layoutInfo
+            val items = info.visibleItemsInfo
             val total = info.totalItemsCount
-            if (total == 0) return@derivedStateOf 0f
-            val denom = (total - info.visibleItemsInfo.size).coerceAtLeast(1)
-            val firstSize = info.visibleItemsInfo.firstOrNull()?.size ?: 1
-            val offFrac = listState.firstVisibleItemScrollOffset.toFloat() / firstSize.coerceAtLeast(1)
-            ((listState.firstVisibleItemIndex + offFrac) / denom).coerceIn(0f, 1f)
+            if (total == 0 || items.isEmpty()) return@derivedStateOf 0f
+            val avg = items.sumOf { it.size } / items.size.toFloat()
+            if (avg <= 0f) return@derivedStateOf 0f
+            val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+            val maxScroll = (avg * total - viewport).coerceAtLeast(1f)
+            val scrolled = listState.firstVisibleItemIndex * avg + listState.firstVisibleItemScrollOffset
+            (scrolled / maxScroll).coerceIn(0f, 1f)
         }
     }
 
@@ -102,9 +109,14 @@ fun FastScrollbar(
         val thumbPx = with(density) { thumbHeight.toPx() }
         val travel = (trackPx - thumbPx).coerceAtLeast(1f)
 
-        // 拖拽中由手势驱动；否则跟随滚动进度
+        // 拖拽中由手势驱动(即时跟手 snap)；跟随滚动时对拖杆位置做轻量弹簧平滑，吸收估算的细小跳变
         var dragTop by remember { mutableFloatStateOf(0f) }
-        val thumbTop = if (dragging) dragTop else progress * travel
+        val targetTop = if (dragging) dragTop else progress * travel
+        val thumbTop by animateFloatAsState(
+            targetValue = targetTop,
+            animationSpec = if (dragging) snap() else spring(stiffness = Spring.StiffnessMediumLow),
+            label = "thumbTop",
+        )
         val percent = (((if (dragging) dragTop / travel else progress)) * 100).roundToInt()
 
         // 拖拽气泡：百分比，置于拖杆左侧、垂直居中
