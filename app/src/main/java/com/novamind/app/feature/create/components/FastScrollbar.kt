@@ -75,19 +75,35 @@ fun FastScrollbar(
     val canScroll = listState.canScrollForward || listState.canScrollBackward
     if (!canScroll) return
 
-    // 滚动进度（0..1）：用「可见 item 平均高度」按像素估算，避免按 index / 首项高度换算
-    // 在文本块与 PDF/图片等高矮悬殊的 item 间切换时造成的速度突变（跳变）。
-    val progress by remember {
+    // 累计高度模型：缓存每个 item 滚动经过时测到的真实高度（越滚越全）。
+    // 总高 = 各项高度之和（未知项用已知平均补），位置 = 前缀项高度之和 + 项内偏移。
+    // 相比「瞬时可见平均」，PDF/图片等超高 item 进出视口时总高估计稳定、不突变 → 不跳。
+    val heights = remember(listState) { mutableMapOf<Int, Int>() }
+
+    fun avgItem(): Float =
+        if (heights.isEmpty()) 1f else heights.values.sum().toFloat() / heights.size
+
+    fun heightAt(index: Int, avg: Float): Float = heights[index]?.toFloat() ?: avg
+
+    // [0, count) 项的累计高度
+    fun cumulativeBefore(count: Int, avg: Float): Float {
+        var sum = 0f
+        for (i in 0 until count) sum += heightAt(i, avg)
+        return sum
+    }
+
+    // 滚动进度（0..1）
+    val progress by remember(listState) {
         derivedStateOf {
             val info = listState.layoutInfo
-            val items = info.visibleItemsInfo
             val total = info.totalItemsCount
-            if (total == 0 || items.isEmpty()) return@derivedStateOf 0f
-            val avg = items.sumOf { it.size } / items.size.toFloat()
-            if (avg <= 0f) return@derivedStateOf 0f
+            if (total == 0 || info.visibleItemsInfo.isEmpty()) return@derivedStateOf 0f
+            info.visibleItemsInfo.forEach { heights[it.index] = it.size }
+            val avg = avgItem()
             val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-            val maxScroll = (avg * total - viewport).coerceAtLeast(1f)
-            val scrolled = listState.firstVisibleItemIndex * avg + listState.firstVisibleItemScrollOffset
+            val maxScroll = (cumulativeBefore(total, avg) - viewport).coerceAtLeast(1f)
+            val scrolled = cumulativeBefore(listState.firstVisibleItemIndex, avg) +
+                listState.firstVisibleItemScrollOffset
             (scrolled / maxScroll).coerceIn(0f, 1f)
         }
     }
@@ -165,22 +181,28 @@ fun FastScrollbar(
                         onVerticalDrag = { change, dy ->
                             change.consume()
                             dragTop = (dragTop + dy).coerceIn(0f, travel)
-                            // 把拖杆位置换算成「索引 + 项内像素偏移」再定位，
-                            // 而不是只按整项 index 跳——后者在高矮悬殊(含 PDF)的列表里会一格一格地蹦。
+                            // 用累计高度模型把拖杆位置反解为「目标项 + 项内偏移」，与进度同一套估算，
+                            // 拖杆与内容同步、且不随可见集变化突变。
                             val info = listState.layoutInfo
-                            val items = info.visibleItemsInfo
                             val total = info.totalItemsCount
-                            if (total > 0 && items.isNotEmpty()) {
-                                val avg = items.sumOf { it.size } / items.size.toFloat()
-                                if (avg > 0f) {
-                                    val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-                                    val maxScroll = (avg * total - viewport).coerceAtLeast(1f)
-                                    val targetPx = (dragTop / travel) * maxScroll
-                                    val index = (targetPx / avg).toInt().coerceIn(0, total - 1)
-                                    val itemOffset = (targetPx - index * avg).toInt().coerceAtLeast(0)
-                                    scrollJob?.cancel()
-                                    scrollJob = scope.launch { listState.scrollToItem(index, itemOffset) }
+                            if (total > 0 && info.visibleItemsInfo.isNotEmpty()) {
+                                info.visibleItemsInfo.forEach { heights[it.index] = it.size }
+                                val avg = avgItem()
+                                val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                                val maxScroll = (cumulativeBefore(total, avg) - viewport).coerceAtLeast(1f)
+                                val targetPx = (dragTop / travel) * maxScroll
+                                // 沿累计高度找到目标项与项内偏移
+                                var acc = 0f
+                                var index = 0
+                                while (index < total - 1) {
+                                    val h = heightAt(index, avg)
+                                    if (acc + h > targetPx) break
+                                    acc += h
+                                    index++
                                 }
+                                val itemOffset = (targetPx - acc).toInt().coerceAtLeast(0)
+                                scrollJob?.cancel()
+                                scrollJob = scope.launch { listState.scrollToItem(index, itemOffset) }
                             }
                         },
                     )
