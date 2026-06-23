@@ -6,10 +6,13 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -79,6 +82,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.roundToInt
 
 private val Bg = Color(0xFF2A2A2D)        // 阅读器深色底，突出页面
 private val PageBg = Color(0xFFFFFFFF)
@@ -378,6 +382,27 @@ internal fun PdfReader(
             PagerButton("›", enabled = pagerState.currentPage < pageCount - 1) {
                 scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
             }
+        }
+
+        // 缩放百分比：放大时在顶部居中淡入显示（1x 时隐藏）
+        AnimatedVisibility(
+            visible = scale > 1.01f,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(200)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp),
+        ) {
+            Text(
+                "${(scale * 100).roundToInt()}%",
+                color = OnDark,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xCC1A1A1A))
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+            )
         }
 
         // 跳转到指定页
