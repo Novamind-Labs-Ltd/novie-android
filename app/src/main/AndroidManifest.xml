@@ -24,6 +24,13 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Android 11+ 包可见性：让本应用能发现并使用系统语音识别服务（SpeechRecognizer） -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name=".NovieApplication"
         android:allowBackup="true"
@@ -86,6 +93,14 @@
         <!-- 图片上传测试页（仅 Debug 工具箱跳转） -->
         <activity
             android:name=".debug.imageupload.ImageUploadActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
+        <!-- 语音转文字测试页（仅 Debug 工具箱跳转） -->
+        <activity
+            android:name=".debug.speech.SpeechToTextActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"

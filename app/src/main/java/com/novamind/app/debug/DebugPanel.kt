@@ -53,6 +53,7 @@ import com.novamind.app.common.web.bridge.SourceLevel
 import com.novamind.app.debug.apitest.ApiTestActivity
 import com.novamind.app.debug.apitest.ApiTarget
 import com.novamind.app.debug.imageupload.ImageUploadActivity
+import com.novamind.app.debug.speech.SpeechToTextActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -160,6 +161,7 @@ fun DebugPanel(
                     Chip("接口测试页 Python") { ApiTestActivity.start(context, ApiTarget.ITEMS) }
                     Chip("接口测试页 Java") { ApiTestActivity.start(context, ApiTarget.USERS) }
                     Chip("图片上传测试") { ImageUploadActivity.start(context) }
+                    Chip("语音转文字 Demo") { SpeechToTextActivity.start(context) }
                 }
             }
 
