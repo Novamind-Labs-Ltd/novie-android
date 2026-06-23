@@ -40,11 +40,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.mikepenz.markdown.m3.Markdown
 import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.ui.res.painterResource
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.FileBlock
 import com.novamind.app.feature.create.editor.ImageBlock
+import com.novamind.app.feature.create.editor.MarkdownBlock
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.TextBlock
 import java.io.File
@@ -130,6 +132,14 @@ fun NoteContentEditor(
                     )
 
                     is FileBlock -> FileBlockView(
+                        block = block,
+                        onDelete = {
+                            state.removeBlock(block.id)
+                            onContentChanged()
+                        },
+                    )
+
+                    is MarkdownBlock -> MarkdownBlockView(
                         block = block,
                         onDelete = {
                             state.removeBlock(block.id)
@@ -316,6 +326,52 @@ private fun FileBlockView(
                 ) {
                     Text("×", color = ColorTextSub, fontSize = 18.sp)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarkdownBlockView(
+    block: MarkdownBlock,
+    onDelete: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFFFFFFFF),
+            shadowElevation = 1.dp,
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                // 头部：标识 + 删除
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Markdown", fontSize = 12.sp, color = ColorTextSub)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = false),
+                                onClick = onDelete,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("×", color = ColorTextSub, fontSize = 18.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                // 用 markdown 渲染器把内容渲染出来（m3 变体，跟随 Material3 主题）
+                Markdown(content = block.content)
             }
         }
     }

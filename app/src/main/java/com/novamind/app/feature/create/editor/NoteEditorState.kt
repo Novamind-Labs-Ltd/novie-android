@@ -37,6 +37,12 @@ class FileBlock(
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock
 
+/** Markdown 块：content 为原始 markdown 文本，渲染时用 markdown 渲染器展示 */
+class MarkdownBlock(
+    val content: String,
+    override val id: String = UUID.randomUUID().toString(),
+) : EditorBlock
+
 /**
  * 笔记图文编辑器状态：维护一组有序的文本/图片块。
  *
@@ -101,6 +107,9 @@ class NoteEditorState {
 
     /** 在聚焦文本块的光标处插入文档块 */
     fun insertFile(path: String, name: String) = insertBlockAtCaret(FileBlock(path, name))
+
+    /** 在聚焦文本块的光标处插入 Markdown 块（按渲染后的样式展示） */
+    fun insertMarkdown(content: String) = insertBlockAtCaret(MarkdownBlock(content))
 
     /**
      * 在聚焦文本块的「当前行首」插入列表序号。
@@ -185,6 +194,9 @@ class NoteEditorState {
                     is FileBlock -> arr.put(
                         JSONObject().put("type", "file").put("path", block.path).put("name", block.name)
                     )
+                    is MarkdownBlock -> arr.put(
+                        JSONObject().put("type", "markdown").put("content", block.content)
+                    )
                 }
             }
             return JSONObject().put("blocks", arr).toString()
@@ -221,7 +233,8 @@ class NoteEditorState {
             val b = _blocks[i]
             (a is TextBlock && b is TextBlock) ||
                 (a is ImageBlock && b is ImageBlock && a.path == b.path) ||
-                (a is FileBlock && b is FileBlock && a.path == b.path)
+                (a is FileBlock && b is FileBlock && a.path == b.path) ||
+                (a is MarkdownBlock && b is MarkdownBlock && a.content == b.content)
         }
     }
 
@@ -236,6 +249,9 @@ class NoteEditorState {
                     "image" -> obj.optString("path").takeIf { it.isNotBlank() }?.let { ImageBlock(it) }
                     "file" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
                         FileBlock(it, obj.optString("name").ifBlank { "Document" })
+                    }
+                    "markdown" -> obj.optString("content").takeIf { it.isNotBlank() }?.let {
+                        MarkdownBlock(it)
                     }
                     else -> null
                 }

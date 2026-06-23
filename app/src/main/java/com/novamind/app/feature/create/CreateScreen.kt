@@ -48,6 +48,10 @@ import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeFormat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -119,6 +123,7 @@ fun CreateScreen(
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // 图文正文编辑器状态：文本与图片块；正文文档 JSON 存入 body 同步给 ViewModel
     val editor = remember { NoteEditorState() }
@@ -175,14 +180,26 @@ fun CreateScreen(
         }
     }
 
-    // 系统文件选择器（任意文档），插入为文件块
+    // 系统文件选择器（PDF / Markdown）：md 读出内容作为可渲染的 Markdown 块插入，
+    // 其余（PDF 等）作为文件块插入。
     val documentPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
-                editor.insertFile(path, name)
-                emitContent()
+                if (isMarkdownFile(name)) {
+                    scope.launch {
+                        val content = withContext(Dispatchers.IO) {
+                            runCatching { File(path).readText() }.getOrDefault("")
+                        }
+                        if (content.isNotBlank()) editor.insertMarkdown(content)
+                        else editor.insertFile(path, name)   // 空内容兜底为文件块
+                        emitContent()
+                    }
+                } else {
+                    editor.insertFile(path, name)
+                    emitContent()
+                }
             }
         }
     }
@@ -446,6 +463,10 @@ private val DOCUMENT_MIME_TYPES = arrayOf(
     "text/x-markdown",
     "text/plain",
 )
+
+/** 是否为 Markdown 文件（按文件名后缀判断）。 */
+private fun isMarkdownFile(name: String): Boolean =
+    name.endsWith(".md", ignoreCase = true) || name.endsWith(".markdown", ignoreCase = true)
 
 /** 把录音秒数格式化为 m:ss，用作附件块展示名。 */
 private fun formatRecordingDuration(totalSeconds: Int): String {
