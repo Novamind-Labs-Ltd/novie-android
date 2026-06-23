@@ -106,6 +106,14 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
+        <!-- Markdown 阅读器测试页（仅 Debug 工具箱跳转） -->
+        <activity
+            android:name=".debug.markdown.MarkdownPreviewActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
         <!-- 录音前台服务：锁屏/后台持续录音并常驻通知 -->
         <service
             android:name=".common.audio.RecordingService"

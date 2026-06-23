@@ -115,6 +115,8 @@ dependencies {
     implementation(libs.coil.compose)
     // 键值存储：MMKV（封装在 common/storage/KeyValueStore，逐步替换 SharedPreferences）
     implementation(libs.mmkv)
+    // Markdown 渲染（Debug Markdown 阅读器）
+    implementation(libs.markdown.renderer.m3)
     // Auth0 认证（Universal Login + 凭证管理）
     implementation(libs.auth0)
     // 指纹/生物识别（SecureCredentialsManager 生物识别门控；fragment 提供 FragmentActivity）
