@@ -26,6 +26,16 @@ class PdfRenderSession private constructor(
 
     val pageCount: Int = renderer.pageCount
 
+    /** 首页宽高比 (width / height)，供调用方按比例确定显示高度。竖版 A4 约 0.707。 */
+    val firstPageAspect: Float = run {
+        val page = renderer.openPage(0)
+        try {
+            if (page.height > 0) page.width.toFloat() / page.height else 0.707f
+        } finally {
+            page.close()
+        }
+    }
+
     private val mutex = Mutex()
     @Volatile private var closed = false
 

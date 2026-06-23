@@ -41,13 +41,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.graphics.Bitmap
-import androidx.compose.foundation.Image
-import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
-import com.novamind.app.common.pdf.PdfPageRenderer
+import com.novamind.app.common.pdf.PdfRenderSession
+import com.novamind.app.debug.pdf.PdfReader
 import com.novamind.app.debug.pdf.PdfViewerActivity
 import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.ui.res.painterResource
@@ -408,24 +407,26 @@ private fun PdfBlockView(
 ) {
     val context = LocalContext.current
     val targetWidth = context.resources.displayMetrics.widthPixels
-    // 仅渲染首页作为预览（异步），避免一次性渲染整本 PDF 占内存/卡顿；点开看全部。
-    var preview by remember(block.path) { mutableStateOf<Bitmap?>(null) }
+    // 内联整合 PDF 阅读器：开一个常驻 session（按需渲染 + LRU 缓存，见 PdfReader）。
+    // 块滚出屏幕时(LazyColumn 懒加载)整体被 dispose，关闭 session 释放内存。
+    var session by remember(block.path) { mutableStateOf<PdfRenderSession?>(null) }
     var pageCount by remember(block.path) { mutableStateOf(0) }
+    var aspect by remember(block.path) { mutableStateOf(0.707f) }
     var loading by remember(block.path) { mutableStateOf(true) }
 
     LaunchedEffect(block.path) {
         loading = true
-        val (bmp, count) = withContext(Dispatchers.IO) {
-            runCatching { PdfPageRenderer.renderPreview(File(block.path), targetWidth) }
-                .getOrDefault(null to 0)
+        val s = withContext(Dispatchers.IO) { PdfRenderSession.open(File(block.path), targetWidth) }
+        if (s != null) {
+            session = s
+            pageCount = s.pageCount
+            aspect = s.firstPageAspect
         }
-        preview = bmp
-        pageCount = count
         loading = false
     }
-    // 离开/换文件时回收预览位图，及时释放内存
+    // 块离开组合（滚出屏幕 / 删除）时关闭 session
     DisposableEffect(block.path) {
-        onDispose { preview?.recycle() }
+        onDispose { session?.close() }
     }
 
     Box(
@@ -481,34 +482,57 @@ private fun PdfBlockView(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val bmp = preview
+                val s = session
                 when {
                     loading -> Text("正在渲染 PDF…", fontSize = 13.sp, color = ColorTextHint)
-                    bmp == null -> Text("无法渲染该 PDF", fontSize = 13.sp, color = ColorTextHint)
-                    else -> Column(
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        // 点击进入全屏 PDF 阅读器（翻页 / 缩放）
-                        modifier = Modifier.clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(),
-                            onClick = { PdfViewerActivity.start(context, block.path) },
-                        ),
-                    ) {
-                        // 仅展示首页预览
-                        Image(
-                            bitmap = bmp.asImageBitmap(),
-                            contentDescription = "PDF 首页预览",
-                            contentScale = ContentScale.FillWidth,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFE8E7E2)),
-                        )
+                    s == null -> Text("无法渲染该 PDF", fontSize = 13.sp, color = ColorTextHint)
+                    else -> {
+                        // 内联阅读器：宽度撑满，高度按首页宽高比，封顶屏幕 70%
+                        val maxH = (LocalConfiguration.current.screenHeightDp * 0.7f).dp
+                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                            val h = (maxWidth / aspect.coerceAtLeast(0.1f)).coerceAtMost(maxH)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(h),
+                            ) {
+                                PdfReader(
+                                    session = s,
+                                    pageCount = pageCount,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFFE8E7E2)),
+                                )
+                                // 右上角：进入全屏阅读器
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x66000000))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = ripple(bounded = false),
+                                            onClick = { PdfViewerActivity.start(context, block.path) },
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_fullscreen),
+                                        contentDescription = "全屏阅读",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "共 $pageCount 页 · 点击全屏阅读（翻页 / 缩放）",
+                            "共 $pageCount 页 · 左右翻页 · 捏合/双击缩放 · 右上角全屏",
                             fontSize = 11.sp,
                             color = ColorTextHint,
-                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
                 }

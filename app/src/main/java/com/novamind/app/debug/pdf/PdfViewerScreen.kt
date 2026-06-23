@@ -183,7 +183,11 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
                 }
                 error != null -> Text(error!!, color = Danger, modifier = Modifier.padding(20.dp))
                 session == null || pageCount == 0 -> EmptyState(onPick = openPicker)
-                else -> PdfPager(session = session!!, pageCount = pageCount)
+                else -> PdfReader(
+                    session = session!!,
+                    pageCount = pageCount,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }
@@ -191,8 +195,16 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
 
 // ─── 分页 + 缩放阅读器 ──────────────────────────────────────────────────────
 
+/**
+ * 可复用的 PDF 阅读器核心：横向翻页 + 捏合/双击缩放 + 底部翻页/缩放/跳页控制条。
+ * 不含 Scaffold/顶栏/文件选择，故既能全屏(fillMaxSize)，也能内联(限定高度)嵌入。
+ */
 @Composable
-private fun PdfPager(session: PdfRenderSession, pageCount: Int) {
+internal fun PdfReader(
+    session: PdfRenderSession,
+    pageCount: Int,
+    modifier: Modifier = Modifier,
+) {
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
     val scope = rememberCoroutineScope()
@@ -223,7 +235,7 @@ private fun PdfPager(session: PdfRenderSession, pageCount: Int) {
         return Offset(o.x.coerceIn(-maxX, maxX), o.y.coerceIn(-maxY, maxY))
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(modifier) {
         HorizontalPager(
             state = pagerState,
             // 预组合左右各一页，提前渲染相邻页，滑动到位即可显示
