@@ -6,10 +6,17 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,10 +53,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -59,9 +68,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.novamind.app.R
 import com.novamind.app.common.pdf.PdfPageRenderer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -181,8 +192,10 @@ private fun PdfPager(pages: List<Bitmap>) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    var zoomAnimJob by remember { mutableStateOf<Job?>(null) }
 
     LaunchedEffect(pagerState.currentPage) {
+        zoomAnimJob?.cancel()
         scale = 1f
         offset = Offset.Zero
     }
@@ -223,24 +236,63 @@ private fun PdfPager(pages: List<Bitmap>) {
                             translationX = pOffset.x,
                             translationY = pOffset.y,
                         )
-                        // 双击：放大到 2.5x / 还原
+                        // 双击：在 1x 与 2.5x 间补间切换
                         .pointerInput(pageIndex) {
                             detectTapGestures(
                                 onDoubleTap = {
-                                    if (scale > 1f) { scale = 1f; offset = Offset.Zero }
-                                    else scale = DOUBLE_TAP_SCALE
+                                    if (!isCurrent) return@detectTapGestures
+                                    val targetScale = if (scale > 1f) MIN_SCALE else DOUBLE_TAP_SCALE
+                                    val startScale = scale
+                                    val startOffset = offset
+                                    val targetOffset =
+                                        if (targetScale > 1f) clamp(startOffset, targetScale) else Offset.Zero
+                                    zoomAnimJob?.cancel()
+                                    zoomAnimJob = scope.launch {
+                                        animate(0f, 1f, animationSpec = tween(250)) { t, _ ->
+                                            scale = lerp(startScale, targetScale, t)
+                                            offset = lerp(startOffset, targetOffset, t)
+                                        }
+                                    }
                                 },
                             )
                         }
-                        // 放大后单指拖动平移；1x 时不拦截，交给 Pager 翻页
-                        .then(
-                            if (isCurrent && scale > 1f) Modifier.pointerInput(pageIndex) {
-                                detectDragGestures { change, dragAmount ->
-                                    change.consume()
-                                    offset = clamp(offset + dragAmount, scale)
+                        // 双指捏合缩放 + 放大后拖动平移；单指未放大时不消费 → 交给 Pager 翻页
+                        .pointerInput(pageIndex) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                zoomAnimJob?.cancel()   // 触摸开始即打断进行中的动画
+                                var moved = false
+                                do {
+                                    val event = awaitPointerEvent()
+                                    if (!isCurrent) continue
+                                    val pointers = event.changes.count { it.pressed }
+                                    val zoom = event.calculateZoom()
+                                    val pan = event.calculatePan()
+                                    if (pointers >= 2 || scale > 1f) {
+                                        val newScale = (scale * zoom).coerceIn(MIN_SCALE, MAX_SCALE)
+                                        // 拖拽期间直接同步更新、允许越界（跟手、不卡顿）
+                                        scale = newScale
+                                        offset = if (newScale > 1f) offset + pan else Offset.Zero
+                                        moved = true
+                                        event.changes.forEach { if (it.positionChanged()) it.consume() }
+                                    }
+                                } while (event.changes.any { it.pressed })
+
+                                // 松手回弹：若越界，用弹簧动画把 offset 滚回合法边界
+                                if (moved && scale > 1f) {
+                                    val start = offset
+                                    val target = clamp(start, scale)
+                                    if (start != target) {
+                                        zoomAnimJob = scope.launch {
+                                            animate(
+                                                0f, 1f,
+                                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                            ) { t, _ -> offset = lerp(start, target, t) }
+                                        }
+                                    }
                                 }
-                            } else Modifier,
-                        ),
+                            }
+                        },
                 )
             }
         }
