@@ -397,7 +397,7 @@ fun CreateScreen(
                         cameraLauncher.launch(uri)
                     }
                 },
-                onPickDocument = { documentPicker.launch(arrayOf("application/pdf")) },
+                onPickDocument = { documentPicker.launch(DOCUMENT_MIME_TYPES) },
                 onDismiss = { showAttachSheet = false },
             )
         }
@@ -432,6 +432,20 @@ fun CreateScreen(
         }
     }
 }
+
+/**
+ * 文档附件可选的 MIME 类型：PDF + Markdown。
+ *
+ * 注意：.md 文件的 MIME 在各文件提供方很不统一——有的报 `text/markdown`，有的报
+ * `text/x-markdown`，更多直接当成 `text/plain`。为保证用户能选到 .md，这里把这几类都放开
+ * （代价是也会显示 .txt 等纯文本文件）。OpenDocument 只能按 MIME 过滤，无法按扩展名过滤。
+ */
+private val DOCUMENT_MIME_TYPES = arrayOf(
+    "application/pdf",
+    "text/markdown",
+    "text/x-markdown",
+    "text/plain",
+)
 
 /** 把录音秒数格式化为 m:ss，用作附件块展示名。 */
 private fun formatRecordingDuration(totalSeconds: Int): String {
