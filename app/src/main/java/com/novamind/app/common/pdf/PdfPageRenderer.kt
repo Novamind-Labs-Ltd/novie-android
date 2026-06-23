@@ -18,6 +18,35 @@ import java.io.File
  */
 object PdfPageRenderer {
 
+    /**
+     * 只渲染首页作为预览，并返回总页数。用于列表/笔记内的轻量预览，避免一次性渲染全部页。
+     * @return (首页位图或 null, 总页数)
+     */
+    fun renderPreview(file: File, targetWidth: Int): Pair<Bitmap?, Int> {
+        if (!file.exists() || targetWidth <= 0) return null to 0
+        val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+        val renderer = PdfRenderer(pfd)
+        try {
+            val count = renderer.pageCount
+            if (count == 0) return null to 0
+            val page = renderer.openPage(0)
+            val bmp = try {
+                val scale = targetWidth.toFloat() / page.width
+                val h = (page.height * scale).toInt().coerceAtLeast(1)
+                Bitmap.createBitmap(targetWidth, h, Bitmap.Config.ARGB_8888).also {
+                    it.eraseColor(Color.WHITE)
+                    page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                }
+            } finally {
+                page.close()
+            }
+            return bmp to count
+        } finally {
+            renderer.close()
+            pfd.close()
+        }
+    }
+
     fun render(file: File, targetWidth: Int): List<Bitmap> {
         if (!file.exists() || targetWidth <= 0) return emptyList()
         val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)

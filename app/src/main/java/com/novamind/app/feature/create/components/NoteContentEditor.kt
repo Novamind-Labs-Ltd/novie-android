@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -401,15 +402,24 @@ private fun PdfBlockView(
 ) {
     val context = LocalContext.current
     val targetWidth = context.resources.displayMetrics.widthPixels
-    var pages by remember(block.path) { mutableStateOf<List<Bitmap>>(emptyList()) }
+    // 仅渲染首页作为预览（异步），避免一次性渲染整本 PDF 占内存/卡顿；点开看全部。
+    var preview by remember(block.path) { mutableStateOf<Bitmap?>(null) }
+    var pageCount by remember(block.path) { mutableStateOf(0) }
     var loading by remember(block.path) { mutableStateOf(true) }
 
     LaunchedEffect(block.path) {
         loading = true
-        pages = withContext(Dispatchers.IO) {
-            runCatching { PdfPageRenderer.render(File(block.path), targetWidth) }.getOrDefault(emptyList())
+        val (bmp, count) = withContext(Dispatchers.IO) {
+            runCatching { PdfPageRenderer.renderPreview(File(block.path), targetWidth) }
+                .getOrDefault(null to 0)
         }
+        preview = bmp
+        pageCount = count
         loading = false
+    }
+    // 离开/换文件时回收预览位图，及时释放内存
+    DisposableEffect(block.path) {
+        onDispose { preview?.recycle() }
     }
 
     Box(
@@ -465,11 +475,12 @@ private fun PdfBlockView(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
+                val bmp = preview
                 when {
                     loading -> Text("正在渲染 PDF…", fontSize = 13.sp, color = ColorTextHint)
-                    pages.isEmpty() -> Text("无法渲染该 PDF", fontSize = 13.sp, color = ColorTextHint)
+                    bmp == null -> Text("无法渲染该 PDF", fontSize = 13.sp, color = ColorTextHint)
                     else -> Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                         // 点击进入全屏 PDF 阅读器（翻页 / 缩放）
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -477,19 +488,18 @@ private fun PdfBlockView(
                             onClick = { PdfViewerActivity.start(context, block.path) },
                         ),
                     ) {
-                        pages.forEach { bmp ->
-                            Image(
-                                bitmap = bmp.asImageBitmap(),
-                                contentDescription = "PDF 页",
-                                contentScale = ContentScale.FillWidth,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFE8E7E2)),
-                            )
-                        }
+                        // 仅展示首页预览
+                        Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = "PDF 首页预览",
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFE8E7E2)),
+                        )
                         Text(
-                            "点击全屏阅读（翻页 / 缩放）",
+                            "共 $pageCount 页 · 点击全屏阅读（翻页 / 缩放）",
                             fontSize = 11.sp,
                             color = ColorTextHint,
                             modifier = Modifier.padding(top = 2.dp),
