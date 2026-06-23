@@ -355,7 +355,8 @@ internal fun PdfReader(
             PagerButton("‹", enabled = pagerState.currentPage > 0) {
                 scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
             }
-            ZoomButton("−") {
+            // 缩小：到最小倍数时置灰
+            ZoomButton("−", enabled = scale > MIN_SCALE + 0.01f) {
                 scale = (scale / 1.5f).coerceAtLeast(MIN_SCALE)
                 if (scale <= 1f) offset = Offset.Zero else offset = clamp(offset, scale)
             }
@@ -369,7 +370,8 @@ internal fun PdfReader(
                     .clickable { showJump = true }
                     .padding(horizontal = 10.dp, vertical = 2.dp),
             )
-            ZoomButton("+") {
+            // 放大：到最大倍数时置灰
+            ZoomButton("+", enabled = scale < MAX_SCALE - 0.01f) {
                 scale = (scale * 1.5f).coerceAtMost(MAX_SCALE)
             }
             // 下一页：到末页时置灰禁用
@@ -411,16 +413,21 @@ internal fun PdfReader(
 }
 
 @Composable
-private fun ZoomButton(label: String, onClick: () -> Unit) {
+private fun ZoomButton(label: String, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(Color(0x33FFFFFF))
-            .clickable(onClick = onClick),
+            .background(Color(if (enabled) 0x33FFFFFF else 0x14FFFFFF))
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(
+            label,
+            color = if (enabled) Color.White else Color(0x66FFFFFF),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
