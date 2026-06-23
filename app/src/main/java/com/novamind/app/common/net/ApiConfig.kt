@@ -1,6 +1,8 @@
 package com.novamind.app.common.net
 
 import android.content.Context
+import com.novamind.app.common.storage.KeyValueStore
+import com.novamind.app.common.storage.MmkvStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,7 +49,7 @@ object ApiConfig {
     private const val PREFS_NAME = "api_config"
     private const val KEY_ENV = "env"
 
-    private lateinit var prefs: android.content.SharedPreferences
+    private lateinit var store: KeyValueStore
 
     private val _env = MutableStateFlow(DEFAULT)
     /** 当前环境（响应式）。 */
@@ -64,10 +66,10 @@ object ApiConfig {
     val chatBaseUrl: String get() = endpoints.chat
     val apiBaseUrl: String get() = endpoints.api
 
-    /** 在 Application.onCreate 调用，载入已持久化的环境选择。 */
-    fun init(context: Context) {
-        prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val saved = prefs.getString(KEY_ENV, null)
+    /** 在 Application.onCreate 调用（需在 MMKV.initialize 之后），载入已持久化的环境选择。 */
+    fun init(@Suppress("UNUSED_PARAMETER") context: Context) {
+        store = MmkvStore(PREFS_NAME)
+        val saved = store.getString(KEY_ENV, null)
         // 仅接受枚举内的值，脏数据回退默认。
         _env.value = Env.entries.firstOrNull { it.name == saved } ?: DEFAULT
     }
@@ -75,6 +77,6 @@ object ApiConfig {
     /** 切换环境并持久化。 */
     fun select(env: Env) {
         _env.value = env
-        prefs.edit().putString(KEY_ENV, env.name).apply()
+        store.putString(KEY_ENV, env.name)
     }
 }

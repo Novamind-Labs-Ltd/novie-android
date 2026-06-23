@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authManager = AuthManager(app)
-    private val biometricPrefs = BiometricPreferences(app)
+    private val biometricPrefs = BiometricPreferences()
     private val profileRepository = ProfileRepository()
 
     private val _uiState = MutableStateFlow(

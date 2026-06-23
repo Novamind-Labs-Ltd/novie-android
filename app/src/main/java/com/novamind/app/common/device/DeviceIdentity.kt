@@ -15,9 +15,9 @@ import java.util.TimeZone
  *
  * 注意：
  * - 这里的因子仅作采集，**最终唯一性以服务端聚合下发的 deviceId 为准**。
- * - 安装 UUID 当前用明文 SharedPreferences（见 InstallId），加密存储留 P1。
+ * - 安装 UUID 当前用明文 MMKV（见 InstallId），加密存储留 P1（MmkvStore 支持 cryptKey）。
  * - 多进程一致性：应由主进程统一读取，`:web` 等子进程经 ContentProvider 获取，
- *   不要各进程各自读 SharedPreferences。
+ *   不要各进程各自读本地存储（MMKV 默认单进程模式）。
  */
 object DeviceIdentity {
 

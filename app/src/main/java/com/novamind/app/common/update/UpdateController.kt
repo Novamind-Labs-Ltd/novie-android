@@ -1,6 +1,7 @@
 package com.novamind.app.common.update
 
 import android.content.Context
+import com.novamind.app.common.storage.MmkvStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,12 +21,15 @@ object UpdateController {
     private const val PREF = "update"
     private const val KEY_SIM = "simulate_type"   // Debug 预置：下次冷启动按此弹
 
+    // MMKV.mmkvWithID 无需 Context；保留方法上的 context 参数仅为兼容既有调用方签名。
+    private val store by lazy { MmkvStore(PREF) }
+
     /**
      * 冷启动检查。优先读取 Debug 预置的模拟类型（下次启动生效）；否则走真实策略
      * （占位 Mock：无更新）。真实实现：请求服务端 latest / minSupported 判定。
      */
-    fun checkOnStartup(context: Context, currentVersionCode: Int) {
-        val sim = prefs(context).getString(KEY_SIM, null)
+    fun checkOnStartup(@Suppress("UNUSED_PARAMETER") context: Context, currentVersionCode: Int) {
+        val sim = store.getString(KEY_SIM, null)
             ?.let { runCatching { UpdateType.valueOf(it) }.getOrNull() }
         if (sim != null && sim != UpdateType.None) {
             _state.value = mock(sim)
@@ -42,12 +46,12 @@ object UpdateController {
     }
 
     /** Debug 预置：不立即弹，下次冷启动再按 [type] 弹（None = 清除预置并关闭当前弹窗） */
-    fun setSimulateForNextLaunch(context: Context, type: UpdateType) {
+    fun setSimulateForNextLaunch(@Suppress("UNUSED_PARAMETER") context: Context, type: UpdateType) {
         if (type == UpdateType.None) {
-            prefs(context).edit().remove(KEY_SIM).apply()
+            store.remove(KEY_SIM)
             _state.value = null
         } else {
-            prefs(context).edit().putString(KEY_SIM, type.name).apply()
+            store.putString(KEY_SIM, type.name)
         }
     }
 
@@ -55,9 +59,6 @@ object UpdateController {
     fun dismiss() {
         if (_state.value?.type != UpdateType.Force) _state.value = null
     }
-
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
     private fun mock(type: UpdateType) = UpdateInfo(
         type = type,
