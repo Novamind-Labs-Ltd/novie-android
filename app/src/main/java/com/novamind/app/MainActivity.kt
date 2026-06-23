@@ -191,9 +191,9 @@ class MainActivity : FragmentActivity() {
                         }
                     }
 
-                    // 全屏页（如图片预览）打开时滑出隐藏底部导航栏
+                    // 全屏页（如图片预览）打开、或进入 Create 编辑页时滑出隐藏底部导航栏
                     AnimatedVisibility(
-                        visible = !hideBottomNav,
+                        visible = !hideBottomNav && currentRoute != BottomNavDestination.Create.route,
                         enter = slideInVertically { it } + fadeIn(),
                         exit = slideOutVertically { it } + fadeOut(),
                         modifier = Modifier.align(Alignment.BottomCenter),
