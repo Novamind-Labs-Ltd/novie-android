@@ -2,6 +2,7 @@ package com.novamind.app.feature.create.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -58,6 +60,7 @@ import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.PdfBlock
 import com.novamind.app.feature.create.editor.TextBlock
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -200,6 +203,7 @@ private fun TextBlockField(
     revealMarginPx: Float,
     onRegisterReveal: ((() -> Unit)?) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     var fieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var isFocused by remember { mutableStateOf(false) }
     var latestLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -231,13 +235,19 @@ private fun TextBlockField(
             if (cover == Float.MAX_VALUE) viewport.toFloat()
             else content.windowToLocal(Offset(0f, cover)).y
         val visibleBottom = coverTopLocal.coerceAtMost(viewport.toFloat()) - revealMarginPx
-        when {
+        // 注意：revealCursor 可能在 onTextLayout（测量/布局阶段）被调用，
+        // 此时不能同步触发滚动——LazyListState 的滚动会强制重新测量，导致
+        // "performMeasureAndLayout called during measure layout" 崩溃。
+        // 因此用协程把滚动推迟到当前布局帧之外执行（scrollBy 为即时非动画滚动）。
+        val delta = when {
             // 光标底被键盘/工具栏遮住 → 上滚恰好露出
-            cursorBottomViewportY > visibleBottom ->
-                lazyListState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
+            cursorBottomViewportY > visibleBottom -> cursorBottomViewportY - visibleBottom
             // 光标在可视区上方 → 向下露出（向上滚动内容）
-            cursorTopViewportY < 0f ->
-                lazyListState.dispatchRawDelta(cursorTopViewportY)
+            cursorTopViewportY < 0f -> cursorTopViewportY
+            else -> 0f
+        }
+        if (delta != 0f) {
+            scope.launch { lazyListState.scrollBy(delta) }
         }
     }
 
