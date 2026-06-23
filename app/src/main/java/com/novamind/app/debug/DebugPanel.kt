@@ -54,6 +54,7 @@ import com.novamind.app.debug.apitest.ApiTestActivity
 import com.novamind.app.debug.apitest.ApiTarget
 import com.novamind.app.debug.imageupload.ImageUploadActivity
 import com.novamind.app.debug.markdown.MarkdownPreviewActivity
+import com.novamind.app.debug.pdf.PdfViewerActivity
 import com.novamind.app.debug.speech.SpeechToTextActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -164,6 +165,7 @@ fun DebugPanel(
                     Chip("图片上传测试") { ImageUploadActivity.start(context) }
                     Chip("语音转文字 Demo") { SpeechToTextActivity.start(context) }
                     Chip("Markdown 阅读器") { MarkdownPreviewActivity.start(context) }
+                    Chip("PDF 预览") { PdfViewerActivity.start(context) }
                 }
             }
 
