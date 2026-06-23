@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -117,6 +118,7 @@ fun FastScrollbar(
 
         // 拖拽中由手势驱动(即时跟手 snap)；跟随滚动时对拖杆位置做轻量弹簧平滑，吸收估算的细小跳变
         var dragTop by remember { mutableFloatStateOf(0f) }
+        var scrollJob by remember { mutableStateOf<Job?>(null) }
         val targetTop = if (dragging) dragTop else progress * travel
         val thumbTop by animateFloatAsState(
             targetValue = targetTop,
@@ -163,11 +165,22 @@ fun FastScrollbar(
                         onVerticalDrag = { change, dy ->
                             change.consume()
                             dragTop = (dragTop + dy).coerceIn(0f, travel)
-                            val total = listState.layoutInfo.totalItemsCount
-                            if (total > 0) {
-                                val target = ((dragTop / travel) * (total - 1)).roundToInt()
-                                    .coerceIn(0, total - 1)
-                                scope.launch { listState.scrollToItem(target) }
+                            // 把拖杆位置换算成「索引 + 项内像素偏移」再定位，
+                            // 而不是只按整项 index 跳——后者在高矮悬殊(含 PDF)的列表里会一格一格地蹦。
+                            val info = listState.layoutInfo
+                            val items = info.visibleItemsInfo
+                            val total = info.totalItemsCount
+                            if (total > 0 && items.isNotEmpty()) {
+                                val avg = items.sumOf { it.size } / items.size.toFloat()
+                                if (avg > 0f) {
+                                    val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                                    val maxScroll = (avg * total - viewport).coerceAtLeast(1f)
+                                    val targetPx = (dragTop / travel) * maxScroll
+                                    val index = (targetPx / avg).toInt().coerceIn(0, total - 1)
+                                    val itemOffset = (targetPx - index * avg).toInt().coerceAtLeast(0)
+                                    scrollJob?.cancel()
+                                    scrollJob = scope.launch { listState.scrollToItem(index, itemOffset) }
+                                }
                             }
                         },
                     )
