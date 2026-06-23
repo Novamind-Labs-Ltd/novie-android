@@ -32,6 +32,7 @@ import com.novamind.app.ui.theme.AppTheme
 @Composable
 fun FormattingToolbar(
     onHideKeyboard: () -> Unit = {},
+    onVoice: () -> Unit = {},
     onBold: () -> Unit = {},
     isBoldActive: Boolean = false,
     onItalic: () -> Unit = {},
@@ -60,7 +61,7 @@ fun FormattingToolbar(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                item { ToolbarIcon(R.drawable.ic_mic, "Voice") }
+                item { ToolbarIcon(R.drawable.ic_mic, "Voice", onClick = onVoice) }
                 item { ToolbarIcon(R.drawable.ic_attach, "Insert image", onClick = onInsertImage) }
                 item { ToolbarIcon(R.drawable.ic_magic, "Magic") }
                 item { ToolbarTextBtn("B", FontWeight.ExtraBold, active = isBoldActive, onClick = onBold) }

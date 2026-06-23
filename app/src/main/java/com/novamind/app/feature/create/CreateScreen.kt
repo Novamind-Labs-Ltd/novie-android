@@ -35,6 +35,7 @@ import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.DeleteConfirmSheet
+import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor
@@ -105,10 +106,14 @@ fun CreateScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     // 插入附件选择弹窗显隐
     var showAttachSheet by remember { mutableStateOf(false) }
+    // 录音条显隐（点工具栏「Voice」后从底部弹出）
+    var showRecordingBar by remember { mutableStateOf(false) }
     // 图片预览：当前预览的图片下标（null = 不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
-    // 预览打开 → 通知宿主隐藏底部导航栏（全屏页）；离开本页时复位
-    LaunchedEffect(previewIndex != null) { onFullscreenChange(previewIndex != null) }
+    // 图片预览或录音条打开 → 通知宿主隐藏底部导航栏；都关闭后恢复，离开本页时复位
+    LaunchedEffect(previewIndex != null || showRecordingBar) {
+        onFullscreenChange(previewIndex != null || showRecordingBar)
+    }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
 
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -182,13 +187,35 @@ fun CreateScreen(
         }
     }
 
+    // 录音权限：已授权直接弹录音条，否则先申请，授权后再弹
+    val recordAudioPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) showRecordingBar = true }
+
+    // 点工具栏「Voice」：收键盘并清焦点（录音内容追加到正文末尾），按需申请录音权限
+    val onVoiceClicked = {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.RECORD_AUDIO,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (granted) showRecordingBar = true
+        else recordAudioPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+    }
+
     // 标题与正文均为空时视为空笔记 → 禁用「更多(···)」
     val noteEmpty = uiState.title.isBlank() &&
         NoteDocument.previewText(uiState.body).isBlank()
 
+    // 录音条显示时：系统返回先关闭录音条（关闭即丢弃，由 VoiceRecordingBar onDispose 取消录音），
+    // 不退出笔记页。
+    BackHandler(enabled = showRecordingBar) { showRecordingBar = false }
+
     // 系统返回（左/右边缘滑动返回）与左上角 back 一致：收键盘 + 保存并返回。
-    // 有图片预览/弹窗时交给它们各自的返回处理（预览有自己的 BackHandler，弹窗 back 自动关闭）。
-    BackHandler(enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm) {
+    // 有图片预览/弹窗/录音条时交给它们各自的返回处理（预览有自己的 BackHandler，弹窗 back 自动关闭）。
+    BackHandler(
+        enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm && !showRecordingBar
+    ) {
         keyboardController?.hide()
         onEvent(CreateEvent.SaveNote)
     }
@@ -288,9 +315,11 @@ fun CreateScreen(
         }
 
         // ── 格式工具栏：悬浮在键盘上方（imePadding 抬升），不挤占正文 ──────────
-        if (imeVisible || forceToolbarVisible) {
+        // 录音条出现时让位（二者都在底部，互斥显示）。
+        if ((imeVisible || forceToolbarVisible) && !showRecordingBar) {
             FormattingToolbar(
                 onHideKeyboard = { keyboardController?.hide() },
+                onVoice = onVoiceClicked,
                 onBold = { editor.toggle(RichSpan.Bold) },
                 isBoldActive = editor.isActive(RichSpan.Bold),
                 onItalic = { editor.toggle(RichSpan.Italic) },
@@ -306,6 +335,19 @@ fun CreateScreen(
                     .align(Alignment.BottomCenter)
                     .imePadding()
                     .onGloballyPositioned { toolbarTopWindowY = it.boundsInWindow().top },
+            )
+        }
+
+        // ── 录音条：从底部弹出，录音中波形/暂停/停止；完成后把音频作为附件追加到正文 ──
+        if (showRecordingBar) {
+            VoiceRecordingBar(
+                onCancel = { showRecordingBar = false },
+                onConfirm = { path, durationSeconds ->
+                    showRecordingBar = false
+                    editor.insertFile(path, "Recording ${formatRecordingDuration(durationSeconds)}")
+                    emitContent()
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
 
@@ -389,6 +431,13 @@ fun CreateScreen(
             )
         }
     }
+}
+
+/** 把录音秒数格式化为 m:ss，用作附件块展示名。 */
+private fun formatRecordingDuration(totalSeconds: Int): String {
+    val m = totalSeconds / 60
+    val s = totalSeconds % 60
+    return "$m:${s.toString().padStart(2, '0')}"
 }
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
