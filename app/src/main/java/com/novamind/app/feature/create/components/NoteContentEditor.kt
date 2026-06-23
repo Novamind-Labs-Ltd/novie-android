@@ -4,11 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -82,7 +83,7 @@ fun NoteContentEditor(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
-    val scrollState = rememberScrollState()
+    val listState = rememberLazyListState()
     var contentCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     // 键盘高度（adjustNothing 下窗口不缩，但 ime inset 仍上报）
@@ -100,78 +101,83 @@ fun NoteContentEditor(
         if (coverTopWindowY != Float.MAX_VALUE) revealFocused?.invoke()
     }
 
-    Column(
+    val singleEmpty = state.blocks.size == 1 &&
+        (state.blocks.first() as? TextBlock)?.rich?.plainText?.isEmpty() == true
+
+    // 懒加载正文：只渲染可见(及邻近)块，离屏块不渲染/不解码图片/不渲 PDF/MD。
+    LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(scrollState)
-            .onGloballyPositioned { contentCoords = it }
-            // 点击正文空白处：聚焦最后一个文本块并调起键盘
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    state.focusLastTextBlock()
-                    keyboard?.show()
-                },
-            ),
+            .onGloballyPositioned { contentCoords = it },
     ) {
-        // 头部（标题 / folder / tags 等）：置于滚动列首位，随正文一起滚动
-        header?.invoke()
+        // 头部（标题 / folder / tags 等）：作为首个 item，随正文一起滚动
+        if (header != null) {
+            item(key = "__header__") { header() }
+        }
 
-        val singleEmpty = state.blocks.size == 1 &&
-            (state.blocks.first() as? TextBlock)?.rich?.plainText?.isEmpty() == true
+        items(state.blocks, key = { it.id }) { block ->
+            when (block) {
+                is TextBlock -> TextBlockField(
+                    block = block,
+                    showPlaceholder = singleEmpty,
+                    onFocused = { state.onTextFocused(block.id) },
+                    onChanged = onContentChanged,
+                    lazyListState = listState,
+                    contentCoordsProvider = { contentCoords },
+                    coverTopProvider = { coverTopState.value },
+                    revealMarginPx = revealMarginPx,
+                    onRegisterReveal = { revealFocused = it },
+                )
 
-        state.blocks.forEach { block ->
-            key(block.id) {
-                when (block) {
-                    is TextBlock -> TextBlockField(
-                        block = block,
-                        showPlaceholder = singleEmpty,
-                        onFocused = { state.onTextFocused(block.id) },
-                        onChanged = onContentChanged,
-                        scrollState = scrollState,
-                        contentCoordsProvider = { contentCoords },
-                        coverTopProvider = { coverTopState.value },
-                        revealMarginPx = revealMarginPx,
-                        onRegisterReveal = { revealFocused = it },
-                    )
+                is ImageBlock -> ImageBlockView(
+                    block = block,
+                    onClick = { onImageClick(block.id) },
+                )
 
-                    is ImageBlock -> ImageBlockView(
-                        block = block,
-                        onClick = { onImageClick(block.id) },
-                    )
+                is FileBlock -> FileBlockView(
+                    block = block,
+                    onDelete = {
+                        state.removeBlock(block.id)
+                        onContentChanged()
+                    },
+                )
 
-                    is FileBlock -> FileBlockView(
-                        block = block,
-                        onDelete = {
-                            state.removeBlock(block.id)
-                            onContentChanged()
-                        },
-                    )
+                is MarkdownBlock -> MarkdownBlockView(
+                    block = block,
+                    onDelete = {
+                        state.removeBlock(block.id)
+                        onContentChanged()
+                    },
+                )
 
-                    is MarkdownBlock -> MarkdownBlockView(
-                        block = block,
-                        onDelete = {
-                            state.removeBlock(block.id)
-                            onContentChanged()
-                        },
-                    )
-
-                    is PdfBlock -> PdfBlockView(
-                        block = block,
-                        onDelete = {
-                            state.removeBlock(block.id)
-                            onContentChanged()
-                        },
-                    )
-                }
+                is PdfBlock -> PdfBlockView(
+                    block = block,
+                    onDelete = {
+                        state.removeBlock(block.id)
+                        onContentChanged()
+                    },
+                )
             }
         }
 
-        // 导航栏清空白
-        Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-        // 键盘/工具栏预留：使末尾内容/光标能滚到它们之上
-        Spacer(modifier = Modifier.height(bottomPad))
+        // 末尾：导航栏 + 键盘/工具栏留白，且作为「点击空白聚焦末尾文本块」的热区
+        item(key = "__tail__") {
+            Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(bottomPad)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {
+                            state.focusLastTextBlock()
+                            keyboard?.show()
+                        },
+                    ),
+            )
+        }
     }
 }
 
@@ -181,7 +187,7 @@ private fun TextBlockField(
     showPlaceholder: Boolean,
     onFocused: () -> Unit,
     onChanged: () -> Unit,
-    scrollState: androidx.compose.foundation.ScrollState,
+    lazyListState: LazyListState,
     contentCoordsProvider: () -> LayoutCoordinates?,
     coverTopProvider: () -> Float,
     revealMarginPx: Float,
@@ -221,10 +227,10 @@ private fun TextBlockField(
         when {
             // 光标底被键盘/工具栏遮住 → 上滚恰好露出
             cursorBottomViewportY > visibleBottom ->
-                scrollState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
+                lazyListState.dispatchRawDelta(cursorBottomViewportY - visibleBottom)
             // 光标在可视区上方 → 向下露出（向上滚动内容）
             cursorTopViewportY < 0f ->
-                scrollState.dispatchRawDelta(cursorTopViewportY)
+                lazyListState.dispatchRawDelta(cursorTopViewportY)
         }
     }
 
