@@ -104,9 +104,10 @@ fun NoteContentEditor(
         (state.blocks.first() as? TextBlock)?.rich?.plainText?.isEmpty() == true
 
     // 懒加载正文：只渲染可见(及邻近)块，离屏块不渲染/不解码图片/不渲 PDF/MD。
+    Box(modifier = modifier.fillMaxSize()) {
     LazyColumn(
         state = listState,
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { contentCoords = it },
     ) {
@@ -177,6 +178,13 @@ fun NoteContentEditor(
                     ),
             )
         }
+    }
+
+        // 右侧快速拖拽滚动条（覆盖在正文右缘）
+        FastScrollbar(
+            listState = listState,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
     }
 }
 
