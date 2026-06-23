@@ -297,7 +297,7 @@ private fun PdfPager(pages: List<Bitmap>) {
             }
         }
 
-        // 底部控制条：缩小 / 页码 / 放大
+        // 底部控制条：上一页 / 缩小 / 页码 / 放大 / 下一页（均为屏内按钮，非弹窗）
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -308,6 +308,10 @@ private fun PdfPager(pages: List<Bitmap>) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            // 上一页：到首页时置灰禁用
+            PagerButton("‹", enabled = pagerState.currentPage > 0) {
+                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+            }
             ZoomButton("−") {
                 scale = (scale / 1.5f).coerceAtLeast(MIN_SCALE)
                 if (scale <= 1f) offset = Offset.Zero else offset = clamp(offset, scale)
@@ -324,6 +328,10 @@ private fun PdfPager(pages: List<Bitmap>) {
             )
             ZoomButton("+") {
                 scale = (scale * 1.5f).coerceAtMost(MAX_SCALE)
+            }
+            // 下一页：到末页时置灰禁用
+            PagerButton("›", enabled = pagerState.currentPage < pages.lastIndex) {
+                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
             }
         }
 
@@ -370,6 +378,26 @@ private fun ZoomButton(label: String, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+// 翻页按钮：禁用时置灰且不可点击
+@Composable
+private fun PagerButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color(if (enabled) 0x33FFFFFF else 0x14FFFFFF))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (enabled) Color.White else Color(0x66FFFFFF),
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
