@@ -75,7 +75,7 @@ private const val DOUBLE_TAP_SCALE = 2.5f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PdfViewerRoute(onBack: () -> Unit) {
+fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val targetWidth = context.resources.displayMetrics.widthPixels
@@ -84,6 +84,20 @@ fun PdfViewerRoute(onBack: () -> Unit) {
     var pages by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    // 以指定文件路径打开（从笔记的 PDF 块点开时走这里），直接渲染、跳过选择器
+    LaunchedEffect(initialPath) {
+        if (initialPath != null) {
+            loading = true; error = null; pages = emptyList()
+            val f = File(initialPath)
+            fileName = f.name
+            pages = withContext(Dispatchers.IO) {
+                runCatching { PdfPageRenderer.render(f, targetWidth) }.getOrDefault(emptyList())
+            }
+            if (pages.isEmpty()) error = "无法渲染该 PDF"
+            loading = false
+        }
+    }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()

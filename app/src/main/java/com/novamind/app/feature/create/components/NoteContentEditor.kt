@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
 import com.novamind.app.common.pdf.PdfPageRenderer
+import com.novamind.app.debug.pdf.PdfViewerActivity
 import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.ui.res.painterResource
 import com.novamind.app.R
@@ -467,7 +468,15 @@ private fun PdfBlockView(
                 when {
                     loading -> Text("正在渲染 PDF…", fontSize = 13.sp, color = ColorTextHint)
                     pages.isEmpty() -> Text("无法渲染该 PDF", fontSize = 13.sp, color = ColorTextHint)
-                    else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    else -> Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        // 点击进入全屏 PDF 阅读器（翻页 / 缩放）
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(),
+                            onClick = { PdfViewerActivity.start(context, block.path) },
+                        ),
+                    ) {
                         pages.forEach { bmp ->
                             Image(
                                 bitmap = bmp.asImageBitmap(),
@@ -479,6 +488,12 @@ private fun PdfBlockView(
                                     .background(Color(0xFFE8E7E2)),
                             )
                         }
+                        Text(
+                            "点击全屏阅读（翻页 / 缩放）",
+                            fontSize = 11.sp,
+                            color = ColorTextHint,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
                     }
                 }
             }
