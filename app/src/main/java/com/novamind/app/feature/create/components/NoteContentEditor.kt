@@ -39,8 +39,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
+import com.novamind.app.common.pdf.PdfPageRenderer
 import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.ui.res.painterResource
 import com.novamind.app.R
@@ -48,7 +53,10 @@ import com.novamind.app.feature.create.editor.FileBlock
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.MarkdownBlock
 import com.novamind.app.feature.create.editor.NoteEditorState
+import com.novamind.app.feature.create.editor.PdfBlock
 import com.novamind.app.feature.create.editor.TextBlock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 // 光标与可见下界之间的安全边距（越大，光标停得离工具栏越远 / 越高）
@@ -140,6 +148,14 @@ fun NoteContentEditor(
                     )
 
                     is MarkdownBlock -> MarkdownBlockView(
+                        block = block,
+                        onDelete = {
+                            state.removeBlock(block.id)
+                            onContentChanged()
+                        },
+                    )
+
+                    is PdfBlock -> PdfBlockView(
                         block = block,
                         onDelete = {
                             state.removeBlock(block.id)
@@ -372,6 +388,99 @@ private fun MarkdownBlockView(
                 Spacer(modifier = Modifier.height(8.dp))
                 // 用 markdown 渲染器把内容渲染出来（m3 变体，跟随 Material3 主题）
                 Markdown(content = block.content)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PdfBlockView(
+    block: PdfBlock,
+    onDelete: () -> Unit,
+) {
+    val context = LocalContext.current
+    val targetWidth = context.resources.displayMetrics.widthPixels
+    var pages by remember(block.path) { mutableStateOf<List<Bitmap>>(emptyList()) }
+    var loading by remember(block.path) { mutableStateOf(true) }
+
+    LaunchedEffect(block.path) {
+        loading = true
+        pages = withContext(Dispatchers.IO) {
+            runCatching { PdfPageRenderer.render(File(block.path), targetWidth) }.getOrDefault(emptyList())
+        }
+        loading = false
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFFFFFFFF),
+            shadowElevation = 1.dp,
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                // 头部：文件名 + 删除
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_document),
+                            contentDescription = null,
+                            tint = ColorTextSub,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = block.name,
+                            fontSize = 13.sp,
+                            color = ColorTextSub,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = false),
+                                onClick = onDelete,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("×", color = ColorTextSub, fontSize = 18.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                when {
+                    loading -> Text("正在渲染 PDF…", fontSize = 13.sp, color = ColorTextHint)
+                    pages.isEmpty() -> Text("无法渲染该 PDF", fontSize = 13.sp, color = ColorTextHint)
+                    else -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pages.forEach { bmp ->
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "PDF 页",
+                                contentScale = ContentScale.FillWidth,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFFE8E7E2)),
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -2,10 +2,7 @@ package com.novamind.app.debug.pdf
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Color as AndroidColor
-import android.graphics.pdf.PdfRenderer
 import android.net.Uri
-import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.pdf.PdfPageRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -214,34 +212,12 @@ private fun EmptyState(onPick: () -> Unit) {
  * - 渲染前用白色填充位图，避免透明 PDF 渲染出黑底。
  */
 private fun renderPdf(context: Context, uri: Uri, targetWidth: Int): List<Bitmap> {
+    // 复制到 cache 文件，保证 PdfRenderer 拿到可随机读取(seek)的描述符，再交给共享渲染器。
     val cacheFile = File(context.cacheDir, "debug_pdf_preview.pdf")
     context.contentResolver.openInputStream(uri)?.use { input ->
         cacheFile.outputStream().use { output -> input.copyTo(output) }
     } ?: return emptyList()
-
-    val pfd = ParcelFileDescriptor.open(cacheFile, ParcelFileDescriptor.MODE_READ_ONLY)
-    val out = ArrayList<Bitmap>()
-    val renderer = PdfRenderer(pfd)
-    try {
-        for (i in 0 until renderer.pageCount) {
-            val page = renderer.openPage(i)
-            try {
-                val scale = targetWidth.toFloat() / page.width
-                val w = targetWidth.coerceAtLeast(1)
-                val h = (page.height * scale).toInt().coerceAtLeast(1)
-                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                bmp.eraseColor(AndroidColor.WHITE)
-                page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                out.add(bmp)
-            } finally {
-                page.close()
-            }
-        }
-    } finally {
-        renderer.close()
-        pfd.close()
-    }
-    return out
+    return PdfPageRenderer.render(cacheFile, targetWidth)
 }
 
 private fun queryName(context: Context, uri: Uri): String {

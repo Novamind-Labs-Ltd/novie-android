@@ -187,8 +187,8 @@ fun CreateScreen(
     ) { uri ->
         if (uri != null) {
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
-                if (isMarkdownFile(name)) {
-                    scope.launch {
+                when {
+                    isMarkdownFile(name) -> scope.launch {
                         val content = withContext(Dispatchers.IO) {
                             runCatching { File(path).readText() }.getOrDefault("")
                         }
@@ -196,9 +196,14 @@ fun CreateScreen(
                         else editor.insertFile(path, name)   // 空内容兜底为文件块
                         emitContent()
                     }
-                } else {
-                    editor.insertFile(path, name)
-                    emitContent()
+                    isPdfFile(name) -> {
+                        editor.insertPdf(path, name)         // PDF：逐页渲染展示
+                        emitContent()
+                    }
+                    else -> {
+                        editor.insertFile(path, name)
+                        emitContent()
+                    }
                 }
             }
         }
@@ -467,6 +472,10 @@ private val DOCUMENT_MIME_TYPES = arrayOf(
 /** 是否为 Markdown 文件（按文件名后缀判断）。 */
 private fun isMarkdownFile(name: String): Boolean =
     name.endsWith(".md", ignoreCase = true) || name.endsWith(".markdown", ignoreCase = true)
+
+/** 是否为 PDF 文件（按文件名后缀判断）。 */
+private fun isPdfFile(name: String): Boolean =
+    name.endsWith(".pdf", ignoreCase = true)
 
 /** 把录音秒数格式化为 m:ss，用作附件块展示名。 */
 private fun formatRecordingDuration(totalSeconds: Int): String {

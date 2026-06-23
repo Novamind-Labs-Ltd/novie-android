@@ -43,6 +43,13 @@ class MarkdownBlock(
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock
 
+/** PDF 块：path 指向内部存储中的 PDF 文件，渲染时用 PdfRenderer 逐页展示 */
+class PdfBlock(
+    val path: String,
+    val name: String,
+    override val id: String = UUID.randomUUID().toString(),
+) : EditorBlock
+
 /**
  * 笔记图文编辑器状态：维护一组有序的文本/图片块。
  *
@@ -110,6 +117,9 @@ class NoteEditorState {
 
     /** 在聚焦文本块的光标处插入 Markdown 块（按渲染后的样式展示） */
     fun insertMarkdown(content: String) = insertBlockAtCaret(MarkdownBlock(content))
+
+    /** 在聚焦文本块的光标处插入 PDF 块（按渲染后的页面展示） */
+    fun insertPdf(path: String, name: String) = insertBlockAtCaret(PdfBlock(path, name))
 
     /**
      * 在聚焦文本块的「当前行首」插入列表序号。
@@ -197,6 +207,9 @@ class NoteEditorState {
                     is MarkdownBlock -> arr.put(
                         JSONObject().put("type", "markdown").put("content", block.content)
                     )
+                    is PdfBlock -> arr.put(
+                        JSONObject().put("type", "pdf").put("path", block.path).put("name", block.name)
+                    )
                 }
             }
             return JSONObject().put("blocks", arr).toString()
@@ -234,7 +247,8 @@ class NoteEditorState {
             (a is TextBlock && b is TextBlock) ||
                 (a is ImageBlock && b is ImageBlock && a.path == b.path) ||
                 (a is FileBlock && b is FileBlock && a.path == b.path) ||
-                (a is MarkdownBlock && b is MarkdownBlock && a.content == b.content)
+                (a is MarkdownBlock && b is MarkdownBlock && a.content == b.content) ||
+                (a is PdfBlock && b is PdfBlock && a.path == b.path)
         }
     }
 
@@ -252,6 +266,9 @@ class NoteEditorState {
                     }
                     "markdown" -> obj.optString("content").takeIf { it.isNotBlank() }?.let {
                         MarkdownBlock(it)
+                    }
+                    "pdf" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
+                        PdfBlock(it, obj.optString("name").ifBlank { "PDF" })
                     }
                     else -> null
                 }
