@@ -118,6 +118,13 @@ class NoteEditorState {
     /** 在聚焦文本块的光标处插入 Markdown 块（按渲染后的样式展示） */
     fun insertMarkdown(content: String) = insertBlockAtCaret(MarkdownBlock(content))
 
+    /** 更新 Markdown 块内容（content 为 val，替换为同 id 的新实例触发重组）。 */
+    fun updateMarkdown(id: String, content: String) {
+        val idx = _blocks.indexOfFirst { it.id == id }
+        if (idx < 0 || _blocks[idx] !is MarkdownBlock) return
+        _blocks[idx] = MarkdownBlock(content, id)
+    }
+
     /** 在聚焦文本块的光标处插入 PDF 块（按渲染后的页面展示） */
     fun insertPdf(path: String, name: String) = insertBlockAtCaret(PdfBlock(path, name))
 

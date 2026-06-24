@@ -40,6 +40,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -150,6 +152,11 @@ fun NoteContentEditor(
 
                 is MarkdownBlock -> MarkdownBlockView(
                     block = block,
+                    readOnly = readOnly,
+                    onContentChange = {
+                        state.updateMarkdown(block.id, it)
+                        onContentChanged()
+                    },
                     onDelete = {
                         state.removeBlock(block.id)
                         onContentChanged()
@@ -380,8 +387,14 @@ private fun FileBlockView(
 @Composable
 private fun MarkdownBlockView(
     block: MarkdownBlock,
+    readOnly: Boolean,
+    onContentChange: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
+    // 编辑/预览切换；编辑时直接修改原始 markdown 文本，退出编辑回到渲染视图
+    var editing by remember(block.id) { mutableStateOf(false) }
+    var draft by remember(block.id) { mutableStateOf(block.content) }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -394,30 +407,78 @@ private fun MarkdownBlockView(
             shadowElevation = 1.dp,
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
-                // 头部：标识 + 删除
+                // 头部：标识 + 编辑/完成 + 删除
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("Markdown", fontSize = 12.sp, color = ColorTextSub)
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(bounded = false),
-                                onClick = onDelete,
-                            ),
-                        contentAlignment = Alignment.Center,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Text("×", color = ColorTextSub, fontSize = 18.sp)
+                        // 录音等只读场景下隐藏「编辑」入口
+                        if (!readOnly) {
+                            Text(
+                                text = if (editing) "完成" else "编辑",
+                                fontSize = 13.sp,
+                                color = ColorPrimary,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = ripple(),
+                                        onClick = {
+                                            if (editing) onContentChange(draft)
+                                            editing = !editing
+                                        },
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = false),
+                                    onClick = onDelete,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("×", color = ColorTextSub, fontSize = 18.sp)
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                // 用 markdown 渲染器把内容渲染出来（m3 变体，跟随 Material3 主题）
-                Markdown(content = block.content)
+                if (editing) {
+                    // 编辑原始 markdown 文本（等宽字体），实时写回块内容
+                    BasicTextField(
+                        value = draft,
+                        onValueChange = {
+                            draft = it
+                            onContentChange(it)
+                        },
+                        textStyle = TextStyle(
+                            fontSize = 14.sp,
+                            color = ColorTextTitle,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 22.sp,
+                        ),
+                        cursorBrush = SolidColor(ColorPrimary),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFF3F3F0))
+                            .padding(12.dp),
+                    )
+                } else {
+                    // 渲染视图（m3 变体，跟随 Material3 主题）
+                    Markdown(content = block.content)
+                }
             }
         }
     }
