@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.components.BackButton
 
 private val BgPage = Color(0xFFF0EFEA)
 private val Card = Color(0xFFFFFFFF)
@@ -61,26 +62,7 @@ fun UpcomingListScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(shape = CircleShape, color = Card, shadowElevation = 2.dp) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(bounded = false),
-                            onClick = onBack,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_arrow_back),
-                        contentDescription = "Back",
-                        tint = TextTitle,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
+            BackButton(onClick = onBack, background = Card, tint = TextTitle)
             Text("Upcoming", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
         }
 

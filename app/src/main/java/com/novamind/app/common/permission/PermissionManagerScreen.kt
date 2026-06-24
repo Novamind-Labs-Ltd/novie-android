@@ -52,6 +52,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.novamind.app.R
+import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 
 /* ---------------------------------------------------------------------------
@@ -279,26 +280,7 @@ fun PermissionManagerContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(shape = CircleShape, color = Card, shadowElevation = 2.dp) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(bounded = false),
-                            onClick = onBack,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_arrow_back),
-                        contentDescription = "返回",
-                        tint = TextTitle,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
+            BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "返回")
             Text(
                 "权限管理",
                 fontSize = 22.sp,

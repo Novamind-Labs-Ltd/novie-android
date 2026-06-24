@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeFormat
 
@@ -68,26 +69,7 @@ fun NotificationListScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(shape = CircleShape, color = Card, shadowElevation = 2.dp) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(bounded = false),
-                            onClick = onBack,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_arrow_back),
-                        contentDescription = "Back",
-                        tint = TextTitle,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
+            BackButton(onClick = onBack, background = Card, tint = TextTitle)
             Text(
                 "Notifications",
                 fontSize = 22.sp,

@@ -23,6 +23,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 
 /**
@@ -49,26 +50,8 @@ fun CreateTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 左：圆形返回按钮
-        Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false),
-                        onClick = onBack,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_arrow_back),
-                    contentDescription = "Back",
-                    tint = ColorTextTitle,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
+        // 左：圆形返回按钮（通用组件）
+        BackButton(onClick = onBack, background = ColorChipBg, tint = ColorTextTitle)
 
         // 右：胶囊容器 —— 撤销 | 重做 | 更多(···)
         Surface(
