@@ -46,6 +46,8 @@ private const val WAVE_BARS = 48
 private const val WAVE_BASELINE = 0.06f
 // 峰值振幅低于此值（0..32767）视为「没有声音」
 private const val NO_VOICE_THRESHOLD = 1800
+// 录音时长不足此秒数时禁止发送
+private const val MIN_RECORD_SECONDS = 3
 
 /**
  * 录音条（点击工具栏「Voice」后出现）。
@@ -90,12 +92,21 @@ fun VoiceRecordingBar(
         val result = snapshot.result
         if (result != null) {
             com.novamind.app.common.audio.RecordingController.consumeResult()
-            if (result.peakAmplitude >= NO_VOICE_THRESHOLD) {
-                com.novamind.app.common.audio.RecordingController.reset()
-                onConfirm(result.path, result.durationSeconds)
-            } else {
-                runCatching { java.io.File(result.path).delete() }
-                showNoVoice = true
+            when {
+                // 太短：丢弃（防御：通知栏「停止」可能在 3s 内触发）
+                result.durationSeconds < MIN_RECORD_SECONDS -> {
+                    runCatching { java.io.File(result.path).delete() }
+                    com.novamind.app.common.audio.RecordingController.reset()
+                    onCancel()
+                }
+                result.peakAmplitude >= NO_VOICE_THRESHOLD -> {
+                    com.novamind.app.common.audio.RecordingController.reset()
+                    onConfirm(result.path, result.durationSeconds)
+                }
+                else -> {
+                    runCatching { java.io.File(result.path).delete() }
+                    showNoVoice = true
+                }
             }
         } else if (snapshot.cancelled && !showNoVoice) {
             com.novamind.app.common.audio.RecordingController.consumeCancelled()
@@ -191,6 +202,7 @@ fun VoiceRecordingBar(
                     desc = "完成",
                     bg = SendGreen,
                     tint = Color.White,
+                    enabled = elapsed >= MIN_RECORD_SECONDS,   // 不足 3 秒禁止发送
                     onClick = {
                         // 停止由服务下发，完成 / 无声判定在状态回写后统一处理
                         com.novamind.app.common.audio.RecordingService.stop(context)
@@ -301,14 +313,16 @@ private fun RoundButton(
     desc: String,
     bg: Color,
     tint: Color,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .size(52.dp)
             .clip(CircleShape)
-            .background(bg)
+            .background(if (enabled) bg else bg.copy(alpha = 0.4f))
             .clickable(
+                enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = true, color = tint),
                 onClick = onClick,
@@ -318,7 +332,7 @@ private fun RoundButton(
         Icon(
             painter = painterResource(iconRes),
             contentDescription = desc,
-            tint = tint,
+            tint = if (enabled) tint else tint.copy(alpha = 0.5f),
             modifier = Modifier.size(if (iconRes == R.drawable.ic_arrow_up) 24.dp else 22.dp),
         )
     }
