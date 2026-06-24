@@ -97,11 +97,20 @@ class MainActivity : FragmentActivity() {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
+                // Library 是否作为子页进入（首页 See all）：true 时左上角显示返回键、可回上一页
+                var libraryAsSubpage by rememberSaveable { mutableStateOf(false) }
                 // 图片预览等全屏页打开时隐藏底部导航栏
                 var hideBottomNav by rememberSaveable { mutableStateOf(false) }
                 // Ask Novie 聊天页（点底部导航最左品牌按钮打开）
                 var showAskNovie by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showAskNovie) { showAskNovie = false }
+                // Library 作为子页时，系统返回与左上角返回键一致，回到上一页（首页）
+                BackHandler(
+                    enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
+                ) {
+                    libraryAsSubpage = false
+                    currentRoute = BottomNavDestination.Home.route
+                }
                 // 首启引导页
                 val appContext = LocalContext.current
                 var showOnboarding by rememberSaveable {
@@ -161,7 +170,10 @@ class MainActivity : FragmentActivity() {
                                     editingNoteId = noteId
                                     currentRoute = BottomNavDestination.Create.route
                                 },
-                                onNotesSeeAll = { currentRoute = BottomNavDestination.Library.route },
+                                onNotesSeeAll = {
+                                    libraryAsSubpage = true
+                                    currentRoute = BottomNavDestination.Library.route
+                                },
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 onSwitchToLogin = { authViewModel.exitGuest() },
@@ -185,6 +197,15 @@ class MainActivity : FragmentActivity() {
                                     editingNoteId = null
                                     currentRoute = BottomNavDestination.Create.route
                                 },
+                                // 子页进入时左上角为返回键，回到上一页（首页）；从底栏进入则保持现状
+                                onBack = if (libraryAsSubpage) {
+                                    {
+                                        libraryAsSubpage = false
+                                        currentRoute = BottomNavDestination.Home.route
+                                    }
+                                } else {
+                                    null
+                                },
                             )
                             BottomNavDestination.Calendar.route -> CalendarRoute()
                         }
@@ -205,6 +226,8 @@ class MainActivity : FragmentActivity() {
                                     showAskNovie = true
                                     return@AppBottomNavBar
                                 }
+                                // 从底栏进入 Library 即「现状」（侧栏入口），清掉子页标记
+                                if (route == BottomNavDestination.Library.route) libraryAsSubpage = false
                                 // 已在当前页（如编辑中点 Create）→ 保持不变，不重置不跳转
                                 if (route == currentRoute) return@AppBottomNavBar
                                 if (route == BottomNavDestination.Create.route) editingNoteId = null

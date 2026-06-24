@@ -57,6 +57,7 @@ private val ColorIconBtn = Color(0xFFFFFFFF)
 fun LibraryScreen(
     uiState: LibraryUiState,
     onCreateNote: () -> Unit = {},
+    onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -74,11 +75,22 @@ fun LibraryScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopIconButton(
-                iconRes = R.drawable.ic_panel_left,
-                desc = "Sidebar",
-                shape = RoundedCornerShape(12.dp),
-            )
+            if (onBack != null) {
+                // 作为子页进入（如首页 See all）：左上角为返回键
+                TopIconButton(
+                    iconRes = R.drawable.ic_arrow_back,
+                    desc = "Back",
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = onBack,
+                )
+            } else {
+                // 现状：侧栏入口
+                TopIconButton(
+                    iconRes = R.drawable.ic_panel_left,
+                    desc = "Sidebar",
+                    shape = RoundedCornerShape(12.dp),
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TopIconButton(R.drawable.ic_search, "Search", shape = CircleShape)
                 TopIconButton(R.drawable.ic_more, "More", shape = CircleShape, bg = Color.Transparent)
@@ -335,11 +347,12 @@ private fun LibraryNoteCard(note: LibraryNote) {
 @Composable
 fun LibraryRoute(
     onCreateNote: () -> Unit = {},
+    onBack: (() -> Unit)? = null,   // 非 null：作为子页进入，左上角为返回键
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LibraryScreen(uiState = uiState, onCreateNote = onCreateNote, modifier = modifier)
+    LibraryScreen(uiState = uiState, onCreateNote = onCreateNote, onBack = onBack, modifier = modifier)
 }
 
 private val sampleNotes = listOf(
