@@ -167,8 +167,11 @@ class RichTextState(initialText: String = "") {
         val removedEnd = lineStart + existingLen
         val delta = newMarker.length - existingLen
         spliceText(lineStart, removedEnd, newMarker)
-        // 保持光标在原逻辑位置（按行首增删的偏移平移），不跳到标记之后
-        val newCaret = mapPos(caret, lineStart, removedEnd, delta).coerceIn(0, value.text.length)
+        // 添加/替换标记：光标至少落到标记之后，使新行插入圆点/序号后可直接输入内容；
+        // 移除标记：按行首增删平移，保持原逻辑位置。
+        val mapped = mapPos(caret, lineStart, removedEnd, delta)
+        val newCaret = (if (newMarker.isNotEmpty()) maxOf(mapped, lineStart + newMarker.length) else mapped)
+            .coerceIn(0, value.text.length)
         value = value.copy(selection = TextRange(newCaret))
     }
 
