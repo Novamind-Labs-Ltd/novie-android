@@ -161,6 +161,7 @@ class MainActivity : FragmentActivity() {
                                     editingNoteId = noteId
                                     currentRoute = BottomNavDestination.Create.route
                                 },
+                                onNotesSeeAll = { currentRoute = BottomNavDestination.Library.route },
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 onSwitchToLogin = { authViewModel.exitGuest() },
