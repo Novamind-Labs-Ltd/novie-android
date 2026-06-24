@@ -127,6 +127,9 @@ fun CreateScreen(
 
     // 图文正文编辑器状态：文本与图片块；正文文档 JSON 存入 body 同步给 ViewModel
     val editor = remember { NoteEditorState() }
+    // 最近一次「与编辑器同步过」的 body（加载到 / 由本地编辑发出）。用它做轻量字符串比较，
+    // 避免在每次 body 变化时重新 build 一遍 documentJson（getter 会全量序列化）。
+    var lastSyncedBody by remember { mutableStateOf<String?>(null) }
     // 进场动画期间先不灌内容（保持轻量滑入），落定后再解析填充，避免「从首页进入卡顿」。
     var settled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -134,14 +137,19 @@ fun CreateScreen(
         settled = true
     }
     // 外部内容变化（加载笔记 / 撤销重做）时回填，避免与本地编辑互相覆盖。
-    // 解析放后台线程（loadDocumentAsync），不阻塞主线程。
+    // 解析放后台线程（loadDocumentAsync），不阻塞主线程；仅在「非本地编辑」导致的 body 变化时重载。
     LaunchedEffect(uiState.editingNoteId, uiState.body, settled) {
         if (!settled) return@LaunchedEffect
-        if (uiState.body != editor.documentJson) {
+        if (uiState.body != lastSyncedBody) {
             editor.loadDocumentAsync(uiState.body, fallbackPlain = uiState.body)
+            lastSyncedBody = uiState.body
         }
     }
-    val emitContent = { onEvent(CreateEvent.ContentChanged(editor.documentJson)) }
+    val emitContent = {
+        val json = editor.documentJson
+        lastSyncedBody = json   // 本地编辑发出的内容，标记为已同步，避免回填重载
+        onEvent(CreateEvent.ContentChanged(json))
+    }
 
     // 新建笔记：进入后自动聚焦正文，弹出键盘；编辑已有笔记则保持收起
     LaunchedEffect(Unit) {
