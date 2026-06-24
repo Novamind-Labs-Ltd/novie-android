@@ -3,6 +3,7 @@ package com.novamind.app.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -14,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.novamind.app.R
+import com.novamind.app.ui.theme.AppTheme
 
 /**
  * 通用返回按钮：圆形白底带阴影 + 返回箭头，无界波纹。
@@ -61,5 +64,13 @@ fun BackButton(
                 modifier = Modifier.size(iconSize),
             )
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA)
+@Composable
+private fun BackButtonPreview() {
+    AppTheme {
+        BackButton(onClick = {}, modifier = Modifier.padding(16.dp))
     }
 }
