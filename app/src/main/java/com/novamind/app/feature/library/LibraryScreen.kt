@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,8 +25,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,13 +79,26 @@ fun LibraryScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (onBack != null) {
-                // 作为子页进入（如首页 See all）：左上角为返回键
-                TopIconButton(
-                    iconRes = R.drawable.ic_arrow_back,
-                    desc = "Back",
-                    shape = RoundedCornerShape(12.dp),
-                    onClick = onBack,
-                )
+                // 作为子页进入（如首页 See all）：左上角返回键，样式与 Create 页一致（圆形白底带阴影）
+                Surface(shape = CircleShape, color = ColorIconBtn, shadowElevation = 2.dp) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = false),
+                                onClick = onBack,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_arrow_back),
+                            contentDescription = "Back",
+                            tint = ColorTextTitle,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             } else {
                 // 现状：侧栏入口
                 TopIconButton(
