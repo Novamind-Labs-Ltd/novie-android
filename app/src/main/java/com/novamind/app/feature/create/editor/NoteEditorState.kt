@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -224,8 +226,22 @@ class NoteEditorState {
 
     /** 从 JSON 文档加载；解析失败或为空时退化为单个文本块（用 [fallbackPlain]） */
     fun loadDocument(json: String?, fallbackPlain: String) {
-        val parsed = parse(json).ifEmpty { listOf(TextBlock(fallbackPlain)) }
+        applyParsed(parse(json).ifEmpty { listOf(TextBlock(fallbackPlain)) })
+    }
 
+    /**
+     * 同 [loadDocument]，但 JSON 解析与块构建放到后台线程，避免在进入笔记页 / 大文档时
+     * 阻塞主线程造成卡顿；解析完成后回到调用方线程（应为主线程）套用到状态。
+     */
+    suspend fun loadDocumentAsync(json: String?, fallbackPlain: String) {
+        val parsed = withContext(Dispatchers.Default) {
+            parse(json).ifEmpty { listOf(TextBlock(fallbackPlain)) }
+        }
+        applyParsed(parsed)
+    }
+
+    /** 把解析得到的块套用到状态。必须在主线程调用（写 mutableStateList）。 */
+    private fun applyParsed(parsed: List<EditorBlock>) {
         // 结构一致（块数量/类型/图片路径相同）时，原地更新文本块内容，
         // 保留现有块实例与输入焦点 —— 这样撤销/重做不会让键盘收起。
         if (canReuse(parsed)) {

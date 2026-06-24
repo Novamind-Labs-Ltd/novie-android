@@ -127,10 +127,18 @@ fun CreateScreen(
 
     // 图文正文编辑器状态：文本与图片块；正文文档 JSON 存入 body 同步给 ViewModel
     val editor = remember { NoteEditorState() }
-    // 外部内容变化（加载笔记 / 撤销重做）时回填，避免与本地编辑互相覆盖
-    LaunchedEffect(uiState.editingNoteId, uiState.body) {
+    // 进场动画期间先不灌内容（保持轻量滑入），落定后再解析填充，避免「从首页进入卡顿」。
+    var settled by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(260)   // 约等于进场转场时长，让滑入先跑完
+        settled = true
+    }
+    // 外部内容变化（加载笔记 / 撤销重做）时回填，避免与本地编辑互相覆盖。
+    // 解析放后台线程（loadDocumentAsync），不阻塞主线程。
+    LaunchedEffect(uiState.editingNoteId, uiState.body, settled) {
+        if (!settled) return@LaunchedEffect
         if (uiState.body != editor.documentJson) {
-            editor.loadDocument(uiState.body, fallbackPlain = uiState.body)
+            editor.loadDocumentAsync(uiState.body, fallbackPlain = uiState.body)
         }
     }
     val emitContent = { onEvent(CreateEvent.ContentChanged(editor.documentJson)) }
