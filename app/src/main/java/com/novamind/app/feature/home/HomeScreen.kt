@@ -43,16 +43,29 @@ private val ColorTextSub = Color(0xFF6B6B6B)
 private val ColorTextHint = Color(0xFFAAAAAA)
 private val ColorBorder = Color(0xFFE0E0E0)
 private val ColorSelectedBorder = Color(0xFFAAD4C8)
-private val BgMenu = Color(0xFFF4F3EF)
 
-// ─── 顶部「更多」菜单项 ────────────────────────────────────────────────────────
+// ─── 顶部「更多」底部弹窗菜单 ──────────────────────────────────────────────────
 
-enum class HomeMenuItem(val label: String) {
-    NotificationPreferences("Notification preferences"),
-    Connectors("Connectors"),
-    SecurityPrivacy("Security & privacy"),
-    HelpFeedback("Help & feedback"),
-    Help("Help"),
+/** 菜单分组。 */
+enum class HomeMenuSection(val title: String) {
+    Settings("Settings"),
+    Support("Support"),
+    About("About"),
+}
+
+enum class HomeMenuItem(
+    val label: String,
+    val iconRes: Int,
+    val section: HomeMenuSection,
+) {
+    NotificationPreferences("Notification preferences", R.drawable.ic_notification, HomeMenuSection.Settings),
+    Connectors("Connectors", R.drawable.ic_link, HomeMenuSection.Settings),
+    Permissions("Permissions", R.drawable.ic_key, HomeMenuSection.Settings),
+    AppLock("App lock", R.drawable.ic_lock, HomeMenuSection.Settings),
+    HelpCentre("Help centre", R.drawable.ic_info, HomeMenuSection.Support),
+    SendFeedback("Send feedback", R.drawable.ic_chat, HomeMenuSection.Support),
+    ReportBug("Report a bug", R.drawable.ic_warning, HomeMenuSection.Support),
+    AboutMyNovie("About MyNovie", R.drawable.ic_nav_brand, HomeMenuSection.About),
 }
 
 // ─── 无状态 Screen ────────────────────────────────────────────────────────────
@@ -279,19 +292,18 @@ private fun TopBar(
                         }
                     }
                 }
-                // ── 更多按钮 + 下拉菜单 ──────────────────────────────────
-                Box {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_more),
-                        contentDescription = "More",
-                        tint = ColorTextTitle,
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clip(CircleShape)
-                            .clickable { menuExpanded = true },
-                    )
-                    MoreMenu(
-                        expanded = menuExpanded,
+                // ── 更多按钮 + 底部弹窗菜单 ──────────────────────────────
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_more),
+                    contentDescription = "More",
+                    tint = ColorTextTitle,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .clickable { menuExpanded = true },
+                )
+                if (menuExpanded) {
+                    MoreSheet(
                         onDismiss = { menuExpanded = false },
                         onItemClick = {
                             menuExpanded = false
@@ -306,33 +318,61 @@ private fun TopBar(
 
 // ─── 「更多」下拉菜单 ──────────────────────────────────────────────────────────
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun MoreMenu(
-    expanded: Boolean,
+private fun MoreSheet(
     onDismiss: () -> Unit,
     onItemClick: (HomeMenuItem) -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(20.dp),
-        containerColor = BgMenu,
-        shadowElevation = 8.dp,
-        modifier = Modifier.wrapContentWidth(),
+        // 直接展开到内容高度，不需要用户上拉（跳过半展开态）
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = BgCard,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
-        HomeMenuItem.entries.forEach { item ->
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = item.label,
-                        fontSize = 16.sp,
-                        color = ColorTextTitle,
-                    )
-                },
-                onClick = { onItemClick(item) },
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp),
+        ) {
+            HomeMenuSection.entries.forEach { section ->
+                Text(
+                    text = section.title,
+                    fontSize = 12.sp,
+                    color = ColorTextHint,
+                    modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 4.dp),
+                )
+                HomeMenuItem.entries.filter { it.section == section }.forEach { item ->
+                    MoreSheetRow(item = item, onClick = { onItemClick(item) })
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun MoreSheetRow(item: HomeMenuItem, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            painter = painterResource(id = item.iconRes),
+            contentDescription = null,
+            tint = ColorTextTitle,
+            modifier = Modifier.size(22.dp),
+        )
+        Text(
+            text = item.label,
+            fontSize = 16.sp,
+            color = ColorTextTitle,
+        )
     }
 }
 

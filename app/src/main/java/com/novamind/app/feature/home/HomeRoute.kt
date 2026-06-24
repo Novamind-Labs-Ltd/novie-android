@@ -139,6 +139,13 @@ fun HomeRoute(
                     onNotesSeeAll = onNotesSeeAll,
                     onNoteClick = onNoteClick,
                     onNotificationsClick = { overlay = HomeOverlay.Notifications },
+                    onMenuAction = { item ->
+                        // 「更多」底部菜单动作：目前仅 Permissions 有对应页面，其余暂为占位
+                        when (item) {
+                            HomeMenuItem.Permissions -> overlay = HomeOverlay.Permissions
+                            else -> Unit
+                        }
+                    },
                     onAvatarClick = { scope.launch { drawerState.open() } },
                     onRefresh = viewModel::onRefresh,
                     avatarPath = avatarPath,
