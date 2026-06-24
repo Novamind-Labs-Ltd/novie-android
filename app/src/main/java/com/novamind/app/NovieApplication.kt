@@ -1,6 +1,7 @@
 package com.novamind.app
 
 import android.app.Application
+import com.novamind.app.common.audio.RecordingCleaner
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
 import com.novamind.app.common.push.PushChannels
@@ -24,5 +25,7 @@ class NovieApplication : Application() {
         CommonHeaders.init(this)
         // 预创建 FCM 默认通知渠道（后台推送到达时渠道须已存在）
         PushChannels.ensureDefault(this)
+        // 启动后空闲时回收录音：可用空间过低时按最久优先删除，腾出空间（不阻塞启动）
+        RecordingCleaner.scheduleOnIdle(this)
     }
 }
