@@ -229,6 +229,14 @@ fun CreateScreen(
     val noteEmpty = uiState.title.isBlank() &&
         NoteDocument.previewText(uiState.body).isBlank()
 
+    // 录音开始时强制收起键盘并清焦点（录音期间正文/标题置为只读，不可编辑）
+    LaunchedEffect(showRecordingBar) {
+        if (showRecordingBar) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+        }
+    }
+
     // 录音条显示时：系统返回先关闭录音条（关闭即丢弃，由 VoiceRecordingBar onDispose 取消录音），
     // 不退出笔记页。
     BackHandler(enabled = showRecordingBar) { showRecordingBar = false }
@@ -280,6 +288,7 @@ fun CreateScreen(
                 NoteContentEditor(
                     state = editor,
                     onContentChanged = emitContent,
+                    readOnly = showRecordingBar,   // 录音期间正文不可编辑、不弹键盘
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
                         keyboardController?.hide()
@@ -291,6 +300,7 @@ fun CreateScreen(
                         BasicTextField(
                             value = uiState.title,
                             onValueChange = { onEvent(CreateEvent.TitleChanged(it)) },
+                            readOnly = showRecordingBar,   // 录音期间不可编辑
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 8.dp),

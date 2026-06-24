@@ -81,6 +81,7 @@ fun NoteContentEditor(
     coverTopWindowY: Float = Float.MAX_VALUE,   // 工具栏顶边窗口 Y；无遮挡时传 MAX_VALUE
     onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
     header: (@Composable () -> Unit)? = null,   // 随正文一起滚动的头部（标题 / folder / tags 等）
+    readOnly: Boolean = false,                  // 录音期间等场景：正文不可编辑、点击不弹键盘
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -124,6 +125,7 @@ fun NoteContentEditor(
                 is TextBlock -> TextBlockField(
                     block = block,
                     showPlaceholder = singleEmpty,
+                    readOnly = readOnly,
                     onFocused = { state.onTextFocused(block.id) },
                     onChanged = onContentChanged,
                     lazyListState = listState,
@@ -174,6 +176,7 @@ fun NoteContentEditor(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
+                        enabled = !readOnly,   // 录音期间禁用点击空白聚焦/弹键盘
                         onClick = {
                             state.focusLastTextBlock()
                             keyboard?.show()
@@ -195,6 +198,7 @@ fun NoteContentEditor(
 private fun TextBlockField(
     block: TextBlock,
     showPlaceholder: Boolean,
+    readOnly: Boolean,
     onFocused: () -> Unit,
     onChanged: () -> Unit,
     lazyListState: LazyListState,
@@ -257,6 +261,7 @@ private fun TextBlockField(
             block.rich.onValueChange(it)
             onChanged()
         },
+        readOnly = readOnly,   // 录音期间只读：不可输入、点击不弹软键盘
         modifier = Modifier
             .fillMaxWidth()
             .onGloballyPositioned { fieldCoords = it }
