@@ -52,10 +52,10 @@ fun CreateMetaRow(
             isActive = selectedFolder != null,
             onClick = onShowFolderPicker,
         )
-        // 标签入口：仅提供「新增/选择 tag」按钮，始终中性样式（不高亮选中态）
+        // 标签入口：已选时在标签后显示数量（超过 99 显示 99+），始终中性样式
         MetaChip(
             iconResId = R.drawable.ic_nav_brand,
-            label = "Tags",
+            label = if (selectedTags.isEmpty()) "Tags" else "Tags (${tagCountLabel(selectedTags.size)})",
             isActive = false,
             onClick = onShowTagPicker,
         )
@@ -79,6 +79,9 @@ fun CreateMetaRow(
         }
     }
 }
+
+/** 标签数量显示：超过 99 显示「99+」，否则原样。 */
+private fun tagCountLabel(count: Int): String = if (count > 99) "99+" else count.toString()
 
 @Composable
 private fun MetaChip(
