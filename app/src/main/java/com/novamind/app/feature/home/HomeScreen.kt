@@ -331,22 +331,28 @@ private fun MoreSheet(
         containerColor = BgCard,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 12.dp),
-        ) {
-            HomeMenuSection.entries.forEach { section ->
-                Text(
-                    text = section.title,
-                    fontSize = 12.sp,
-                    color = ColorTextHint,
-                    modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 4.dp),
-                )
-                HomeMenuItem.entries.filter { it.section == section }.forEach { item ->
-                    MoreSheetRow(item = item, onClick = { onItemClick(item) })
-                }
+        MoreSheetContent(onItemClick = onItemClick)
+    }
+}
+
+/** 「更多」菜单内容（与 ModalBottomSheet 解耦，便于 @Preview 直接预览）。 */
+@Composable
+private fun MoreSheetContent(onItemClick: (HomeMenuItem) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(bottom = 12.dp),
+    ) {
+        HomeMenuSection.entries.forEach { section ->
+            Text(
+                text = section.title,
+                fontSize = 12.sp,
+                color = ColorTextHint,
+                modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 4.dp),
+            )
+            HomeMenuItem.entries.filter { it.section == section }.forEach { item ->
+                MoreSheetRow(item = item, onClick = { onItemClick(item) })
             }
         }
     }
@@ -599,8 +605,16 @@ private fun HomeScreenPreview() {
             onSearchQueryChange = {},
             onUpcomingSeeAll = {},
             onNotesSeeAll = {},
-            forceMenuOpen = true,
+            // 不在预览里强开「更多」：ModalBottomSheet 无法在 @Preview 渲染，会让预览失效
         )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "More 菜单内容")
+@Composable
+private fun MoreSheetContentPreview() {
+    AppTheme {
+        MoreSheetContent(onItemClick = {})
     }
 }
 
