@@ -2,6 +2,7 @@ package com.novamind.app.debug
 
 import android.content.Intent
 import android.os.Build
+import android.os.StatFs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +88,8 @@ fun DebugPanel(
 
     var noteCount by remember { mutableStateOf(-1) }
     var recCount by remember { mutableStateOf(-1) }
+    var availMb by remember { mutableStateOf(-1L) }
+    var totalMb by remember { mutableStateOf(-1L) }
     var refresh by remember { mutableStateOf(0) }
 
     // 组件/能力测试
@@ -98,6 +101,10 @@ fun DebugPanel(
     LaunchedEffect(refresh) {
         noteCount = runCatching { app.noteRepository.count() }.getOrDefault(-1)
         recCount = audioDir.listFiles()?.count { it.isFile } ?: 0
+        // 内部存储分区可用/总空间（与录音、附件同一分区）
+        val stat = runCatching { StatFs(context.filesDir.absolutePath) }.getOrNull()
+        availMb = stat?.let { it.availableBytes / (1024 * 1024) } ?: -1L
+        totalMb = stat?.let { it.totalBytes / (1024 * 1024) } ?: -1L
     }
 
     ModalBottomSheet(
@@ -176,6 +183,9 @@ fun DebugPanel(
             Section("本地数据") {
                 InfoRow("笔记数", if (noteCount < 0) "…" else "$noteCount")
                 InfoRow("录音数", if (recCount < 0) "…" else "$recCount")
+                // 内部存储空间（MB）
+                InfoRow("可用空间", if (availMb < 0) "…" else "$availMb MB")
+                InfoRow("总空间", if (totalMb < 0) "…" else "$totalMb MB")
                 // 录音存放目录绝对路径（应用私有内部存储，文件管理器不可见）
                 InfoRow("录音目录", audioDir.absolutePath)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
