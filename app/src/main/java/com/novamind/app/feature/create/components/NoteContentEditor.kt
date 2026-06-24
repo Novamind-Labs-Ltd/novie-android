@@ -48,8 +48,8 @@ import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
 import com.novamind.app.common.pdf.PdfRenderSession
-import com.novamind.app.debug.pdf.PdfReader
-import com.novamind.app.debug.pdf.PdfViewerActivity
+import com.novamind.app.common.pdf.PdfReader
+import com.novamind.app.common.pdf.PdfViewerActivity
 import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.ui.res.painterResource
 import com.novamind.app.R

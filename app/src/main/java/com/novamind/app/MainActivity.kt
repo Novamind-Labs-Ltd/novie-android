@@ -37,8 +37,6 @@ import com.novamind.app.common.onboarding.OnboardingScreen
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateDialog
-import com.novamind.app.debug.DebugPanel
-import com.novamind.app.debug.ShakeDetector
 import com.novamind.app.feature.calendar.CalendarRoute
 import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
@@ -61,7 +59,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 
 // 导航顺序，用于判断滑动方向
 private val navOrder = listOf(
@@ -226,21 +224,12 @@ class MainActivity : FragmentActivity() {
                         )
                     }
 
-                    // Debug 工具箱（仅 Debug 包）：摇一摇打开
-                    if (BuildConfig.DEBUG) {
-                        var showDebug by rememberSaveable { mutableStateOf(false) }
-                        ShakeDetector(enabled = true) { showDebug = true }
-                        if (showDebug) {
-                            DebugPanel(
-                                onDismiss = { showDebug = false },
-                                onNavigate = { route ->
-                                    editingNoteId = null
-                                    currentRoute = route
-                                    showDebug = false
-                                },
-                            )
-                        }
-                    }
+                    // Debug 工具箱：仅 debug 变体有实现（摇一摇打开），release 为空实现。
+                    // 调试工具及其依赖只存在于 src/debug，不会编入 release 包。
+                    DebugOverlay(onNavigate = { route ->
+                        editingNoteId = null
+                        currentRoute = route
+                    })
 
                     // 升级弹窗（可选可关闭；强制不可关闭）
                     val update by UpdateController.state.collectAsState()

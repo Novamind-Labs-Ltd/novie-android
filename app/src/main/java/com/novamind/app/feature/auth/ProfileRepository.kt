@@ -1,7 +1,7 @@
 package com.novamind.app.feature.auth
 
 import com.novamind.app.common.net.NetworkModule
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 import java.util.UUID
 
 /**

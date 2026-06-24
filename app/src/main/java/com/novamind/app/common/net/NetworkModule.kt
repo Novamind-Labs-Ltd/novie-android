@@ -1,6 +1,6 @@
 package com.novamind.app.common.net
 
-import com.novamind.app.debug.apitest.ApiTls
+import com.novamind.app.common.net.ApiTls
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

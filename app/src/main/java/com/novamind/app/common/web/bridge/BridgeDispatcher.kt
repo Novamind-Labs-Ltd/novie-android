@@ -1,7 +1,7 @@
 package com.novamind.app.common.web.bridge
 
 import android.webkit.WebView
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

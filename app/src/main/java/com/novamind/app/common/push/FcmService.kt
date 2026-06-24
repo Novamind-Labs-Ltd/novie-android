@@ -8,7 +8,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.novamind.app.MainActivity
 import com.novamind.app.R
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 
 /**
  * Firebase Cloud Messaging 接收服务。

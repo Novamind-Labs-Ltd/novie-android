@@ -3,7 +3,7 @@ package com.novamind.app.common.audio
 import android.content.Context
 import android.os.Looper
 import android.os.StatFs
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 import java.io.File
 
 /**

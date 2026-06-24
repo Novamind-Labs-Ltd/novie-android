@@ -1,4 +1,4 @@
-package com.novamind.app.debug
+package com.novamind.app.common.log
 
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow

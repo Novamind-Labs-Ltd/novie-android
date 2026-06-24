@@ -1,4 +1,5 @@
 package com.novamind.app.debug
+import com.novamind.app.common.log.DebugLog
 
 import android.content.Intent
 import android.os.Build
@@ -56,7 +57,7 @@ import com.novamind.app.debug.apitest.ApiTarget
 import com.novamind.app.debug.files.FileBrowserActivity
 import com.novamind.app.debug.imageupload.ImageUploadActivity
 import com.novamind.app.debug.markdown.MarkdownPreviewActivity
-import com.novamind.app.debug.pdf.PdfViewerActivity
+import com.novamind.app.common.pdf.PdfViewerActivity
 import com.novamind.app.debug.speech.SpeechToTextActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

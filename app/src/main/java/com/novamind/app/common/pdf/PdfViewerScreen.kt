@@ -1,4 +1,4 @@
-package com.novamind.app.debug.pdf
+package com.novamind.app.common.pdf
 
 import android.content.Context
 import android.graphics.Bitmap

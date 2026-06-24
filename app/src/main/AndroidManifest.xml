@@ -82,49 +82,11 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
-        <!-- 接口测试页（仅 Debug 工具箱跳转） -->
+        <!-- PDF 预览页（笔记内 PDF 块全屏阅读，生产使用 → 留在主清单）。
+             调试专用页面（接口测试 / 图片上传 / 语音转文字 / Markdown / 文件浏览器）
+             已移至 src/debug/AndroidManifest.xml，仅并入 debug 变体。 -->
         <activity
-            android:name=".debug.apitest.ApiTestActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.App" />
-
-        <!-- 图片上传测试页（仅 Debug 工具箱跳转） -->
-        <activity
-            android:name=".debug.imageupload.ImageUploadActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.App" />
-
-        <!-- 语音转文字测试页（仅 Debug 工具箱跳转） -->
-        <activity
-            android:name=".debug.speech.SpeechToTextActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.App" />
-
-        <!-- Markdown 阅读器测试页（仅 Debug 工具箱跳转） -->
-        <activity
-            android:name=".debug.markdown.MarkdownPreviewActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.App" />
-
-        <!-- PDF 预览测试页（仅 Debug 工具箱跳转） -->
-        <activity
-            android:name=".debug.pdf.PdfViewerActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.App" />
-
-        <!-- 文件目录浏览器（仅 Debug 工具箱跳转） -->
-        <activity
-            android:name=".debug.files.FileBrowserActivity"
+            android:name=".common.pdf.PdfViewerActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden"

@@ -1,4 +1,4 @@
-package com.novamind.app.debug.apitest
+package com.novamind.app.common.net
 
 import java.net.HttpURLConnection
 import java.security.MessageDigest

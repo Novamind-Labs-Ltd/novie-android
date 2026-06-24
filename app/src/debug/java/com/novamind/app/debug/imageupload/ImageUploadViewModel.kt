@@ -3,7 +3,7 @@ package com.novamind.app.debug.imageupload
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.net.NetworkModule
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

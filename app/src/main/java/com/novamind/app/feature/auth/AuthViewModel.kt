@@ -4,7 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.SystemClock
 import androidx.fragment.app.FragmentActivity
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.auth0.android.result.Credentials

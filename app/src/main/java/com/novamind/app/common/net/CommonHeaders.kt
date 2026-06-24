@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.Build
 import com.novamind.app.BuildConfig
 import com.novamind.app.common.device.DeviceIdentity
-import com.novamind.app.debug.DebugLog
+import com.novamind.app.common.log.DebugLog
 import java.net.HttpURLConnection
 import java.util.Locale
 import java.util.TimeZone

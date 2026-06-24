@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 仅 debug 变体注册的调试工具页面（代码位于 src/debug/java/.../debug）。
+         合并策略：随 debug 构建并入主清单，release 不含这些 Activity。 -->
+    <application>
+
+        <activity
+            android:name=".debug.apitest.ApiTestActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
+        <activity
+            android:name=".debug.imageupload.ImageUploadActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
+        <activity
+            android:name=".debug.speech.SpeechToTextActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
+        <activity
+            android:name=".debug.markdown.MarkdownPreviewActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
+        <activity
+            android:name=".debug.files.FileBrowserActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
+    </application>
+</manifest>
