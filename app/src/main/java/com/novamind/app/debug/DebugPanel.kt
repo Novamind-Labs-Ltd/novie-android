@@ -52,6 +52,7 @@ import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
 import com.novamind.app.debug.apitest.ApiTestActivity
 import com.novamind.app.debug.apitest.ApiTarget
+import com.novamind.app.debug.files.FileBrowserActivity
 import com.novamind.app.debug.imageupload.ImageUploadActivity
 import com.novamind.app.debug.markdown.MarkdownPreviewActivity
 import com.novamind.app.debug.pdf.PdfViewerActivity
@@ -92,9 +93,11 @@ fun DebugPanel(
     var urlInput by remember { mutableStateOf("https://m.bing.com") }
     // JSBridge 测试页强制来源等级（null = 按域名白名单）
     var bridgeLevel by remember { mutableStateOf<SourceLevel?>(null) }
+    // 录音实际存放在 filesDir/note_audio（见 AudioRecorder）
+    val audioDir = remember { File(context.filesDir, "note_audio") }
     LaunchedEffect(refresh) {
         noteCount = runCatching { app.noteRepository.count() }.getOrDefault(-1)
-        recCount = File(context.filesDir, "recordings").listFiles()?.size ?: 0
+        recCount = audioDir.listFiles()?.count { it.isFile } ?: 0
     }
 
     ModalBottomSheet(
@@ -173,13 +176,22 @@ fun DebugPanel(
             Section("本地数据") {
                 InfoRow("笔记数", if (noteCount < 0) "…" else "$noteCount")
                 InfoRow("录音数", if (recCount < 0) "…" else "$recCount")
+                // 录音存放目录绝对路径（应用私有内部存储，文件管理器不可见）
+                InfoRow("录音目录", audioDir.absolutePath)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("打开录音目录") {
+                        audioDir.mkdirs()
+                        FileBrowserActivity.start(context, audioDir.absolutePath)
+                    }
+                    Chip("打开 filesDir") {
+                        FileBrowserActivity.start(context, context.filesDir.absolutePath)
+                    }
                     Chip("清空笔记", danger = true) {
                         scope.launch { app.noteRepository.clearAll(); refresh++ }
                     }
                     Chip("清空录音", danger = true) {
                         scope.launch {
-                            withContext(Dispatchers.IO) { File(context.filesDir, "recordings").deleteRecursively() }
+                            withContext(Dispatchers.IO) { audioDir.deleteRecursively() }
                             refresh++
                         }
                     }

@@ -2,4 +2,7 @@
 <paths>
     <!-- 相机拍照目标位于 filesDir/note_images，需经 FileProvider 暴露给相机应用写入 -->
     <files-path name="note_images" path="note_images/" />
+    <!-- 内部存储根：供调试文件浏览器分享录音/附件，及日志分享（cache 根） -->
+    <files-path name="files_root" path="." />
+    <cache-path name="cache_root" path="." />
 </paths>

@@ -122,6 +122,14 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
+        <!-- 文件目录浏览器（仅 Debug 工具箱跳转） -->
+        <activity
+            android:name=".debug.files.FileBrowserActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
         <!-- 录音前台服务：锁屏/后台持续录音并常驻通知 -->
         <service
             android:name=".common.audio.RecordingService"
