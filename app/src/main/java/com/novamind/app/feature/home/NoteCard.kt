@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.util.TimeFormat
 
 // NoteCard 自用配色（与 HomeScreen 同值；遵循 home 模块按文件私有配色的现状）
 private val BgCard = Color(0xFFFFFFFF)
@@ -47,7 +47,7 @@ internal fun NoteCard(
         onClick = onClick,
         modifier = modifier
             .width(160.dp)
-            .height(120.dp)
+            .height(240.dp)
             .border(borderWidth, borderColor, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         color = BgCard,
@@ -57,20 +57,13 @@ internal fun NoteCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (note.folderName != null) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = Color(0xFF3D7A5A).copy(alpha = 0.08f),
-                ) {
-                    Text(
-                        text = "📁 ${note.folderName}",
-                        fontSize = 10.sp,
-                        color = Color(0xFF3D7A5A),
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                    )
-                }
-            }
+            // 更新时间：今天 HH:mm / 今年 MM-dd / 跨年 yyyy-MM-dd
+            Text(
+                text = TimeFormat.smart(note.updatedAt),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = ColorTextSub,
+            )
             // 标题为空时：用正文作标题（限 1 行），正文区显示标题没显示完的剩余内容
             val hasTitle = note.title.isNotBlank()
             // 标题 1 行实际渲染到的字符末尾位置，用于截取剩余正文
@@ -81,8 +74,8 @@ internal fun NoteCard(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextTitle,
-                maxLines = if (hasTitle) 2 else 1,
-                // 正文作标题时直接截断、不加省略号（剩余内容会接到下方正文区）
+                // 标题固定 1 行：有标题超出用省略号，正文作标题时直接截断（剩余内容接到下方正文区）
+                maxLines = 1,
                 overflow = if (hasTitle) TextOverflow.Ellipsis else TextOverflow.Clip,
                 onTextLayout = { layout ->
                     if (!hasTitle) {
@@ -91,7 +84,6 @@ internal fun NoteCard(
                     }
                 },
             )
-            HorizontalDivider(Modifier, thickness = 0.8.dp, color = ColorBorder)
 
             val bodyText = when {
                 hasTitle -> note.description
@@ -105,7 +97,9 @@ internal fun NoteCard(
                     fontSize = 12.sp,
                     color = ColorTextSub,
                     lineHeight = 17.sp,
-                    maxLines = 4,
+                    // 内容自适应高度，最多 8 行，超出用省略号
+                    maxLines = 8,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -120,8 +114,23 @@ private fun NoteCardPreview() {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            NoteCard(NoteItem("1", "Market research", "Here is an overview of your competitors in 2026."))
-            NoteCard(NoteItem("2", "", "无标题：这条用正文充当标题，剩余内容会接到分割线下方继续展示。", isSelected = true))
+            NoteCard(
+                NoteItem(
+                    "1",
+                    "Market research",
+                    "Here is an overview of your competitors in 2026.",
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
+            NoteCard(
+                NoteItem(
+                    "2",
+                    "",
+                    "无标题：这条用正文充当标题，剩余内容会接到分割线下方继续展示。",
+                    isSelected = true,
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
         }
     }
 }
