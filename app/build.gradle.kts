@@ -47,7 +47,8 @@ android {
             }
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            shrinkResources = true   // 与代码压缩配套：移除未引用资源（需 minify 同时开启）
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
