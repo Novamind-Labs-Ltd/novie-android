@@ -13,6 +13,9 @@ object AppConfig {
 
         /** 撤销/重做历史最大步数。 */
         const val MAX_HISTORY = 50
+
+        /** 单条笔记最大可输入字数（标题 + 正文合计）。 */
+        const val MAX_INPUT_CHARS = 50000
     }
 
     /** 网络超时（秒）。 */

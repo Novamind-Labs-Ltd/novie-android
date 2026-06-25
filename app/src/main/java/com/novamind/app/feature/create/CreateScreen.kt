@@ -34,6 +34,7 @@ import com.novamind.app.feature.create.components.BgPage
 import com.novamind.app.feature.create.components.ColorTextHint
 import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.BorderColorSheet
+import com.novamind.app.feature.create.components.ColorDanger
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.ui.components.AttachmentSheet
@@ -135,6 +136,11 @@ fun CreateScreen(
     val editor = remember { NoteEditorState() }
     // 骨架占位（点工具栏「Magic」后出现）是否生效，由编辑器状态驱动
     val polishing = editor.isPolishing
+    // 字数统计与上限：标题 + 正文合计，最多 MAX_INPUT_CHARS
+    val maxInputChars = AppConfig.Editor.MAX_INPUT_CHARS
+    val titleLen = uiState.title.length
+    val bodyLen = editor.textLength
+    val totalChars = titleLen + bodyLen
     // 最近一次「与编辑器同步过」的 body（加载到 / 由本地编辑发出）。用它做轻量字符串比较，
     // 避免在每次 body 变化时重新 build 一遍 documentJson（getter 会全量序列化）。
     var lastSyncedBody by remember { mutableStateOf<String?>(null) }
@@ -348,6 +354,7 @@ fun CreateScreen(
                     state = editor,
                     onContentChanged = emitContent,
                     readOnly = showRecordingBar,   // 录音期间正文不可编辑、不弹键盘
+                    bodyCharLimit = (maxInputChars - titleLen).coerceAtLeast(0),
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
                         keyboardController?.hide()
@@ -358,7 +365,12 @@ fun CreateScreen(
                         // ── 标题 ──────────────────────────────────────────
                         BasicTextField(
                             value = uiState.title,
-                            onValueChange = { onEvent(CreateEvent.TitleChanged(it)) },
+                            onValueChange = {
+                                // 标题 + 正文合计不超上限；超限的「增长型」修改拒绝
+                                if (it.length + bodyLen <= maxInputChars || it.length <= uiState.title.length) {
+                                    onEvent(CreateEvent.TitleChanged(it))
+                                }
+                            },
                             readOnly = showRecordingBar,   // 录音期间不可编辑
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -439,6 +451,21 @@ fun CreateScreen(
                     .align(Alignment.BottomCenter)
                     .imePadding()
                     .onGloballyPositioned { toolbarTopWindowY = it.boundsInWindow().top },
+            )
+        }
+
+        // ── 字数计数：右下角「当前/上限」；达到上限标红。键盘弹起时抬到工具栏之上 ──
+        if (!showRecordingBar) {
+            val toolbarShown = (imeVisible || forceToolbarVisible)
+            Text(
+                text = "$totalChars / $maxInputChars",
+                fontSize = 11.sp,
+                color = if (totalChars >= maxInputChars) ColorDanger else ColorTextHint,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(end = 20.dp, bottom = if (toolbarShown) 84.dp else 12.dp),
             )
         }
 

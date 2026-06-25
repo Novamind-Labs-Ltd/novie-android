@@ -90,6 +90,10 @@ class NoteEditorState {
     val attachmentCount: Int
         get() = _blocks.count { it is ImageBlock || it is PdfBlock || it is MarkdownBlock }
 
+    /** 正文纯文本字数（所有文本块长度合计，不含连接换行），用于字数统计与限制。 */
+    val textLength: Int
+        get() = _blocks.filterIsInstance<TextBlock>().sumOf { it.rich.plainText.length }
+
     init {
         _blocks.add(TextBlock())
         focusedTextId = (_blocks.first() as TextBlock).id

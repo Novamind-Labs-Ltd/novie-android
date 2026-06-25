@@ -92,6 +92,7 @@ fun NoteContentEditor(
     onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
     header: (@Composable () -> Unit)? = null,   // 随正文一起滚动的头部（标题 / folder / tags 等）
     readOnly: Boolean = false,                  // 录音期间等场景：正文不可编辑、点击不弹键盘
+    bodyCharLimit: Int = Int.MAX_VALUE,         // 正文可输入字数上限（= 总上限 − 标题字数）
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -143,6 +144,9 @@ fun NoteContentEditor(
                     coverTopProvider = { coverTopState.value },
                     revealMarginPx = revealMarginPx,
                     onRegisterReveal = { revealFocused = it },
+                    // 本块可输入上限 = 正文上限 − 其他文本块已用字数
+                    maxBlockLen = (bodyCharLimit - (state.textLength - block.rich.plainText.length))
+                        .coerceAtLeast(0),
                     polishRange = when {
                         // 全部文字模式：每个文本块都整段做骨架
                         state.polishAll -> 0 until block.rich.value.text.length
@@ -237,6 +241,7 @@ private fun TextBlockField(
     coverTopProvider: () -> Float,
     revealMarginPx: Float,
     onRegisterReveal: ((() -> Unit)?) -> Unit,
+    maxBlockLen: Int = Int.MAX_VALUE,
     polishRange: IntRange? = null,
 ) {
     val scope = rememberCoroutineScope()
@@ -299,8 +304,11 @@ private fun TextBlockField(
     BasicTextField(
         value = block.rich.value,
         onValueChange = {
-            block.rich.onValueChange(it)
-            onChanged()
+            // 超过本块可输入上限的「增长型」变更直接拒绝（减少长度的编辑仍允许）
+            if (it.text.length <= maxBlockLen || it.text.length <= block.rich.value.text.length) {
+                block.rich.onValueChange(it)
+                onChanged()
+            }
         },
         readOnly = readOnly,   // 录音期间只读：不可输入、点击不弹软键盘
         modifier = Modifier
