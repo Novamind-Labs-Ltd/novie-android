@@ -1,11 +1,10 @@
 package com.novamind.app.feature.create.tag
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,13 +56,5 @@ fun TagChip(
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             )
         }
-    }
-}
-
-fun parseHexColor(hex: String): Color {
-    return try {
-        Color(android.graphics.Color.parseColor(hex))
-    } catch (e: Exception) {
-        Color(0xFF3D7A5A)
     }
 }
