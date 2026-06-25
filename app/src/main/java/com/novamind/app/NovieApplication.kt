@@ -6,7 +6,9 @@ import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
 import com.novamind.app.common.push.PushChannels
 import com.novamind.app.data.NoteRepository
+import com.novamind.app.data.RecordingRepository
 import com.novamind.app.data.RoomNoteRepository
+import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.db.AppDatabase
 import com.tencent.mmkv.MMKV
 
@@ -14,6 +16,9 @@ class NovieApplication : Application() {
 
     val database by lazy { AppDatabase.getInstance(this) }
     val noteRepository: NoteRepository by lazy { RoomNoteRepository(database.noteDao()) }
+    val recordingRepository: RecordingRepository by lazy {
+        RoomRecordingRepository(database.recordingDao())
+    }
 
     override fun onCreate() {
         super.onCreate()

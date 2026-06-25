@@ -6,13 +6,19 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [NoteEntity::class],
-    version = 2,
+    entities = [
+        NoteEntity::class,
+        RecordingEntity::class,
+        RecordingSegmentEntity::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun noteDao(): NoteDao
+
+    abstract fun recordingDao(): RecordingDao
 
     companion object {
         @Volatile
