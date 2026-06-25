@@ -1,5 +1,7 @@
 package com.novamind.app.feature.create
 
+import android.widget.Toast
+import com.novamind.app.common.config.AppConfig
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
@@ -203,6 +205,12 @@ fun CreateScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
+            // 选中后先校验大小：超过 16MB 直接忽略并提示（SAF 系统选择器无法按大小预先过滤）
+            val size = documentSize(context, uri)
+            if (size > AppConfig.MAX_DOCUMENT_SIZE) {
+                Toast.makeText(context, "文件超过 16MB，已忽略", Toast.LENGTH_SHORT).show()
+                return@rememberLauncherForActivityResult
+            }
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
                 when {
                     isMarkdownFile(name) -> scope.launch {
@@ -508,6 +516,20 @@ private val DOCUMENT_MIME_TYPES = arrayOf(
     "text/x-markdown",
     "text/plain",
 )
+
+/**
+ * 查询 SAF 文档的字节大小；查不到（部分 Provider 不返回 SIZE）时返回 -1，
+ * 此时不拦截（无法判断大小的文件照常插入）。
+ */
+private fun documentSize(context: android.content.Context, uri: android.net.Uri): Long {
+    context.contentResolver.query(
+        uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null,
+    )?.use { c ->
+        val idx = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
+        if (idx >= 0 && c.moveToFirst() && !c.isNull(idx)) return c.getLong(idx)
+    }
+    return -1L
+}
 
 /** 是否为 Markdown 文件（按文件名后缀判断）。 */
 private fun isMarkdownFile(name: String): Boolean =
