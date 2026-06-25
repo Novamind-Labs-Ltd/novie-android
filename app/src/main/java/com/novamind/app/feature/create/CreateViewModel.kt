@@ -10,18 +10,24 @@ import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.tag.Tag
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 
 private data class TextSnapshot(val title: String, val body: String)
 
+@OptIn(FlowPreview::class)
 class CreateViewModel(application: Application) : AndroidViewModel(application) {
 
     private val noteRepository: NoteRepository = (application as NovieApplication).noteRepository
@@ -34,16 +40,32 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
 
     private val undoStack = ArrayDeque<TextSnapshot>()
     private val redoStack = ArrayDeque<TextSnapshot>()
-    private var autoSaveJob: Job? = null
+
+    // 保存触发器：所有变更只发一个信号，由下面两条流去重/限频后落盘。
+    private val saveTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    // 串行化保存，避免防抖保存与封顶保存并发写、乱序。
+    private val saveMutex = Mutex()
 
     // 已落库的笔记快照：用于判断内容是否真的变化（未变则不写库、不更新 updatedAt），
     // 并保留原始 createdAt。
     private var persistedNote: Note? = null
 
+    init {
+        // 防抖：停顿超过 AUTO_SAVE_DELAY_MS 才落盘（大多数保存走这条）
+        saveTrigger
+            .debounce(AppConfig.Editor.AUTO_SAVE_DELAY_MS)
+            .onEach { saveNow() }
+            .launchIn(viewModelScope)
+        // 封顶：持续编辑不停手时，最多每隔 SAVE_MAX_INTERVAL_MS 强制落盘一次
+        saveTrigger
+            .sample(AppConfig.Editor.SAVE_MAX_INTERVAL_MS)
+            .onEach { saveNow() }
+            .launchIn(viewModelScope)
+    }
+
     // ── 初始化 / 重置 ─────────────────────────────────────────────────────────
 
     fun reset() {
-        autoSaveJob?.cancel()
         undoStack.clear()
         redoStack.clear()
         persistedNote = null
@@ -51,7 +73,6 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun loadNote(noteId: String) {
-        autoSaveJob?.cancel()
         undoStack.clear()
         redoStack.clear()
         viewModelScope.launch {
@@ -75,12 +96,12 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
         when (event) {
             is CreateEvent.TitleChanged -> {
                 updateText(newTitle = event.value, newBody = _uiState.value.body)
-                scheduleAutoSave()
+                requestSave()
             }
 
             is CreateEvent.ContentChanged -> {
                 updateText(newTitle = _uiState.value.title, newBody = event.document)
-                scheduleAutoSave()
+                requestSave()
             }
 
             is CreateEvent.UndoEdit -> {
@@ -96,7 +117,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                         canRedo = true,
                     )
                 }
-                scheduleAutoSave()
+                requestSave()
             }
 
             is CreateEvent.RedoEdit -> {
@@ -112,7 +133,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                         canRedo = redoStack.isNotEmpty(),
                     )
                 }
-                scheduleAutoSave()
+                requestSave()
             }
 
             is CreateEvent.TagToggled -> {
@@ -128,7 +149,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                         )
                     }
                 }
-                viewModelScope.launch { saveNow() }
+                requestSave()
             }
 
             is CreateEvent.NewTagCreated -> {
@@ -140,12 +161,12 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                         selectedTags = listOf(newTag) + state.selectedTags,
                     )
                 }
-                viewModelScope.launch { saveNow() }
+                requestSave()
             }
 
             is CreateEvent.FolderSelected -> {
                 _uiState.update { it.copy(selectedFolder = event.folder, showFolderPicker = false) }
-                viewModelScope.launch { saveNow() }
+                requestSave()
             }
 
             is CreateEvent.NewFolderCreated -> {
@@ -157,7 +178,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                         showFolderPicker = false,
                     )
                 }
-                viewModelScope.launch { saveNow() }
+                requestSave()
             }
 
             is CreateEvent.ShowTagPicker ->
@@ -180,11 +201,10 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
 
             is CreateEvent.BorderColorSelected -> {
                 _uiState.update { it.copy(borderColorHex = event.hex, showColorPicker = false) }
-                viewModelScope.launch { saveNow() }
+                requestSave()
             }
 
             is CreateEvent.SaveNote -> {
-                autoSaveJob?.cancel()
                 viewModelScope.launch {
                     saveNow()
                     _navigateBack.tryEmit(Unit)
@@ -192,7 +212,6 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             is CreateEvent.DeleteNote -> {
-                autoSaveJob?.cancel()
                 val noteId = _uiState.value.editingNoteId
                 viewModelScope.launch {
                     // 已保存过的笔记才需要删库；未保存的新笔记直接返回
@@ -205,15 +224,17 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
 
     // ── 私有方法 ──────────────────────────────────────────────────────────────
 
-    private fun scheduleAutoSave() {
-        autoSaveJob?.cancel()
-        autoSaveJob = viewModelScope.launch {
-            delay(AppConfig.Editor.AUTO_SAVE_DELAY_MS)
-            saveNow()
-        }
+    /** 任意内容变更 → 发一个保存信号（由防抖/封顶两条流统一去重限频后落盘）。 */
+    private fun requestSave() {
+        saveTrigger.tryEmit(Unit)
     }
 
-    private suspend fun saveNow() {
+    /** 立即落盘（退后台 / 离开页面等兜底；saveNow 幂等，内容未变会自动跳过）。 */
+    fun flush() {
+        viewModelScope.launch { saveNow() }
+    }
+
+    private suspend fun saveNow() = saveMutex.withLock {
         val state = _uiState.value
         // 标题为空、且正文文档无文字也无图片时，视为空笔记不保存
         if (state.title.isBlank() && NoteDocument.previewText(state.body).isBlank()) return

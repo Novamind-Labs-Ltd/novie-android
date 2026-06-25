@@ -8,8 +8,11 @@ object AppConfig {
 
     /** 笔记编辑器行为。 */
     object Editor {
-        /** 自动保存防抖延时（毫秒）。 */
-        const val AUTO_SAVE_DELAY_MS = 600L
+        /** 自动保存防抖延时（毫秒）：停顿超过此时长才落盘。 */
+        const val AUTO_SAVE_DELAY_MS = 5000L
+
+        /** 自动保存封顶间隔（毫秒）：持续编辑不停手时，最多每隔此时长强制落盘一次。 */
+        const val SAVE_MAX_INTERVAL_MS = 10_000L
 
         /** 撤销/重做历史最大步数。 */
         const val MAX_HISTORY = 50

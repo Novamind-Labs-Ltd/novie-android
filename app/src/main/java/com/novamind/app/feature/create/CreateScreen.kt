@@ -28,6 +28,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.feature.create.components.BgPage
@@ -76,6 +79,20 @@ fun CreateRoute(
     // 收一次性导航事件
     LaunchedEffect(Unit) {
         viewModel.navigateBack.collect { onBack() }
+    }
+
+    // 生命周期兜底：退后台(ON_STOP)或离开本页(onDispose)时立即落盘，
+    // 让自动保存的防抖/封顶可以放心拉长而不丢数据。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) viewModel.flush()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.flush()
+        }
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
