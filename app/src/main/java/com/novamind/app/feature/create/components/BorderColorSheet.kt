@@ -3,6 +3,7 @@ package com.novamind.app.feature.create.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +39,14 @@ val NoteBorderColors: List<String?> = listOf(
     "#748AA0",   // 蓝灰
     "#C5402A",   // 红
     "#2BB3D6",   // 青
+    "#7E57C2",   // 紫
+    "#EC407A",   // 粉
+    "#43A047",   // 亮绿
+    "#5C6BC0",   // 靛蓝
+    "#26A69A",   // 蓝绿
+    "#8D6E63",   // 棕
+    "#FB8C00",   // 深橙
+    "#FDD835",   // 黄
 )
 
 /** 默认（null）色板展示用的灰色。 */
@@ -79,7 +89,9 @@ fun BorderColorSheet(
                 color = TextDark,
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
