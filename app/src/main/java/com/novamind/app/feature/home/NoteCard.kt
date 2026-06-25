@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.feature.create.components.parseHexColor
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeFormat
 
@@ -40,8 +41,10 @@ internal fun NoteCard(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val borderColor = if (note.isSelected) ColorSelectedBorder else ColorBorder
-    val borderWidth = if (note.isSelected) 1.5.dp else 1.dp
+    // 自定义边框色优先；否则按选中/默认取色
+    val customBorder = parseHexColor(note.borderColorHex)
+    val borderColor = customBorder ?: if (note.isSelected) ColorSelectedBorder else ColorBorder
+    val borderWidth = if (customBorder != null || note.isSelected) 1.5.dp else 1.dp
 
     Surface(
         onClick = onClick,
@@ -128,6 +131,15 @@ private fun NoteCardPreview() {
                     "",
                     "无标题：这条用正文充当标题，剩余内容会接到分割线下方继续展示。",
                     isSelected = true,
+                    updatedAt = System.currentTimeMillis(),
+                )
+            )
+            NoteCard(
+                NoteItem(
+                    "3",
+                    "Q3 KPIs",
+                    "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                    borderColorHex = "#C5402A",
                     updatedAt = System.currentTimeMillis(),
                 )
             )

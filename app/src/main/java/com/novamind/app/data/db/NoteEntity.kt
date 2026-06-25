@@ -12,6 +12,8 @@ data class NoteEntity(
     val tagsJson: String,
     /** JSON 对象或 null，格式：{"id":"…","name":"…"} */
     val folderJson: String?,
+    /** 自定义边框颜色 #RRGGBB；null = 默认边框 */
+    val borderColorHex: String?,
     val createdAt: Long,
     val updatedAt: Long,
 )

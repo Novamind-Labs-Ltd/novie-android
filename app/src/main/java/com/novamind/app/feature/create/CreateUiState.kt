@@ -21,6 +21,10 @@ sealed class CreateEvent {
     object ShowTagPicker : CreateEvent()
     object DismissFolderPicker : CreateEvent()
     object ShowFolderPicker : CreateEvent()
+    object ShowColorPicker : CreateEvent()
+    object DismissColorPicker : CreateEvent()
+    /** 选中边框颜色 #RRGGBB；null = 恢复默认边框 */
+    data class BorderColorSelected(val hex: String?) : CreateEvent()
 }
 
 data class CreateUiState(
@@ -30,6 +34,7 @@ data class CreateUiState(
     val body: String = "",              // 图文混排文档 JSON（旧数据为纯文本）
     val selectedTags: List<Tag> = emptyList(),
     val selectedFolder: Folder? = null,
+    val borderColorHex: String? = null, // 自定义边框颜色 #RRGGBB；null = 默认
 
     // 可选项数据
     val availableTags: List<Tag> = defaultTags,
@@ -38,6 +43,7 @@ data class CreateUiState(
     // 弹窗状态
     val showTagPicker: Boolean = false,
     val showFolderPicker: Boolean = false,
+    val showColorPicker: Boolean = false,
 
     // 撤销/重做可用状态
     val canUndo: Boolean = false,

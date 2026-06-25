@@ -65,6 +65,7 @@ internal fun NoteEntity.toNote() = Note(
     body = body,
     tags = tagsJson.toTagList(),
     folder = folderJson?.toFolder(),
+    borderColorHex = borderColorHex,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -75,6 +76,7 @@ internal fun Note.toEntity() = NoteEntity(
     body = body,
     tagsJson = tags.toJson(),
     folderJson = folder?.toJson(),
+    borderColorHex = borderColorHex,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )

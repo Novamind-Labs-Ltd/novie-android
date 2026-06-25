@@ -38,6 +38,7 @@ fun CreateTopBar(
     onShare: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
+    onChangeColor: () -> Unit = {},
     onDelete: () -> Unit = {},
     moreEnabled: Boolean = true,   // 笔记为空时禁用「更多(···)」
     modifier: Modifier = Modifier,
@@ -98,6 +99,16 @@ fun CreateTopBar(
                             onClick = {
                                 menuExpanded = false
                                 onShare()
+                            },
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text("Change color", fontSize = 16.sp, color = ColorTextTitle)
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onChangeColor()
                             },
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         )

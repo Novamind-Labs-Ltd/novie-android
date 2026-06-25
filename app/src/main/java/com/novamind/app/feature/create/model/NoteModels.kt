@@ -10,6 +10,8 @@ data class Note(
     val body: String = "",
     val tags: List<Tag> = emptyList(),
     val folder: Folder? = null,
+    /** 自定义边框颜色 #RRGGBB；null = 使用默认边框 */
+    val borderColorHex: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
 )

@@ -31,6 +31,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.feature.create.components.BgPage
 import com.novamind.app.feature.create.components.ColorTextHint
 import com.novamind.app.feature.create.components.ColorTextTitle
+import com.novamind.app.feature.create.components.BorderColorSheet
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.ui.components.AttachmentSheet
@@ -286,6 +287,11 @@ fun CreateScreen(
                 onShare = {},   // 暂无事件（附件入口已移到工具栏）
                 onUndo = { onEvent(CreateEvent.UndoEdit) },
                 onRedo = { onEvent(CreateEvent.RedoEdit) },
+                onChangeColor = {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                    onEvent(CreateEvent.ShowColorPicker)
+                },
                 onDelete = {
                     keyboardController?.hide()
                     showDeleteConfirm = true
@@ -417,6 +423,14 @@ fun CreateScreen(
                 onFolderSelect = { onEvent(CreateEvent.FolderSelected(it)) },
                 onNewFolder = { onEvent(CreateEvent.NewFolderCreated(it)) },
                 onDismiss = { onEvent(CreateEvent.DismissFolderPicker) },
+            )
+        }
+
+        if (uiState.showColorPicker) {
+            BorderColorSheet(
+                selectedHex = uiState.borderColorHex,
+                onSelect = { onEvent(CreateEvent.BorderColorSelected(it)) },
+                onDismiss = { onEvent(CreateEvent.DismissColorPicker) },
             )
         }
 

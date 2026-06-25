@@ -7,8 +7,8 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [NoteEntity::class],
-    version = 1,
-    exportSchema = true,   // 在 app/schemas/ 生成 JSON，方便将来写 Migration
+    version = 2,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -25,6 +25,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "novie.db",
                 )
+                    // 调试阶段：schema 变更直接销毁重建，不写迁移
+                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { INSTANCE = it }
             }

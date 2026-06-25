@@ -59,6 +59,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 body = note.body,
                 selectedTags = note.tags,
                 selectedFolder = note.folder,
+                borderColorHex = note.borderColorHex,
             )
         }
     }
@@ -166,6 +167,17 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             is CreateEvent.DismissFolderPicker ->
                 _uiState.update { it.copy(showFolderPicker = false) }
 
+            is CreateEvent.ShowColorPicker ->
+                _uiState.update { it.copy(showColorPicker = true) }
+
+            is CreateEvent.DismissColorPicker ->
+                _uiState.update { it.copy(showColorPicker = false) }
+
+            is CreateEvent.BorderColorSelected -> {
+                _uiState.update { it.copy(borderColorHex = event.hex, showColorPicker = false) }
+                viewModelScope.launch { saveNow() }
+            }
+
             is CreateEvent.SaveNote -> {
                 autoSaveJob?.cancel()
                 viewModelScope.launch {
@@ -210,6 +222,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 body = state.body,
                 tags = state.selectedTags,
                 folder = state.selectedFolder,
+                borderColorHex = state.borderColorHex,
             )
         )
     }
