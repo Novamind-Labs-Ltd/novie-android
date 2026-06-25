@@ -50,6 +50,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                                 description = NoteDocument.previewText(note.body),
                                 tags = note.tags.map { it.name },
                                 folderName = note.folder?.name,
+                                createdAt = note.createdAt,
+                                updatedAt = note.updatedAt,
                             )
                         }
                     )

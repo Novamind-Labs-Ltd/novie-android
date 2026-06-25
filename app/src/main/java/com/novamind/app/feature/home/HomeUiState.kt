@@ -14,6 +14,10 @@ data class NoteItem(
     val isSelected: Boolean = false,
     val tags: List<String> = emptyList(),
     val folderName: String? = null,
+    /** 笔记创建时间（epoch 毫秒） */
+    val createdAt: Long = 0L,
+    /** 笔记最后更新时间（epoch 毫秒） */
+    val updatedAt: Long = 0L,
 )
 
 data class HomeUiState(
