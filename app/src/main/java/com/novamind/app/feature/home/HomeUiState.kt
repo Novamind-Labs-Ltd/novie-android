@@ -15,6 +15,8 @@ data class NoteItem(
     val tags: List<String> = emptyList(),
     /** 自定义边框颜色 #RRGGBB；null = 默认边框 */
     val borderColorHex: String? = null,
+    /** 正文里的第一张图片路径；null = 无图片 */
+    val imagePath: String? = null,
     /** 笔记创建时间（epoch 毫秒） */
     val createdAt: Long = 0L,
     /** 笔记最后更新时间（epoch 毫秒） */

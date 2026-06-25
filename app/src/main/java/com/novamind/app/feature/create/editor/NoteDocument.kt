@@ -34,4 +34,23 @@ object NoteDocument {
             raw
         }
     }
+
+    /** 取正文文档里的第一张图片路径；没有图片或为旧版纯文本时返回 null。 */
+    fun firstImagePath(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        if (!raw.trimStart().startsWith("{")) return null
+        return try {
+            val arr = JSONObject(raw).getJSONArray("blocks")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                if (o.optString("type") == "image") {
+                    val path = o.optString("path")
+                    if (path.isNotBlank()) return path
+                }
+            }
+            null
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

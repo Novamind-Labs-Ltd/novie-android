@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -15,15 +16,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.novamind.app.feature.create.components.parseHexColor
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeFormat
+import java.io.File
 
 // NoteCard 自用配色（与 HomeScreen 同值；遵循 home 模块按文件私有配色的现状）
 private val BgCard = Color(0xFFFFFFFF)
@@ -103,6 +108,18 @@ internal fun NoteCard(
                     // 内容自适应高度，最多 8 行，超出用省略号
                     maxLines = 8,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            // 正文存在图片时：展示第一张缩略图（56dp 圆角方图）
+            note.imagePath?.let { path ->
+                AsyncImage(
+                    model = File(path),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(10.dp)),
                 )
             }
         }

@@ -50,6 +50,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                                 description = NoteDocument.previewText(note.body),
                                 tags = note.tags.map { it.name },
                                 borderColorHex = note.borderColorHex,
+                                imagePath = NoteDocument.firstImagePath(note.body),
                                 createdAt = note.createdAt,
                                 updatedAt = note.updatedAt,
                             )
