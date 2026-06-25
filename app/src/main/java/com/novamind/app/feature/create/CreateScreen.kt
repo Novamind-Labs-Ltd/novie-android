@@ -36,6 +36,7 @@ import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.BorderColorSheet
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
+import com.novamind.app.feature.create.components.NoteEditorSkeleton
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.VoiceRecordingBar
@@ -115,6 +116,8 @@ fun CreateScreen(
     var showAttachSheet by remember { mutableStateOf(false) }
     // 录音条显隐（点工具栏「Voice」后从底部弹出）
     var showRecordingBar by remember { mutableStateOf(false) }
+    // AI「Polishing」骨架图覆盖层显隐（点工具栏「Magic」后出现）
+    var showPolishing by remember { mutableStateOf(false) }
     // 图片预览：当前预览的图片下标（null = 不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     // 图片预览或录音条打开 → 通知宿主隐藏底部导航栏；都关闭后恢复，离开本页时复位
@@ -269,7 +272,8 @@ fun CreateScreen(
     // 系统返回（左/右边缘滑动返回）与左上角 back 一致：收键盘 + 保存并返回。
     // 有图片预览/弹窗/录音条时交给它们各自的返回处理（预览有自己的 BackHandler，弹窗 back 自动关闭）。
     BackHandler(
-        enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm && !showRecordingBar
+        enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm &&
+            !showRecordingBar && !showPolishing
     ) {
         keyboardController?.hide()
         onEvent(CreateEvent.SaveNote)
@@ -391,6 +395,12 @@ fun CreateScreen(
                     keyboardController?.hide()
                     showAttachSheet = true
                 },
+                onMagic = {
+                    // Magic → 收键盘并展示 AI「Polishing」骨架图覆盖层
+                    keyboardController?.hide()
+                    focusManager.clearFocus(force = true)
+                    showPolishing = true
+                },
                 onBulletList = { editor.insertListMarker(numbered = false); emitContent() },
                 onNumberedList = { editor.insertListMarker(numbered = true); emitContent() },
                 modifier = Modifier
@@ -499,6 +509,12 @@ fun CreateScreen(
                 deleteMessage = "This will remove the image from the note.",
                 onBack = { previewIndex = null },
             )
+        }
+
+        // ── AI「Polishing」骨架图覆盖层：点工具栏 Magic 后整页覆盖，系统返回可关闭 ──
+        if (showPolishing) {
+            BackHandler(enabled = true) { showPolishing = false }
+            NoteEditorSkeleton(modifier = Modifier.fillMaxSize())
         }
     }
 }
