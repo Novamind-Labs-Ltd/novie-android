@@ -46,6 +46,7 @@ fun DeleteConfirmSheet(
     title: String = "Delete note?",
     message: String = "This will permanently delete the note.",
     confirmLabel: String = "Delete",
+    dismissLabel: String = "Cancel",
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -59,6 +60,7 @@ fun DeleteConfirmSheet(
             title = title,
             message = message,
             confirmLabel = confirmLabel,
+            dismissLabel = dismissLabel,
         )
     }
 }
@@ -71,6 +73,7 @@ fun DeleteConfirmContent(
     title: String = "Delete note?",
     message: String = "This will permanently delete the note.",
     confirmLabel: String = "Delete",
+    dismissLabel: String = "Cancel",
 ) {
     Column(
         modifier = Modifier
@@ -96,7 +99,7 @@ fun DeleteConfirmContent(
         )
         // Cancel —— 白底描边胶囊
         PillButton(
-            label = "Cancel",
+            label = dismissLabel,
             textColor = TextTitle,
             background = SheetBg,
             border = BorderStroke(1.5.dp, TextTitle),
