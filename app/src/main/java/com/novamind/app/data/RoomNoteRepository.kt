@@ -1,6 +1,7 @@
 package com.novamind.app.data
 
 import com.novamind.app.data.db.NoteDao
+import com.novamind.app.data.db.SyncStatus
 import com.novamind.app.data.db.toEntity
 import com.novamind.app.data.db.toNote
 import com.novamind.app.feature.create.model.Note
@@ -13,11 +14,28 @@ class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
         dao.getAllNotes().map { entities -> entities.map { it.toNote() } }
 
     override suspend fun addOrUpdate(note: Note) {
-        dao.upsert(note.toEntity())
+        // 保留已有的同步元数据（serverId/rev/lastSyncedAt），仅把状态置为「有未同步改动」
+        val existing = dao.getById(note.id)
+        dao.upsert(
+            note.toEntity().copy(
+                serverId = existing?.serverId,
+                rev = existing?.rev ?: 0L,
+                lastSyncedAt = existing?.lastSyncedAt,
+                deleted = false,
+                syncStatus = SyncStatus.DIRTY.name,
+            ),
+        )
     }
 
     override suspend fun delete(noteId: String) {
-        dao.deleteById(noteId)
+        val existing = dao.getById(noteId)
+        if (existing?.serverId == null) {
+            // 从未同步到后端：直接物理删除，无需 tombstone
+            dao.deleteById(noteId)
+        } else {
+            // 已在后端存在：软删，待同步把删除传上去后再物理清理
+            dao.markDeleted(noteId, System.currentTimeMillis())
+        }
     }
 
     override suspend fun getNoteById(noteId: String): Note? =

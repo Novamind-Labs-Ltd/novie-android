@@ -8,9 +8,24 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NoteDao {
 
-    /** 实时监听全部笔记，按最后更新时间倒序 */
-    @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
+    /** 实时监听可见笔记（排除已软删的 tombstone），按最后更新时间倒序 */
+    @Query("SELECT * FROM notes WHERE deleted = 0 ORDER BY updatedAt DESC")
     fun getAllNotes(): Flow<List<NoteEntity>>
+
+    /** 待同步（本地新建或有未同步改动）的笔记，供上行同步使用。 */
+    @Query("SELECT * FROM notes WHERE syncStatus IN ('LOCAL', 'DIRTY')")
+    suspend fun dirtyNotes(): List<NoteEntity>
+
+    /** 软删：打 tombstone 并标记待同步（保留行，待同步完成后再物理删除）。 */
+    @Query("UPDATE notes SET deleted = 1, syncStatus = 'DIRTY', updatedAt = :timestamp WHERE id = :id")
+    suspend fun markDeleted(id: String, timestamp: Long)
+
+    /** 同步成功后回写后端 id / 版本，并置为已对齐。 */
+    @Query(
+        "UPDATE notes SET serverId = :serverId, rev = :rev, " +
+            "syncStatus = 'SYNCED', lastSyncedAt = :timestamp WHERE id = :id",
+    )
+    suspend fun markSynced(id: String, serverId: String, rev: Long, timestamp: Long)
 
     /** 新增或更新（根据主键 id 判断） */
     @Upsert
