@@ -40,6 +40,18 @@ object TimeFormat {
         else -> format(ms, "MMM d, yyyy")
     }
 
+    /**
+     * 智能时间戳（聊天/列表常见样式）：
+     * 今天 → HH:mm（24 小时制，如 14:26）；
+     * 今年内（非今天）→ MM-dd（月-日，如 06-12）；
+     * 其他年份 → yyyy-MM-dd（年-月-日，如 2024-06-12）。
+     */
+    fun smart(ms: Long, now: Long = System.currentTimeMillis()): String = when {
+        isSameDay(ms, now) -> format(ms, "HH:mm")
+        isSameYear(ms, now) -> format(ms, "MM-dd")
+        else -> format(ms, "yyyy-MM-dd")
+    }
+
     /** 紧凑日期时间：MM-dd HH:mm（如 06-12 14:26）。 */
     fun shortDateTime(ms: Long): String = format(ms, "MM-dd HH:mm")
 
