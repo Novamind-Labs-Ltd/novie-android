@@ -180,15 +180,27 @@ fun CreateScreen(
     val remainingSlots = (AppConfig.Media.MAX_ATTACHMENTS - editor.attachmentCount).coerceAtLeast(0)
     val imagePickMax = minOf(maxImages, remainingSlots)
 
-    // 系统多选图片选择器：maxItems 随剩余可选数变化（API 要求 >1，故 coerceAtLeast(2)），
-    // 返回后再按剩余数兜底截断，避免超额插入。用 key 在剩余数变化时重建以更新 maxItems。
-    val imagePicker = key(imagePickMax) {
+    // 仅剩 1 个名额：用单选图片选择器。否则系统多选页（API 要求 maxItems>1）最少也能选 2 张。
+    val singleImagePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            ImageStore.copyToInternal(context, uri)?.let { path ->
+                editor.insertImage(path)
+                emitContent()
+            }
+        }
+    }
+
+    // 多选图片选择器：maxItems = 剩余名额（用 key 在其变化时重建以更新上限），
+    // 返回后再按名额兜底截断，避免超额插入。
+    val multiImagePicker = key(imagePickMax) {
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickMultipleVisualMedia(imagePickMax.coerceAtLeast(2))
         ) { uris ->
             if (uris.isNotEmpty()) {
                 var inserted = false
-                uris.take(remainingSlots).forEach { uri ->
+                uris.take(imagePickMax).forEach { uri ->
                     ImageStore.copyToInternal(context, uri)?.let { path ->
                         editor.insertImage(path)
                         inserted = true
@@ -487,9 +499,10 @@ fun CreateScreen(
         if (showAttachSheet) {
             AttachmentSheet(
                 onPickImage = {
-                    imagePicker.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
+                    val req = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    // 只剩 1 个名额走单选，否则走多选（maxItems = 剩余名额）
+                    if (imagePickMax <= 1) singleImagePicker.launch(req)
+                    else multiImagePicker.launch(req)
                 },
                 onTakePhoto = {
                     ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
