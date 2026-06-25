@@ -38,6 +38,54 @@ object ImageStore {
         null
     }
 
+    /** 导入图片结果：内部存储路径 + 像素宽高（供列表用 aspectRatio 预留高度，避免布局跳动）。 */
+    data class SavedImage(val path: String, val width: Int, val height: Int)
+
+    /**
+     * 导入相册图片到内部存储：解码时下采样到 [AppConfig.Media.IMAGE_MAX_DIMENSION] 以内，
+     * 再以 JPEG（[AppConfig.Media.IMAGE_JPEG_QUALITY]）写盘，显著降低文件体积与后续解码开销。
+     * 解码失败时回退为原样拷贝（宽高记 0）。建议在 IO 线程调用。
+     */
+    fun importImage(context: Context, uri: Uri): SavedImage? {
+        val bitmap = decodeBitmap(context, uri)
+            ?: return copyToInternal(context, uri)?.let { SavedImage(it, 0, 0) }
+        return try {
+            val dir = File(context.filesDir, IMAGE_DIR).apply { mkdirs() }
+            val dest = File(dir, "${UUID.randomUUID()}.jpg")
+            val w = bitmap.width
+            val h = bitmap.height
+            dest.outputStream().use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, AppConfig.Media.IMAGE_JPEG_QUALITY, out)
+            }
+            SavedImage(dest.absolutePath, w, h)
+        } catch (_: Exception) {
+            null
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * 相机拍照后处理：把已写入 [path] 的原图就地解码下采样，再以 JPEG 覆盖写回，返回宽高。
+     * 解码失败则保留原图（宽高记 0）。建议在 IO 线程调用。
+     */
+    fun finalizeCaptured(context: Context, path: String): SavedImage {
+        val file = File(path)
+        val bitmap = decodeBitmap(context, Uri.fromFile(file)) ?: return SavedImage(path, 0, 0)
+        return try {
+            val w = bitmap.width
+            val h = bitmap.height
+            file.outputStream().use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, AppConfig.Media.IMAGE_JPEG_QUALITY, out)
+            }
+            SavedImage(path, w, h)
+        } catch (_: Exception) {
+            SavedImage(path, 0, 0)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     /** 拷贝任意文档到内部存储，返回（绝对路径，展示文件名）；失败返回 null。 */
     fun copyFileToInternal(context: Context, uri: Uri): Pair<String, String>? = try {
         val dir = File(context.filesDir, FILE_DIR).apply { mkdirs() }

@@ -381,13 +381,20 @@ private fun ImageBlockView(
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
-        // 点击图片进入预览
+        // 点击图片进入预览。已知宽高时用 aspectRatio 预留高度，避免加载完成后高度突变导致滚动跳动。
         AsyncImage(
             model = File(block.path),
             contentDescription = "Note image",
             contentScale = ContentScale.FillWidth,
             modifier = Modifier
                 .fillMaxWidth()
+                .then(
+                    if (block.width > 0 && block.height > 0) {
+                        Modifier.aspectRatio(block.width.toFloat() / block.height)
+                    } else {
+                        Modifier
+                    },
+                )
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFFE8E7E2))
                 .clickable(

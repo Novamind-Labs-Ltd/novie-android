@@ -39,8 +39,11 @@ object AppConfig {
         /** 图片解码下采样的最长边上限（像素），防 OOM。 */
         const val IMAGE_MAX_DIMENSION = 2048
 
-        /** 图片写盘压缩质量（0~100）。 */
+        /** 图片写盘压缩质量（0~100，PNG 无损时忽略）。 */
         const val IMAGE_COMPRESS_QUALITY = 100
+
+        /** 笔记图片导入时的 JPEG 压缩质量（0~100）。 */
+        const val IMAGE_JPEG_QUALITY = 85
 
         /** 单个录音分片大小上限（字节）。默认 5MB。 */
         const val AUDIO_SEGMENT_BYTES = 5L * 1024 * 1024

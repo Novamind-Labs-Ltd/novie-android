@@ -29,9 +29,11 @@ class TextBlock(
     val focusRequester = FocusRequester()
 }
 
-/** 图片块，path 指向内部存储中的图片文件 */
+/** 图片块，path 指向内部存储中的图片文件；width/height 为像素尺寸（0 = 未知） */
 class ImageBlock(
     val path: String,
+    val width: Int = 0,
+    val height: Int = 0,
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock
 
@@ -162,7 +164,8 @@ class NoteEditorState {
     // ── 插入 / 删除非文本块（图片 / 文档） ──────────────────────────────────
 
     /** 在聚焦文本块的光标处插入图片块 */
-    fun insertImage(path: String) = insertBlockAtCaret(ImageBlock(path))
+    fun insertImage(path: String, width: Int = 0, height: Int = 0) =
+        insertBlockAtCaret(ImageBlock(path, width, height))
 
     /** 在聚焦文本块的光标处插入文档块 */
     fun insertFile(path: String, name: String) = insertBlockAtCaret(FileBlock(path, name))
@@ -259,6 +262,7 @@ class NoteEditorState {
                     )
                     is ImageBlock -> arr.put(
                         JSONObject().put("type", "image").put("path", block.path)
+                            .put("width", block.width).put("height", block.height)
                     )
                     is FileBlock -> arr.put(
                         JSONObject().put("type", "file").put("path", block.path).put("name", block.name)
@@ -333,7 +337,9 @@ class NoteEditorState {
                 val obj = arr.getJSONObject(i)
                 when (obj.optString("type")) {
                     "text" -> TextBlock(obj.optString("text"))
-                    "image" -> obj.optString("path").takeIf { it.isNotBlank() }?.let { ImageBlock(it) }
+                    "image" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
+                        ImageBlock(it, obj.optInt("width", 0), obj.optInt("height", 0))
+                    }
                     "file" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
                         FileBlock(it, obj.optString("name").ifBlank { "Document" })
                     }

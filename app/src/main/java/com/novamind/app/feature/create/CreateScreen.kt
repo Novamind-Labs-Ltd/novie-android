@@ -190,9 +190,11 @@ fun CreateScreen(
     val singleImagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        if (uri != null) {
-            ImageStore.copyToInternal(context, uri)?.let { path ->
-                editor.insertImage(path)
+        if (uri != null) scope.launch {
+            // 导入（下采样+压缩+读宽高）放 IO 线程，避免大图阻塞主线程造成卡顿
+            val saved = withContext(Dispatchers.IO) { ImageStore.importImage(context, uri) }
+            saved?.let {
+                editor.insertImage(it.path, it.width, it.height)
                 emitContent()
             }
         }
@@ -204,28 +206,26 @@ fun CreateScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickMultipleVisualMedia(imagePickMax.coerceAtLeast(2))
         ) { uris ->
-            if (uris.isNotEmpty()) {
-                var inserted = false
-                uris.take(imagePickMax).forEach { uri ->
-                    ImageStore.copyToInternal(context, uri)?.let { path ->
-                        editor.insertImage(path)
-                        inserted = true
-                    }
+            if (uris.isNotEmpty()) scope.launch {
+                val saved = uris.take(imagePickMax).mapNotNull { uri ->
+                    withContext(Dispatchers.IO) { ImageStore.importImage(context, uri) }
                 }
-                if (inserted) emitContent()
+                saved.forEach { editor.insertImage(it.path, it.width, it.height) }
+                if (saved.isNotEmpty()) emitContent()
             }
         }
     }
 
-    // 相机拍照：先建目标文件拿到可写 URI，拍成功后该路径即图片
+    // 相机拍照：先建目标文件拿到可写 URI，拍成功后对原图下采样压缩并读宽高
     var pendingCapturePath by remember { mutableStateOf<String?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
         val path = pendingCapturePath
         pendingCapturePath = null
-        if (success && path != null) {
-            editor.insertImage(path)
+        if (success && path != null) scope.launch {
+            val saved = withContext(Dispatchers.IO) { ImageStore.finalizeCaptured(context, path) }
+            editor.insertImage(saved.path, saved.width, saved.height)
             emitContent()
         }
     }
