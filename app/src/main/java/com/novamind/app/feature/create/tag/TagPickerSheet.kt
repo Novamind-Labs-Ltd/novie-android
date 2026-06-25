@@ -43,12 +43,14 @@ fun TagPickerSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Color(0xFFF0EFEA),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.85f)   // 固定高度：占屏幕约 85%，不随标签数量伸缩
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -85,10 +87,11 @@ fun TagPickerSheet(
                 )
             }
 
-            // 标签列表（多选）
+            // 标签列表（多选）：填满固定高度内的剩余空间，超出可滚动
             FlowRow(
                 modifier = Modifier
-                    .heightIn(max = 320.dp)
+                    .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
