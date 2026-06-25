@@ -156,6 +156,10 @@ fun NoteContentEditor(
                 is ImageBlock -> ImageBlockView(
                     block = block,
                     onClick = { onImageClick(block.id) },
+                    onDelete = {
+                        state.removeBlock(block.id)
+                        onContentChanged()
+                    },
                 )
 
                 is FileBlock -> FileBlockView(
@@ -358,13 +362,14 @@ private fun TextBlockField(
 private fun ImageBlockView(
     block: ImageBlock,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
-        // 点击图片进入预览（删除在预览页内进行）
+        // 点击图片进入预览
         AsyncImage(
             model = File(block.path),
             contentDescription = "Note image",
@@ -379,6 +384,23 @@ private fun ImageBlockView(
                     onClick = onClick,
                 ),
         )
+        // 右上角删除按钮（与 PDF/文件块一致的删除能力，悬浮于图片之上）
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(Color(0x99000000))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(bounded = false),
+                    onClick = onDelete,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("×", color = Color.White, fontSize = 16.sp)
+        }
     }
 }
 
