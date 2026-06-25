@@ -27,6 +27,9 @@ object AppConfig {
         /** 文档/附件大小上限（字节）。默认 16MB。 */
         const val MAX_DOCUMENT_SIZE = 16L * 1024 * 1024
 
+        /** 一次最多可选择的图片数量（系统多选图片选择器）。 */
+        const val MAX_IMAGE_PICK = 9
+
         /** 图片解码下采样的最长边上限（像素），防 OOM。 */
         const val IMAGE_MAX_DIMENSION = 2048
 

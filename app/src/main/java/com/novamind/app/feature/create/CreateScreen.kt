@@ -63,6 +63,7 @@ fun CreateRoute(
     onBack: () -> Unit = {},
     noteId: String? = null,           // 非 null 时加载已有笔记
     onFullscreenChange: (Boolean) -> Unit = {},  // 全屏页（图片预览）显隐 → 宿主隐藏底部导航
+    maxImages: Int = AppConfig.Media.MAX_IMAGE_PICK,  // 一次最多可选图片数
     modifier: Modifier = Modifier,
     viewModel: CreateViewModel = viewModel(),
 ) {
@@ -83,6 +84,7 @@ fun CreateRoute(
         onBack = onBack,
         autoFocusBody = noteId == null,   // 新建笔记自动聚焦正文并弹出键盘
         onFullscreenChange = onFullscreenChange,
+        maxImages = maxImages,
         modifier = modifier,
     )
 }
@@ -96,6 +98,7 @@ fun CreateScreen(
     onBack: () -> Unit = {},
     autoFocusBody: Boolean = false,         // 新建笔记进入时自动聚焦正文（弹出键盘）
     onFullscreenChange: (Boolean) -> Unit = {},  // 图片预览全屏页显隐回调
+    maxImages: Int = AppConfig.Media.MAX_IMAGE_PICK,  // 一次最多可选图片数
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -173,8 +176,9 @@ fun CreateScreen(
     }
 
     // 系统照片选择器（支持多选，无需运行时权限）
+    // PickMultipleVisualMedia 要求 maxItems > 1，单张场景仍按多选处理，至少为 2
     val imagePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia()
+        ActivityResultContracts.PickMultipleVisualMedia(maxImages.coerceAtLeast(2))
     ) { uris ->
         if (uris.isNotEmpty()) {
             var inserted = false
