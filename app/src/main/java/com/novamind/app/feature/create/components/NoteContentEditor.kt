@@ -269,7 +269,10 @@ private fun TextBlockField(
         val layout = latestLayout ?: return
         if (!content.isAttached || !field.isAttached) return
         val value = block.rich.value
-        val offset = value.selection.end.coerceIn(0, value.text.length)
+        // 用 layout 自身的字符数兜底：拒绝超限输入后 value 可能比已测量的 layout 长，
+        // 直接用 value 长度会让 getCursorRect/getLineForOffset 越界崩溃。
+        val maxOffset = minOf(value.text.length, layout.layoutInput.text.length)
+        val offset = value.selection.end.coerceIn(0, maxOffset)
         val line = layout.getLineForOffset(offset)
         if (respectLineGate && line == lastCursorLine) return
         lastCursorLine = line
@@ -330,7 +333,8 @@ private fun TextBlockField(
                 val layout = latestLayout
                 val range = polishRange
                 if (layout != null && range != null && !range.isEmpty()) {
-                    val textLen = block.rich.value.text.length
+                    // 以已测量的 layout 字符数为界，避免与（可能更新更快的）value 不同步导致越界
+                    val textLen = layout.layoutInput.text.length
                     val start = range.first.coerceIn(0, textLen)
                     val end = (range.last + 1).coerceIn(0, textLen)
                     if (end > start) {
