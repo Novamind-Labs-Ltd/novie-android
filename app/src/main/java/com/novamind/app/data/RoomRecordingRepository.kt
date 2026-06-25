@@ -5,7 +5,7 @@ import com.novamind.app.data.db.RecordingEntity
 import com.novamind.app.data.db.RecordingSegmentEntity
 import com.novamind.app.data.db.RecordingWithSegments
 import com.novamind.app.data.db.UploadStatus
-import com.novamind.app.util.FileIntegrity
+import com.novamind.app.util.FileUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -33,7 +33,7 @@ class RoomRecordingRepository(private val dao: RecordingDao) : RecordingReposito
                 path = path,
                 bytes = file.length(),
                 durationMs = 0L,                 // 单片时长未知，留 0（整体时长在录音上）
-                sha256 = FileIntegrity.sha256(file),
+                sha256 = FileUtils.sha256(file),
             )
         }
         val recording = RecordingEntity(
@@ -43,7 +43,7 @@ class RoomRecordingRepository(private val dao: RecordingDao) : RecordingReposito
             durationMs = durationMs,
             totalBytes = segments.sumOf { it.bytes },
             segmentCount = segments.size,
-            sha256 = FileIntegrity.recordingHash(segments.map { it.sha256 }),
+            sha256 = FileUtils.recordingHash(segments.map { it.sha256 }),
         )
         // 先插录音（满足外键），再插分片
         dao.upsertRecording(recording)

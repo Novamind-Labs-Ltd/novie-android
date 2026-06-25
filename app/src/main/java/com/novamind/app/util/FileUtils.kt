@@ -7,7 +7,28 @@ import java.security.MessageDigest
  * 文件完整性工具：分片用 SHA-256 校验，录音整体用「分片哈希再哈希」（hash-of-hashes）。
  * 所有方法均做流式读取，避免大文件一次性载入内存。建议在 IO 线程调用。
  */
-object FileIntegrity {
+object FileUtils {
+    /** 是否为 Markdown 文件（按文件名后缀判断）。 */
+    fun isMarkdownFile(name: String): Boolean =
+        name.endsWith(".md", ignoreCase = true) || name.endsWith(".markdown", ignoreCase = true)
+
+    /** 是否为 PDF 文件（按文件名后缀判断）。 */
+    fun isPdfFile(name: String): Boolean =
+        name.endsWith(".pdf", ignoreCase = true)
+
+    /**
+     * 查询 SAF 文档的字节大小；查不到（部分 Provider 不返回 SIZE）时返回 -1，
+     * 此时不拦截（无法判断大小的文件照常插入）。
+     */
+    fun documentSize(context: android.content.Context, uri: android.net.Uri): Long {
+        context.contentResolver.query(
+            uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null,
+        )?.use { c ->
+            val idx = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
+            if (idx >= 0 && c.moveToFirst() && !c.isNull(idx)) return c.getLong(idx)
+        }
+        return -1L
+    }
 
     /** 计算文件的 SHA-256（小写十六进制）。 */
     fun sha256(file: File): String {

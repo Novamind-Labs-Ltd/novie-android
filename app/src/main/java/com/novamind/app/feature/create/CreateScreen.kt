@@ -54,7 +54,8 @@ import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
 import com.novamind.app.ui.theme.AppTheme
-import com.novamind.app.util.TimeFormat
+import com.novamind.app.util.FileUtils
+import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -124,7 +125,7 @@ fun CreateScreen(
         WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
     // 编辑已有笔记：展示其更新时间；新建：展示当前时间
     val timeLabel = remember(uiState.updatedAt) {
-        TimeFormat.relative(uiState.updatedAt ?: System.currentTimeMillis())
+        TimeUtils.relative(uiState.updatedAt ?: System.currentTimeMillis())
     }
 
     // 悬浮工具栏在屏幕上的真实顶边（窗口坐标 px）——作为遮挡线，光标须露在其上方
@@ -254,14 +255,14 @@ fun CreateScreen(
     ) { uri ->
         if (uri != null) {
             // 选中后先校验大小：超过 16MB 直接忽略并提示（SAF 系统选择器无法按大小预先过滤）
-            val size = documentSize(context, uri)
+            val size = FileUtils.documentSize(context, uri)
             if (size > AppConfig.Media.MAX_DOCUMENT_SIZE) {
                 Toast.makeText(context, "文件超过 16MB，已忽略", Toast.LENGTH_SHORT).show()
                 return@rememberLauncherForActivityResult
             }
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
                 when {
-                    isMarkdownFile(name) -> scope.launch {
+                    FileUtils.isMarkdownFile(name) -> scope.launch {
                         val content = withContext(Dispatchers.IO) {
                             runCatching { File(path).readText() }.getOrDefault("")
                         }
@@ -269,10 +270,12 @@ fun CreateScreen(
                         else editor.insertFile(path, name)   // 空内容兜底为文件块
                         emitContent()
                     }
-                    isPdfFile(name) -> {
+
+                    FileUtils.isPdfFile(name) -> {
                         editor.insertPdf(path, name)         // PDF：逐页渲染展示
                         emitContent()
                     }
+
                     else -> {
                         editor.insertFile(path, name)
                         emitContent()
@@ -300,7 +303,7 @@ fun CreateScreen(
 
     // 标题与正文均为空时视为空笔记 → 禁用「更多(···)」
     val noteEmpty = uiState.title.isBlank() &&
-        NoteDocument.previewText(uiState.body).isBlank()
+            NoteDocument.previewText(uiState.body).isBlank()
 
     // 录音开始时强制收起键盘并清焦点（录音期间正文/标题置为只读，不可编辑）
     LaunchedEffect(showRecordingBar) {
@@ -321,7 +324,7 @@ fun CreateScreen(
     // 有图片预览/弹窗/录音条时交给它们各自的返回处理（预览有自己的 BackHandler，弹窗 back 自动关闭）。
     BackHandler(
         enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm &&
-            !showRecordingBar && !polishing
+                !showRecordingBar && !polishing
     ) {
         keyboardController?.hide()
         onEvent(CreateEvent.SaveNote)
@@ -333,8 +336,8 @@ fun CreateScreen(
                 .fillMaxSize()
                 .background(BgPage)
                 .statusBarsPadding(),
-                // adjustNothing：不在内容上用 imePadding（避免重排），键盘空间由编辑器内部处理；
-                // 工具栏作为悬浮层单独用 imePadding 抬到键盘之上。
+            // adjustNothing：不在内容上用 imePadding（避免重排），键盘空间由编辑器内部处理；
+            // 工具栏作为悬浮层单独用 imePadding 抬到键盘之上。
         ) {
             // ── 顶部操作行 ────────────────────────────────────────────────
             CreateTopBar(
@@ -375,7 +378,8 @@ fun CreateScreen(
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
                         keyboardController?.hide()
-                        val idx = editor.blocks.filterIsInstance<ImageBlock>().indexOfFirst { it.id == id }
+                        val idx = editor.blocks.filterIsInstance<ImageBlock>()
+                            .indexOfFirst { it.id == id }
                         if (idx >= 0) previewIndex = idx
                     },
                     header = {
@@ -493,7 +497,7 @@ fun CreateScreen(
                 onCancel = { showRecordingBar = false },
                 onConfirm = { path, durationSeconds ->
                     showRecordingBar = false
-                    editor.insertFile(path, "Recording ${formatRecordingDuration(durationSeconds)}")
+                    editor.insertFile(path, "Recording ${TimeUtils.formatRecordingDuration(durationSeconds)}")
                     emitContent()
                 },
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -544,7 +548,8 @@ fun CreateScreen(
         if (showAttachSheet) {
             AttachmentSheet(
                 onPickImage = {
-                    val req = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    val req =
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     // 只剩 1 个名额走单选，否则走多选（maxItems = 剩余名额）
                     if (imagePickMax <= 1) singleImagePicker.launch(req)
                     else multiImagePicker.launch(req)
@@ -555,7 +560,7 @@ fun CreateScreen(
                         cameraLauncher.launch(uri)
                     }
                 },
-                onPickDocument = { documentPicker.launch(DOCUMENT_MIME_TYPES) },
+                onPickDocument = { documentPicker.launch(AppConfig.Media.DOCUMENT_MIME_TYPES) },
                 onDismiss = { showAttachSheet = false },
             )
         }
@@ -590,49 +595,6 @@ fun CreateScreen(
         }
 
     }
-}
-
-/**
- * 文档附件可选的 MIME 类型：PDF + Markdown。
- *
- * 注意：.md 文件的 MIME 在各文件提供方很不统一——有的报 `text/markdown`，有的报
- * `text/x-markdown`，更多直接当成 `text/plain`。为保证用户能选到 .md，这里把这几类都放开
- * （代价是也会显示 .txt 等纯文本文件）。OpenDocument 只能按 MIME 过滤，无法按扩展名过滤。
- */
-private val DOCUMENT_MIME_TYPES = arrayOf(
-    "application/pdf",
-    "text/markdown",
-    "text/x-markdown",
-    "text/plain",
-)
-
-/**
- * 查询 SAF 文档的字节大小；查不到（部分 Provider 不返回 SIZE）时返回 -1，
- * 此时不拦截（无法判断大小的文件照常插入）。
- */
-private fun documentSize(context: android.content.Context, uri: android.net.Uri): Long {
-    context.contentResolver.query(
-        uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null,
-    )?.use { c ->
-        val idx = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
-        if (idx >= 0 && c.moveToFirst() && !c.isNull(idx)) return c.getLong(idx)
-    }
-    return -1L
-}
-
-/** 是否为 Markdown 文件（按文件名后缀判断）。 */
-private fun isMarkdownFile(name: String): Boolean =
-    name.endsWith(".md", ignoreCase = true) || name.endsWith(".markdown", ignoreCase = true)
-
-/** 是否为 PDF 文件（按文件名后缀判断）。 */
-private fun isPdfFile(name: String): Boolean =
-    name.endsWith(".pdf", ignoreCase = true)
-
-/** 把录音秒数格式化为 m:ss，用作附件块展示名。 */
-private fun formatRecordingDuration(totalSeconds: Int): String {
-    val m = totalSeconds / 60
-    val s = totalSeconds % 60
-    return "$m:${s.toString().padStart(2, '0')}"
 }
 
 // ─── Preview ──────────────────────────────────────────────────────────────────

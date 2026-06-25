@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -28,14 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.novamind.app.R
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
-import com.novamind.app.util.TimeFormat
+import com.novamind.app.util.TimeUtils
 
 private val BgPage = Color(0xFFF0EFEA)
 private val Card = Color(0xFFFFFFFF)
@@ -136,7 +133,7 @@ private fun NotificationRow(n: NotificationItem) {
                 )
                 Text(n.message, fontSize = 13.sp, color = TextSub, lineHeight = 18.sp)
                 Spacer(Modifier.size(2.dp))
-                Text(TimeFormat.ago(n.timeMs), fontSize = 11.sp, color = TextSub)
+                Text(TimeUtils.ago(n.timeMs), fontSize = 11.sp, color = TextSub)
             }
         }
     }

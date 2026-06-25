@@ -10,7 +10,7 @@ import java.text.SimpleDateFormat
  * 时间格式化工具。集中处理应用内的时长、时钟、相对日期与自定义格式，
  * 避免各处零散写 SimpleDateFormat / 手算分秒。所有方法线程安全（每次新建 formatter）。
  */
-object TimeFormat {
+object TimeUtils {
 
     /**
      * 时长格式化（用于录音、音频进度等）。
@@ -80,7 +80,7 @@ object TimeFormat {
         val ca = Calendar.getInstance().apply { timeInMillis = a }
         val cb = Calendar.getInstance().apply { timeInMillis = b }
         return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
-            ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
+                ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
     }
 
     private fun isYesterday(ms: Long): Boolean {
@@ -92,5 +92,13 @@ object TimeFormat {
         val ca = Calendar.getInstance().apply { timeInMillis = a }
         val cb = Calendar.getInstance().apply { timeInMillis = b }
         return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR)
+    }
+
+
+    /** 把录音秒数格式化为 m:ss，用作附件块展示名。 */
+    fun formatRecordingDuration(totalSeconds: Int): String {
+        val m = totalSeconds / 60
+        val s = totalSeconds % 60
+        return "$m:${s.toString().padStart(2, '0')}"
     }
 }

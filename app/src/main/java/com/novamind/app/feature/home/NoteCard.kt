@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.feature.create.components.parseHexColor
 import com.novamind.app.ui.theme.AppTheme
-import com.novamind.app.util.TimeFormat
+import com.novamind.app.util.TimeUtils
 import java.io.File
 
 // NoteCard 自用配色（与 HomeScreen 同值；遵循 home 模块按文件私有配色的现状）
@@ -67,7 +67,7 @@ internal fun NoteCard(
         ) {
             // 更新时间：今天 HH:mm / 今年 MM-dd / 跨年 yyyy-MM-dd
             Text(
-                text = TimeFormat.smart(note.updatedAt),
+                text = TimeUtils.smart(note.updatedAt),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = ColorTextSub,
