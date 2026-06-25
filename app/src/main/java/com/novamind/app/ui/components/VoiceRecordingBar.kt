@@ -77,6 +77,8 @@ fun VoiceRecordingBar(
     var showNoVoice by remember { mutableStateOf(false) }
     // 点删除后的「丢弃录音」二次确认
     var showDiscardConfirm by remember { mutableStateOf(false) }
+    // 是否因弹确认而主动暂停（用于「Keep recording」时恢复；本就暂停则保持暂停）
+    var pausedForConfirm by remember { mutableStateOf(false) }
 
     // 进入即启动前台录音服务；若离开页面时仍在录音（用户直接返回）则取消丢弃
     androidx.compose.runtime.DisposableEffect(Unit) {
@@ -183,7 +185,11 @@ fun VoiceRecordingBar(
                     bg = ControlBg,
                     tint = Color(0xFF1A1A1A),
                     onClick = {
-                        // 先弹二次确认；确认后才真正取消（取消由服务下发，onCancel 随状态回写触发）
+                        // 点删除：先暂停录音，再弹二次确认；确认后才真正取消
+                        if (!paused) {
+                            com.novamind.app.common.audio.RecordingService.pause(context)
+                            pausedForConfirm = true
+                        }
                         showDiscardConfirm = true
                     },
                 )
@@ -227,10 +233,19 @@ fun VoiceRecordingBar(
             confirmLabel = "Discard",
             dismissLabel = "Keep recording",
             onConfirm = {
+                // Discard：取消录音（handleCancel → recorder.cancel 会删除录音源文件）
                 showDiscardConfirm = false
+                pausedForConfirm = false
                 com.novamind.app.common.audio.RecordingService.cancel(context)
             },
-            onDismiss = { showDiscardConfirm = false },
+            onDismiss = {
+                // Keep recording：若是为确认而暂停的，则恢复录音
+                showDiscardConfirm = false
+                if (pausedForConfirm) {
+                    com.novamind.app.common.audio.RecordingService.resume(context)
+                    pausedForConfirm = false
+                }
+            },
         )
     }
 }
