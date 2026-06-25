@@ -17,6 +17,9 @@ sealed interface EditorBlock {
     val id: String
 }
 
+/** AI「Polishing」骨架占位目标：[blockId] 文本块内 [start, end) 字符区间。 */
+data class PolishTarget(val blockId: String, val start: Int, val end: Int)
+
 /** 文本块，内含富文本状态（加粗/斜体） */
 class TextBlock(
     initialText: String = "",
@@ -72,6 +75,17 @@ class NoteEditorState {
     private var pendingFocusId by mutableStateOf<String?>(null)
     val pendingFocus: String? get() = pendingFocusId
 
+    // AI「Polishing」骨架占位目标（对某文本块的某段选区做扫光占位）；null = 无
+    var polishTarget by mutableStateOf<PolishTarget?>(null)
+        private set
+
+    // 对全部文字做骨架（未选中文字时启用）
+    var polishAll by mutableStateOf(false)
+        private set
+
+    /** 是否处于骨架占位状态。 */
+    val isPolishing: Boolean get() = polishTarget != null || polishAll
+
     init {
         _blocks.add(TextBlock())
         focusedTextId = (_blocks.first() as TextBlock).id
@@ -81,6 +95,34 @@ class NoteEditorState {
 
     fun onTextFocused(id: String) {
         focusedTextId = id
+    }
+
+    /**
+     * 开启骨架占位：
+     * - 当前聚焦文本块有选区 → 只对选区做骨架；
+     * - 未选中文字 → 对全部文字做骨架。
+     * 笔记没有任何文字时返回 false（无内容可处理）。
+     */
+    fun startPolish(): Boolean {
+        val block = focusedBlock()
+        val sel = block?.rich?.value?.selection
+        if (block != null && sel != null && !sel.collapsed) {
+            polishTarget = PolishTarget(block.id, sel.min, sel.max)
+            polishAll = false
+            return true
+        }
+        // 无选区：对所有文字做骨架（前提是确有文字）
+        val hasText = _blocks.any { it is TextBlock && it.rich.plainText.isNotEmpty() }
+        if (!hasText) return false
+        polishAll = true
+        polishTarget = null
+        return true
+    }
+
+    /** 关闭骨架占位。 */
+    fun clearPolish() {
+        polishTarget = null
+        polishAll = false
     }
 
     /** 请求焦点到首个文本块（新建笔记进入时调用，用于自动弹出键盘） */

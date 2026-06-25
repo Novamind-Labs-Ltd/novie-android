@@ -30,7 +30,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -49,6 +56,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.pdf.PdfRenderSession
 import com.novamind.app.common.pdf.PdfReader
 import com.novamind.app.common.pdf.PdfViewerActivity
@@ -135,6 +143,14 @@ fun NoteContentEditor(
                     coverTopProvider = { coverTopState.value },
                     revealMarginPx = revealMarginPx,
                     onRegisterReveal = { revealFocused = it },
+                    polishRange = when {
+                        // 全部文字模式：每个文本块都整段做骨架
+                        state.polishAll -> 0 until block.rich.value.text.length
+                        // 选区模式：仅命中的文本块按选区做骨架
+                        state.polishTarget?.blockId == block.id ->
+                            state.polishTarget!!.start until state.polishTarget!!.end
+                        else -> null
+                    },
                 )
 
                 is ImageBlock -> ImageBlockView(
@@ -201,6 +217,10 @@ fun NoteContentEditor(
     }
 }
 
+// 选区骨架扫光条配色（不透明，盖住原文字）；取值集中在 AppConfig.Polish
+private val PolishBarBase = Color(AppConfig.Polish.BAR_BASE)
+private val PolishBarHighlight = Color(AppConfig.Polish.BAR_HIGHLIGHT)
+
 @Composable
 private fun TextBlockField(
     block: TextBlock,
@@ -213,11 +233,21 @@ private fun TextBlockField(
     coverTopProvider: () -> Float,
     revealMarginPx: Float,
     onRegisterReveal: ((() -> Unit)?) -> Unit,
+    polishRange: IntRange? = null,
 ) {
     val scope = rememberCoroutineScope()
     var fieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var isFocused by remember { mutableStateOf(false) }
     var latestLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    // 选区骨架：在选中字符 bounds 上循环扫光（覆盖原文字，模拟该段正在重写）
+    val polishTransition = rememberInfiniteTransition(label = "polish")
+    val polishProgress by polishTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(1300, easing = LinearEasing)),
+        label = "polishProgress",
+    )
     // 上一次光标所在的视觉行号；仅当行号变化（换行/折行/上移）时才考虑滚动，
     // 同一行内连续打字行号不变 → 不滚动。
     var lastCursorLine by remember { mutableStateOf(-1) }
@@ -281,7 +311,30 @@ private fun TextBlockField(
                     onRegisterReveal { revealCursor(respectLineGate = false) }
                 }
             }
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            // 选区骨架占位：drawWithContent 在 padding 之后，坐标系与文本布局一致
+            .drawWithContent {
+                drawContent()
+                val layout = latestLayout
+                val range = polishRange
+                if (layout != null && range != null && !range.isEmpty()) {
+                    val textLen = block.rich.value.text.length
+                    val start = range.first.coerceIn(0, textLen)
+                    val end = (range.last + 1).coerceIn(0, textLen)
+                    if (end > start) {
+                        val band = size.width * 0.6f
+                        val sweepX = -band + (size.width + band) * polishProgress
+                        val brush = Brush.linearGradient(
+                            colors = listOf(PolishBarBase, PolishBarHighlight, PolishBarBase),
+                            start = Offset(sweepX, 0f),
+                            end = Offset(sweepX + band, 0f),
+                        )
+                        // getPathForRange 返回整段选区（跨所有行）的路径，一次性覆盖全部选中文字
+                        val path = layout.getPathForRange(start, end)
+                        drawPath(path = path, brush = brush)
+                    }
+                }
+            },
         textStyle = TextStyle(
             fontSize = 16.sp,
             color = ColorTextTitle,

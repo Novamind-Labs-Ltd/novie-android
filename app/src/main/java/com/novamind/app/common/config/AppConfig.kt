@@ -49,6 +49,12 @@ object AppConfig {
         const val NO_VOICE_THRESHOLD = 1800
     }
 
+    /** AI「Polishing」选区骨架扫光条配色（ARGB，使用处用 Color(...) 包装）。 */
+    object Polish {
+        const val BAR_BASE = 0xFFDFDFDF
+        const val BAR_HIGHLIGHT = 0xFFF0F0F0
+    }
+
     /** PDF 阅读手势缩放与渲染缓存。 */
     object Pdf {
         const val MIN_SCALE = 1f

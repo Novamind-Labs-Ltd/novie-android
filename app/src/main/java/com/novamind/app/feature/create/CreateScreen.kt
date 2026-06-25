@@ -36,7 +36,6 @@ import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.BorderColorSheet
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
-import com.novamind.app.feature.create.components.NoteEditorSkeleton
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.VoiceRecordingBar
@@ -116,8 +115,6 @@ fun CreateScreen(
     var showAttachSheet by remember { mutableStateOf(false) }
     // 录音条显隐（点工具栏「Voice」后从底部弹出）
     var showRecordingBar by remember { mutableStateOf(false) }
-    // AI「Polishing」骨架图覆盖层显隐（点工具栏「Magic」后出现）
-    var showPolishing by remember { mutableStateOf(false) }
     // 图片预览：当前预览的图片下标（null = 不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     // 图片预览或录音条打开 → 通知宿主隐藏底部导航栏；都关闭后恢复，离开本页时复位
@@ -133,6 +130,8 @@ fun CreateScreen(
 
     // 图文正文编辑器状态：文本与图片块；正文文档 JSON 存入 body 同步给 ViewModel
     val editor = remember { NoteEditorState() }
+    // 骨架占位（点工具栏「Magic」后出现）是否生效，由编辑器状态驱动
+    val polishing = editor.isPolishing
     // 最近一次「与编辑器同步过」的 body（加载到 / 由本地编辑发出）。用它做轻量字符串比较，
     // 避免在每次 body 变化时重新 build 一遍 documentJson（getter 会全量序列化）。
     var lastSyncedBody by remember { mutableStateOf<String?>(null) }
@@ -269,11 +268,14 @@ fun CreateScreen(
     // 不退出笔记页。
     BackHandler(enabled = showRecordingBar) { showRecordingBar = false }
 
+    // 选区骨架显示时：系统返回先清除骨架，不退出笔记页
+    BackHandler(enabled = polishing) { editor.clearPolish() }
+
     // 系统返回（左/右边缘滑动返回）与左上角 back 一致：收键盘 + 保存并返回。
     // 有图片预览/弹窗/录音条时交给它们各自的返回处理（预览有自己的 BackHandler，弹窗 back 自动关闭）。
     BackHandler(
         enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm &&
-            !showRecordingBar && !showPolishing
+            !showRecordingBar && !polishing
     ) {
         keyboardController?.hide()
         onEvent(CreateEvent.SaveNote)
@@ -396,10 +398,9 @@ fun CreateScreen(
                     showAttachSheet = true
                 },
                 onMagic = {
-                    // Magic → 收键盘并展示 AI「Polishing」骨架图覆盖层
-                    keyboardController?.hide()
-                    focusManager.clearFocus(force = true)
-                    showPolishing = true
+                    // Magic → 有选区只对选区做骨架；未选中则对全部文字做骨架。
+                    // 注意：不可 clearFocus（会丢失选区），仅收起键盘即可。
+                    if (editor.startPolish()) keyboardController?.hide()
                 },
                 onBulletList = { editor.insertListMarker(numbered = false); emitContent() },
                 onNumberedList = { editor.insertListMarker(numbered = true); emitContent() },
@@ -511,11 +512,6 @@ fun CreateScreen(
             )
         }
 
-        // ── AI「Polishing」骨架图覆盖层：点工具栏 Magic 后整页覆盖，系统返回可关闭 ──
-        if (showPolishing) {
-            BackHandler(enabled = true) { showPolishing = false }
-            NoteEditorSkeleton(modifier = Modifier.fillMaxSize())
-        }
     }
 }
 
