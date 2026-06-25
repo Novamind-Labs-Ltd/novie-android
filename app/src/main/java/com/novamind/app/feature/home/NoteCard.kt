@@ -49,7 +49,7 @@ internal fun NoteCard(
     // 自定义边框色优先；否则按选中/默认取色
     val customBorder = parseHexColor(note.borderColorHex)
     val borderColor = customBorder ?: if (note.isSelected) ColorSelectedBorder else ColorBorder
-    val borderWidth = if (customBorder != null || note.isSelected) 1.5.dp else 1.dp
+    val borderWidth = 3.dp
 
     Surface(
         onClick = onClick,
