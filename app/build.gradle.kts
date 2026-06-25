@@ -89,11 +89,6 @@ fun gitSha(): String = try {
     "unknown"
 }
 
-// Room schema 输出目录（配合 exportSchema = true 使用）
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-}
-
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

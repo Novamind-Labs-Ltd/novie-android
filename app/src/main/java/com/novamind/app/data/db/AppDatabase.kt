@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         RecordingSegmentEntity::class,
     ],
     version = 3,
-    exportSchema = true,
+    exportSchema = false,   // 调试阶段：不导出 schema、不记录版本 JSON（上线前再开启并写迁移）
 )
 abstract class AppDatabase : RoomDatabase() {
 
