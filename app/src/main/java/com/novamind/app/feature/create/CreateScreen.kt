@@ -442,8 +442,8 @@ fun CreateScreen(
                 },
                 onMagic = {
                     // Magic → 有选区只对选区做骨架；未选中则对全部文字做骨架。
-                    // 注意：不可 clearFocus（会丢失选区），仅收起键盘即可。
-                    if (editor.startPolish()) keyboardController?.hide()
+                    // 不收起键盘、不 clearFocus（会丢失选区）。
+                    editor.startPolish()
                 },
                 onBulletList = { editor.insertListMarker(numbered = false); emitContent() },
                 onNumberedList = { editor.insertListMarker(numbered = true); emitContent() },
