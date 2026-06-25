@@ -30,6 +30,9 @@ object AppConfig {
         /** 一次最多可选择的图片数量（系统多选图片选择器）。 */
         const val MAX_IMAGE_PICK = 9
 
+        /** 单条笔记最多附件数（图片 + PDF + Markdown 合计）。 */
+        const val MAX_ATTACHMENTS = 5
+
         /** 图片解码下采样的最长边上限（像素），防 OOM。 */
         const val IMAGE_MAX_DIMENSION = 2048
 

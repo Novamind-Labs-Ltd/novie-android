@@ -176,19 +176,26 @@ fun CreateScreen(
     }
 
     // 系统照片选择器（支持多选，无需运行时权限）
-    // PickMultipleVisualMedia 要求 maxItems > 1，单张场景仍按多选处理，至少为 2
-    val imagePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia(maxImages.coerceAtLeast(2))
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            var inserted = false
-            uris.forEach { uri ->
-                ImageStore.copyToInternal(context, uri)?.let { path ->
-                    editor.insertImage(path)
-                    inserted = true
+    // 附件数量限制：图片/PDF/Markdown 合计不超过上限；可选图片数 = 上限 − 已有附件数
+    val remainingSlots = (AppConfig.Media.MAX_ATTACHMENTS - editor.attachmentCount).coerceAtLeast(0)
+    val imagePickMax = minOf(maxImages, remainingSlots)
+
+    // 系统多选图片选择器：maxItems 随剩余可选数变化（API 要求 >1，故 coerceAtLeast(2)），
+    // 返回后再按剩余数兜底截断，避免超额插入。用 key 在剩余数变化时重建以更新 maxItems。
+    val imagePicker = key(imagePickMax) {
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.PickMultipleVisualMedia(imagePickMax.coerceAtLeast(2))
+        ) { uris ->
+            if (uris.isNotEmpty()) {
+                var inserted = false
+                uris.take(remainingSlots).forEach { uri ->
+                    ImageStore.copyToInternal(context, uri)?.let { path ->
+                        editor.insertImage(path)
+                        inserted = true
+                    }
                 }
+                if (inserted) emitContent()
             }
-            if (inserted) emitContent()
         }
     }
 
@@ -397,9 +404,17 @@ fun CreateScreen(
                 onItalic = { editor.toggle(RichSpan.Italic) },
                 isItalicActive = editor.isActive(RichSpan.Italic),
                 onInsertImage = {
-                    // 工具栏附件按钮 → 打开 Image/Camera/Document 选择弹窗
+                    // 工具栏附件按钮 → 打开 Image/Camera/Document 选择弹窗；附件已满则提示
                     keyboardController?.hide()
-                    showAttachSheet = true
+                    if (remainingSlots <= 0) {
+                        Toast.makeText(
+                            context,
+                            "最多只能添加 ${AppConfig.Media.MAX_ATTACHMENTS} 个附件",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    } else {
+                        showAttachSheet = true
+                    }
                 },
                 onMagic = {
                     // Magic → 有选区只对选区做骨架；未选中则对全部文字做骨架。

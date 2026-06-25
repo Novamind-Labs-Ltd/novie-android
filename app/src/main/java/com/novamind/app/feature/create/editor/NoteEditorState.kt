@@ -86,6 +86,10 @@ class NoteEditorState {
     /** 是否处于骨架占位状态。 */
     val isPolishing: Boolean get() = polishTarget != null || polishAll
 
+    /** 已插入的附件数量：图片 + PDF + Markdown 合计（用于限制最多附件数）。 */
+    val attachmentCount: Int
+        get() = _blocks.count { it is ImageBlock || it is PdfBlock || it is MarkdownBlock }
+
     init {
         _blocks.add(TextBlock())
         focusedTextId = (_blocks.first() as TextBlock).id
