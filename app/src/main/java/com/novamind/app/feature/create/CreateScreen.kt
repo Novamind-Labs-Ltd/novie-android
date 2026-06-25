@@ -429,14 +429,15 @@ fun CreateScreen(
                 isItalicActive = editor.isActive(RichSpan.Italic),
                 onInsertImage = {
                     // 工具栏附件按钮 → 打开 Image/Camera/Document 选择弹窗；附件已满则提示
-                    keyboardController?.hide()
                     if (remainingSlots <= 0) {
+                        // 不能再选附件：仅提示，不收起键盘
                         Toast.makeText(
                             context,
                             "最多只能添加 ${AppConfig.Media.MAX_ATTACHMENTS} 个附件",
                             Toast.LENGTH_SHORT,
                         ).show()
                     } else {
+                        keyboardController?.hide()
                         showAttachSheet = true
                     }
                 },
