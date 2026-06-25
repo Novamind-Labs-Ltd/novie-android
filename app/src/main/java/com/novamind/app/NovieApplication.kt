@@ -1,6 +1,8 @@
 package com.novamind.app
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import com.novamind.app.common.audio.RecordingCleaner
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
@@ -12,7 +14,7 @@ import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.db.AppDatabase
 import com.tencent.mmkv.MMKV
 
-class NovieApplication : Application() {
+class NovieApplication : Application(), ImageLoaderFactory {
 
     val database by lazy { AppDatabase.getInstance(this) }
     val noteRepository: NoteRepository by lazy { RoomNoteRepository(database.noteDao()) }
@@ -33,4 +35,13 @@ class NovieApplication : Application() {
         // 启动后空闲时回收录音：可用空间过低时按最久优先删除，腾出空间（不阻塞启动）
         RecordingCleaner.scheduleOnIdle(this)
     }
+
+    /**
+     * 全局 Coil ImageLoader：允许不透明图用 RGB_565（内存减半）；
+     * HARDWARE bitmap（API 26+）由 Coil 默认开启，bitmap 走显存、降低堆压力与 OOM 风险。
+     */
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .allowRgb565(true)
+            .build()
 }

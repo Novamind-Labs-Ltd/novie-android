@@ -133,8 +133,11 @@ object ImageStore {
         var maxSide = maxOf(bounds.outWidth, bounds.outHeight)
         while (maxSide / sample > maxDimension) sample *= 2
 
-        // 2) 实际解码
-        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        // 2) 实际解码：不透明照片用 RGB_565（2 字节/像素，内存减半，视觉几乎无损）
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.RGB_565
+        }
         val raw = context.contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, opts)
         } ?: return null
