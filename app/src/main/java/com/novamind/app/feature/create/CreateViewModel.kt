@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
@@ -20,8 +21,6 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 private data class TextSnapshot(val title: String, val body: String)
-private const val MAX_HISTORY = 50
-private const val AUTO_SAVE_DELAY_MS = 600L
 
 class CreateViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -203,7 +202,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
     private fun scheduleAutoSave() {
         autoSaveJob?.cancel()
         autoSaveJob = viewModelScope.launch {
-            delay(AUTO_SAVE_DELAY_MS)
+            delay(AppConfig.Editor.AUTO_SAVE_DELAY_MS)
             saveNow()
         }
     }
@@ -231,7 +230,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
         val current = TextSnapshot(_uiState.value.title, _uiState.value.body)
         if (current.title == newTitle && current.body == newBody) return
         undoStack.addLast(current)
-        if (undoStack.size > MAX_HISTORY) undoStack.removeFirst()
+        if (undoStack.size > AppConfig.Editor.MAX_HISTORY) undoStack.removeFirst()
         redoStack.clear()
         _uiState.update {
             it.copy(title = newTitle, body = newBody, canUndo = true, canRedo = false)

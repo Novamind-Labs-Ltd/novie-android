@@ -3,6 +3,7 @@ package com.novamind.app.common.audio
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.DebugLog
 import java.io.File
 import java.util.UUID
@@ -123,7 +124,7 @@ class AudioRecorder(private val context: Context) {
         const val AUDIO_DIR = "note_audio"
         const val TAG = "AudioRecorder"
 
-        /** 单个录音分片的大小上限（字节）。可在此调整；默认 5MB。 */
-        const val SEGMENT_BYTES = 5L * 1024 * 1024
+        /** 单个录音分片的大小上限（字节）。集中配置见 [AppConfig.Media.AUDIO_SEGMENT_BYTES]。 */
+        const val SEGMENT_BYTES = AppConfig.Media.AUDIO_SEGMENT_BYTES
     }
 }

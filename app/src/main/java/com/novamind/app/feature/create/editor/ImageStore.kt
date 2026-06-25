@@ -8,6 +8,7 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
+import com.novamind.app.common.config.AppConfig
 import java.io.File
 import java.util.UUID
 
@@ -70,7 +71,11 @@ object ImageStore {
      * 解码 [uri] 指向的图片为 [Bitmap]，按 EXIF 方向自动旋正，并按 [maxDimension] 下采样防止 OOM。
      * 用于头像裁剪编辑页。失败返回 null。
      */
-    fun decodeBitmap(context: Context, uri: Uri, maxDimension: Int = 2048): Bitmap? = try {
+    fun decodeBitmap(
+        context: Context,
+        uri: Uri,
+        maxDimension: Int = AppConfig.Media.IMAGE_MAX_DIMENSION,
+    ): Bitmap? = try {
         // 1) 先读出宽高，计算合适的 inSampleSize（下采样）
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         context.contentResolver.openInputStream(uri)?.use {
@@ -104,7 +109,7 @@ object ImageStore {
         val dir = File(context.filesDir, IMAGE_DIR).apply { mkdirs() }
         val dest = File(dir, "avatar_${UUID.randomUUID()}.png")
         dest.outputStream().use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            bitmap.compress(Bitmap.CompressFormat.PNG, AppConfig.Media.IMAGE_COMPRESS_QUALITY, out)
         }
         dest.absolutePath
     } catch (_: Exception) {

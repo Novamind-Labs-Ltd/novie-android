@@ -207,7 +207,7 @@ fun CreateScreen(
         if (uri != null) {
             // 选中后先校验大小：超过 16MB 直接忽略并提示（SAF 系统选择器无法按大小预先过滤）
             val size = documentSize(context, uri)
-            if (size > AppConfig.MAX_DOCUMENT_SIZE) {
+            if (size > AppConfig.Media.MAX_DOCUMENT_SIZE) {
                 Toast.makeText(context, "文件超过 16MB，已忽略", Toast.LENGTH_SHORT).show()
                 return@rememberLauncherForActivityResult
             }

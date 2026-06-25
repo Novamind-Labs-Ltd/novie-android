@@ -3,6 +3,7 @@ package com.novamind.app.common.audio
 import android.content.Context
 import android.os.Looper
 import android.os.StatFs
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.DebugLog
 import java.io.File
 
@@ -14,11 +15,11 @@ import java.io.File
  */
 object RecordingCleaner {
 
-    /** 可用空间低于此值（MB）时触发清理。 */
-    const val MIN_FREE_MB = 30L
+    /** 可用空间低于此值（MB）时触发清理。集中配置见 [AppConfig.Media.STORAGE_MIN_FREE_MB]。 */
+    const val MIN_FREE_MB = AppConfig.Media.STORAGE_MIN_FREE_MB
 
-    /** 清理到可用空间达到此值（MB）即停止。 */
-    const val TARGET_FREE_MB = 200L
+    /** 清理到可用空间达到此值（MB）即停止。集中配置见 [AppConfig.Media.STORAGE_TARGET_FREE_MB]。 */
+    const val TARGET_FREE_MB = AppConfig.Media.STORAGE_TARGET_FREE_MB
 
     /** 录音存放目录（相对 filesDir），与 [AudioRecorder] 保持一致。 */
     private const val AUDIO_DIR = "note_audio"

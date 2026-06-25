@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.novamind.app.common.config.AppConfig
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -90,9 +91,10 @@ private val OnDark = Color(0xFFF2F2F2)
 private val Accent = Color(0xFF3D7A5A)
 private val Danger = Color(0xFFE07A7A)
 
-private const val MAX_SCALE = 5f
-private const val MIN_SCALE = 1f
-private const val DOUBLE_TAP_SCALE = 2.5f
+// 集中配置见 AppConfig.Pdf
+private const val MAX_SCALE = AppConfig.Pdf.MAX_SCALE
+private const val MIN_SCALE = AppConfig.Pdf.MIN_SCALE
+private const val DOUBLE_TAP_SCALE = AppConfig.Pdf.DOUBLE_TAP_SCALE
 
 // ─── Route（有状态：文件选择 + 渲染）────────────────────────────────────────
 

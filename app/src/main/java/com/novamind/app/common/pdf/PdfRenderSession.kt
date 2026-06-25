@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import com.novamind.app.common.config.AppConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -94,7 +95,7 @@ class PdfRenderSession private constructor(
  */
 class PdfPageCache(
     private val session: PdfRenderSession,
-    private val capacity: Int = 5,
+    private val capacity: Int = AppConfig.Pdf.PAGE_CACHE_CAPACITY,
 ) {
     // accessOrder = true → 访问即移到表尾，表头恒为最久未使用。
     // 仅在 synchronized(map) 内访问；渲染是 suspend，放在锁外。

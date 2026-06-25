@@ -1,5 +1,6 @@
 package com.novamind.app.common.net
 
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.net.ApiTls
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -34,9 +35,9 @@ object NetworkModule {
 
     val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(AppConfig.Network.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(AppConfig.Network.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(AppConfig.Network.WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .hostnameVerifier(ApiTls.PINNED_HOSTNAME_VERIFIER)
             .addInterceptor(CommonHeadersInterceptor())
             .addInterceptor(AuthInterceptor())

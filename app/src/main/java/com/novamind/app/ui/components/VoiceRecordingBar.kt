@@ -36,6 +36,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import kotlin.math.sqrt
 
 private val BarBg = Color(0xFF1E1E1E)
@@ -44,10 +45,10 @@ private val ControlBg = Color(0xFFFFFFFF)
 private val SendGreen = Color(0xFF2E9E5B)
 private const val WAVE_BARS = 48
 private const val WAVE_BASELINE = 0.06f
-// 峰值振幅低于此值（0..32767）视为「没有声音」
-private const val NO_VOICE_THRESHOLD = 1800
-// 录音时长不足此秒数时禁止发送
-private const val MIN_RECORD_SECONDS = 3
+// 峰值振幅低于此值（0..32767）视为「没有声音」（集中配置见 AppConfig.Media）
+private const val NO_VOICE_THRESHOLD = AppConfig.Media.NO_VOICE_THRESHOLD
+// 录音时长不足此秒数时禁止发送（集中配置见 AppConfig.Media）
+private const val MIN_RECORD_SECONDS = AppConfig.Media.MIN_RECORD_SECONDS
 
 /**
  * 录音条（点击工具栏「Voice」后出现）。
