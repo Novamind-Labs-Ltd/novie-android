@@ -36,12 +36,17 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
     private val redoStack = ArrayDeque<TextSnapshot>()
     private var autoSaveJob: Job? = null
 
+    // 已落库的笔记快照：用于判断内容是否真的变化（未变则不写库、不更新 updatedAt），
+    // 并保留原始 createdAt。
+    private var persistedNote: Note? = null
+
     // ── 初始化 / 重置 ─────────────────────────────────────────────────────────
 
     fun reset() {
         autoSaveJob?.cancel()
         undoStack.clear()
         redoStack.clear()
+        persistedNote = null
         _uiState.value = CreateUiState()
     }
 
@@ -51,6 +56,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
         redoStack.clear()
         viewModelScope.launch {
             val note = noteRepository.getNoteById(noteId) ?: return@launch
+            persistedNote = note
             _uiState.value = CreateUiState(
                 editingNoteId = note.id,
                 updatedAt = note.updatedAt,
@@ -211,19 +217,34 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
         val state = _uiState.value
         // 标题为空、且正文文档无文字也无图片时，视为空笔记不保存
         if (state.title.isBlank() && NoteDocument.previewText(state.body).isBlank()) return
+
+        // 内容相对已落库快照没有任何变化 → 不写库、不更新 updatedAt（仅查看后返回不应刷新时间）
+        val saved = persistedNote
+        if (saved != null &&
+            saved.title == state.title &&
+            saved.body == state.body &&
+            saved.tags == state.selectedTags &&
+            saved.folder == state.selectedFolder &&
+            saved.borderColorHex == state.borderColorHex
+        ) {
+            return
+        }
+
         val noteId = state.editingNoteId ?: UUID.randomUUID().toString().also { newId ->
             _uiState.update { it.copy(editingNoteId = newId) }
         }
-        noteRepository.addOrUpdate(
-            Note(
-                id = noteId,
-                title = state.title,   // 允许为空：列表卡片会用正文内容兜底显示
-                body = state.body,
-                tags = state.selectedTags,
-                folder = state.selectedFolder,
-                borderColorHex = state.borderColorHex,
-            )
+        val note = Note(
+            id = noteId,
+            title = state.title,   // 允许为空：列表卡片会用正文内容兜底显示
+            body = state.body,
+            tags = state.selectedTags,
+            folder = state.selectedFolder,
+            borderColorHex = state.borderColorHex,
+            createdAt = saved?.createdAt ?: System.currentTimeMillis(), // 保留原始创建时间
+            updatedAt = System.currentTimeMillis(),                     // 仅在内容确有变化时刷新
         )
+        noteRepository.addOrUpdate(note)
+        persistedNote = note
     }
 
     private fun updateText(newTitle: String, newBody: String) {
