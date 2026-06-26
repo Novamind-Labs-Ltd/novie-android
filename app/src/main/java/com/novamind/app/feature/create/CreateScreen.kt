@@ -14,6 +14,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -38,6 +40,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.feature.create.components.BorderColorSheet
+import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.ui.components.AttachmentSheet
@@ -139,9 +142,11 @@ fun CreateScreen(
     var showRecordingBar by remember { mutableStateOf(false) }
     // 图片预览：当前预览的图片下标（null = 不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
+    // 分享访问全屏页显隐（「更多 → Share」打开）
+    var showShare by remember { mutableStateOf(false) }
     // 图片预览或录音条打开 → 通知宿主隐藏底部导航栏；都关闭后恢复，离开本页时复位
-    LaunchedEffect(previewIndex != null || showRecordingBar) {
-        onFullscreenChange(previewIndex != null || showRecordingBar)
+    LaunchedEffect(previewIndex != null || showRecordingBar || showShare) {
+        onFullscreenChange(previewIndex != null || showRecordingBar || showShare)
     }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
 
@@ -324,11 +329,14 @@ fun CreateScreen(
     // 有图片预览/弹窗/录音条时交给它们各自的返回处理（预览有自己的 BackHandler，弹窗 back 自动关闭）。
     BackHandler(
         enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm &&
-                !showRecordingBar && !polishing
+                !showRecordingBar && !polishing && !showShare
     ) {
         keyboardController?.hide()
         onEvent(CreateEvent.SaveNote)
     }
+
+    // 分享访问页打开时：系统返回先关闭它，不退出笔记
+    BackHandler(enabled = showShare) { showShare = false }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -347,7 +355,11 @@ fun CreateScreen(
                     keyboardController?.hide()
                     onEvent(CreateEvent.SaveNote)
                 },
-                onShare = {},   // 暂无事件（附件入口已移到工具栏）
+                onShare = {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                    showShare = true
+                },
                 onUndo = { onEvent(CreateEvent.UndoEdit) },
                 onRedo = { onEvent(CreateEvent.RedoEdit) },
                 onChangeColor = {
@@ -591,6 +603,18 @@ fun CreateScreen(
                 },
                 deleteMessage = "This will remove the image from the note.",
                 onBack = { previewIndex = null },
+            )
+        }
+
+        // 分享访问（全屏覆盖）：从右侧推入，自带返回箭头
+        AnimatedVisibility(
+            visible = showShare,
+            enter = slideInHorizontally { it } + fadeIn(),
+            exit = slideOutHorizontally { it } + fadeOut(),
+        ) {
+            ShareAccessScreen(
+                onBack = { showShare = false },
+                modifier = Modifier.fillMaxSize(),
             )
         }
 
