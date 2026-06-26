@@ -1,4 +1,4 @@
-package com.novamind.app.ui.theme
+package com.novamind.app.ui.colors
 
 import androidx.compose.ui.graphics.Color
 
