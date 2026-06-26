@@ -102,6 +102,17 @@ fun ShareAccessScreen(
         return true
     }
 
+    /** 键盘回车：校验当前输入的邮箱格式，合法则变成 chip，非法 Toast 提示（不发送）。 */
+    fun submitInput() {
+        val typed = input.trim()
+        if (typed.isEmpty()) return
+        if (!typed.isValidEmail()) {
+            Toast.makeText(context, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+            return
+        }
+        commitInput()
+    }
+
     /**
      * 点击 Send：
      * 1) 若输入框有文字，先校验邮箱格式；
@@ -162,6 +173,7 @@ fun ShareAccessScreen(
         onRemovePending = { pending.remove(it) },
         accessList = accessList,
         canSend = pending.isNotEmpty() || input.isNotBlank(),
+        onSubmitInput = { submitInput() },
         onSend = { performSend() },
         onCancel = {
             input = ""
@@ -200,6 +212,7 @@ private fun ShareAccessContent(
     onRemovePending: (String) -> Unit,
     accessList: List<String>,
     canSend: Boolean,
+    onSubmitInput: () -> Unit,
     onSend: () -> Unit,
     onCancel: () -> Unit,
     onRemoveAccess: (String) -> Unit,
@@ -257,7 +270,7 @@ private fun ShareAccessContent(
             onInputChange = onInputChange,
             pending = pending,
             onRemovePending = onRemovePending,
-            onImeDone = { onSend() },
+            onSubmitInput = onSubmitInput,
         )
 
         Spacer(Modifier.height(20.dp))
@@ -313,7 +326,7 @@ private fun EmailChipField(
     onInputChange: (String) -> Unit,
     pending: List<String>,
     onRemovePending: (String) -> Unit,
-    onImeDone: () -> Unit,
+    onSubmitInput: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -346,7 +359,8 @@ private fun EmailChipField(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Done,
                 ),
-                keyboardActions = KeyboardActions(onDone = { onImeDone() }),
+                // 回车：校验格式后把当前输入变成 chip，键盘保持不收起以便连续输入
+                keyboardActions = KeyboardActions(onDone = { onSubmitInput() }),
                 modifier = Modifier
                     .widthIn(min = 80.dp)
                     .heightIn(min = 32.dp)
@@ -515,6 +529,7 @@ private fun ShareAccessChipsPreview() {
             onRemovePending = {},
             accessList = emptyList(),
             canSend = true,
+            onSubmitInput = {},
             onSend = {},
             onCancel = {},
             onRemoveAccess = {},
@@ -534,6 +549,7 @@ private fun ShareAccessEmptyPreview() {
             onRemovePending = {},
             accessList = listOf("sam@novamind.ai"),
             canSend = false,
+            onSubmitInput = {},
             onSend = {},
             onCancel = {},
             onRemoveAccess = {},
