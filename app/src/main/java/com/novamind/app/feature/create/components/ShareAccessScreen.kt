@@ -1,5 +1,6 @@
 package com.novamind.app.feature.create.components
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -53,6 +55,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.ButtonColors
@@ -79,6 +82,7 @@ fun ShareAccessScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     var input by remember { mutableStateOf("") }
     val pending = remember { mutableStateListOf<String>() }
     val accessList = remember { mutableStateListOf<String>() }
@@ -96,6 +100,40 @@ fun ShareAccessScreen(
         if (!dup) pending.add(v)
         input = ""
         return true
+    }
+
+    /**
+     * 点击 Send：
+     * 1) 若输入框有文字，先校验邮箱格式；
+     * 2) 再校验发送后「已选择邮箱」总数不超过 [AppConfig.Share.MAX_ACCESS_EMAILS]；
+     * 校验失败 Toast 提示并中止，全部通过才把 chip 加入 Manage access。
+     */
+    fun performSend() {
+        val typed = input.trim()
+        // 第一步：邮箱格式
+        if (typed.isNotEmpty() && !typed.isValidEmail()) {
+            Toast.makeText(context, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+            return
+        }
+        // 第二步：数量上限（按去重后的最终选择数计算）
+        val merged = LinkedHashSet(accessList.map { it.lowercase() })
+        pending.forEach { merged.add(it.lowercase()) }
+        if (typed.isNotEmpty()) merged.add(typed.lowercase())
+        if (merged.size > AppConfig.Share.MAX_ACCESS_EMAILS) {
+            Toast.makeText(
+                context,
+                "You can share with up to ${AppConfig.Share.MAX_ACCESS_EMAILS} people",
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        // 通过：落 chip + 入列表（去重，忽略大小写）
+        commitInput()
+        pending.forEach { p ->
+            if (accessList.none { it.equals(p, ignoreCase = true) }) accessList.add(p)
+        }
+        pending.clear()
+        input = ""
     }
 
     fun requestBack() {
@@ -123,15 +161,8 @@ fun ShareAccessScreen(
         pending = pending,
         onRemovePending = { pending.remove(it) },
         accessList = accessList,
-        canSend = pending.isNotEmpty() || input.trim().isValidEmail(),
-        onSend = {
-            commitInput()
-            pending.forEach { p ->
-                if (accessList.none { it.equals(p, ignoreCase = true) }) accessList.add(p)
-            }
-            pending.clear()
-            input = ""
-        },
+        canSend = pending.isNotEmpty() || input.isNotBlank(),
+        onSend = { performSend() },
         onCancel = {
             input = ""
             pending.clear()

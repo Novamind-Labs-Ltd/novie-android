@@ -82,6 +82,12 @@ object AppConfig {
         const val BAR_HIGHLIGHT = 0xFFF0F0F0
     }
 
+    /** 分享 / 协作。 */
+    object Share {
+        /** 单条笔记最多可分享给的邮箱数量（Manage access 上限）。 */
+        const val MAX_ACCESS_EMAILS = 15
+    }
+
     /** PDF 阅读手势缩放与渲染缓存。 */
     object Pdf {
         const val MIN_SCALE = 1f
