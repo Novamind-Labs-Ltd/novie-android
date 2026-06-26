@@ -1,6 +1,5 @@
 package com.novamind.app.feature.create.components
 
-import android.util.Patterns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,6 +53,7 @@ import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.util.isValidEmail
 
 /**
  * 分享访问全屏页（从笔记编辑页「更多 → Share」进入）。
@@ -313,9 +313,6 @@ private fun AccessRow(
         }
     }
 }
-
-private fun String.isValidEmail(): Boolean =
-    isNotBlank() && Patterns.EMAIL_ADDRESS.matcher(this).matches()
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
