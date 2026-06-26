@@ -1,4 +1,7 @@
 package com.novamind.app.feature.create.components
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -353,17 +356,17 @@ private fun TextBlockField(
             },
         textStyle = TextStyle(
             fontSize = 16.sp,
-            color = ColorTextTitle,
+            color = TextColors.Primary.default.current(),
             lineHeight = 26.sp,
         ),
-        cursorBrush = SolidColor(ColorTextTitle),
+        cursorBrush = SolidColor(TextColors.Primary.default.current()),
         onTextLayout = { layout ->
             latestLayout = layout
             if (isFocused) revealCursor(respectLineGate = true)
         },
         decorationBox = { inner ->
             if (showPlaceholder && block.rich.value.text.isEmpty()) {
-                Text("Type here...", fontSize = 16.sp, color = ColorTextHint)
+                Text("Type here...", fontSize = 16.sp, color = TextColors.Primary.tertiary.current())
             }
             inner()
         },
@@ -448,13 +451,13 @@ private fun FileBlockView(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_document),
                     contentDescription = null,
-                    tint = ColorTextTitle,
+                    tint = TextColors.Primary.default.current(),
                     modifier = Modifier.size(22.dp),
                 )
                 Text(
                     text = block.name,
                     fontSize = 15.sp,
-                    color = ColorTextTitle,
+                    color = TextColors.Primary.default.current(),
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -471,7 +474,7 @@ private fun FileBlockView(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("×", color = ColorTextSub, fontSize = 18.sp)
+                    Text("×", color = TextColors.Primary.secondary.current(), fontSize = 18.sp)
                 }
             }
         }
@@ -507,7 +510,7 @@ private fun MarkdownBlockView(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Markdown", fontSize = 12.sp, color = ColorTextSub)
+                    Text("Markdown", fontSize = 12.sp, color = TextColors.Primary.secondary.current())
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -517,7 +520,7 @@ private fun MarkdownBlockView(
                             Text(
                                 text = if (editing) "完成" else "编辑",
                                 fontSize = 13.sp,
-                                color = ColorPrimary,
+                                color = IconColors.Brand.default.current(),
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(50))
@@ -543,7 +546,7 @@ private fun MarkdownBlockView(
                                 ),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("×", color = ColorTextSub, fontSize = 18.sp)
+                            Text("×", color = TextColors.Primary.secondary.current(), fontSize = 18.sp)
                         }
                     }
                 }
@@ -558,11 +561,11 @@ private fun MarkdownBlockView(
                         },
                         textStyle = TextStyle(
                             fontSize = 14.sp,
-                            color = ColorTextTitle,
+                            color = TextColors.Primary.default.current(),
                             fontFamily = FontFamily.Monospace,
                             lineHeight = 22.sp,
                         ),
-                        cursorBrush = SolidColor(ColorPrimary),
+                        cursorBrush = SolidColor(IconColors.Brand.default.current()),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
@@ -633,13 +636,13 @@ private fun PdfBlockView(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_document),
                             contentDescription = null,
-                            tint = ColorTextSub,
+                            tint = TextColors.Primary.secondary.current(),
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
                             text = block.name,
                             fontSize = 13.sp,
-                            color = ColorTextSub,
+                            color = TextColors.Primary.secondary.current(),
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         )
@@ -655,15 +658,15 @@ private fun PdfBlockView(
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("×", color = ColorTextSub, fontSize = 18.sp)
+                        Text("×", color = TextColors.Primary.secondary.current(), fontSize = 18.sp)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val s = session
                 when {
-                    loading -> Text("正在渲染 PDF…", fontSize = 13.sp, color = ColorTextHint)
-                    s == null -> Text("无法渲染该 PDF", fontSize = 13.sp, color = ColorTextHint)
+                    loading -> Text("正在渲染 PDF…", fontSize = 13.sp, color = TextColors.Primary.tertiary.current())
+                    s == null -> Text("无法渲染该 PDF", fontSize = 13.sp, color = TextColors.Primary.tertiary.current())
                     else -> {
                         // 内联阅读器：宽度撑满，高度按首页宽高比，封顶屏幕 70%
                         val maxH = (LocalConfiguration.current.screenHeightDp * 0.7f).dp
@@ -710,7 +713,7 @@ private fun PdfBlockView(
                         Text(
                             "共 $pageCount 页 · 左右翻页 · 捏合/双击缩放 · 右上角全屏",
                             fontSize = 11.sp,
-                            color = ColorTextHint,
+                            color = TextColors.Primary.tertiary.current(),
                         )
                     }
                 }

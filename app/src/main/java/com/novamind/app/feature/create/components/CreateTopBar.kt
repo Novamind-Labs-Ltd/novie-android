@@ -1,4 +1,8 @@
 package com.novamind.app.feature.create.components
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.BackgroundColors
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -52,12 +56,12 @@ fun CreateTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 左：圆形返回按钮（通用组件）
-        BackButton(onClick = onBack, background = ColorChipBg, tint = ColorTextTitle)
+        BackButton(onClick = onBack, background = BackgroundColors.Surface.default.current(), tint = TextColors.Primary.default.current())
 
         // 右：胶囊容器 —— 撤销 | 重做 | 更多(···)
         Surface(
             shape = RoundedCornerShape(50),
-            color = ColorChipBg,
+            color = BackgroundColors.Surface.default.current(),
             shadowElevation = 2.dp,
         ) {
             Row(
@@ -89,12 +93,12 @@ fun CreateTopBar(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
                         shape = RoundedCornerShape(20.dp),
-                        containerColor = ColorChipBg,
+                        containerColor = BackgroundColors.Surface.default.current(),
                         shadowElevation = 8.dp,
                     ) {
                         DropdownMenuItem(
                             text = {
-                                Text("Share", fontSize = 16.sp, color = ColorTextTitle)
+                                Text("Share", fontSize = 16.sp, color = TextColors.Primary.default.current())
                             },
                             onClick = {
                                 menuExpanded = false
@@ -104,7 +108,7 @@ fun CreateTopBar(
                         )
                         DropdownMenuItem(
                             text = {
-                                Text("Change color", fontSize = 16.sp, color = ColorTextTitle)
+                                Text("Change color", fontSize = 16.sp, color = TextColors.Primary.default.current())
                             },
                             onClick = {
                                 menuExpanded = false
@@ -114,7 +118,7 @@ fun CreateTopBar(
                         )
                         DropdownMenuItem(
                             text = {
-                                Text("Delete", fontSize = 16.sp, color = ColorDanger)
+                                Text("Delete", fontSize = 16.sp, color = IconColors.Error.default.current())
                             },
                             onClick = {
                                 menuExpanded = false
@@ -150,7 +154,7 @@ private fun TopBarIconBtn(
         Icon(
             painter = painterResource(id = icon),
             contentDescription = contentDescription,
-            tint = if (enabled) ColorTextTitle else ColorTextHint,
+            tint = if (enabled) TextColors.Primary.default.current() else TextColors.Primary.tertiary.current(),
             modifier = Modifier.size(20.dp),
         )
     }

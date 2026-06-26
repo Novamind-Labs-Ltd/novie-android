@@ -10,6 +10,8 @@ import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.tag.Tag
+import com.novamind.app.util.ColorUtils
+import com.novamind.app.util.ColorUtils.toHex
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,7 +87,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 body = note.body,
                 selectedTags = note.tags,
                 selectedFolder = note.folder,
-                borderColorHex = note.borderColorHex,
+                borderColor = ColorUtils.parseHexColor(note.borderColorHex),
             )
         }
     }
@@ -200,7 +202,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.update { it.copy(showColorPicker = false) }
 
             is CreateEvent.BorderColorSelected -> {
-                _uiState.update { it.copy(borderColorHex = event.hex, showColorPicker = false) }
+                _uiState.update { it.copy(borderColor = event.color, showColorPicker = false) }
                 requestSave()
             }
 
@@ -246,7 +248,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             saved.body == state.body &&
             saved.tags == state.selectedTags &&
             saved.folder == state.selectedFolder &&
-            saved.borderColorHex == state.borderColorHex
+            ColorUtils.parseHexColor(saved.borderColorHex) == state.borderColor
         ) {
             return
         }
@@ -260,7 +262,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             body = state.body,
             tags = state.selectedTags,
             folder = state.selectedFolder,
-            borderColorHex = state.borderColorHex,
+            borderColorHex = state.borderColor?.toHex(),
             createdAt = saved?.createdAt ?: System.currentTimeMillis(), // 保留原始创建时间
             updatedAt = System.currentTimeMillis(),                     // 仅在内容确有变化时刷新
         )

@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,17 +26,25 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.novamind.app.feature.create.components.parseHexColor
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
 
-// NoteCard 自用配色（与 HomeScreen 同值；遵循 home 模块按文件私有配色的现状）
-private val BgCard = Color(0xFFFFFFFF)
-private val ColorTextTitle = Color(0xFF1A1A1A)
-private val ColorTextSub = Color(0xFF6B6B6B)
-private val ColorBorder = Color(0xFFE0E0E0)
-private val ColorSelectedBorder = Color(0xFFAAD4C8)
+// NoteCard 配色：对齐设计系统语义令牌，随主题深浅自动解析
+private val BgCard: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val ColorTextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val ColorTextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val ColorBorder: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+private val ColorSelectedBorder = Palette.forrest200   // 选中态：品牌浅绿（固定基础色）
 
 /**
  * 首页笔记卡片：固定 160×120，标题为空时用正文充当标题（1 行），剩余正文接到下方。
@@ -47,7 +56,7 @@ internal fun NoteCard(
     modifier: Modifier = Modifier,
 ) {
     // 自定义边框色优先；否则按选中/默认取色
-    val customBorder = parseHexColor(note.borderColorHex)
+    val customBorder = note.borderColor
     val borderColor = customBorder ?: if (note.isSelected) ColorSelectedBorder else ColorBorder
     val borderWidth = 3.dp
 
@@ -156,7 +165,7 @@ private fun NoteCardPreview() {
                     "3",
                     "Q3 KPIs",
                     "Discussed Q3 KPIs. John to finalize the report by Thursday.",
-                    borderColorHex = "#C5402A",
+                    borderColor = Palette.red500,
                     updatedAt = System.currentTimeMillis(),
                 )
             )

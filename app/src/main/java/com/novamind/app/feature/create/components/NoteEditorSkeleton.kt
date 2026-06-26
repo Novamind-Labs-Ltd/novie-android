@@ -1,4 +1,7 @@
 package com.novamind.app.feature.create.components
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.BackgroundColors
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -50,7 +53,7 @@ fun NoteEditorSkeleton(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BgPage)
+            .background(BackgroundColors.Page.default.current())
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
@@ -104,7 +107,7 @@ fun NoteEditorSkeleton(modifier: Modifier = Modifier) {
                     text = "Polishing",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = ColorTextTitle,
+                    color = TextColors.Primary.default.current(),
                 )
             }
         }
@@ -125,7 +128,7 @@ private fun SkeletonLine(widthFraction: Float, height: Dp, corner: Dp) {
 
 /** 三点循环动画（依次提亮），用于「思考 / 处理中」提示。 */
 @Composable
-private fun PolishingDots(dotColor: Color = ColorTextTitle) {
+private fun PolishingDots(dotColor: Color = TextColors.Primary.default.current()) {
     val transition = rememberInfiniteTransition(label = "dots")
     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         repeat(3) { i ->

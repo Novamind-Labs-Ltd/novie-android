@@ -1,4 +1,8 @@
 package com.novamind.app.feature.create.components
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.BackgroundColors
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -68,13 +72,13 @@ fun CreateMetaRow(
             Icon(
                 painter = painterResource(id = R.drawable.ic_nav_calendar),
                 contentDescription = null,
-                tint = ColorTextSub,
+                tint = TextColors.Primary.secondary.current(),
                 modifier = Modifier.size(14.dp),
             )
             Text(
                 text = timeLabel,
                 fontSize = 13.sp,
-                color = ColorTextSub,
+                color = TextColors.Primary.secondary.current(),
             )
         }
     }
@@ -93,7 +97,7 @@ private fun MetaChip(
     val shape = RoundedCornerShape(50)
     Surface(
         shape = shape,
-        color = if (isActive) ColorPrimary.copy(alpha = 0.1f) else ColorChipBg,
+        color = if (isActive) IconColors.Brand.default.current().copy(alpha = 0.1f) else BackgroundColors.Surface.default.current(),
         shadowElevation = 1.dp,
         // 先按形状裁剪再 clickable，使按压 ripple 也是圆角，与 chip 形状一致
         modifier = if (onClick != null) Modifier
@@ -112,13 +116,13 @@ private fun MetaChip(
             Icon(
                 painter = painterResource(id = iconResId),
                 contentDescription = null,
-                tint = if (isActive) ColorPrimary else ColorTextSub,
+                tint = if (isActive) IconColors.Brand.default.current() else TextColors.Primary.secondary.current(),
                 modifier = Modifier.size(14.dp),
             )
             Text(
                 text = label,
                 fontSize = 13.sp,
-                color = if (isActive) ColorPrimary else ColorTextSub,
+                color = if (isActive) IconColors.Brand.default.current() else TextColors.Primary.secondary.current(),
                 fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
             )
         }

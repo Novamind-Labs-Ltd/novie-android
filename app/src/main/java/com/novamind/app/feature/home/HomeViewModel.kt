@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.NoteDocument
+import com.novamind.app.util.ColorUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,7 +50,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                                 title = note.title,
                                 description = NoteDocument.previewText(note.body),
                                 tags = note.tags.map { it.name },
-                                borderColorHex = note.borderColorHex,
+                                borderColor = ColorUtils.parseHexColor(note.borderColorHex),
                                 imagePath = NoteDocument.firstImagePath(note.body),
                                 createdAt = note.createdAt,
                                 updatedAt = note.updatedAt,

@@ -1,4 +1,8 @@
 package com.novamind.app.feature.create.components
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.BackgroundColors
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,7 +57,7 @@ fun FormattingToolbar(
         Surface(
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(50),
-            color = ColorChipBg,
+            color = BackgroundColors.Surface.default.current(),
             shadowElevation = 2.dp,
         ) {
             LazyRow(
@@ -71,7 +75,7 @@ fun FormattingToolbar(
                 item { ToolbarIcon(R.drawable.ic_format_list_numbered, "Numbered list", onClick = onNumberedList) }
             }
         }
-        Surface(shape = CircleShape, color = ColorChipBg, shadowElevation = 2.dp) {
+        Surface(shape = CircleShape, color = BackgroundColors.Surface.default.current(), shadowElevation = 2.dp) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -85,7 +89,7 @@ fun FormattingToolbar(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_keyboard_hide),
                     contentDescription = "Hide keyboard",
-                    tint = ColorTextTitle,
+                    tint = TextColors.Primary.default.current(),
                     modifier = Modifier.size(22.dp),
                 )
             }
@@ -112,7 +116,7 @@ private fun ToolbarIcon(
         Icon(
             painter = painterResource(id = iconResId),
             contentDescription = contentDescription,
-            tint = ColorTextTitle,
+            tint = TextColors.Primary.default.current(),
             modifier = Modifier.size(20.dp),
         )
     }
@@ -130,7 +134,7 @@ private fun ToolbarTextBtn(
         modifier = Modifier
             .size(28.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (active) ColorPrimary.copy(alpha = 0.12f) else Color.Transparent)
+            .background(if (active) IconColors.Brand.default.current().copy(alpha = 0.12f) else Color.Transparent)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = false),
@@ -143,7 +147,7 @@ private fun ToolbarTextBtn(
             fontSize = 16.sp,
             fontWeight = fontWeight,
             fontStyle = fontStyle,
-            color = if (active) ColorPrimary else ColorTextTitle,
+            color = if (active) IconColors.Brand.default.current() else TextColors.Primary.default.current(),
         )
     }
 }

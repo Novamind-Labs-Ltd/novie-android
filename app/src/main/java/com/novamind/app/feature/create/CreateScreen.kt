@@ -1,4 +1,8 @@
 package com.novamind.app.feature.create
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.BackgroundColors
 
 import android.widget.Toast
 import com.novamind.app.common.config.AppConfig
@@ -33,11 +37,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.novamind.app.feature.create.components.BgPage
-import com.novamind.app.feature.create.components.ColorTextHint
-import com.novamind.app.feature.create.components.ColorTextTitle
 import com.novamind.app.feature.create.components.BorderColorSheet
-import com.novamind.app.feature.create.components.ColorDanger
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.ui.components.AttachmentSheet
@@ -334,7 +334,7 @@ fun CreateScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BgPage)
+                .background(BackgroundColors.Page.default.current())
                 .statusBarsPadding(),
             // adjustNothing：不在内容上用 imePadding（避免重排），键盘空间由编辑器内部处理；
             // 工具栏作为悬浮层单独用 imePadding 抬到键盘之上。
@@ -399,16 +399,16 @@ fun CreateScreen(
                             textStyle = TextStyle(
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ColorTextTitle,
+                                color = TextColors.Primary.default.current(),
                             ),
-                            cursorBrush = SolidColor(ColorTextTitle),
+                            cursorBrush = SolidColor(TextColors.Primary.default.current()),
                             decorationBox = { inner ->
                                 if (uiState.title.isEmpty()) {
                                     Text(
                                         "New note",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Normal,
-                                        color = ColorTextHint
+                                        color = TextColors.Primary.tertiary.current()
                                     )
                                 }
                                 inner()
@@ -482,7 +482,7 @@ fun CreateScreen(
             Text(
                 text = "$totalChars / $maxInputChars",
                 fontSize = 11.sp,
-                color = if (totalChars >= maxInputChars) ColorDanger else ColorTextHint,
+                color = if (totalChars >= maxInputChars) IconColors.Error.default.current() else TextColors.Primary.tertiary.current(),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .imePadding()
@@ -527,7 +527,7 @@ fun CreateScreen(
 
         if (uiState.showColorPicker) {
             BorderColorSheet(
-                selectedHex = uiState.borderColorHex,
+                selectedColor = uiState.borderColor,
                 onSelect = { onEvent(CreateEvent.BorderColorSelected(it)) },
                 onDismiss = { onEvent(CreateEvent.DismissColorPicker) },
             )

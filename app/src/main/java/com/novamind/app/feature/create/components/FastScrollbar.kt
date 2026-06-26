@@ -1,4 +1,6 @@
 package com.novamind.app.feature.create.components
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.colors.IconColors
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -49,7 +51,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private val BarIdle = Color(0x66000000)      // 闲置/可见时的拖杆色（半透明黑）
-private val BarActive = ColorPrimary          // 拖拽中的拖杆色（品牌绿）
 private val BubbleBg = Color(0xE61A1A1A)
 
 /**
@@ -217,7 +218,7 @@ fun FastScrollbar(
                     .fillMaxHeight()
                     .graphicsLayer { this.alpha = alpha }
                     .clip(RoundedCornerShape(50))
-                    .background(if (dragging) BarActive else BarIdle),
+                    .background(if (dragging) IconColors.Brand.default.current() else BarIdle),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(

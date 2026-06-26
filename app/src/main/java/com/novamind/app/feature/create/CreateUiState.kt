@@ -1,5 +1,6 @@
 package com.novamind.app.feature.create
 
+import androidx.compose.ui.graphics.Color
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.folder.defaultFolders
 import com.novamind.app.feature.create.tag.Tag
@@ -23,8 +24,8 @@ sealed class CreateEvent {
     object ShowFolderPicker : CreateEvent()
     object ShowColorPicker : CreateEvent()
     object DismissColorPicker : CreateEvent()
-    /** 选中边框颜色 #RRGGBB；null = 恢复默认边框 */
-    data class BorderColorSelected(val hex: String?) : CreateEvent()
+    /** 选中边框颜色；null = 恢复默认边框 */
+    data class BorderColorSelected(val color: Color?) : CreateEvent()
 }
 
 data class CreateUiState(
@@ -34,7 +35,7 @@ data class CreateUiState(
     val body: String = "",              // 图文混排文档 JSON（旧数据为纯文本）
     val selectedTags: List<Tag> = emptyList(),
     val selectedFolder: Folder? = null,
-    val borderColorHex: String? = null, // 自定义边框颜色 #RRGGBB；null = 默认
+    val borderColor: Color? = null,     // 自定义边框颜色；null = 默认（hex 仅在落库时转换）
 
     // 可选项数据
     val availableTags: List<Tag> = defaultTags,
