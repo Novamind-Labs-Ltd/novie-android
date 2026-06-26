@@ -175,10 +175,6 @@ fun ShareAccessScreen(
         canSend = pending.isNotEmpty() || input.isNotBlank(),
         onSubmitInput = { submitInput() },
         onSend = { performSend() },
-        onCancel = {
-            input = ""
-            pending.clear()
-        },
         onRemoveAccess = { accessList.remove(it) },
         onBack = { requestBack() },
         modifier = modifier,
@@ -214,7 +210,6 @@ private fun ShareAccessContent(
     canSend: Boolean,
     onSubmitInput: () -> Unit,
     onSend: () -> Unit,
-    onCancel: () -> Unit,
     onRemoveAccess: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -277,8 +272,6 @@ private fun ShareAccessContent(
 
         // Send（有 chip 或当前输入合法才可点）
         PillButton("Send", onClick = onSend, enabled = canSend, filled = true)
-        Spacer(Modifier.height(12.dp))
-        PillButton("Cancel", onClick = onCancel, enabled = true, filled = false)
 
         Spacer(Modifier.height(24.dp))
         Box(
@@ -531,7 +524,6 @@ private fun ShareAccessChipsPreview() {
             canSend = true,
             onSubmitInput = {},
             onSend = {},
-            onCancel = {},
             onRemoveAccess = {},
             onBack = {},
         )
@@ -551,7 +543,6 @@ private fun ShareAccessEmptyPreview() {
             canSend = false,
             onSubmitInput = {},
             onSend = {},
-            onCancel = {},
             onRemoveAccess = {},
             onBack = {},
         )
