@@ -47,6 +47,8 @@ fun DeleteConfirmSheet(
     message: String = "This will permanently delete the note.",
     confirmLabel: String = "Delete",
     dismissLabel: String = "Cancel",
+    confirmBackground: Color = Danger,
+    confirmTextColor: Color = Color.White,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -61,6 +63,8 @@ fun DeleteConfirmSheet(
             message = message,
             confirmLabel = confirmLabel,
             dismissLabel = dismissLabel,
+            confirmBackground = confirmBackground,
+            confirmTextColor = confirmTextColor,
         )
     }
 }
@@ -74,6 +78,8 @@ fun DeleteConfirmContent(
     message: String = "This will permanently delete the note.",
     confirmLabel: String = "Delete",
     dismissLabel: String = "Cancel",
+    confirmBackground: Color = Danger,
+    confirmTextColor: Color = Color.White,
 ) {
     Column(
         modifier = Modifier
@@ -105,11 +111,11 @@ fun DeleteConfirmContent(
             border = BorderStroke(1.5.dp, TextTitle),
             onClick = onDismiss,
         )
-        // 确认 —— 红色实心胶囊
+        // 确认 —— 实心胶囊（默认红色，可定制为黑色等）
         PillButton(
             label = confirmLabel,
-            textColor = Color.White,
-            background = Danger,
+            textColor = confirmTextColor,
+            background = confirmBackground,
             border = null,
             onClick = onConfirm,
         )

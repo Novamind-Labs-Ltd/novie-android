@@ -335,8 +335,7 @@ fun CreateScreen(
         onEvent(CreateEvent.SaveNote)
     }
 
-    // 分享访问页打开时：系统返回先关闭它，不退出笔记
-    BackHandler(enabled = showShare) { showShare = false }
+    // 分享访问页打开时由 ShareAccessScreen 自己拦截系统返回（含未发送内容的二次确认）
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
