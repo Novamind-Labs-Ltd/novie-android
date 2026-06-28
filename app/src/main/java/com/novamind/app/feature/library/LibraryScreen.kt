@@ -28,9 +28,14 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,13 +73,36 @@ fun LibraryScreen(
     uiState: LibraryUiState,
     onCreateNote: () -> Unit = {},
     onToggleViewMode: () -> Unit = {},
+    onOpenNote: (String) -> Unit = {},
+    onOpenTagManager: () -> Unit = {},
+    onOpenSharedWithMe: () -> Unit = {},
+    onOpenRecycleBin: () -> Unit = {},
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
     modifier: Modifier = Modifier,
 ) {
     // 分段标签 + 内容：Recent / Folders 两页，支持左右滑动与点击切换
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
+    // 抽屉：点击左上角侧栏按钮、或从左边缘右滑打开
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    fun closeDrawerThen(action: () -> Unit) {
+        scope.launch { drawerState.close() }
+        action()
+    }
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = onBack == null,   // 仅底栏入口（非子页）启用边缘右滑手势
+        drawerContent = {
+            LibraryDrawer(
+                notes = uiState.notes,
+                onOpenNote = { id -> closeDrawerThen { onOpenNote(id) } },
+                onOpenTagManager = { closeDrawerThen(onOpenTagManager) },
+                onOpenSharedWithMe = { closeDrawerThen(onOpenSharedWithMe) },
+                onOpenRecycleBin = { closeDrawerThen(onOpenRecycleBin) },
+            )
+        },
+    ) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -94,11 +122,12 @@ fun LibraryScreen(
                 // 作为子页进入（如首页 See all）：左上角返回键，通用组件（与 Create 等页统一）
                 BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
             } else {
-                // 现状：侧栏入口
+                // 现状：侧栏入口 → 打开抽屉
                 TopIconButton(
                     iconRes = R.drawable.ic_panel_left,
                     desc = "Sidebar",
                     shape = RoundedCornerShape(12.dp),
+                    onClick = { scope.launch { drawerState.open() } },
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -149,6 +178,100 @@ fun LibraryScreen(
                 else -> FoldersPage(folders = uiState.folders)
             }
         }
+    }
+    }
+}
+
+/**
+ * 左侧抽屉：顶部为最近笔记（chevron + 标题），底部固定 Tag manager / Shared with me / Recycle Bin。
+ * 宽度约屏宽 82%，白底；点击左上角按钮或从左边缘右滑打开。
+ */
+@Composable
+private fun LibraryDrawer(
+    notes: List<LibraryNote>,
+    onOpenNote: (String) -> Unit,
+    onOpenTagManager: () -> Unit,
+    onOpenSharedWithMe: () -> Unit,
+    onOpenRecycleBin: () -> Unit,
+) {
+    ModalDrawerSheet(
+        drawerContainerColor = Color.White,
+        drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
+        modifier = Modifier.fillMaxWidth(0.82f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(vertical = 24.dp),
+        ) {
+            // 顶部：最近笔记（最多 8 条）
+            notes.take(8).forEach { note ->
+                DrawerNoteItem(title = note.title, onClick = { onOpenNote(note.id) })
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            HorizontalDivider(
+                color = ColorBorder,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+
+            DrawerActionItem(R.drawable.ic_tag, "Tag manager", onClick = onOpenTagManager)
+            DrawerActionItem(R.drawable.ic_link, "Shared with me", onClick = onOpenSharedWithMe)
+            DrawerActionItem(R.drawable.ic_delete, "Recycle Bin", onClick = onOpenRecycleBin)
+        }
+    }
+}
+
+/** 抽屉的最近笔记项：左侧 chevron + 标题。 */
+@Composable
+private fun DrawerNoteItem(title: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_chevron_right),
+            contentDescription = null,
+            tint = ColorTextSub,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            color = ColorTextTitle,
+            maxLines = 1,
+        )
+    }
+}
+
+/** 抽屉底部操作项：图标 + 标签。 */
+@Composable
+private fun DrawerActionItem(iconRes: Int, label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = label,
+            tint = ColorTextTitle,
+            modifier = Modifier.size(22.dp),
+        )
+        Text(
+            text = label,
+            fontSize = 16.sp,
+            color = ColorTextTitle,
+        )
     }
 }
 
