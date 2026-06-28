@@ -156,8 +156,14 @@ class MainActivity : FragmentActivity() {
                         transitionSpec = {
                             val fromIndex = navOrder.indexOf(initialState)
                             val toIndex = navOrder.indexOf(targetState)
-                            // Create/编辑页视作从右侧推入，返回时向右滑出
-                            val forward = toIndex >= fromIndex
+                            val createRoute = BottomNavDestination.Create.route
+                            // Create/编辑页始终视作详情页：进入时从右侧推入，返回时向右滑出，
+                            // 与文件夹详情一致（不受 navOrder 顺序影响）
+                            val forward = when {
+                                targetState == createRoute -> true
+                                initialState == createRoute -> false
+                                else -> toIndex >= fromIndex
+                            }
                             if (forward) {
                                 (slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f))
                                     .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut())
@@ -201,6 +207,12 @@ class MainActivity : FragmentActivity() {
                             BottomNavDestination.Library.route -> LibraryRoute(
                                 onCreateNote = {
                                     editingNoteId = null
+                                    createReturnRoute = BottomNavDestination.Library.route
+                                    currentRoute = BottomNavDestination.Create.route
+                                },
+                                // 点击笔记进入预览/编辑页；返回回到 Library
+                                onOpenNote = { noteId ->
+                                    editingNoteId = noteId
                                     createReturnRoute = BottomNavDestination.Library.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },

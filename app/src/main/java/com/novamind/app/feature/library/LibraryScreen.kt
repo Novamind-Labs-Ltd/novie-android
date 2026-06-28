@@ -89,6 +89,7 @@ fun LibraryScreen(
     onCreateNote: () -> Unit = {},
     onToggleViewMode: () -> Unit = {},
     onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
+    onOpenNote: (String) -> Unit = {},   // 点击 Recent 笔记 → 进入笔记预览/编辑页
     onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
@@ -168,6 +169,7 @@ fun LibraryScreen(
                 0 -> RecentPage(
                     uiState = uiState,
                     onCreateNote = onCreateNote,
+                    onOpenNote = onOpenNote,
                 )
                 else -> FoldersPage(folders = uiState.folders, onOpenFolder = onOpenFolder)
             }
@@ -268,9 +270,13 @@ private fun DrawerActionItem(iconRes: Int, label: String, onClick: () -> Unit) {
     }
 }
 
-/** Recent 页：无笔记显示空状态；有笔记按 viewMode 显示双列网格或单列列表。 */
+/** Recent 页：无笔记显示空状态；有笔记按 viewMode 显示双列网格或单列列表。点击笔记进入预览/编辑页。 */
 @Composable
-private fun RecentPage(uiState: LibraryUiState, onCreateNote: () -> Unit) {
+private fun RecentPage(
+    uiState: LibraryUiState,
+    onCreateNote: () -> Unit,
+    onOpenNote: (String) -> Unit,
+) {
     when {
         uiState.notes.isEmpty() ->
             EmptyState(onCreateNote = onCreateNote, modifier = Modifier.fillMaxSize())
@@ -286,7 +292,7 @@ private fun RecentPage(uiState: LibraryUiState, onCreateNote: () -> Unit) {
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
             ) {
                 items(uiState.notes, key = { it.id }) { note ->
-                    LibraryNoteCard(note = note)
+                    LibraryNoteCard(note = note, onClick = { onOpenNote(note.id) })
                 }
             }
 
@@ -299,7 +305,7 @@ private fun RecentPage(uiState: LibraryUiState, onCreateNote: () -> Unit) {
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
             ) {
                 items(uiState.notes, key = { it.id }) { note ->
-                    LibraryNoteRow(note = note)
+                    LibraryNoteRow(note = note, onClick = { onOpenNote(note.id) })
                 }
             }
     }
@@ -332,8 +338,9 @@ private fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit) {
 
 /** 列表态笔记项：整宽横向卡片（标签 + 标题 + 预览）。 */
 @Composable
-private fun LibraryNoteRow(note: LibraryNote) {
+private fun LibraryNoteRow(note: LibraryNote, onClick: () -> Unit = {}) {
     Surface(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
@@ -824,8 +831,9 @@ private fun EmptyIllustration() {
 }
 
 @Composable
-private fun LibraryNoteCard(note: LibraryNote) {
+private fun LibraryNoteCard(note: LibraryNote, onClick: () -> Unit = {}) {
     Surface(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
@@ -933,6 +941,7 @@ fun LibraryRoute(
                     onCreateNote = onCreateNote,
                     onToggleViewMode = viewModel::toggleViewMode,
                     onOpenSidebar = { scope.launch { drawerState.open() } },
+                    onOpenNote = onOpenNote,
                     onOpenFolder = { selectedFolder = it },
                     pagerState = pagerState,
                     onBack = onBack,
