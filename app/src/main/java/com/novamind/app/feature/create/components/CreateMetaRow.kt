@@ -41,6 +41,7 @@ fun CreateMetaRow(
     onShowFolderPicker: () -> Unit,
     onShowTagPicker: () -> Unit,
     modifier: Modifier = Modifier,
+    readOnly: Boolean = false,   // 回收站只读态：chip 仅展示、不可点击
 ) {
     Row(
         modifier = modifier
@@ -50,18 +51,19 @@ fun CreateMetaRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 文件夹 chip（编辑页仅显示 folder，不平铺已选 tag）
+        // 只读态无文件夹时显示「Unassigned」；可编辑态保留「Add to folder」入口文案
         MetaChip(
             iconResId = R.drawable.ic_nav_library,
-            label = selectedFolder?.name ?: "Add to folder",
+            label = selectedFolder?.name ?: if (readOnly) "Unassigned" else "Add to folder",
             isActive = selectedFolder != null,
-            onClick = onShowFolderPicker,
+            onClick = if (readOnly) null else onShowFolderPicker,
         )
         // 标签入口：已选时在标签后显示数量（超过 99 显示 99+），始终中性样式
         MetaChip(
             iconResId = R.drawable.ic_nav_brand,
             label = if (selectedTags.isEmpty()) "Tags" else "Tags (${tagCountLabel(selectedTags.size)})",
             isActive = false,
-            onClick = onShowTagPicker,
+            onClick = if (readOnly) null else onShowTagPicker,
         )
         // 时间：不做成胶囊，只显示图标 + 文字
         Row(

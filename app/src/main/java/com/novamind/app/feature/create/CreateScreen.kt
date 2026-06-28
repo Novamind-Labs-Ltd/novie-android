@@ -72,6 +72,9 @@ fun CreateRoute(
     noteId: String? = null,           // 非 null 时加载已有笔记
     onFullscreenChange: (Boolean) -> Unit = {},  // 全屏页（图片预览）显隐 → 宿主隐藏底部导航
     maxImages: Int = AppConfig.Media.MAX_IMAGE_PICK,  // 一次最多可选图片数
+    readOnly: Boolean = false,        // 回收站只读态：仅查看，不可编辑；顶栏显示 Restore / Delete
+    onRestore: () -> Unit = {},       // 只读态「Restore」：由回收站宿主处理（恢复笔记）
+    onDeleteForever: () -> Unit = {}, // 只读态「Delete」：由回收站宿主处理（彻底删除）
     modifier: Modifier = Modifier,
     viewModel: CreateViewModel = viewModel(),
 ) {
@@ -87,8 +90,10 @@ fun CreateRoute(
 
     // 生命周期兜底：退后台(ON_STOP)或离开本页(onDispose)时立即落盘，
     // 让自动保存的防抖/封顶可以放心拉长而不丢数据。
+    // 只读态（回收站查看）不落盘——不应改动已删除的笔记。
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, readOnly) {
+        if (readOnly) return@DisposableEffect onDispose { }
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) viewModel.flush()
         }
@@ -104,9 +109,12 @@ fun CreateRoute(
         uiState = uiState,
         onEvent = viewModel::onEvent,
         onBack = onBack,
-        autoFocusBody = noteId == null,   // 新建笔记自动聚焦正文并弹出键盘
+        autoFocusBody = noteId == null && !readOnly,   // 新建笔记自动聚焦正文并弹出键盘；只读态不聚焦
         onFullscreenChange = onFullscreenChange,
         maxImages = maxImages,
+        readOnly = readOnly,
+        onRestore = onRestore,
+        onDeleteForever = onDeleteForever,
         modifier = modifier,
     )
 }
@@ -121,6 +129,9 @@ fun CreateScreen(
     autoFocusBody: Boolean = false,         // 新建笔记进入时自动聚焦正文（弹出键盘）
     onFullscreenChange: (Boolean) -> Unit = {},  // 图片预览全屏页显隐回调
     maxImages: Int = AppConfig.Media.MAX_IMAGE_PICK,  // 一次最多可选图片数
+    readOnly: Boolean = false,              // 回收站只读态：仅查看，不可编辑
+    onRestore: () -> Unit = {},             // 只读态「Restore」
+    onDeleteForever: () -> Unit = {},       // 只读态「Delete」（彻底删除）
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -332,7 +343,8 @@ fun CreateScreen(
                 !showRecordingBar && !polishing && !showShare
     ) {
         keyboardController?.hide()
-        onEvent(CreateEvent.SaveNote)
+        // 只读态（回收站查看）直接返回，不落盘；编辑态返回即保存
+        if (readOnly) onBack() else onEvent(CreateEvent.SaveNote)
     }
 
     // 分享访问页打开时由 ShareAccessScreen 自己拦截系统返回（含未发送内容的二次确认）
@@ -352,7 +364,8 @@ fun CreateScreen(
                 canRedo = uiState.canRedo,
                 onBack = {
                     keyboardController?.hide()
-                    onEvent(CreateEvent.SaveNote)
+                    // 只读态直接返回（不落盘）；编辑态返回即保存
+                    if (readOnly) onBack() else onEvent(CreateEvent.SaveNote)
                 },
                 onShare = {
                     focusManager.clearFocus(force = true)
@@ -371,6 +384,9 @@ fun CreateScreen(
                     showDeleteConfirm = true
                 },
                 moreEnabled = !noteEmpty,
+                readOnly = readOnly,
+                onRestore = onRestore,
+                onDeleteForever = { showDeleteConfirm = true },   // 二次确认后彻底删除
             )
 
             // ── 正文（图文混排） ──────────────────────────────────────────
@@ -384,7 +400,7 @@ fun CreateScreen(
                 NoteContentEditor(
                     state = editor,
                     onContentChanged = emitContent,
-                    readOnly = showRecordingBar,   // 录音期间正文不可编辑、不弹键盘
+                    readOnly = showRecordingBar || readOnly,   // 录音期间 / 回收站只读态：正文不可编辑、不弹键盘
                     bodyCharLimit = (maxInputChars - titleLen).coerceAtLeast(0),
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
@@ -403,7 +419,7 @@ fun CreateScreen(
                                     onEvent(CreateEvent.TitleChanged(it))
                                 }
                             },
-                            readOnly = showRecordingBar,   // 录音期间不可编辑
+                            readOnly = showRecordingBar || readOnly,   // 录音期间 / 回收站只读态不可编辑
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
@@ -442,6 +458,7 @@ fun CreateScreen(
                                 keyboardController?.hide()
                                 onEvent(CreateEvent.ShowTagPicker)
                             },
+                            readOnly = readOnly,
                         )
                     },
                     modifier = Modifier.fillMaxSize(),
@@ -451,7 +468,7 @@ fun CreateScreen(
 
         // ── 格式工具栏：悬浮在键盘上方（imePadding 抬升），不挤占正文 ──────────
         // 录音条出现时让位（二者都在底部，互斥显示）。
-        if ((imeVisible || forceToolbarVisible) && !showRecordingBar) {
+        if ((imeVisible || forceToolbarVisible) && !showRecordingBar && !readOnly) {
             FormattingToolbar(
                 onHideKeyboard = { keyboardController?.hide() },
                 onVoice = onVoiceClicked,
@@ -488,7 +505,8 @@ fun CreateScreen(
         }
 
         // ── 字数计数：右下角「当前/上限」；达到上限标红。键盘弹起时抬到工具栏之上 ──
-        if (!showRecordingBar) {
+        // 只读态（回收站）不展示字数。
+        if (!showRecordingBar && !readOnly) {
             val toolbarShown = (imeVisible || forceToolbarVisible)
             Text(
                 text = "$totalChars / $maxInputChars",
@@ -549,7 +567,8 @@ fun CreateScreen(
             DeleteConfirmSheet(
                 onConfirm = {
                     showDeleteConfirm = false
-                    onEvent(CreateEvent.DeleteNote)
+                    // 只读态（回收站）彻底删除交宿主处理；编辑态走普通软删除事件
+                    if (readOnly) onDeleteForever() else onEvent(CreateEvent.DeleteNote)
                 },
                 onDismiss = { showDeleteConfirm = false },
             )
@@ -630,6 +649,23 @@ private fun CreateScreenPreview() {
             uiState = CreateUiState(),
             onEvent = {},
             forceToolbarVisible = true,
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "只读（回收站）")
+@Composable
+private fun CreateScreenReadOnlyPreview() {
+    AppTheme {
+        CreateScreen(
+            uiState = CreateUiState(
+                editingNoteId = "1",
+                title = "Q3 marketing campaign",
+                body = "Meeting Summary\n• Q3 Strategy: Reviewed competitor analysis and finalized the budget for the upcoming product launch.\n• Team Offsite: Scheduled at Mount Serenity.",
+                updatedAt = System.currentTimeMillis(),
+            ),
+            onEvent = {},
+            readOnly = true,
         )
     }
 }
