@@ -313,7 +313,7 @@ private fun RecentPage(
 
 /**
  * 视图切换按钮：圆角方形白底按钮（区别于顶部圆形搜索按钮），
- * 图标随当前模式切换——网格态显示列表图标、列表态显示网格图标，提示「点击切到另一种」。
+ * 图标显示「当前」视图模式——网格态显示网格图标、列表态显示列表图标，点击切换。
  */
 @Composable
 private fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit) {
@@ -328,8 +328,8 @@ private fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            painter = painterResource(if (isGrid) R.drawable.ic_format_list else R.drawable.ic_grid),
-            contentDescription = if (isGrid) "Switch to list view" else "Switch to grid view",
+            painter = painterResource(if (isGrid) R.drawable.ic_grid else R.drawable.ic_format_list),
+            contentDescription = if (isGrid) "Grid view, tap to switch to list" else "List view, tap to switch to grid",
             tint = ColorTextTitle,
             modifier = Modifier.size(20.dp),
         )
