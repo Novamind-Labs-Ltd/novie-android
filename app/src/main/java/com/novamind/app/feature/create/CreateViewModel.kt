@@ -216,8 +216,8 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             is CreateEvent.DeleteNote -> {
                 val noteId = _uiState.value.editingNoteId
                 viewModelScope.launch {
-                    // 已保存过的笔记才需要删库；未保存的新笔记直接返回
-                    if (noteId != null) noteRepository.delete(noteId)
+                    // 已保存过的笔记移入回收站（软删，可在回收站恢复）；未保存的新笔记直接返回
+                    if (noteId != null) noteRepository.moveToTrash(noteId)
                     _navigateBack.tryEmit(Unit)
                 }
             }

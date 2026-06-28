@@ -14,6 +14,9 @@ interface NoteRepository {
 
     suspend fun delete(noteId: String)
 
+    /** 移入回收站（软删 tombstone，可在回收站恢复或彻底删除）。 */
+    suspend fun moveToTrash(noteId: String)
+
     /** 从回收站恢复笔记。 */
     suspend fun restore(noteId: String)
 

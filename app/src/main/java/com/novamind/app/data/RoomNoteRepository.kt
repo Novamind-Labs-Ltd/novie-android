@@ -41,6 +41,11 @@ class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
         }
     }
 
+    override suspend fun moveToTrash(noteId: String) {
+        // 始终软删（打 tombstone），无论是否同步过——确保都进入回收站可恢复。
+        dao.markDeleted(noteId, System.currentTimeMillis())
+    }
+
     override suspend fun restore(noteId: String) {
         dao.restore(noteId, System.currentTimeMillis())
     }
