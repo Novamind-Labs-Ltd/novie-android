@@ -37,6 +37,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -705,6 +707,7 @@ fun LibraryRoute(
     onOpenTagManager: () -> Unit = {},
     onOpenSharedWithMe: () -> Unit = {},
     onOpenRecycleBin: () -> Unit = {},
+    onFullscreenChange: (Boolean) -> Unit = {},   // 抽屉打开 → 宿主隐藏底部导航，让抽屉盖住底栏
     onBack: (() -> Unit)? = null,   // 非 null：作为子页进入，左上角为返回键
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = viewModel(),
@@ -713,6 +716,10 @@ fun LibraryRoute(
     val scope = rememberCoroutineScope()
     // 抽屉宿主：点击左上角侧栏按钮或从左边缘右滑打开（仅底栏入口，非子页）
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    // 抽屉打开时通知宿主隐藏底部导航栏（盖住底栏）；离开页面时复位
+    val drawerOpen = drawerState.targetValue == DrawerValue.Open
+    LaunchedEffect(drawerOpen) { onFullscreenChange(drawerOpen) }
+    DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
     fun closeDrawerThen(action: () -> Unit) {
         scope.launch { drawerState.close() }
         action()

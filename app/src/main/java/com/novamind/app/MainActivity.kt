@@ -204,6 +204,8 @@ class MainActivity : FragmentActivity() {
                                     createReturnRoute = BottomNavDestination.Library.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },
+                                // 抽屉打开时隐藏底部导航栏，让抽屉盖住底栏
+                                onFullscreenChange = { hideBottomNav = it },
                                 // 子页进入时左上角为返回键，回到上一页（首页）；从底栏进入则保持现状
                                 onBack = if (libraryAsSubpage) {
                                     {
