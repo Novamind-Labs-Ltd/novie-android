@@ -55,6 +55,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -147,9 +148,12 @@ fun LibraryScreen(
                 fontWeight = FontWeight.ExtraBold,
                 color = ColorTextTitle,
             )
-            if (pagerState.currentPage == 0) {
-                ViewModeToggle(viewMode = uiState.viewMode, onClick = onToggleViewMode)
-            }
+            // 仅 Recent 页可见，但始终占位（invisible 而非 gone），避免标题行间距跳动
+            ViewModeToggle(
+                viewMode = uiState.viewMode,
+                onClick = onToggleViewMode,
+                visible = pagerState.currentPage == 0,
+            )
         }
 
         SegmentedTabBar(
@@ -318,15 +322,17 @@ private fun RecentPage(
  * 图标显示「当前」视图模式——网格态显示网格图标、列表态显示列表图标，点击切换。
  */
 @Composable
-private fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit) {
+private fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit, visible: Boolean = true) {
     val isGrid = viewMode == LibraryViewMode.GRID
     Box(
         modifier = Modifier
             .size(42.dp)
+            // 不可见时仍保留占位（alpha 0），并禁用点击
+            .alpha(if (visible) 1f else 0f)
             .clip(RoundedCornerShape(12.dp))
             .background(ColorIconBtn)
             .border(1.dp, ColorBorder, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .clickable(enabled = visible, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
