@@ -73,36 +73,14 @@ fun LibraryScreen(
     uiState: LibraryUiState,
     onCreateNote: () -> Unit = {},
     onToggleViewMode: () -> Unit = {},
-    onOpenNote: (String) -> Unit = {},
-    onOpenTagManager: () -> Unit = {},
-    onOpenSharedWithMe: () -> Unit = {},
-    onOpenRecycleBin: () -> Unit = {},
+    onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
     modifier: Modifier = Modifier,
 ) {
     // 分段标签 + 内容：Recent / Folders 两页，支持左右滑动与点击切换
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
-    // 抽屉：点击左上角侧栏按钮、或从左边缘右滑打开
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    fun closeDrawerThen(action: () -> Unit) {
-        scope.launch { drawerState.close() }
-        action()
-    }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = onBack == null,   // 仅底栏入口（非子页）启用边缘右滑手势
-        drawerContent = {
-            LibraryDrawer(
-                notes = uiState.notes,
-                onOpenNote = { id -> closeDrawerThen { onOpenNote(id) } },
-                onOpenTagManager = { closeDrawerThen(onOpenTagManager) },
-                onOpenSharedWithMe = { closeDrawerThen(onOpenSharedWithMe) },
-                onOpenRecycleBin = { closeDrawerThen(onOpenRecycleBin) },
-            )
-        },
-    ) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -122,12 +100,12 @@ fun LibraryScreen(
                 // 作为子页进入（如首页 See all）：左上角返回键，通用组件（与 Create 等页统一）
                 BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
             } else {
-                // 现状：侧栏入口 → 打开抽屉
+                // 现状：侧栏入口 → 通知宿主打开抽屉
                 TopIconButton(
                     iconRes = R.drawable.ic_panel_left,
                     desc = "Sidebar",
                     shape = RoundedCornerShape(12.dp),
-                    onClick = { scope.launch { drawerState.open() } },
+                    onClick = onOpenSidebar,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -178,7 +156,6 @@ fun LibraryScreen(
                 else -> FoldersPage(folders = uiState.folders)
             }
         }
-    }
     }
 }
 
@@ -724,18 +701,45 @@ private fun LibraryNoteCard(note: LibraryNote) {
 @Composable
 fun LibraryRoute(
     onCreateNote: () -> Unit = {},
+    onOpenNote: (String) -> Unit = {},
+    onOpenTagManager: () -> Unit = {},
+    onOpenSharedWithMe: () -> Unit = {},
+    onOpenRecycleBin: () -> Unit = {},
     onBack: (() -> Unit)? = null,   // 非 null：作为子页进入，左上角为返回键
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LibraryScreen(
-        uiState = uiState,
-        onCreateNote = onCreateNote,
-        onToggleViewMode = viewModel::toggleViewMode,
-        onBack = onBack,
-        modifier = modifier,
-    )
+    val scope = rememberCoroutineScope()
+    // 抽屉宿主：点击左上角侧栏按钮或从左边缘右滑打开（仅底栏入口，非子页）
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    fun closeDrawerThen(action: () -> Unit) {
+        scope.launch { drawerState.close() }
+        action()
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = onBack == null,
+        drawerContent = {
+            LibraryDrawer(
+                notes = uiState.notes,
+                onOpenNote = { id -> closeDrawerThen { onOpenNote(id) } },
+                onOpenTagManager = { closeDrawerThen(onOpenTagManager) },
+                onOpenSharedWithMe = { closeDrawerThen(onOpenSharedWithMe) },
+                onOpenRecycleBin = { closeDrawerThen(onOpenRecycleBin) },
+            )
+        },
+    ) {
+        LibraryScreen(
+            uiState = uiState,
+            onCreateNote = onCreateNote,
+            onToggleViewMode = viewModel::toggleViewMode,
+            onOpenSidebar = { scope.launch { drawerState.open() } },
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
 }
 
 private val sampleNotes = listOf(
