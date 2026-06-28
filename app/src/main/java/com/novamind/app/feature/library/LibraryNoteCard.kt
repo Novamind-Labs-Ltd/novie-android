@@ -1,7 +1,9 @@
-package com.novamind.app.feature.home
+package com.novamind.app.feature.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,14 +33,13 @@ import coil.compose.AsyncImage
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
-import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
 
-// NoteCard 配色：对齐设计系统语义令牌，随主题深浅自动解析
+// LibraryNoteCard 配色：对齐设计系统语义令牌（ui/colors），随主题深浅自动解析
 private val BgCard: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 private val ColorTextTitle: Color
@@ -46,37 +48,25 @@ private val ColorTextSub: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
 private val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
-private val ColorSelectedBorder = Palette.forrest200   // 选中态：品牌浅绿（固定基础色）
 
-/**
- * 首页笔记卡片：固定 160×120，标题为空时用正文充当标题（1 行），剩余正文接到下方。
- */
+/** 网格态笔记卡片：日期 + 标题 + 内容（占剩余空间）+ 底部缩略图。 */
 @Composable
-internal fun NoteCard(
-    note: NoteItem,
-    onClick: () -> Unit = {},
-    modifier: Modifier = Modifier,
-) {
-    // 自定义边框色优先；否则按选中/默认取色
-    val customBorder = note.borderColor
-    val borderColor = customBorder ?: if (note.isSelected) ColorSelectedBorder else ColorBorder
-    val borderWidth = 3.dp
-
+internal fun LibraryNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
     Surface(
         onClick = onClick,
-        modifier = modifier
-            .width(160.dp)
-            .height(240.dp)
-            .border(borderWidth, borderColor, RoundedCornerShape(16.dp)),
+        modifier = Modifier
+            .width(172.dp)
+            .height(180.dp)
+            .border(3.dp, note.borderColor ?: ColorBorder, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         color = BgCard,
-        shadowElevation = if (note.isSelected) 3.dp else 1.dp,
+        shadowElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // 更新时间：今天 HH:mm / 今年 MM-dd / 跨年 yyyy-MM-dd
+            // 日期
             Text(
                 text = TimeUtils.smart(note.updatedAt),
                 fontSize = 11.sp,
@@ -104,6 +94,7 @@ internal fun NoteCard(
                 },
             )
 
+            // 内容：占满标题与图片之外的剩余空间
             val bodyText = when {
                 hasTitle -> note.description
                 titleEnd in 0 until note.description.length ->
@@ -116,8 +107,6 @@ internal fun NoteCard(
                     fontSize = 12.sp,
                     color = ColorTextSub,
                     lineHeight = 17.sp,
-                    // 行数不写死：占满时间/标题/图片之外的剩余空间，
-                    // 有图时缩略图先占位，正文可见行数随剩余高度自动减少；无图时铺满剩余高度。
                     modifier = Modifier.weight(1f),
                     maxLines = Int.MAX_VALUE,
                     overflow = TextOverflow.Ellipsis,
@@ -126,56 +115,58 @@ internal fun NoteCard(
                 // 无正文但有图片时，用弹性留白把缩略图压到底部
                 Spacer(Modifier.weight(1f))
             }
-
-            // 正文存在图片时：展示第一张缩略图（56dp 圆角方图），固定占位在底部
+            // 底部缩略图（有图才显示）
             note.imagePath?.let { path ->
-                AsyncImage(
-                    model = File(path),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(10.dp)),
-                )
+                val thumbModifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                if (LocalInspectionMode.current) {
+                    // 预览态：File 无法加载，用占位色块呈现「有图」效果
+                    Box(modifier = thumbModifier.background(ColorBorder))
+                } else {
+                    AsyncImage(
+                        model = File(path),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = thumbModifier,
+                    )
+                }
             }
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA)
+@Preview(showBackground = true, backgroundColor = 0xFFF4F2EC)
 @Composable
-private fun NoteCardPreview() {
+private fun LibraryNoteCardPreview() {
     AppTheme {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            NoteCard(
-                NoteItem(
-                    "1",
-                    "Market research",
-                    "Here is an overview of your competitors in 2026.",
-                    updatedAt = System.currentTimeMillis(),
-                )
-            )
-            NoteCard(
-                NoteItem(
-                    "2",
-                    "",
-                    "无标题：这条用正文充当标题，剩余内容会接到分割线下方继续展示。",
-                    isSelected = true,
-                    updatedAt = System.currentTimeMillis(),
-                )
-            )
-            NoteCard(
-                NoteItem(
-                    "3",
-                    "Q3 KPIs",
-                    "Discussed Q3 KPIs. John to finalize the report by Thursday.",
-                    borderColor = Palette.red500,
-                    updatedAt = System.currentTimeMillis(),
-                )
-            )
-        }
+        LibraryNoteCard(
+            note = NoteItem(
+                id = "1",
+                title = "Product roadmap",
+                description = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                tags = listOf("Work"),
+                folderName = "Work",
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF4F2EC)
+@Composable
+private fun LibraryNoteCardWithImagePreview() {
+    AppTheme {
+        LibraryNoteCard(
+            note = NoteItem(
+                id = "2",
+                title = "Product roadmap",
+                description = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                tags = listOf("Work"),
+                folderName = "Work",
+                updatedAt = System.currentTimeMillis(),
+                imagePath = "preview/sample.jpg",
+            ),
+        )
     }
 }

@@ -72,8 +72,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
+import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.launch
 
 private val BgPage = Color(0xFFF4F2EC)
@@ -183,7 +185,7 @@ fun LibraryScreen(
  */
 @Composable
 private fun LibraryDrawer(
-    notes: List<LibraryNote>,
+    notes: List<NoteItem>,
     onOpenNote: (String) -> Unit,
     onOpenTagManager: () -> Unit,
     onOpenSharedWithMe: () -> Unit,
@@ -338,7 +340,7 @@ private fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit) {
 
 /** 列表态笔记项：整宽横向卡片（标签 + 标题 + 预览）。 */
 @Composable
-private fun LibraryNoteRow(note: LibraryNote, onClick: () -> Unit = {}) {
+private fun LibraryNoteRow(note: NoteItem, onClick: () -> Unit = {}) {
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -358,7 +360,7 @@ private fun LibraryNoteRow(note: LibraryNote, onClick: () -> Unit = {}) {
             ) {
                 Surface(shape = RoundedCornerShape(50), color = ColorAccent.copy(alpha = 0.1f)) {
                     Text(
-                        text = note.tag,
+                        text = note.tags.firstOrNull() ?: note.folderName ?: "Note",
                         fontSize = 10.sp,
                         color = ColorAccent,
                         fontWeight = FontWeight.Medium,
@@ -373,7 +375,7 @@ private fun LibraryNoteRow(note: LibraryNote, onClick: () -> Unit = {}) {
                 )
             }
             Text(
-                note.preview,
+                note.description,
                 fontSize = 13.sp,
                 color = ColorTextSub,
                 lineHeight = 18.sp,
@@ -554,7 +556,7 @@ private fun FolderRow(folder: LibraryFolder, onClick: () -> Unit = {}) {
 @Composable
 internal fun FolderDetailScreen(
     folderName: String,
-    notes: List<LibraryNote>,
+    notes: List<NoteItem>,
     onBack: () -> Unit,
     onOpenNote: (String) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -655,7 +657,7 @@ internal fun FolderDetailScreen(
 
 /** 文件夹详情页的笔记项：日期 + 标题 + 预览（整宽卡片）。 */
 @Composable
-private fun FolderNoteRow(note: LibraryNote, onClick: () -> Unit) {
+private fun FolderNoteRow(note: NoteItem, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -670,13 +672,13 @@ private fun FolderNoteRow(note: LibraryNote, onClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = note.dateLabel.ifBlank { "Date or time" },
+                text = TimeUtils.smart(note.updatedAt),
                 fontSize = 12.sp,
                 color = ColorTextSub,
             )
             Text(note.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
             Text(
-                note.preview,
+                note.description,
                 fontSize = 14.sp,
                 color = ColorTextTitle.copy(alpha = 0.8f),
                 lineHeight = 20.sp,
@@ -831,39 +833,6 @@ private fun EmptyIllustration() {
 }
 
 @Composable
-private fun LibraryNoteCard(note: LibraryNote, onClick: () -> Unit = {}) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 1.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = ColorAccent.copy(alpha = 0.1f),
-            ) {
-                Text(
-                    text = note.tag,
-                    fontSize = 10.sp,
-                    color = ColorAccent,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                )
-            }
-            Text(note.title, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
-            Text(note.preview, fontSize = 12.sp, color = ColorTextSub, lineHeight = 17.sp, maxLines = 3)
-        }
-    }
-}
-
-@Composable
 fun LibraryRoute(
     onCreateNote: () -> Unit = {},
     onOpenNote: (String) -> Unit = {},
@@ -953,10 +922,10 @@ fun LibraryRoute(
 }
 
 private val sampleNotes = listOf(
-    LibraryNote("1", "Q3 KPIs", "Discussed Q3 KPIs. John to finalize the report by Thursday. Next meeting: Monday at 10 AM.", "Work", folderName = "Work", dateLabel = "1 June"),
-    LibraryNote("2", "Team sync", "Team sync: Marketing launch on track. Felix leads HK event. RSVP for offsite by Friday.", "Work", folderName = "Work", dateLabel = "1 June"),
-    LibraryNote("3", "Client call", "Client call notes: Requirements updated. Development starts Monday. QA testing scheduled for July.", "Work", folderName = "Work", dateLabel = "30 May"),
-    LibraryNote("4", "Team retro", "Sprint retrospective notes.", "Personal", folderName = "Personal", dateLabel = "28 May"),
+    NoteItem("1", "Q3 KPIs", "Discussed Q3 KPIs. John to finalize the report by Thursday. Next meeting: Monday at 10 AM.", tags = listOf("Work"), folderName = "Work", updatedAt = System.currentTimeMillis()),
+    NoteItem("2", "Team sync", "Team sync: Marketing launch on track. Felix leads HK event. RSVP for offsite by Friday.", tags = listOf("Work"), folderName = "Work", updatedAt = System.currentTimeMillis()),
+    NoteItem("3", "Client call", "Client call notes: Requirements updated. Development starts Monday. QA testing scheduled for July.", tags = listOf("Work"), folderName = "Work", updatedAt = System.currentTimeMillis()),
+    NoteItem("4", "Team retro", "Sprint retrospective notes.", tags = listOf("Personal"), folderName = "Personal", updatedAt = System.currentTimeMillis()),
 )
 
 private val sampleFolders = listOf(

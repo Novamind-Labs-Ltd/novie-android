@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.NoteDocument
+import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.util.ColorUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -5,7 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.feature.create.editor.NoteDocument
-import com.novamind.app.util.TimeUtils
+import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.util.ColorUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -35,15 +36,16 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.update {
                     it.copy(
                         notes = notes.map { note ->
-                            LibraryNote(
+                            NoteItem(
                                 id = note.id,
-                                title = note.title.ifBlank { "Untitled" },
-                                preview = NoteDocument.previewText(note.body),
-                                tag = note.tags.firstOrNull()?.name
-                                    ?: note.folder?.name
-                                    ?: "Note",
+                                title = note.title,
+                                description = NoteDocument.previewText(note.body),
+                                tags = note.tags.map { it.name },
+                                borderColor = ColorUtils.parseHexColor(note.borderColorHex),
+                                imagePath = NoteDocument.firstImagePath(note.body),
                                 folderName = note.folder?.name,
-                                dateLabel = TimeUtils.smart(note.updatedAt),
+                                createdAt = note.createdAt,
+                                updatedAt = note.updatedAt,
                             )
                         },
                         folders = folders,
