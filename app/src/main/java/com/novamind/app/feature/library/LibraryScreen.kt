@@ -108,7 +108,7 @@ fun LibraryScreen(
             .statusBarsPadding()
             .padding(bottom = 100.dp),
     ) {
-        // 顶部工具条：左侧栏 / 搜索 / 更多
+        // 顶部工具条：左侧栏 / 搜索 / 创建
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -130,7 +130,7 @@ fun LibraryScreen(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TopIconButton(R.drawable.ic_search, "Search", shape = CircleShape)
-                TopIconButton(R.drawable.ic_more, "More", shape = CircleShape, bg = Color.Transparent)
+                TopIconButton(R.drawable.ic_nav_create, "Create note", shape = CircleShape, onClick = onCreateNote)
             }
         }
 
