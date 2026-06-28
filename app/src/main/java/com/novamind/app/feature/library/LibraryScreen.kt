@@ -1,5 +1,12 @@
 package com.novamind.app.feature.library
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +32,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,7 +48,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +65,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,11 +89,12 @@ fun LibraryScreen(
     onCreateNote: () -> Unit = {},
     onToggleViewMode: () -> Unit = {},
     onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
+    onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
+    // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
+    pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
     modifier: Modifier = Modifier,
 ) {
-    // 分段标签 + 内容：Recent / Folders 两页，支持左右滑动与点击切换
-    val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
 
     Column(
@@ -155,7 +169,7 @@ fun LibraryScreen(
                     uiState = uiState,
                     onCreateNote = onCreateNote,
                 )
-                else -> FoldersPage(folders = uiState.folders)
+                else -> FoldersPage(folders = uiState.folders, onOpenFolder = onOpenFolder)
             }
         }
     }
@@ -364,7 +378,7 @@ private fun LibraryNoteRow(note: LibraryNote) {
 
 /** Folders 页：按文件夹聚合的列表，空则显示提示。 */
 @Composable
-private fun FoldersPage(folders: List<LibraryFolder>) {
+private fun FoldersPage(folders: List<LibraryFolder>, onOpenFolder: (String) -> Unit) {
     if (folders.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
@@ -383,7 +397,7 @@ private fun FoldersPage(folders: List<LibraryFolder>) {
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
         ) {
             items(folders, key = { it.name }) { folder ->
-                FolderRow(folder = folder)
+                FolderRow(folder = folder, onClick = { onOpenFolder(folder.name) })
             }
         }
     }
@@ -479,8 +493,9 @@ private fun SegmentTab(
 }
 
 @Composable
-private fun FolderRow(folder: LibraryFolder) {
+private fun FolderRow(folder: LibraryFolder, onClick: () -> Unit = {}) {
     Surface(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
@@ -520,6 +535,146 @@ private fun FolderRow(folder: LibraryFolder) {
                 contentDescription = null,
                 tint = ColorTextSub,
                 modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+/**
+ * 文件夹详情页：点击某文件夹后进入，展示该文件夹下的笔记列表。
+ * 顶部返回 / 搜索 / 更多，标题区为文件夹图标 + 名称 + 排序按钮。
+ */
+@Composable
+internal fun FolderDetailScreen(
+    folderName: String,
+    notes: List<LibraryNote>,
+    onBack: () -> Unit,
+    onOpenNote: (String) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    var descending by rememberSaveable(folderName) { mutableStateOf(true) }
+    val sorted = remember(notes, descending) { if (descending) notes else notes.asReversed() }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(BgPage)
+            .statusBarsPadding()
+            .padding(bottom = 100.dp),
+    ) {
+        // 顶部工具条：返回 / 搜索 / 更多
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TopIconButton(R.drawable.ic_search, "Search", shape = CircleShape)
+                TopIconButton(R.drawable.ic_more, "More", shape = CircleShape, bg = Color.Transparent)
+            }
+        }
+
+        // 标题区：文件夹图标 + 名称 + 排序按钮
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(ColorAccent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_folder),
+                    contentDescription = null,
+                    tint = ColorAccent,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = folderName,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = ColorTextTitle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            // 排序按钮：切换正序 / 倒序
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { descending = !descending },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_sort),
+                    contentDescription = if (descending) "Sort ascending" else "Sort descending",
+                    tint = ColorTextTitle,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+
+        if (sorted.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No notes in this folder.", fontSize = 15.sp, color = ColorTextSub)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
+            ) {
+                items(sorted, key = { it.id }) { note ->
+                    FolderNoteRow(note = note, onClick = { onOpenNote(note.id) })
+                }
+            }
+        }
+    }
+}
+
+/** 文件夹详情页的笔记项：日期 + 标题 + 预览（整宽卡片）。 */
+@Composable
+private fun FolderNoteRow(note: LibraryNote, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 1.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = note.dateLabel.ifBlank { "Date or time" },
+                fontSize = 12.sp,
+                color = ColorTextSub,
+            )
+            Text(note.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
+            Text(
+                note.preview,
+                fontSize = 14.sp,
+                color = ColorTextTitle.copy(alpha = 0.8f),
+                lineHeight = 20.sp,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -714,46 +869,85 @@ fun LibraryRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    // 抽屉宿主：点击左上角侧栏按钮或从左边缘右滑打开（仅底栏入口，非子页）
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    // 抽屉打开时通知宿主隐藏底部导航栏（盖住底栏）；离开页面时复位
-    val drawerOpen = drawerState.targetValue == DrawerValue.Open
-    LaunchedEffect(drawerOpen) { onFullscreenChange(drawerOpen) }
-    DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
-    fun closeDrawerThen(action: () -> Unit) {
-        scope.launch { drawerState.close() }
-        action()
-    }
+    // 当前进入的文件夹（详情页）；null = 显示 Library 主页（Recent/Folders）
+    var selectedFolder by rememberSaveable { mutableStateOf<String?>(null) }
+    // 分段标签状态提升到这里：进入文件夹详情再返回时仍停留在 Folders 页（不回到 Recent）
+    val pagerState = rememberPagerState(pageCount = { 2 })
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = onBack == null,
-        drawerContent = {
-            LibraryDrawer(
-                notes = uiState.notes,
-                onOpenNote = { id -> closeDrawerThen { onOpenNote(id) } },
-                onOpenTagManager = { closeDrawerThen(onOpenTagManager) },
-                onOpenSharedWithMe = { closeDrawerThen(onOpenSharedWithMe) },
-                onOpenRecycleBin = { closeDrawerThen(onOpenRecycleBin) },
-            )
+    BackHandler(enabled = selectedFolder != null) { selectedFolder = null }
+
+    AnimatedContent(
+        targetState = selectedFolder,
+        transitionSpec = {
+            if (targetState != null) {
+                // 进入文件夹详情：从右侧推入
+                (slideInHorizontally { it } + fadeIn())
+                    .togetherWith(slideOutHorizontally { -it / 4 } + fadeOut())
+            } else {
+                // 返回：向右滑出详情，主页从左侧回入
+                (slideInHorizontally { -it / 4 } + fadeIn())
+                    .togetherWith(slideOutHorizontally { it } + fadeOut())
+            }
         },
-    ) {
-        LibraryScreen(
-            uiState = uiState,
-            onCreateNote = onCreateNote,
-            onToggleViewMode = viewModel::toggleViewMode,
-            onOpenSidebar = { scope.launch { drawerState.open() } },
-            onBack = onBack,
-            modifier = modifier,
-        )
+        label = "library_folder_detail",
+    ) { folder ->
+        if (folder != null) {
+            // 该文件夹下的笔记：Unfiled 对应无文件夹的笔记
+            val folderNotes = uiState.notes.filter {
+                if (folder == "Unfiled") it.folderName == null else it.folderName == folder
+            }
+            FolderDetailScreen(
+                folderName = folder,
+                notes = folderNotes,
+                onBack = { selectedFolder = null },
+                onOpenNote = onOpenNote,
+                modifier = modifier,
+            )
+        } else {
+            // 抽屉宿主：点击左上角侧栏按钮或从左边缘右滑打开（仅底栏入口，非子页）
+            val drawerState = rememberDrawerState(DrawerValue.Closed)
+            // 抽屉打开时通知宿主隐藏底部导航栏（盖住底栏）；离开时复位
+            val drawerOpen = drawerState.targetValue == DrawerValue.Open
+            LaunchedEffect(drawerOpen) { onFullscreenChange(drawerOpen) }
+            DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
+            fun closeDrawerThen(action: () -> Unit) {
+                scope.launch { drawerState.close() }
+                action()
+            }
+
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = onBack == null,
+                drawerContent = {
+                    LibraryDrawer(
+                        notes = uiState.notes,
+                        onOpenNote = { id -> closeDrawerThen { onOpenNote(id) } },
+                        onOpenTagManager = { closeDrawerThen(onOpenTagManager) },
+                        onOpenSharedWithMe = { closeDrawerThen(onOpenSharedWithMe) },
+                        onOpenRecycleBin = { closeDrawerThen(onOpenRecycleBin) },
+                    )
+                },
+            ) {
+                LibraryScreen(
+                    uiState = uiState,
+                    onCreateNote = onCreateNote,
+                    onToggleViewMode = viewModel::toggleViewMode,
+                    onOpenSidebar = { scope.launch { drawerState.open() } },
+                    onOpenFolder = { selectedFolder = it },
+                    pagerState = pagerState,
+                    onBack = onBack,
+                    modifier = modifier,
+                )
+            }
+        }
     }
 }
 
 private val sampleNotes = listOf(
-    LibraryNote("1", "Market research", "Overview of competitors in 2026.", "Research"),
-    LibraryNote("2", "Q2 Strategy", "Key initiatives for Q2 growth plan.", "Strategy"),
-    LibraryNote("3", "Design system", "Component tokens and guidelines.", "Design"),
-    LibraryNote("4", "Team retro", "Sprint retrospective notes.", "Meeting"),
+    LibraryNote("1", "Q3 KPIs", "Discussed Q3 KPIs. John to finalize the report by Thursday. Next meeting: Monday at 10 AM.", "Work", folderName = "Work", dateLabel = "1 June"),
+    LibraryNote("2", "Team sync", "Team sync: Marketing launch on track. Felix leads HK event. RSVP for offsite by Friday.", "Work", folderName = "Work", dateLabel = "1 June"),
+    LibraryNote("3", "Client call", "Client call notes: Requirements updated. Development starts Monday. QA testing scheduled for July.", "Work", folderName = "Work", dateLabel = "30 May"),
+    LibraryNote("4", "Team retro", "Sprint retrospective notes.", "Personal", folderName = "Personal", dateLabel = "28 May"),
 )
 
 private val sampleFolders = listOf(
@@ -785,6 +979,18 @@ private fun LibraryListModePreview() {
                 folders = sampleFolders,
                 viewMode = LibraryViewMode.LIST,
             )
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun FolderDetailPreview() {
+    AppTheme {
+        FolderDetailScreen(
+            folderName = "Q3 KPIs",
+            notes = sampleNotes,
+            onBack = {},
         )
     }
 }

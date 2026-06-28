@@ -6,6 +6,10 @@ data class LibraryNote(
     val title: String,
     val preview: String,
     val tag: String,
+    /** 所属文件夹名；null = 未归档（Unfiled）。用于文件夹详情页筛选。 */
+    val folderName: String? = null,
+    /** 展示用的日期标签（如「今天 10:00」「06-01」）。 */
+    val dateLabel: String = "",
 )
 
 /** Library 文件夹分组（UI 模型）：按笔记所属文件夹聚合。 */

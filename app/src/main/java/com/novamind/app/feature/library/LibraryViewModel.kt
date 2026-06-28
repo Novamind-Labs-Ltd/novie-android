@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.feature.create.editor.NoteDocument
+import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -41,6 +42,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                                 tag = note.tags.firstOrNull()?.name
                                     ?: note.folder?.name
                                     ?: "Note",
+                                folderName = note.folder?.name,
+                                dateLabel = TimeUtils.smart(note.updatedAt),
                             )
                         },
                         folders = folders,
