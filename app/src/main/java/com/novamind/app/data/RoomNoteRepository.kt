@@ -13,6 +13,9 @@ class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
     override val notes: Flow<List<Note>> =
         dao.getAllNotes().map { entities -> entities.map { it.toNote() } }
 
+    override val deletedNotes: Flow<List<Note>> =
+        dao.getDeletedNotes().map { entities -> entities.map { it.toNote() } }
+
     override suspend fun addOrUpdate(note: Note) {
         // 保留已有的同步元数据（serverId/rev/lastSyncedAt），仅把状态置为「有未同步改动」
         val existing = dao.getById(note.id)
@@ -36,6 +39,14 @@ class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
             // 已在后端存在：软删，待同步把删除传上去后再物理清理
             dao.markDeleted(noteId, System.currentTimeMillis())
         }
+    }
+
+    override suspend fun restore(noteId: String) {
+        dao.restore(noteId, System.currentTimeMillis())
+    }
+
+    override suspend fun deleteForever(noteId: String) {
+        dao.deleteById(noteId)
     }
 
     override suspend fun getNoteById(noteId: String): Note? =

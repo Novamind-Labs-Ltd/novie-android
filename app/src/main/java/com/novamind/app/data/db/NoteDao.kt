@@ -12,6 +12,14 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE deleted = 0 ORDER BY updatedAt DESC")
     fun getAllNotes(): Flow<List<NoteEntity>>
 
+    /** 实时监听回收站笔记（已软删的 tombstone），按删除时间（updatedAt）倒序 */
+    @Query("SELECT * FROM notes WHERE deleted = 1 ORDER BY updatedAt DESC")
+    fun getDeletedNotes(): Flow<List<NoteEntity>>
+
+    /** 从回收站恢复：清除 tombstone 并标记待同步。 */
+    @Query("UPDATE notes SET deleted = 0, syncStatus = 'DIRTY', updatedAt = :timestamp WHERE id = :id")
+    suspend fun restore(id: String, timestamp: Long)
+
     /** 待同步（本地新建或有未同步改动）的笔记，供上行同步使用。 */
     @Query("SELECT * FROM notes WHERE syncStatus IN ('LOCAL', 'DIRTY')")
     suspend fun dirtyNotes(): List<NoteEntity>

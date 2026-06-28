@@ -41,6 +41,7 @@ import com.novamind.app.feature.calendar.CalendarRoute
 import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.feature.library.LibraryRoute
+import com.novamind.app.feature.recyclebin.RecycleBinRoute
 import com.novamind.app.feature.asknovie.AskNovieScreen
 import com.novamind.app.feature.auth.AuthViewModel
 import com.novamind.app.feature.auth.BiometricLockScreen
@@ -108,6 +109,9 @@ class MainActivity : FragmentActivity() {
                 // Ask Novie 聊天页（点底部导航最左品牌按钮打开）
                 var showAskNovie by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showAskNovie) { showAskNovie = false }
+                // 回收站页（Library 侧栏「Recycle Bin」打开，全屏覆盖）
+                var showRecycleBin by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = showRecycleBin) { showRecycleBin = false }
                 // Library 作为子页时，系统返回与左上角返回键一致，回到上一页（首页）
                 BackHandler(
                     enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
@@ -218,6 +222,8 @@ class MainActivity : FragmentActivity() {
                                 },
                                 // 抽屉打开时隐藏底部导航栏，让抽屉盖住底栏
                                 onFullscreenChange = { hideBottomNav = it },
+                                // 侧栏「Recycle Bin」→ 打开回收站全屏页
+                                onOpenRecycleBin = { showRecycleBin = true },
                                 // 子页进入时左上角为返回键，回到上一页（首页）；从底栏进入则保持现状
                                 onBack = if (libraryAsSubpage) {
                                     {
@@ -269,6 +275,19 @@ class MainActivity : FragmentActivity() {
                     ) {
                         AskNovieScreen(
                             onBack = { showAskNovie = false },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    // 回收站（全屏覆盖，自带返回；带左右滑动转场）
+                    AnimatedVisibility(
+                        visible = showRecycleBin,
+                        enter = slideInHorizontally { it } + fadeIn(),
+                        exit = slideOutHorizontally { it } + fadeOut(),
+                    ) {
+                        RecycleBinRoute(
+                            onBack = { showRecycleBin = false },
+                            onFullscreenChange = { hideBottomNav = it },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

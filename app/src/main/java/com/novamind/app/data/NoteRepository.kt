@@ -7,9 +7,18 @@ interface NoteRepository {
     /** 全部笔记（实时 Flow，按更新时间倒序） */
     val notes: Flow<List<Note>>
 
+    /** 回收站笔记（已软删的 tombstone，实时 Flow，按删除时间倒序） */
+    val deletedNotes: Flow<List<Note>>
+
     suspend fun addOrUpdate(note: Note)
 
     suspend fun delete(noteId: String)
+
+    /** 从回收站恢复笔记。 */
+    suspend fun restore(noteId: String)
+
+    /** 彻底删除（物理删除，不可恢复）。 */
+    suspend fun deleteForever(noteId: String)
 
     suspend fun getNoteById(noteId: String): Note?
 
