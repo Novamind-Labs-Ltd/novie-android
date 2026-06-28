@@ -3,6 +3,7 @@ package com.novamind.app.feature.home
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -114,13 +115,18 @@ internal fun NoteCard(
                     fontSize = 12.sp,
                     color = ColorTextSub,
                     lineHeight = 17.sp,
-                    // 内容自适应高度，最多 8 行，超出用省略号
-                    maxLines = 8,
+                    // 行数不写死：占满时间/标题/图片之外的剩余空间，
+                    // 有图时缩略图先占位，正文可见行数随剩余高度自动减少；无图时铺满剩余高度。
+                    modifier = Modifier.weight(1f),
+                    maxLines = Int.MAX_VALUE,
                     overflow = TextOverflow.Ellipsis,
                 )
+            } else {
+                // 无正文但有图片时，用弹性留白把缩略图压到底部
+                Spacer(Modifier.weight(1f))
             }
 
-            // 正文存在图片时：展示第一张缩略图（56dp 圆角方图）
+            // 正文存在图片时：展示第一张缩略图（56dp 圆角方图），固定占位在底部
             note.imagePath?.let { path ->
                 AsyncImage(
                     model = File(path),
