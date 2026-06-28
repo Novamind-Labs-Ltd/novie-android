@@ -6,19 +6,26 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -26,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
+import kotlinx.coroutines.launch
 
 private val BgPage = Color(0xFFF4F2EC)
 private val ColorTextTitle = Color(0xFF1A1A1A)
@@ -101,32 +110,214 @@ fun LibraryScreen(
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 16.dp),
         )
 
-        // 分段标签：Recent / Folders
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            TabChip(R.drawable.ic_history, "Recent", selected = true)
-            TabChip(R.drawable.ic_folder, "Folders", selected = false)
-        }
+        // 分段标签 + 内容：Recent / Folders 两页，支持左右滑动与点击切换
+        val pagerState = rememberPagerState(pageCount = { 2 })
+        val scope = rememberCoroutineScope()
 
-        if (uiState.notes.isEmpty()) {
-            EmptyState(onCreateNote = onCreateNote, modifier = Modifier.weight(1f))
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-            ) {
-                items(uiState.notes, key = { it.id }) { note ->
-                    LibraryNoteCard(note = note)
-                }
+        SegmentedTabBar(
+            selectedIndex = pagerState.currentPage,
+            // 指示条位置随手指滑动平滑过渡（含翻页中间态）
+            indicatorFraction = pagerState.currentPage + pagerState.currentPageOffsetFraction,
+            onTabClick = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            beyondViewportPageCount = 1,
+        ) { page ->
+            when (page) {
+                0 -> RecentPage(uiState = uiState, onCreateNote = onCreateNote)
+                else -> FoldersPage(folders = uiState.folders)
             }
+        }
+    }
+}
+
+/** Recent 页：有笔记显示双列网格，无笔记显示空状态。 */
+@Composable
+private fun RecentPage(uiState: LibraryUiState, onCreateNote: () -> Unit) {
+    if (uiState.notes.isEmpty()) {
+        EmptyState(onCreateNote = onCreateNote, modifier = Modifier.fillMaxSize())
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+        ) {
+            items(uiState.notes, key = { it.id }) { note ->
+                LibraryNoteCard(note = note)
+            }
+        }
+    }
+}
+
+/** Folders 页：按文件夹聚合的列表，空则显示提示。 */
+@Composable
+private fun FoldersPage(folders: List<LibraryFolder>) {
+    if (folders.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = "No folders yet.",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = ColorTextSub,
+            )
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+        ) {
+            items(folders, key = { it.name }) { folder ->
+                FolderRow(folder = folder)
+            }
+        }
+    }
+}
+
+/**
+ * 分段标签栏：两个等宽 Tab（Recent / Folders），底部一条浅色分隔线，
+ * 黑色指示条随 [indicatorFraction] 在两 Tab 间平滑滑动。
+ */
+@Composable
+private fun SegmentedTabBar(
+    selectedIndex: Int,
+    indicatorFraction: Float,
+    onTabClick: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val tabWidth = maxWidth / 2
+        val indicatorWidth = 76.dp
+        Column {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                SegmentTab(
+                    iconRes = R.drawable.ic_history,
+                    label = "Recent",
+                    selected = selectedIndex == 0,
+                    onClick = { onTabClick(0) },
+                    modifier = Modifier.weight(1f),
+                )
+                SegmentTab(
+                    iconRes = R.drawable.ic_folder,
+                    label = "Folders",
+                    selected = selectedIndex == 1,
+                    onClick = { onTabClick(1) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            // 分隔线 + 滑动指示条叠放
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .align(Alignment.BottomStart)
+                        .background(ColorBorder),
+                )
+                Box(
+                    modifier = Modifier
+                        .offset(x = tabWidth * indicatorFraction + (tabWidth - indicatorWidth) / 2)
+                        .width(indicatorWidth)
+                        .height(2.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(ColorTextTitle),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SegmentTab(
+    iconRes: Int,
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = if (selected) ColorTextTitle else ColorTextSub,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) ColorTextTitle else ColorTextSub,
+        )
+    }
+}
+
+@Composable
+private fun FolderRow(folder: LibraryFolder) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 1.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(ColorAccent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_folder),
+                    contentDescription = null,
+                    tint = ColorAccent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(folder.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = ColorTextTitle)
+                Text(
+                    text = "${folder.noteCount} ${if (folder.noteCount == 1) "note" else "notes"}",
+                    fontSize = 12.sp,
+                    color = ColorTextSub,
+                )
+            }
+            Icon(
+                painter = painterResource(R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = ColorTextSub,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }
@@ -153,40 +344,6 @@ private fun TopIconButton(
             tint = ColorTextTitle,
             modifier = Modifier.size(20.dp),
         )
-    }
-}
-
-@Composable
-private fun TabChip(iconRes: Int, label: String, selected: Boolean, onClick: () -> Unit = {}) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = if (selected) Color.White else Color.Transparent,
-        shadowElevation = if (selected) 1.dp else 0.dp,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .then(
-                if (selected) Modifier else Modifier.border(1.dp, ColorBorder, RoundedCornerShape(50))
-            )
-            .clickable(onClick = onClick),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
-                tint = if (selected) ColorTextTitle else ColorTextSub,
-                modifier = Modifier.size(16.dp),
-            )
-            Text(
-                text = label,
-                fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                color = if (selected) ColorTextTitle else ColorTextSub,
-            )
-        }
     }
 }
 
@@ -358,6 +515,13 @@ private val sampleNotes = listOf(
     LibraryNote("4", "Team retro", "Sprint retrospective notes.", "Meeting"),
 )
 
+private val sampleFolders = listOf(
+    LibraryFolder("Work", 8),
+    LibraryFolder("Projects", 5),
+    LibraryFolder("Personal", 3),
+    LibraryFolder("Unfiled", 2),
+)
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun LibraryEmptyPreview() {
@@ -367,5 +531,5 @@ private fun LibraryEmptyPreview() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun LibraryPopulatedPreview() {
-    AppTheme { LibraryScreen(uiState = LibraryUiState(notes = sampleNotes)) }
+    AppTheme { LibraryScreen(uiState = LibraryUiState(notes = sampleNotes, folders = sampleFolders)) }
 }

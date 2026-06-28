@@ -25,6 +25,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     init {
         noteRepository.notes
             .onEach { notes ->
+                // 按文件夹聚合：无文件夹的归入「Unfiled」，按笔记数降序
+                val folders = notes
+                    .groupingBy { it.folder?.name ?: "Unfiled" }
+                    .eachCount()
+                    .map { (name, count) -> LibraryFolder(name = name, noteCount = count) }
+                    .sortedByDescending { it.noteCount }
                 _uiState.update {
                     it.copy(
                         notes = notes.map { note ->
@@ -36,7 +42,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                                     ?: note.folder?.name
                                     ?: "Note",
                             )
-                        }
+                        },
+                        folders = folders,
                     )
                 }
             }
