@@ -97,6 +97,10 @@ class MainActivity : FragmentActivity() {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
+                // 进入 Create 前记录来源页，Create 返回时回到该页（首页/Library/Calendar 等）
+                var createReturnRoute by rememberSaveable {
+                    mutableStateOf(BottomNavDestination.Home.route)
+                }
                 // Library 是否作为子页进入（首页 See all）：true 时左上角显示返回键、可回上一页
                 var libraryAsSubpage by rememberSaveable { mutableStateOf(false) }
                 // 图片预览等全屏页打开时隐藏底部导航栏
@@ -168,6 +172,7 @@ class MainActivity : FragmentActivity() {
                             BottomNavDestination.Home.route -> HomeRoute(
                                 onNoteClick = { noteId ->
                                     editingNoteId = noteId
+                                    createReturnRoute = BottomNavDestination.Home.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },
                                 onNotesSeeAll = {
@@ -188,13 +193,15 @@ class MainActivity : FragmentActivity() {
                                 noteId = editingNoteId,
                                 onBack = {
                                     editingNoteId = null
-                                    currentRoute = BottomNavDestination.Home.route
+                                    // 返回进入 Create 前的来源页
+                                    currentRoute = createReturnRoute
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
                             )
                             BottomNavDestination.Library.route -> LibraryRoute(
                                 onCreateNote = {
                                     editingNoteId = null
+                                    createReturnRoute = BottomNavDestination.Library.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },
                                 // 子页进入时左上角为返回键，回到上一页（首页）；从底栏进入则保持现状
@@ -230,7 +237,11 @@ class MainActivity : FragmentActivity() {
                                 if (route == BottomNavDestination.Library.route) libraryAsSubpage = false
                                 // 已在当前页（如编辑中点 Create）→ 保持不变，不重置不跳转
                                 if (route == currentRoute) return@AppBottomNavBar
-                                if (route == BottomNavDestination.Create.route) editingNoteId = null
+                                if (route == BottomNavDestination.Create.route) {
+                                    editingNoteId = null
+                                    // 记录来源页，Create 返回时回到此处（可能是 Home/Library/Calendar）
+                                    createReturnRoute = currentRoute
+                                }
                                 currentRoute = route
                             },
                         )
