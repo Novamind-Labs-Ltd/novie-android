@@ -49,4 +49,17 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             }
             .launchIn(viewModelScope)
     }
+
+    /** 切换 Recent 页的网格 / 列表视图。 */
+    fun toggleViewMode() {
+        _uiState.update {
+            it.copy(
+                viewMode = if (it.viewMode == LibraryViewMode.GRID) {
+                    LibraryViewMode.LIST
+                } else {
+                    LibraryViewMode.GRID
+                }
+            )
+        }
+    }
 }

@@ -14,6 +14,9 @@ data class LibraryFolder(
     val noteCount: Int,
 )
 
+/** Recent 页的视图模式：双列网格 / 单列列表。 */
+enum class LibraryViewMode { GRID, LIST }
+
 /**
  * Library 页面状态。
  * [notes] 为空时 Recent 页展示空状态，非空时展示笔记网格——由数据自动切换。
@@ -22,4 +25,5 @@ data class LibraryFolder(
 data class LibraryUiState(
     val notes: List<LibraryNote> = emptyList(),
     val folders: List<LibraryFolder> = emptyList(),
+    val viewMode: LibraryViewMode = LibraryViewMode.GRID,
 )

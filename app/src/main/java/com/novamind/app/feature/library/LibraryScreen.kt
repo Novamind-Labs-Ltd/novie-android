@@ -67,9 +67,14 @@ private val ColorIconBtn = Color(0xFFFFFFFF)
 fun LibraryScreen(
     uiState: LibraryUiState,
     onCreateNote: () -> Unit = {},
+    onToggleViewMode: () -> Unit = {},
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
     modifier: Modifier = Modifier,
 ) {
+    // 分段标签 + 内容：Recent / Folders 两页，支持左右滑动与点击切换
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val scope = rememberCoroutineScope()
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -102,17 +107,24 @@ fun LibraryScreen(
             }
         }
 
-        Text(
-            text = "Library",
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = ColorTextTitle,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 16.dp),
-        )
-
-        // 分段标签 + 内容：Recent / Folders 两页，支持左右滑动与点击切换
-        val pagerState = rememberPagerState(pageCount = { 2 })
-        val scope = rememberCoroutineScope()
+        // 标题行：左侧 Library 标题，右侧视图切换按钮（仅 Recent 页显示）
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Library",
+                fontSize = 34.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = ColorTextTitle,
+            )
+            if (pagerState.currentPage == 0) {
+                ViewModeToggle(viewMode = uiState.viewMode, onClick = onToggleViewMode)
+            }
+        }
 
         SegmentedTabBar(
             selectedIndex = pagerState.currentPage,
@@ -130,31 +142,120 @@ fun LibraryScreen(
             beyondViewportPageCount = 1,
         ) { page ->
             when (page) {
-                0 -> RecentPage(uiState = uiState, onCreateNote = onCreateNote)
+                0 -> RecentPage(
+                    uiState = uiState,
+                    onCreateNote = onCreateNote,
+                )
                 else -> FoldersPage(folders = uiState.folders)
             }
         }
     }
 }
 
-/** Recent 页：有笔记显示双列网格，无笔记显示空状态。 */
+/** Recent 页：无笔记显示空状态；有笔记按 viewMode 显示双列网格或单列列表。 */
 @Composable
 private fun RecentPage(uiState: LibraryUiState, onCreateNote: () -> Unit) {
-    if (uiState.notes.isEmpty()) {
-        EmptyState(onCreateNote = onCreateNote, modifier = Modifier.fillMaxSize())
-    } else {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-        ) {
-            items(uiState.notes, key = { it.id }) { note ->
-                LibraryNoteCard(note = note)
+    when {
+        uiState.notes.isEmpty() ->
+            EmptyState(onCreateNote = onCreateNote, modifier = Modifier.fillMaxSize())
+
+        uiState.viewMode == LibraryViewMode.GRID ->
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+            ) {
+                items(uiState.notes, key = { it.id }) { note ->
+                    LibraryNoteCard(note = note)
+                }
             }
+
+        else ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+            ) {
+                items(uiState.notes, key = { it.id }) { note ->
+                    LibraryNoteRow(note = note)
+                }
+            }
+    }
+}
+
+/**
+ * 视图切换按钮：圆角方形白底按钮（区别于顶部圆形搜索按钮），
+ * 图标随当前模式切换——网格态显示列表图标、列表态显示网格图标，提示「点击切到另一种」。
+ */
+@Composable
+private fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit) {
+    val isGrid = viewMode == LibraryViewMode.GRID
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(ColorIconBtn)
+            .border(1.dp, ColorBorder, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(if (isGrid) R.drawable.ic_format_list else R.drawable.ic_grid),
+            contentDescription = if (isGrid) "Switch to list view" else "Switch to grid view",
+            tint = ColorTextTitle,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/** 列表态笔记项：整宽横向卡片（标签 + 标题 + 预览）。 */
+@Composable
+private fun LibraryNoteRow(note: LibraryNote) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 1.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(shape = RoundedCornerShape(50), color = ColorAccent.copy(alpha = 0.1f)) {
+                    Text(
+                        text = note.tag,
+                        fontSize = 10.sp,
+                        color = ColorAccent,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
+                Text(
+                    note.title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ColorTextTitle,
+                )
+            }
+            Text(
+                note.preview,
+                fontSize = 13.sp,
+                color = ColorTextSub,
+                lineHeight = 18.sp,
+                maxLines = 2,
+            )
         }
     }
 }
@@ -505,7 +606,13 @@ fun LibraryRoute(
     viewModel: LibraryViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LibraryScreen(uiState = uiState, onCreateNote = onCreateNote, onBack = onBack, modifier = modifier)
+    LibraryScreen(
+        uiState = uiState,
+        onCreateNote = onCreateNote,
+        onToggleViewMode = viewModel::toggleViewMode,
+        onBack = onBack,
+        modifier = modifier,
+    )
 }
 
 private val sampleNotes = listOf(
@@ -532,4 +639,18 @@ private fun LibraryEmptyPreview() {
 @Composable
 private fun LibraryPopulatedPreview() {
     AppTheme { LibraryScreen(uiState = LibraryUiState(notes = sampleNotes, folders = sampleFolders)) }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun LibraryListModePreview() {
+    AppTheme {
+        LibraryScreen(
+            uiState = LibraryUiState(
+                notes = sampleNotes,
+                folders = sampleFolders,
+                viewMode = LibraryViewMode.LIST,
+            )
+        )
+    }
 }
