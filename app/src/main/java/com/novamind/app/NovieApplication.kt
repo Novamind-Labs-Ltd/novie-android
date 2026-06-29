@@ -16,6 +16,7 @@ import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.RoomTagRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.data.db.AppDatabase
+import com.novamind.app.util.SentryUtils
 import com.tencent.mmkv.MMKV
 
 class NovieApplication : Application(), ImageLoaderFactory {
@@ -34,6 +35,8 @@ class NovieApplication : Application(), ImageLoaderFactory {
         MMKV.initialize(this)
         // 载入 API 域名（环境）选择，供 NetworkModule 读取
         ApiConfig.init(this)
+        // 按环境初始化 Sentry（dev 不上传，st/prod 上传并打 environment 标签）；须在 ApiConfig.init 之后
+        SentryUtils.init(this)
         // 构建并缓存 HTTPS 公用头部（平台/版本/设备标识等静态字段）
         CommonHeaders.init(this)
         // 预创建 FCM 默认通知渠道（后台推送到达时渠道须已存在）

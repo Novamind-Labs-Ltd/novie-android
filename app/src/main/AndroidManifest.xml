@@ -135,6 +135,9 @@
     <!-- Required: set your sentry.io project identifier (DSN) -->
     <meta-data android:name="io.sentry.dsn" android:value="https://feee15a04a70152a416af4ed55791c07@o4510922460758016.ingest.us.sentry.io/4511651077488640" />
 
+    <!-- 关闭自动初始化：改由 SentryUtils.init 按环境（dev/st/prod）初始化 -->
+    <meta-data android:name="io.sentry.auto-init" android:value="false" />
+
     <!-- enable automatic breadcrumbs for user interactions (clicks, swipes, scrolls) -->
     <meta-data android:name="io.sentry.traces.user-interaction.enable" android:value="true" />
     <!-- enable screenshot for crashes (could contain sensitive/PII data) -->
