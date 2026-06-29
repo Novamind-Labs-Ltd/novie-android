@@ -21,3 +21,6 @@ auth0.properties
 sentry.properties
 # Sentry wizard CLI 可执行文件（接入后无需入库）
 /sentry-wizard
+
+# Kotlin 编译器构建产物
+.kotlin/
