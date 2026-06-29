@@ -60,6 +60,23 @@ object SentryUtils {
         Sentry.logger().error(message)
     }
 
+    // ── 应用指标（Sentry.metrics，需 SDK >= 8.34.0）─────────────────────────────
+
+    /** 计数器：累加值（如按钮点击、函数调用次数）。 */
+    fun metricCount(name: String, value: Double = 1.0) {
+        Sentry.metrics().count(name, value)
+    }
+
+    /** 量规：可增可减的瞬时值（如队列长度、内存占用）。 */
+    fun metricGauge(name: String, value: Double) {
+        Sentry.metrics().gauge(name, value)
+    }
+
+    /** 分布：用于统计分布的数值（如响应耗时）。 */
+    fun metricDistribution(name: String, value: Double) {
+        Sentry.metrics().distribution(name, value)
+    }
+
     /** 上报一条文本日志（默认 INFO 级）。 */
     fun log(message: String, level: SentryLevel = SentryLevel.INFO) {
         Sentry.captureMessage(message, level)

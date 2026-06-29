@@ -299,6 +299,14 @@ fun DebugPanel(
                         SentryUtils.breadcrumb("Debug 面包屑：用户在调试面板操作", category = "debug")
                         lastAction = "已添加面包屑"
                     }
+                    Chip("上报指标 count") {
+                        SentryUtils.metricCount("debug_panel_click")
+                        lastAction = "已上报指标 count（Metrics 视图）"
+                    }
+                    Chip("上报指标 distribution") {
+                        SentryUtils.metricDistribution("debug_panel_value", 187.5)
+                        lastAction = "已上报指标 distribution（Metrics 视图）"
+                    }
                 }
                 if (lastAction.isNotEmpty()) {
                     Text("✓ $lastAction（Sentry 后台按 environment=${SentryUtils.environment()} 查看）",
