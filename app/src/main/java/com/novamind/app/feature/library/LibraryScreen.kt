@@ -62,6 +62,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -405,14 +406,22 @@ private fun FoldersPage(
 
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
-    // 本地可变副本：拖拽过程中即时换序；folders 变化（计数/新增）时重置为最新
-    var items by remember(folders) { mutableStateOf(folders) }
 
     // 拖拽状态：拖起项在列表中的索引、拖起时的布局信息、累计拖动距离
     var draggingIndex by remember { mutableStateOf<Int?>(null) }
     var draggedDistance by remember { mutableFloatStateOf(0f) }
     var initialItemOffset by remember { mutableStateOf(0) }
     var initialItemSize by remember { mutableStateOf(0) }
+
+    // 本地可变副本：单一稳定对象（pointerInput 闭包始终引用它）；非拖拽时从 folders 同步，
+    // 拖拽中保持本地换序不被外部刷新打断。
+    val items = remember { mutableStateListOf<LibraryFolder>() }
+    LaunchedEffect(folders, draggingIndex) {
+        if (draggingIndex == null) {
+            items.clear()
+            items.addAll(folders)
+        }
+    }
 
     fun reset() {
         draggingIndex = null
@@ -451,7 +460,7 @@ private fun FoldersPage(
                                     draggedCenter.toInt() in info.offset..(info.offset + info.size)
                             }
                             if (target != null) {
-                                items = items.toMutableList().apply { add(target.index, removeAt(from)) }
+                                items.add(target.index, items.removeAt(from))
                                 draggingIndex = target.index
                             }
                         }
@@ -468,21 +477,20 @@ private fun FoldersPage(
     ) {
         itemsIndexed(items, key = { _, it -> it.name }) { index, folder ->
             val isDragging = index == draggingIndex
-            // 拖拽项：跟手 translationY + 轻微放大 + 抬升阴影凸显；
-            // 其余项仅在「拖拽进行中」用 animateItem 平滑让位，松手后不再做动画（避免视觉混乱）。
-            val rowModifier = when {
-                isDragging -> Modifier
+            // 拖拽项：用 graphicsLayer 纯跟手（仅 translationY），不缩放、不改外观；不挂 animateItem，
+            // 松手时移除 translation 直接定格、不触发布局动画。
+            // 其余项始终挂 animateItem：拖拽中被挤开/交换时平滑过渡，避免突兀。
+            val rowModifier = if (isDragging) {
+                Modifier
                     .zIndex(1f)
                     .graphicsLayer {
                         // 用 key（文件夹名）定位拖拽项自身的实时偏移，避免换序那帧 index 错位导致跟手抖动
                         val current = listState.layoutInfo.visibleItemsInfo
                             .firstOrNull { it.key == folder.name }?.offset ?: initialItemOffset
                         translationY = initialItemOffset + draggedDistance - current
-                        scaleX = 1.03f
-                        scaleY = 1.03f
                     }
-                draggingIndex != null -> Modifier.animateItem()
-                else -> Modifier
+            } else {
+                Modifier.animateItem()
             }
             if (folder.name == renameTarget) {
                 // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认
@@ -512,7 +520,6 @@ private fun FoldersPage(
                     folder = folder,
                     onClick = { onOpenFolder(folder.name) },
                     modifier = rowModifier,
-                    elevation = if (isDragging) 12.dp else 1.dp,
                     onRename = { renameTarget = folder.name },
                     onChangeColor = { colorTarget = folder.name },
                     onDelete = { deleteTarget = folder.name },
