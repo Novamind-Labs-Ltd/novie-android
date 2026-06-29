@@ -92,6 +92,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch { folderRepository.setOrder(orderedNames) }
     }
 
+    /** 修改文件夹颜色（持久化）。 */
+    fun changeFolderColor(name: String, colorHex: String?) {
+        viewModelScope.launch { folderRepository.setColor(name, colorHex) }
+    }
+
     /** 重命名文件夹：改写该文件夹下所有笔记的归属名，并同步持久化文件夹记录。 */
     fun renameFolder(oldName: String, newName: String) {
         val from = oldName.trim()

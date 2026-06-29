@@ -23,6 +23,9 @@ interface FolderRepository {
     /** 删除文件夹。 */
     suspend fun delete(name: String)
 
+    /** 修改文件夹颜色（文件夹不存在则创建）。 */
+    suspend fun setColor(name: String, colorHex: String?)
+
     /** 按给定名称顺序更新排序位。 */
     suspend fun setOrder(orderedNames: List<String>)
 }

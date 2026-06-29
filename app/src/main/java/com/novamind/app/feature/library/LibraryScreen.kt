@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -137,6 +139,7 @@ fun LibraryScreen(
     onReorderFolders: (List<String>) -> Unit = {},   // Folders 页拖拽排序后回传新顺序
     onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },   // 文件夹「更多 → Rename」
     onDeleteFolder: (String) -> Unit = {},   // 文件夹「更多 → Delete」
+    onChangeFolderColor: (name: String, colorHex: String?) -> Unit = { _, _ -> },   // 文件夹「更多 → Change color」
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
@@ -236,6 +239,7 @@ fun LibraryScreen(
                     onReorder = onReorderFolders,
                     onRenameFolder = onRenameFolder,
                     onDeleteFolder = onDeleteFolder,
+                    onChangeFolderColor = onChangeFolderColor,
                 )
             }
         }
@@ -379,10 +383,12 @@ private fun FoldersPage(
     onReorder: (List<String>) -> Unit = {},
     onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
+    onChangeFolderColor: (name: String, colorHex: String?) -> Unit = { _, _ -> },
 ) {
-    // 重命名 / 删除目标文件夹名（null = 不显示对应弹窗）
+    // 重命名 / 删除 / 改色目标文件夹名（null = 不显示对应弹窗）
     var renameTarget by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
+    var colorTarget by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     if (folders.isEmpty()) {
@@ -506,8 +512,8 @@ private fun FoldersPage(
                     modifier = rowModifier,
                     elevation = if (isDragging) 12.dp else 1.dp,
                     onRename = { renameTarget = folder.name },
+                    onChangeColor = { colorTarget = folder.name },
                     onDelete = { deleteTarget = folder.name },
-                    // Reorder：占位（拖拽排序用长按），菜单关闭即可
                 )
             }
         }
@@ -523,6 +529,79 @@ private fun FoldersPage(
             },
             onDismiss = { deleteTarget = null },
         )
+    }
+
+    // 改颜色底部弹层
+    colorTarget?.let { target ->
+        val currentHex = folders.firstOrNull { it.name == target }?.colorHex
+        ChangeFolderColorSheet(
+            currentHex = currentHex,
+            onPick = { hex ->
+                onChangeFolderColor(target, hex)
+                colorTarget = null
+            },
+            onDismiss = { colorTarget = null },
+        )
+    }
+}
+
+/** 修改文件夹颜色（底部弹层）：点击色板即应用。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChangeFolderColorSheet(
+    currentHex: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = BgCard,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "Folder colour",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = ColorTextTitle,
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                folderColorOptions.forEach { option ->
+                    val optionHex = option.hex.ifEmpty { null }
+                    val selected = optionHex == currentHex
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(option.bg)
+                            .border(
+                                width = if (selected) 2.dp else 1.dp,
+                                color = if (selected) ColorTextTitle else ColorBorder,
+                                shape = CircleShape,
+                            )
+                            .clickable { onPick(optionHex) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_folder),
+                            contentDescription = null,
+                            tint = option.icon,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -769,7 +848,7 @@ private fun FolderRow(
     modifier: Modifier = Modifier,
     elevation: androidx.compose.ui.unit.Dp = 1.dp,   // 拖拽态抬升以凸显
     onRename: () -> Unit = {},
-    onReorder: () -> Unit = {},
+    onChangeColor: () -> Unit = {},
     onDelete: () -> Unit = {},
 ) {
     // 文件夹颜色：有自定义色用之；否则按名称稳定地从色板取一种，使列表多彩且一致
@@ -838,7 +917,7 @@ private fun FolderRow(
                     expanded = menuExpanded,
                     onDismiss = { menuExpanded = false },
                     onRename = { menuExpanded = false; onRename() },
-                    onReorder = { menuExpanded = false; onReorder() },
+                    onChangeColor = { menuExpanded = false; onChangeColor() },
                     onDelete = { menuExpanded = false; onDelete() },
                 )
             }
@@ -846,13 +925,13 @@ private fun FolderRow(
     }
 }
 
-/** 文件夹「更多」下拉菜单：重命名 / 排序 / 删除。 */
+/** 文件夹「更多」下拉菜单：重命名 / 改颜色 / 删除。 */
 @Composable
 private fun FolderActionsMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onRename: () -> Unit,
-    onReorder: () -> Unit,
+    onChangeColor: () -> Unit,
     onDelete: () -> Unit,
 ) {
     DropdownMenu(
@@ -868,8 +947,8 @@ private fun FolderActionsMenu(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
         )
         DropdownMenuItem(
-            text = { Text("Reorder", fontSize = 16.sp, color = ColorTextTitle) },
-            onClick = onReorder,
+            text = { Text("Change color", fontSize = 16.sp, color = ColorTextTitle) },
+            onClick = onChangeColor,
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
         )
         DropdownMenuItem(
@@ -1254,6 +1333,7 @@ fun LibraryRoute(
                     onReorderFolders = viewModel::reorderFolders,
                     onRenameFolder = viewModel::renameFolder,
                     onDeleteFolder = viewModel::deleteFolder,
+                    onChangeFolderColor = viewModel::changeFolderColor,
                     pagerState = pagerState,
                     onBack = onBack,
                     modifier = modifier,

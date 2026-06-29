@@ -38,6 +38,26 @@ class RoomFolderRepository(private val dao: FolderDao) : FolderRepository {
         dao.deleteByName(name.trim())
     }
 
+    override suspend fun setColor(name: String, colorHex: String?) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        if (dao.getByName(trimmed) != null) {
+            dao.updateColor(trimmed, colorHex)
+        } else {
+            // 笔记派生但尚未入库的文件夹：登记并带上颜色
+            val nextSort = (dao.maxSortIndex() ?: -1) + 1
+            dao.upsert(
+                FolderEntity(
+                    id = UUID.randomUUID().toString(),
+                    name = trimmed,
+                    colorHex = colorHex,
+                    sortIndex = nextSort,
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
+
     override suspend fun setOrder(orderedNames: List<String>) {
         orderedNames.forEachIndexed { index, name -> dao.updateSortIndex(name, index) }
     }
