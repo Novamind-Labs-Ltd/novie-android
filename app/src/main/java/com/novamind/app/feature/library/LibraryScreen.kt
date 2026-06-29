@@ -94,12 +94,15 @@ fun LibraryScreen(
     onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
     onOpenNote: (String) -> Unit = {},   // 点击 Recent 笔记 → 进入笔记预览/编辑页
     onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
+    onCreateFolder: (name: String, colorHex: String?) -> Unit = { _, _ -> },   // Folders 页创建新文件夹
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    // 「创建文件夹」弹层显隐（仅 Folders 页点击创建时弹出）
+    var showCreateFolder by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -130,7 +133,15 @@ fun LibraryScreen(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TopIconButton(R.drawable.ic_search, "Search", shape = CircleShape)
-                TopIconButton(R.drawable.ic_nav_create, "Create note", shape = CircleShape, onClick = onCreateNote)
+                TopIconButton(
+                    iconRes = R.drawable.ic_nav_create,
+                    desc = "Create",
+                    shape = CircleShape,
+                    // Folders 页 → 创建文件夹；Recent 页 → 新建笔记
+                    onClick = {
+                        if (pagerState.currentPage == 1) showCreateFolder = true else onCreateNote()
+                    },
+                )
             }
         }
 
@@ -180,6 +191,17 @@ fun LibraryScreen(
                 else -> FoldersPage(folders = uiState.folders, onOpenFolder = onOpenFolder)
             }
         }
+    }
+
+    // 创建文件夹弹层（Folders 页点击创建时）
+    if (showCreateFolder) {
+        CreateFolderSheet(
+            onCreate = { name, colorHex ->
+                showCreateFolder = false
+                onCreateFolder(name, colorHex)
+            },
+            onDismiss = { showCreateFolder = false },
+        )
     }
 }
 
@@ -918,6 +940,7 @@ fun LibraryRoute(
                     onOpenSidebar = { scope.launch { drawerState.open() } },
                     onOpenNote = onOpenNote,
                     onOpenFolder = { selectedFolder = it },
+                    onCreateFolder = viewModel::createFolder,
                     pagerState = pagerState,
                     onBack = onBack,
                     modifier = modifier,
