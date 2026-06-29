@@ -292,8 +292,13 @@ fun TagManagerScreen(
     if (showCreateSheet) {
         CreateTagSheet(
             onCreate = { name, colorHex ->
-                onCreateTag(name, colorHex)
-                showCreateSheet = false
+                // 重名校验（忽略大小写）：已存在则提示且不创建、不关闭弹窗
+                if (existingNames.any { it.equals(name, ignoreCase = true) }) {
+                    Toast.makeText(context, "Tag \"$name\" already exists", Toast.LENGTH_SHORT).show()
+                } else {
+                    onCreateTag(name, colorHex)
+                    showCreateSheet = false
+                }
             },
             onDismiss = { showCreateSheet = false },
         )
