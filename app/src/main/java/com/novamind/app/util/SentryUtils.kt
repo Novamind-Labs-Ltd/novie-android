@@ -40,6 +40,10 @@ object SentryUtils {
             options.tracesSampleRate = if (env == "prod") 0.2 else 1.0
             // 开启 Structured Logs（需 SDK >= 8.12.0），日志进入 Sentry「Logs」视图
             options.logs.isEnabled = true
+            // UI Profiling（trace 模式，依赖 tracing；需 SDK >= 8.7.0）：
+            // 有采样 span 时自动采集性能剖析，按 session 采样，prod 压低
+            options.profileLifecycle = io.sentry.SentryOptions.ProfileLifecycle.TRACE
+            options.profileSessionSampleRate = if (env == "prod") 0.1 else 1.0
         }
     }
 
