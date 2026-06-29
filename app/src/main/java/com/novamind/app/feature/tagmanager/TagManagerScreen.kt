@@ -119,15 +119,15 @@ fun TagManagerRoute(
 fun TagManagerScreen(
     uiState: TagManagerUiState,
     onBack: () -> Unit = {},
-    onCreateTag: (String) -> Unit = {},
+    onCreateTag: (name: String, colorHex: String) -> Unit = { _, _ -> },
     onRenameTag: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteTag: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    // 行内编辑：rename 目标标签名；creating = 顶部新建行
+    // rename 目标标签名（行内编辑）；showCreateSheet = 新建标签底部弹窗
     var renameTarget by remember { mutableStateOf<String?>(null) }
-    var creating by remember { mutableStateOf(false) }
+    var showCreateSheet by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
 
     val listState = rememberLazyListState()
@@ -155,7 +155,7 @@ fun TagManagerScreen(
             TopIconButton(R.drawable.ic_panel_left, "Back", RoundedCornerShape(12.dp), onBack)
             TopIconButton(R.drawable.ic_add, "New tag", CircleShape) {
                 renameTarget = null
-                creating = true
+                showCreateSheet = true
             }
         }
 
@@ -175,23 +175,6 @@ fun TagManagerScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp + imeBottomDp),
         ) {
-            // 顶部新建行
-            if (creating) {
-                item(key = "__new__") {
-                    TagEditRow(
-                        initialName = "",
-                        onConfirm = { name ->
-                            if (existingNames.any { it.equals(name, ignoreCase = true) }) {
-                                Toast.makeText(context, "Tag \"$name\" already exists", Toast.LENGTH_SHORT).show()
-                            } else {
-                                onCreateTag(name)
-                                creating = false
-                            }
-                        },
-                        onCancel = { creating = false },
-                    )
-                }
-            }
             itemsIndexed(uiState.tags, key = { _, it -> it.id }) { _, tag ->
                 if (tag.name == renameTarget) {
                     TagEditRow(
@@ -210,7 +193,7 @@ fun TagManagerScreen(
                     SwipeToDeleteRow(onDelete = { deleteTarget = tag.name }) {
                         TagRow(
                             tag = tag,
-                            onRename = { renameTarget = tag.name; creating = false },
+                            onRename = { renameTarget = tag.name },
                             onDelete = { deleteTarget = tag.name },
                         )
                     }
@@ -219,15 +202,24 @@ fun TagManagerScreen(
         }
     }
 
-    // 进入编辑且键盘弹出后，把编辑项滚到可视区
-    LaunchedEffect(renameTarget, creating, imeBottomPx > 0) {
+    // 进入行内重命名且键盘弹出后，把编辑项滚到可视区
+    LaunchedEffect(renameTarget, imeBottomPx > 0) {
         if (imeBottomPx <= 0) return@LaunchedEffect
-        if (creating) {
-            listState.animateScrollToItem(0)
-        } else renameTarget?.let { name ->
+        renameTarget?.let { name ->
             val idx = uiState.tags.indexOfFirst { it.name == name }
             if (idx >= 0) listState.animateScrollToItem(idx)
         }
+    }
+
+    // 新建标签底部弹窗（交互对齐创建文件夹）
+    if (showCreateSheet) {
+        CreateTagSheet(
+            onCreate = { name, colorHex ->
+                onCreateTag(name, colorHex)
+                showCreateSheet = false
+            },
+            onDismiss = { showCreateSheet = false },
+        )
     }
 
     // 删除二次确认

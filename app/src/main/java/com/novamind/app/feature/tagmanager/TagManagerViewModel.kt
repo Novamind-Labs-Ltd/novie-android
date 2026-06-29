@@ -57,10 +57,10 @@ class TagManagerViewModel(application: Application) : AndroidViewModel(applicati
             .launchIn(viewModelScope)
     }
 
-    /** 新建标签（持久化）。 */
-    fun createTag(name: String) {
+    /** 新建标签（持久化，带颜色）。 */
+    fun createTag(name: String, colorHex: String = DEFAULT_TAG_COLOR) {
         if (name.isBlank()) return
-        viewModelScope.launch { tagRepository.create(name.trim(), DEFAULT_TAG_COLOR) }
+        viewModelScope.launch { tagRepository.create(name.trim(), colorHex.ifBlank { DEFAULT_TAG_COLOR }) }
     }
 
     /** 重命名标签：改写标签库与所有笔记中的同名标签。 */
