@@ -99,6 +99,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
@@ -586,14 +587,14 @@ private fun ChangeFolderColorSheet(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                folderColorOptions.forEach { option ->
-                    val optionHex = option.icon.toHex()
+                AppConfig.Folder.COLORS.forEach { color ->
+                    val optionHex = color.toHex()
                     val selected = optionHex.equals(currentHex, ignoreCase = true)
                     Box(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(option.bg)
+                            .background(color.copy(alpha = 0.12f))
                             .border(
                                 width = if (selected) 2.dp else 1.dp,
                                 color = if (selected) ColorTextTitle else ColorBorder,
@@ -605,7 +606,7 @@ private fun ChangeFolderColorSheet(
                         Icon(
                             painter = painterResource(R.drawable.ic_folder),
                             contentDescription = null,
-                            tint = option.icon,
+                            tint = color,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -843,12 +844,12 @@ private fun SegmentTab(
     }
 }
 
-/** 无自定义色时：按文件夹名稳定地从色板（排除默认中性色）取一种颜色。 */
+/** 无自定义色时：按文件夹名稳定地从配置色板取一种颜色。 */
 private fun folderAccentFor(name: String): Color {
-    val palette = folderColorOptions.drop(1)   // 跳过首个「默认/中性」色
+    val palette = AppConfig.Folder.COLORS
     if (palette.isEmpty()) return Palette.forrest600
     val idx = ((name.hashCode() % palette.size) + palette.size) % palette.size
-    return palette[idx].icon
+    return palette[idx]
 }
 
 @Composable

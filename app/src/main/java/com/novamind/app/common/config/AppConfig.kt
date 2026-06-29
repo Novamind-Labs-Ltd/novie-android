@@ -1,10 +1,27 @@
 package com.novamind.app.common.config
 
+import androidx.compose.ui.graphics.Color
+import com.novamind.app.ui.colors.Palette
+
 /**
  * 应用级可调参数集中处。把分散在各处的“魔法数字”收拢到这里，方便后续统一调整。
- * 按领域分组：[Editor]、[Network]、[Media]、[Pdf]。
+ * 按领域分组：[Editor]、[Network]、[Media]、[Pdf]、[Folder]。
  */
 object AppConfig {
+
+    /** 文件夹相关配置。 */
+    object Folder {
+        /** 可选文件夹颜色：每个色系取一种代表色，取自 [Palette]。 */
+        val COLORS: List<Color> = listOf(
+            Palette.forrest600,
+            Palette.green600,
+            Palette.orange600,
+            Palette.red500,
+            Palette.teal600,
+            Palette.slate600,
+            Palette.neutral700,
+        )
+    }
 
     /** 笔记编辑器行为。 */
     object Editor {

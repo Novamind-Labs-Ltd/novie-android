@@ -43,9 +43,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
-import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
@@ -63,17 +63,6 @@ private val FieldBg: Color
 private val Border: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 
-/** 文件夹颜色选项：圆形底色 + 文件夹图标着色（icon 即该选项代表色，持久化时转 hex）。 */
-internal data class FolderColorOption(val bg: Color, val icon: Color)
-
-internal val folderColorOptions = listOf(
-    FolderColorOption(Palette.white, Palette.gray900),
-    FolderColorOption(Palette.forrest100, Palette.forrest600),
-    FolderColorOption(Palette.orange100, Palette.orange700),
-    FolderColorOption(Palette.neutral100, Palette.neutral700),
-    FolderColorOption(Palette.red100, Palette.red500),
-    FolderColorOption(Palette.teal100, Palette.teal600),
-)
 
 /**
  * 「创建新文件夹」底部弹层：名称输入 + 文件夹颜色选择 + 创建 / 取消。
@@ -167,9 +156,9 @@ private fun CreateFolderContent(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            folderColorOptions.forEachIndexed { index, option ->
+            AppConfig.Folder.COLORS.forEachIndexed { index, color ->
                 FolderColorSwatch(
-                    option = option,
+                    color = color,
                     selected = index == selectedIndex,
                     onClick = { selectedIndex = index },
                 )
@@ -187,7 +176,7 @@ private fun CreateFolderContent(
                     enabled = canCreate,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(),
-                    onClick = { onCreate(trimmed, folderColorOptions[selectedIndex].icon.toHex()) },
+                    onClick = { onCreate(trimmed, AppConfig.Folder.COLORS[selectedIndex].toHex()) },
                 ),
             shape = RoundedCornerShape(50),
             color = if (canCreate) BackgroundColors.Primary.default.current() else BackgroundColors.Interactive.disabled.current(),
@@ -230,7 +219,7 @@ private fun CreateFolderContent(
 
 @Composable
 private fun FolderColorSwatch(
-    option: FolderColorOption,
+    color: Color,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -238,7 +227,7 @@ private fun FolderColorSwatch(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .background(option.bg)
+            .background(color.copy(alpha = 0.12f))
             // 选中态：深色描边环
             .border(
                 width = if (selected) 2.dp else 1.dp,
@@ -255,7 +244,7 @@ private fun FolderColorSwatch(
         Icon(
             painter = painterResource(R.drawable.ic_folder),
             contentDescription = null,
-            tint = option.icon,
+            tint = color,
             modifier = Modifier.size(20.dp),
         )
     }
