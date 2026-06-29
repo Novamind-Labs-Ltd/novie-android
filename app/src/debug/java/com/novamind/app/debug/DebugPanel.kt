@@ -319,6 +319,20 @@ fun DebugPanel(
                         SentryUtils.metricDistribution("debug_panel_value", 187.5)
                         lastAction = "已上报指标 distribution（Metrics 视图）"
                     }
+                    Chip("上报指标 gauge") {
+                        SentryUtils.metricGauge("debug_panel_gauge", 42.0)
+                        lastAction = "已上报指标 gauge（Metrics 视图）"
+                    }
+                    Chip("设置作用域属性") {
+                        // 之后的所有日志都会带上该属性，便于在 Logs UI 过滤
+                        SentryUtils.setLogAttribute("debug_session", "panel-${System.currentTimeMillis()}")
+                        SentryUtils.logInfo("作用域属性已设置后的日志")
+                        lastAction = "已设置作用域属性并发送一条日志"
+                    }
+                    Chip("移除作用域属性") {
+                        SentryUtils.removeLogAttribute("debug_session")
+                        lastAction = "已移除作用域属性 debug_session"
+                    }
                 }
                 if (lastAction.isNotEmpty()) {
                     Text("✓ $lastAction（Sentry 后台按 environment=${SentryUtils.environment()} 查看）",
