@@ -3,7 +3,6 @@ package com.novamind.app.feature.create
 import androidx.compose.ui.graphics.Color
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.tag.Tag
-import com.novamind.app.feature.create.tag.defaultTags
 
 sealed class CreateEvent {
     data class TitleChanged(val value: String) : CreateEvent()
@@ -37,7 +36,7 @@ data class CreateUiState(
     val borderColor: Color? = null,     // 自定义边框颜色；null = 默认（hex 仅在落库时转换）
 
     // 可选项数据
-    val availableTags: List<Tag> = defaultTags,
+    val availableTags: List<Tag> = emptyList(),
     val availableFolders: List<Folder> = emptyList(),
 
     // 弹窗状态

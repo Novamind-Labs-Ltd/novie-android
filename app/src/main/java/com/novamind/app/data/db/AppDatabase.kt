@@ -11,8 +11,9 @@ import androidx.room.RoomDatabase
         RecordingEntity::class,
         RecordingSegmentEntity::class,
         FolderEntity::class,
+        TagEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,   // 调试阶段：不导出 schema、不记录版本 JSON（上线前再开启并写迁移）
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -22,6 +23,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recordingDao(): RecordingDao
 
     abstract fun folderDao(): FolderDao
+
+    abstract fun tagDao(): TagDao
 
     companion object {
         @Volatile

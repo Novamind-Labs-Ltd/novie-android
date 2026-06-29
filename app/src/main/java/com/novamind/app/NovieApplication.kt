@@ -13,6 +13,8 @@ import com.novamind.app.data.RecordingRepository
 import com.novamind.app.data.RoomFolderRepository
 import com.novamind.app.data.RoomNoteRepository
 import com.novamind.app.data.RoomRecordingRepository
+import com.novamind.app.data.RoomTagRepository
+import com.novamind.app.data.TagRepository
 import com.novamind.app.data.db.AppDatabase
 import com.tencent.mmkv.MMKV
 
@@ -21,6 +23,7 @@ class NovieApplication : Application(), ImageLoaderFactory {
     val database by lazy { AppDatabase.getInstance(this) }
     val noteRepository: NoteRepository by lazy { RoomNoteRepository(database.noteDao()) }
     val folderRepository: FolderRepository by lazy { RoomFolderRepository(database.folderDao()) }
+    val tagRepository: TagRepository by lazy { RoomTagRepository(database.tagDao()) }
     val recordingRepository: RecordingRepository by lazy {
         RoomRecordingRepository(database.recordingDao())
     }

@@ -177,14 +177,20 @@ private fun TagPickerContent(
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
+private val previewTags = listOf(
+    Tag(id = "t1", name = "Research", colorHex = "#3D7A5A"),
+    Tag(id = "t2", name = "Strategy", colorHex = "#7A6D3D"),
+    Tag(id = "t3", name = "Design", colorHex = "#3D5A7A"),
+)
+
 @Preview(showBackground = true, backgroundColor = 0xFFF0EFEA)
 @Composable
 private fun TagPickerContentPreview() {
-    var selected by remember { mutableStateOf(defaultTags.take(2)) }
+    var selected by remember { mutableStateOf(previewTags.take(2)) }
     AppTheme {
         Surface(color = SheetBg) {
             TagPickerContent(
-                availableTags = defaultTags,
+                availableTags = previewTags,
                 selectedTags = selected,
                 onTagToggle = { tag ->
                     selected = if (selected.any { it.id == tag.id }) {

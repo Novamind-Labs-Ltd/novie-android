@@ -34,12 +34,14 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
 
     private val noteRepository: NoteRepository = (application as NovieApplication).noteRepository
     private val folderRepository = (application as NovieApplication).folderRepository
+    private val tagRepository = (application as NovieApplication).tagRepository
 
     private val _uiState = MutableStateFlow(CreateUiState())
     val uiState = _uiState.asStateFlow()
 
-    // 持久化文件夹的最新快照（供 reset/loadNote 重建 state 时保留可选文件夹列表）
+    // 持久化文件夹/标签的最新快照（供 reset/loadNote 重建 state 时保留可选列表）
     private var availableFolders: List<Folder> = emptyList()
+    private var availableTags: List<Tag> = emptyList()
 
     private val _navigateBack = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val navigateBack = _navigateBack.asSharedFlow()
@@ -75,6 +77,14 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 _uiState.update { it.copy(availableFolders = folders) }
             }
             .launchIn(viewModelScope)
+        // 标签选择列表来自持久化标签库（实时）
+        tagRepository.tags
+            .onEach { stored ->
+                val tags = stored.map { Tag(id = it.id, name = it.name, colorHex = it.colorHex) }
+                availableTags = tags
+                _uiState.update { it.copy(availableTags = tags) }
+            }
+            .launchIn(viewModelScope)
     }
 
     // ── 初始化 / 重置 ─────────────────────────────────────────────────────────
@@ -83,7 +93,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
         undoStack.clear()
         redoStack.clear()
         persistedNote = null
-        _uiState.value = CreateUiState(availableFolders = availableFolders)
+        _uiState.value = CreateUiState(availableFolders = availableFolders, availableTags = availableTags)
     }
 
     fun loadNote(noteId: String) {
@@ -101,6 +111,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 selectedFolder = note.folder,
                 borderColor = ColorUtils.parseHexColor(note.borderColorHex),
                 availableFolders = availableFolders,
+                availableTags = availableTags,
             )
         }
     }
@@ -168,13 +179,11 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             is CreateEvent.NewTagCreated -> {
+                // 新建标签落库（出现在标签库中）；并选中给当前笔记
                 val newTag = Tag(name = event.name)
+                viewModelScope.launch { tagRepository.create(newTag.name, newTag.colorHex) }
                 _uiState.update { state ->
-                    // 新建即选中：放到可选列表最前面
-                    state.copy(
-                        availableTags = listOf(newTag) + state.availableTags,
-                        selectedTags = listOf(newTag) + state.selectedTags,
-                    )
+                    state.copy(selectedTags = listOf(newTag) + state.selectedTags)
                 }
                 requestSave()
             }
