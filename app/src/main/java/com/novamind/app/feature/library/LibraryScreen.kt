@@ -109,6 +109,7 @@ import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.ColorUtils
+import com.novamind.app.util.ColorUtils.toHex
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.launch
 
@@ -586,8 +587,8 @@ private fun ChangeFolderColorSheet(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 folderColorOptions.forEach { option ->
-                    val optionHex = option.hex.ifEmpty { null }
-                    val selected = optionHex == currentHex
+                    val optionHex = option.icon.toHex()
+                    val selected = optionHex.equals(currentHex, ignoreCase = true)
                     Box(
                         modifier = Modifier
                             .size(48.dp)

@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -42,25 +43,36 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.util.ColorUtils.toHex
 
-private val SheetBg = Color(0xFFF0EFEA)
-private val TextDark = Color(0xFF1A1A1A)
-private val TextHint = Color(0xFFAAAAAA)
-private val FieldBg = Color(0xFFFFFFFF)
-private val Border = Color(0xFFE3E0D8)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val SheetBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val TextDark: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextHint: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val FieldBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val Border: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 
-/** 文件夹颜色选项：圆形底色 + 文件夹图标着色。hex 用于回传持久化。 */
-internal data class FolderColorOption(val hex: String, val bg: Color, val icon: Color)
+/** 文件夹颜色选项：圆形底色 + 文件夹图标着色（icon 即该选项代表色，持久化时转 hex）。 */
+internal data class FolderColorOption(val bg: Color, val icon: Color)
 
 internal val folderColorOptions = listOf(
-    FolderColorOption("", FieldBg, TextDark),                       // 默认（无着色）
-    FolderColorOption("#388E64", Palette.forrest100, Palette.forrest600),
-    FolderColorOption("#FF8C00", Palette.orange100, Palette.orange700),
-    FolderColorOption("#808080", Palette.neutral100, Palette.neutral700),
-    FolderColorOption("#C8391A", Palette.red100, Palette.red500),
-    FolderColorOption("#4A8292", Palette.teal100, Palette.teal600),
+    FolderColorOption(Palette.white, Palette.gray900),
+    FolderColorOption(Palette.forrest100, Palette.forrest600),
+    FolderColorOption(Palette.orange100, Palette.orange700),
+    FolderColorOption(Palette.neutral100, Palette.neutral700),
+    FolderColorOption(Palette.red100, Palette.red500),
+    FolderColorOption(Palette.teal100, Palette.teal600),
 )
 
 /**
@@ -175,10 +187,10 @@ private fun CreateFolderContent(
                     enabled = canCreate,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(),
-                    onClick = { onCreate(trimmed, folderColorOptions[selectedIndex].hex.ifEmpty { null }) },
+                    onClick = { onCreate(trimmed, folderColorOptions[selectedIndex].icon.toHex()) },
                 ),
             shape = RoundedCornerShape(50),
-            color = if (canCreate) Color(0xFF111111) else Color(0xFFBFBDB8),
+            color = if (canCreate) BackgroundColors.Primary.default.current() else BackgroundColors.Interactive.disabled.current(),
         ) {
             Box(
                 modifier = Modifier
@@ -186,7 +198,7 @@ private fun CreateFolderContent(
                     .height(54.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Create new folder", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Create new folder", color = TextColors.Inverse.default.current(), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
