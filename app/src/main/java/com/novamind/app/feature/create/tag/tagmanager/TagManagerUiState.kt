@@ -1,4 +1,4 @@
-package com.novamind.app.feature.tagmanager
+package com.novamind.app.feature.create.tag.tagmanager
 
 /** Tag 管理页的标签行模型：名称 + 颜色 + 关联笔记数。 */
 data class TagRowItem(

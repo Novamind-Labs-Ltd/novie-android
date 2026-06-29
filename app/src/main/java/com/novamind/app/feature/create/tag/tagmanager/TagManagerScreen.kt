@@ -1,8 +1,8 @@
-package com.novamind.app.feature.tagmanager
+package com.novamind.app.feature.create.tag.tagmanager
 
-import android.R.attr.translationY
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -511,7 +512,7 @@ private fun TagEditRow(
             modifier = Modifier.weight(1f),
             shape = RoundedCornerShape(10.dp),
             color = BgCard,
-            border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder),
+            border = BorderStroke(1.dp, ColorBorder),
         ) {
             BasicTextField(
                 value = value,
@@ -683,7 +684,7 @@ private fun SwipeToDeleteRow(
 private fun TopIconButton(
     iconRes: Int,
     desc: String,
-    shape: androidx.compose.ui.graphics.Shape,
+    shape: Shape,
     onClick: () -> Unit = {},
 ) {
     Box(

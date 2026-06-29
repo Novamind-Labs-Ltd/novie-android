@@ -20,11 +20,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
-private val TextDark = Color(0xFF1A1A1A)
-private val TextHint = Color(0xFFAAAAAA)
-private val SheetBg = Color(0xFFF0EFEA)
+// 配色：统一引用 ui/colors 设计系统令牌（不使用硬编码颜色）
+private val TextDark: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextHint: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val SheetBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val FieldBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +99,7 @@ private fun TagPickerContent(
         // 搜索 / 新建输入框
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = Color.White,
+            color = FieldBg,
             shadowElevation = 1.dp,
         ) {
             BasicTextField(

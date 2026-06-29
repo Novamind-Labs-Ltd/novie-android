@@ -42,7 +42,7 @@ import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.feature.library.LibraryRoute
 import com.novamind.app.feature.recyclebin.RecycleBinRoute
-import com.novamind.app.feature.tagmanager.TagManagerRoute
+import com.novamind.app.feature.create.tag.tagmanager.TagManagerRoute
 import com.novamind.app.feature.asknovie.AskNovieScreen
 import com.novamind.app.feature.auth.AuthViewModel
 import com.novamind.app.feature.auth.BiometricLockScreen

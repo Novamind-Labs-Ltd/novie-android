@@ -1,4 +1,4 @@
-package com.novamind.app.feature.tagmanager
+package com.novamind.app.feature.create.tag.tagmanager
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel

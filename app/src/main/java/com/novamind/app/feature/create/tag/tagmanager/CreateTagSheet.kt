@@ -1,5 +1,6 @@
-package com.novamind.app.feature.tagmanager
+package com.novamind.app.feature.create.tag.tagmanager
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,10 +40,12 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.TextColors
@@ -193,7 +196,7 @@ private fun CreateTagContent(
                 ),
             shape = RoundedCornerShape(50),
             color = Color.Transparent,
-            border = androidx.compose.foundation.BorderStroke(1.dp, TextDark),
+            border = BorderStroke(1.dp, TextDark),
         ) {
             Box(
                 modifier = Modifier.fillMaxWidth().height(54.dp),
@@ -230,5 +233,17 @@ private fun TagColorSwatch(
             tint = color,
             modifier = Modifier.size(20.dp),
         )
+    }
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA)
+@Composable
+private fun CreateTagSheetPreview() {
+    AppTheme {
+        Surface(color = SheetBg) {
+            CreateTagContent(onCreate = { _, _ -> }, onCancel = {})
+        }
     }
 }
