@@ -52,6 +52,7 @@ import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
 import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
+import com.novamind.app.util.SentryUtils
 import com.novamind.app.debug.apitest.ApiTestActivity
 import com.novamind.app.debug.apitest.ApiTarget
 import com.novamind.app.debug.files.FileBrowserActivity
@@ -275,6 +276,32 @@ fun DebugPanel(
                         Text(key, fontSize = 14.sp, color = TextMain)
                         Switch(checked = on, onCheckedChange = { DebugFlags.toggle(key) })
                     }
+                }
+            }
+
+            // ── Sentry 上报（按当前环境，dev 也会上传） ──
+            Section("Sentry 上报（environment=${SentryUtils.environment()}）") {
+                var lastAction by remember { mutableStateOf("") }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("上报测试日志") {
+                        SentryUtils.log("Debug panel test message @ ${SentryUtils.environment()}")
+                        lastAction = "已发送测试日志"
+                    }
+                    Chip("上报测试异常") {
+                        SentryUtils.capture(
+                            RuntimeException("Debug panel test exception"),
+                            message = "来自 Debug 面板的手动上报",
+                        )
+                        lastAction = "已发送测试异常"
+                    }
+                    Chip("添加面包屑") {
+                        SentryUtils.breadcrumb("Debug 面包屑：用户在调试面板操作", category = "debug")
+                        lastAction = "已添加面包屑"
+                    }
+                }
+                if (lastAction.isNotEmpty()) {
+                    Text("✓ $lastAction（Sentry 后台按 environment=${SentryUtils.environment()} 查看）",
+                        fontSize = 12.sp, color = TextSub)
                 }
             }
 

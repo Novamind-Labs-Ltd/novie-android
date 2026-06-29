@@ -13,8 +13,8 @@ import io.sentry.protocol.User
  * Sentry 工具：按环境初始化 + 统一上报日志、异常与上下文。
  *
  * 关闭 Manifest 自动初始化（`io.sentry.auto-init=false`），改为在 [init] 里按当前环境配置：
- * - **dev**（Debug 构建）：不上传（清空 DSN，SDK 静默）；
- * - **st**（co.nz）/ **prod**（co）：上传，并以 `environment` 区分；prod 采样率更低。
+ * 各环境（dev / st / prod）均上传，以 `environment` 标签区分；prod 采样率更低。
+ * dev 环境可在 Debug 面板手动触发测试上报。
  *
  * 在 `Application.onCreate` 里、`ApiConfig.init` 之后调用 [init]。
  */
@@ -27,26 +27,17 @@ object SentryUtils {
         else -> "st" // CO_NZ
     }
 
-    /** 该环境是否上传到 Sentry（dev 不上传）。 */
-    fun isUploadEnabled(): Boolean = true
-
     /**
-     * 初始化 Sentry：注入 environment、按环境决定是否上传与采样率。
+     * 初始化 Sentry：注入 environment / release 与按环境的采样率。
      * DSN 仍从 Manifest meta-data 读取，这里只做环境相关覆盖。
      */
     fun init(context: Context) {
         val env = environment()
-        val upload = isUploadEnabled()
         SentryAndroid.init(context) { options ->
             options.environment = env
             options.release = BuildConfig.VERSION_NAME
-            if (!upload) {
-                // dev：清空 DSN → SDK 不发送任何事件
-                options.dsn = ""
-            } else {
-                // prod 采样率压低，st 全量便于联调
-                options.tracesSampleRate = if (env == "prod") 0.2 else 1.0
-            }
+            // prod 采样率压低，dev / st 全量便于联调
+            options.tracesSampleRate = if (env == "prod") 0.2 else 1.0
         }
     }
 
