@@ -180,7 +180,12 @@ private fun CreateFolderContent(
             shape = RoundedCornerShape(50),
             color = if (canCreate) Color(0xFF111111) else Color(0xFFBFBDB8),
         ) {
-            Box(modifier = Modifier.padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text("Create new folder", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -199,7 +204,12 @@ private fun CreateFolderContent(
             color = Color.Transparent,
             border = androidx.compose.foundation.BorderStroke(1.dp, TextDark),
         ) {
-            Box(modifier = Modifier.padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text("Cancel", color = TextDark, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
