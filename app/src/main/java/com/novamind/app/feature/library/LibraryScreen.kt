@@ -250,10 +250,16 @@ fun LibraryScreen(
 
     // 创建文件夹弹层（Folders 页点击创建时）
     if (showCreateFolder) {
+        val context = LocalContext.current
         CreateFolderSheet(
             onCreate = { name, colorHex ->
-                showCreateFolder = false
-                onCreateFolder(name, colorHex)
+                // 重名校验（忽略大小写）：已存在则提示且不创建、不关闭弹窗
+                if (uiState.folders.any { it.name.equals(name, ignoreCase = true) }) {
+                    Toast.makeText(context, "Folder \"$name\" already exists", Toast.LENGTH_SHORT).show()
+                } else {
+                    showCreateFolder = false
+                    onCreateFolder(name, colorHex)
+                }
             },
             onDismiss = { showCreateFolder = false },
         )
