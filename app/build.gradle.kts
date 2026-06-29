@@ -123,6 +123,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.retrofit.kotlinx.serialization)
+    // JSON 通用解析（GsonUtils）
+    implementation(libs.gson)
     // 日志拦截器仅打进 Debug 包（抓包联调用）
     debugImplementation(libs.okhttp.logging)
     // Firebase（BoM 统一管理版本）：Analytics + Crashlytics + Cloud Messaging
