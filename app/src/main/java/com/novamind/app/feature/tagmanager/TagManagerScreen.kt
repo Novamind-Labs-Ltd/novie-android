@@ -1,9 +1,11 @@
 package com.novamind.app.feature.tagmanager
 
 import android.widget.Toast
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -39,6 +42,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +51,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -58,8 +63,11 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
@@ -199,11 +207,13 @@ fun TagManagerScreen(
                         onCancel = { renameTarget = null },
                     )
                 } else {
-                    TagRow(
-                        tag = tag,
-                        onRename = { renameTarget = tag.name; creating = false },
-                        onDelete = { deleteTarget = tag.name },
-                    )
+                    SwipeToDeleteRow(onDelete = { deleteTarget = tag.name }) {
+                        TagRow(
+                            tag = tag,
+                            onRename = { renameTarget = tag.name; creating = false },
+                            onDelete = { deleteTarget = tag.name },
+                        )
+                    }
                 }
             }
         }
@@ -434,6 +444,64 @@ private fun DeleteTagSheet(
                 Text("Cancel", color = ColorTextTitle, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+}
+
+/** 左滑露出删除按钮：左滑显示右侧深色圆形垃圾桶，点击触发 [onDelete]。 */
+@Composable
+private fun SwipeToDeleteRow(
+    onDelete: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val revealPx = with(density) { 60.dp.toPx() }
+    val offsetX = remember { Animatable(0f) }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // 背后：右侧深色圆形删除按钮
+        Box(
+            modifier = Modifier.matchParentSize(),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(BackgroundColors.Primary.default.current())
+                    .clickable {
+                        scope.launch { offsetX.animateTo(0f) }
+                        onDelete()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = "Delete",
+                    tint = Palette.white,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        // 前景：可左滑的内容
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            val newX = (offsetX.value + dragAmount).coerceIn(-revealPx, 0f)
+                            scope.launch { offsetX.snapTo(newX) }
+                        },
+                        onDragEnd = {
+                            // 过半则吸附到展开，否则收回
+                            val target = if (offsetX.value < -revealPx / 2) -revealPx else 0f
+                            scope.launch { offsetX.animateTo(target) }
+                        },
+                    )
+                },
+        ) { content() }
     }
 }
 
