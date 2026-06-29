@@ -83,6 +83,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
@@ -370,8 +371,9 @@ private fun FoldersPage(
     onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
 ) {
-    // 重命名目标文件夹名（null = 不显示重命名弹窗）
+    // 重命名 / 删除目标文件夹名（null = 不显示对应弹窗）
     var renameTarget by remember { mutableStateOf<String?>(null) }
+    var deleteTarget by remember { mutableStateOf<String?>(null) }
 
     if (folders.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -470,7 +472,7 @@ private fun FoldersPage(
                 modifier = rowModifier,
                 elevation = if (isDragging) 12.dp else 1.dp,
                 onRename = { renameTarget = folder.name },
-                onDelete = { onDeleteFolder(folder.name) },
+                onDelete = { deleteTarget = folder.name },
                 // Reorder：占位（拖拽排序用长按），菜单关闭即可
             )
         }
@@ -486,6 +488,76 @@ private fun FoldersPage(
             },
             onDismiss = { renameTarget = null },
         )
+    }
+
+    // 删除二次确认弹窗
+    deleteTarget?.let { target ->
+        DeleteFolderDialog(
+            folderName = target,
+            onConfirm = {
+                onDeleteFolder(target)
+                deleteTarget = null
+            },
+            onDismiss = { deleteTarget = null },
+        )
+    }
+}
+
+/** 删除文件夹二次确认弹窗：Delete（红色实心）/ Cancel（描边）。 */
+@Composable
+private fun DeleteFolderDialog(
+    folderName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(24.dp), color = BgCard) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "Delete $folderName folder?",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ColorTextTitle,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "This will permanently delete the $folderName folder.",
+                    fontSize = 14.sp,
+                    color = ColorTextSub,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp,
+                )
+                Spacer(Modifier.height(8.dp))
+                // Delete（红色实心胶囊）
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(50))
+                        .background(BackgroundColors.Error.default.current())
+                        .clickable(onClick = onConfirm)
+                        .height(52.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Delete", color = Palette.white, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                }
+                // Cancel（描边胶囊）
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(50))
+                        .border(1.dp, ColorTextTitle, RoundedCornerShape(50))
+                        .clickable(onClick = onDismiss)
+                        .height(52.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Cancel", color = ColorTextTitle, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
     }
 }
 
