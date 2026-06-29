@@ -7,6 +7,7 @@ data class StoredTag(
     val id: String,
     val name: String,
     val colorHex: String,
+    val sortIndex: Int,
 )
 
 interface TagRepository {
@@ -24,4 +25,7 @@ interface TagRepository {
 
     /** 修改标签颜色。 */
     suspend fun setColor(name: String, colorHex: String)
+
+    /** 按给定名称顺序更新排序位。 */
+    suspend fun setOrder(orderedNames: List<String>)
 }

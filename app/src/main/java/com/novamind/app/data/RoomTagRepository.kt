@@ -10,17 +10,19 @@ class RoomTagRepository(private val dao: TagDao) : TagRepository {
 
     override val tags: Flow<List<StoredTag>> =
         dao.getAll().map { list ->
-            list.map { StoredTag(it.id, it.name, it.colorHex) }
+            list.map { StoredTag(it.id, it.name, it.colorHex, it.sortIndex) }
         }
 
     override suspend fun create(name: String, colorHex: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty() || dao.getByName(trimmed) != null) return
+        val nextSort = (dao.maxSortIndex() ?: -1) + 1
         dao.upsert(
             TagEntity(
                 id = UUID.randomUUID().toString(),
                 name = trimmed,
                 colorHex = colorHex,
+                sortIndex = nextSort,
                 createdAt = System.currentTimeMillis(),
             ),
         )
@@ -40,5 +42,9 @@ class RoomTagRepository(private val dao: TagDao) : TagRepository {
         val trimmed = name.trim()
         if (trimmed.isEmpty() || colorHex.isBlank()) return
         dao.updateColor(trimmed, colorHex)
+    }
+
+    override suspend fun setOrder(orderedNames: List<String>) {
+        orderedNames.forEachIndexed { index, name -> dao.updateSortIndex(name, index) }
     }
 }

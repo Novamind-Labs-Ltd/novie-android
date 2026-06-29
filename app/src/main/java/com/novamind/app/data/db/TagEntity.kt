@@ -11,5 +11,7 @@ data class TagEntity(
     val name: String,
     /** 标签颜色 #RRGGBB */
     val colorHex: String,
+    /** 手动排序位（越小越靠前） */
+    val sortIndex: Int = 0,
     val createdAt: Long,
 )

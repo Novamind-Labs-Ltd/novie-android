@@ -1,10 +1,12 @@
 package com.novamind.app.feature.tagmanager
 
+import android.R.attr.translationY
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -42,6 +44,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,9 +57,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -68,6 +75,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -114,6 +122,7 @@ fun TagManagerRoute(
         onRenameTag = viewModel::renameTag,
         onDeleteTag = viewModel::deleteTag,
         onChangeTagColor = viewModel::changeTagColor,
+        onReorderTags = viewModel::reorderTags,
         modifier = modifier,
     )
 }
@@ -128,6 +137,7 @@ fun TagManagerScreen(
     onRenameTag: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteTag: (String) -> Unit = {},
     onChangeTagColor: (name: String, colorHex: String) -> Unit = { _, _ -> },
+    onReorderTags: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -138,11 +148,25 @@ fun TagManagerScreen(
     var colorTarget by remember { mutableStateOf<String?>(null) }
 
     val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
 
     val existingNames = uiState.tags.map { it.name }
+
+    // 拖拽排序：本地稳定副本（非拖拽时从 uiState 同步），及拖拽状态
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var draggedDistance by remember { mutableFloatStateOf(0f) }
+    var initialItemOffset by remember { mutableStateOf(0) }
+    var initialItemSize by remember { mutableStateOf(0) }
+    val tagItems = remember { mutableStateListOf<TagRowItem>() }
+    LaunchedEffect(uiState.tags, draggingIndex) {
+        if (draggingIndex == null) {
+            tagItems.clear()
+            tagItems.addAll(uiState.tags)
+        }
+    }
 
     Column(
         modifier = modifier
@@ -182,7 +206,8 @@ fun TagManagerScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp + imeBottomDp),
         ) {
-            itemsIndexed(uiState.tags, key = { _, it -> it.id }) { _, tag ->
+            itemsIndexed(tagItems, key = { _, it -> it.id }) { index, tag ->
+                val isDragging = index == draggingIndex
                 if (tag.name == renameTarget) {
                     TagEditRow(
                         initialName = tag.name,
@@ -197,7 +222,51 @@ fun TagManagerScreen(
                         onCancel = { renameTarget = null },
                     )
                 } else {
-                    SwipeToDeleteRow(onDelete = { deleteTarget = tag.name }) {
+                    // 拖拽项：translationY 跟手；其余项 animateItem 平滑让位
+                    val rowModifier = if (isDragging) {
+                        Modifier
+                            .zIndex(1f)
+                            .graphicsLayer {
+                                val current = listState.layoutInfo.visibleItemsInfo
+                                    .firstOrNull { it.key == tag.id }?.offset ?: initialItemOffset
+                                translationY = initialItemOffset + draggedDistance - current
+                            }
+                    } else {
+                        Modifier.animateItem()
+                    }
+                    SwipeToDeleteRow(
+                        modifier = rowModifier,
+                        onDelete = { deleteTarget = tag.name },
+                        onReorderStart = {
+                            draggingIndex = tagItems.indexOfFirst { it.id == tag.id }
+                            val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == tag.id }
+                            initialItemOffset = info?.offset ?: 0
+                            initialItemSize = info?.size ?: 0
+                            draggedDistance = 0f
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        },
+                        onReorderDrag = { dy ->
+                            val from = draggingIndex
+                            if (from != null) {
+                                draggedDistance += dy
+                                val draggedCenter = initialItemOffset + draggedDistance + initialItemSize / 2f
+                                val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+                                    info.index != from &&
+                                        draggedCenter.toInt() in info.offset..(info.offset + info.size)
+                                }
+                                if (target != null && target.index < tagItems.size) {
+                                    tagItems.add(target.index, tagItems.removeAt(from))
+                                    draggingIndex = target.index
+                                }
+                            }
+                        },
+                        onReorderEnd = {
+                            if (draggingIndex != null) onReorderTags(tagItems.map { it.name })
+                            draggingIndex = null
+                            draggedDistance = 0f
+                        },
+                        onReorderCancel = { draggingIndex = null; draggedDistance = 0f },
+                    ) {
                         TagRow(
                             tag = tag,
                             onRename = { renameTarget = tag.name },
@@ -527,10 +596,18 @@ private fun DeleteTagSheet(
     }
 }
 
-/** 左滑露出删除按钮：左滑显示右侧深色圆形垃圾桶，点击触发 [onDelete]。 */
+/**
+ * 左滑露出删除按钮（点击触发 [onDelete]）；长按可拖拽排序（[onReorderStart]/[onReorderDrag]/[onReorderEnd]）。
+ * 两个手势同处前景元素：水平滑动→删除，长按后纵向拖动→排序，互不冲突。
+ */
 @Composable
 private fun SwipeToDeleteRow(
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    onReorderStart: () -> Unit = {},
+    onReorderDrag: (Float) -> Unit = {},
+    onReorderEnd: () -> Unit = {},
+    onReorderCancel: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -538,7 +615,7 @@ private fun SwipeToDeleteRow(
     val revealPx = with(density) { 60.dp.toPx() }
     val offsetX = remember { Animatable(0f) }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = modifier.fillMaxWidth()) {
         // 背后：右侧深色圆形删除按钮
         Box(
             modifier = Modifier.matchParentSize(),
@@ -563,7 +640,7 @@ private fun SwipeToDeleteRow(
                 )
             }
         }
-        // 前景：可左滑的内容
+        // 前景：可左滑的内容 + 长按拖拽排序（两个 pointerInput 并存于同一元素）
         Box(
             modifier = Modifier
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
@@ -579,6 +656,17 @@ private fun SwipeToDeleteRow(
                             val target = if (offsetX.value < -revealPx / 2) -revealPx else 0f
                             scope.launch { offsetX.animateTo(target) }
                         },
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { onReorderStart() },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            onReorderDrag(dragAmount.y)
+                        },
+                        onDragEnd = { onReorderEnd() },
+                        onDragCancel = { onReorderCancel() },
                     )
                 },
         ) { content() }

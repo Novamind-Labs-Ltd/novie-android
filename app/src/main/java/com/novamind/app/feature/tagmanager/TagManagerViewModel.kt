@@ -77,6 +77,11 @@ class TagManagerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /** 保存拖拽后的标签顺序（持久化 sortIndex）。 */
+    fun reorderTags(orderedNames: List<String>) {
+        viewModelScope.launch { tagRepository.setOrder(orderedNames) }
+    }
+
     /** 修改标签颜色：更新标签库与所有笔记中同名标签的颜色。 */
     fun changeTagColor(name: String, colorHex: String) {
         val target = name.trim()
