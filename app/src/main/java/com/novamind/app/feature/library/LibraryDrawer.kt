@@ -16,18 +16,31 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.theme.AppTheme
 
-private val ColorTextTitle = Color(0xFF1A1A1A)
-private val ColorTextSub = Color(0xFF6B6B6B)
-private val ColorBorder = Color(0xFFE3E0D8)
+// 配色：统一引用 ui/colors 设计系统令牌（不使用硬编码颜色）
+private val BgSheet: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val ColorTextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val ColorTextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val ColorBorder: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 
 /**
  * 左侧抽屉：顶部为最近笔记（chevron + 标题），底部固定 Tag manager / Shared with me / Recycle Bin。
@@ -42,7 +55,7 @@ internal fun LibraryDrawer(
     onOpenRecycleBin: () -> Unit,
 ) {
     ModalDrawerSheet(
-        drawerContainerColor = Color.White,
+        drawerContainerColor = BgSheet,
         drawerShape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
         modifier = Modifier.fillMaxWidth(0.82f),
     ) {
@@ -118,6 +131,26 @@ private fun DrawerActionItem(iconRes: Int, label: String, onClick: () -> Unit) {
             text = label,
             fontSize = 16.sp,
             color = ColorTextTitle,
+        )
+    }
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+private fun LibraryDrawerPreview() {
+    AppTheme {
+        LibraryDrawer(
+            notes = listOf(
+                NoteItem("1", "Q3 KPIs", ""),
+                NoteItem("2", "Team sync", ""),
+                NoteItem("3", "Client call", ""),
+            ),
+            onOpenNote = {},
+            onOpenTagManager = {},
+            onOpenSharedWithMe = {},
+            onOpenRecycleBin = {},
         )
     }
 }
