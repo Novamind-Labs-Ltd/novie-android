@@ -880,16 +880,18 @@ private fun FolderRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 点击图标 → 打开 Folder colour 弹窗（与「Change color」一致）
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(accent.copy(alpha = 0.12f)),
+                    .background(accent.copy(alpha = 0.12f))
+                    .clickable(onClick = onChangeColor),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_folder),
-                    contentDescription = null,
+                    contentDescription = "Change colour",
                     tint = accent,
                     modifier = Modifier.size(20.dp),
                 )
