@@ -690,6 +690,14 @@ private fun SegmentTab(
     }
 }
 
+/** 无自定义色时：按文件夹名稳定地从色板（排除默认中性色）取一种颜色。 */
+private fun folderAccentFor(name: String): Color {
+    val palette = folderColorOptions.drop(1)   // 跳过首个「默认/中性」色
+    if (palette.isEmpty()) return ColorAccent
+    val idx = ((name.hashCode() % palette.size) + palette.size) % palette.size
+    return palette[idx].icon
+}
+
 @Composable
 private fun FolderRow(
     folder: LibraryFolder,
@@ -700,8 +708,8 @@ private fun FolderRow(
     onReorder: () -> Unit = {},
     onDelete: () -> Unit = {},
 ) {
-    // 文件夹颜色：有自定义色用之，否则回退到品牌绿
-    val accent = ColorUtils.parseHexColor(folder.colorHex) ?: ColorAccent
+    // 文件夹颜色：有自定义色用之；否则按名称稳定地从色板取一种，使列表多彩且一致
+    val accent = ColorUtils.parseHexColor(folder.colorHex) ?: folderAccentFor(folder.name)
     var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
