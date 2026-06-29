@@ -1324,9 +1324,14 @@ fun LibraryRoute(
             val drawerOpen = drawerState.targetValue == DrawerValue.Open
             LaunchedEffect(drawerOpen) { onFullscreenChange(drawerOpen) }
             DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
+            // 先打开目标页（全屏覆盖层滑入），待其盖住后再关抽屉，
+            // 避免「抽屉关闭」与「新页滑入」同时进行造成动画断层。
             fun closeDrawerThen(action: () -> Unit) {
-                scope.launch { drawerState.close() }
                 action()
+                scope.launch {
+                    kotlinx.coroutines.delay(250)
+                    drawerState.close()
+                }
             }
 
             ModalNavigationDrawer(
