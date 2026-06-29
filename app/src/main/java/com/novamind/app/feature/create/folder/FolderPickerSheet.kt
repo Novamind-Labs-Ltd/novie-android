@@ -214,14 +214,20 @@ private fun FolderRow(
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
+private val previewFolders = listOf(
+    Folder(id = "f1", name = "Work"),
+    Folder(id = "f2", name = "Personal"),
+    Folder(id = "f3", name = "Projects"),
+)
+
 @Preview(showBackground = true, backgroundColor = 0xFFF0EFEA)
 @Composable
 private fun FolderPickerContentPreview() {
-    var selected by remember { mutableStateOf<Folder?>(defaultFolders.firstOrNull()) }
+    var selected by remember { mutableStateOf<Folder?>(previewFolders.firstOrNull()) }
     AppTheme {
         Surface(color = SheetBg) {
             FolderPickerContent(
-                folders = defaultFolders,
+                folders = previewFolders,
                 selectedFolder = selected,
                 onFolderSelect = { selected = it },
                 onNewFolder = {},

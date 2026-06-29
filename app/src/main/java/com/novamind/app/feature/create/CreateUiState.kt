@@ -2,7 +2,6 @@ package com.novamind.app.feature.create
 
 import androidx.compose.ui.graphics.Color
 import com.novamind.app.feature.create.folder.Folder
-import com.novamind.app.feature.create.folder.defaultFolders
 import com.novamind.app.feature.create.tag.Tag
 import com.novamind.app.feature.create.tag.defaultTags
 
@@ -39,7 +38,7 @@ data class CreateUiState(
 
     // 可选项数据
     val availableTags: List<Tag> = defaultTags,
-    val availableFolders: List<Folder> = defaultFolders,
+    val availableFolders: List<Folder> = emptyList(),
 
     // 弹窗状态
     val showTagPicker: Boolean = false,

@@ -33,9 +33,13 @@ private data class TextSnapshot(val title: String, val body: String)
 class CreateViewModel(application: Application) : AndroidViewModel(application) {
 
     private val noteRepository: NoteRepository = (application as NovieApplication).noteRepository
+    private val folderRepository = (application as NovieApplication).folderRepository
 
     private val _uiState = MutableStateFlow(CreateUiState())
     val uiState = _uiState.asStateFlow()
+
+    // 持久化文件夹的最新快照（供 reset/loadNote 重建 state 时保留可选文件夹列表）
+    private var availableFolders: List<Folder> = emptyList()
 
     private val _navigateBack = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val navigateBack = _navigateBack.asSharedFlow()
@@ -63,6 +67,14 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             .sample(AppConfig.Editor.SAVE_MAX_INTERVAL_MS)
             .onEach { saveNow() }
             .launchIn(viewModelScope)
+        // 文件夹选择列表来自持久化文件夹库（实时）
+        folderRepository.folders
+            .onEach { stored ->
+                val folders = stored.map { Folder(id = it.id, name = it.name) }
+                availableFolders = folders
+                _uiState.update { it.copy(availableFolders = folders) }
+            }
+            .launchIn(viewModelScope)
     }
 
     // ── 初始化 / 重置 ─────────────────────────────────────────────────────────
@@ -71,7 +83,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
         undoStack.clear()
         redoStack.clear()
         persistedNote = null
-        _uiState.value = CreateUiState()
+        _uiState.value = CreateUiState(availableFolders = availableFolders)
     }
 
     fun loadNote(noteId: String) {
@@ -88,6 +100,7 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
                 selectedTags = note.tags,
                 selectedFolder = note.folder,
                 borderColor = ColorUtils.parseHexColor(note.borderColorHex),
+                availableFolders = availableFolders,
             )
         }
     }
@@ -172,10 +185,11 @@ class CreateViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             is CreateEvent.NewFolderCreated -> {
+                // 新建文件夹落库（出现在文件夹库中）；并选中给当前笔记
                 val newFolder = Folder(name = event.name)
+                viewModelScope.launch { folderRepository.create(event.name, null) }
                 _uiState.update { state ->
                     state.copy(
-                        availableFolders = state.availableFolders + newFolder,
                         selectedFolder = newFolder,
                         showFolderPicker = false,
                     )
