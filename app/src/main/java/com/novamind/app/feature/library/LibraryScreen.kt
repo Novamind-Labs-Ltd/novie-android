@@ -468,19 +468,21 @@ private fun FoldersPage(
     ) {
         itemsIndexed(items, key = { _, it -> it.name }) { index, folder ->
             val isDragging = index == draggingIndex
-            // 拖拽项：跟手 translationY + 轻微放大 + 抬升阴影凸显；其余项用 animateItem 平滑归位
-            val rowModifier = if (isDragging) {
-                Modifier
+            // 拖拽项：跟手 translationY + 轻微放大 + 抬升阴影凸显；
+            // 其余项仅在「拖拽进行中」用 animateItem 平滑让位，松手后不再做动画（避免视觉混乱）。
+            val rowModifier = when {
+                isDragging -> Modifier
                     .zIndex(1f)
                     .graphicsLayer {
+                        // 用 key（文件夹名）定位拖拽项自身的实时偏移，避免换序那帧 index 错位导致跟手抖动
                         val current = listState.layoutInfo.visibleItemsInfo
-                            .firstOrNull { it.index == index }?.offset ?: initialItemOffset
+                            .firstOrNull { it.key == folder.name }?.offset ?: initialItemOffset
                         translationY = initialItemOffset + draggedDistance - current
                         scaleX = 1.03f
                         scaleY = 1.03f
                     }
-            } else {
-                Modifier.animateItem()
+                draggingIndex != null -> Modifier.animateItem()
+                else -> Modifier
             }
             if (folder.name == renameTarget) {
                 // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认
