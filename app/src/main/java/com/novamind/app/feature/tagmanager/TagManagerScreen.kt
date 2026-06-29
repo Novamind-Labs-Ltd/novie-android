@@ -82,6 +82,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.IconColors
@@ -183,7 +184,7 @@ fun TagManagerScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopIconButton(R.drawable.ic_panel_left, "Back", RoundedCornerShape(12.dp), onBack)
+            BackButton(onClick = onBack, background = BgCard, tint = ColorTextTitle)
             TopIconButton(R.drawable.ic_add, "New tag", CircleShape) {
                 renameTarget = null
                 showCreateSheet = true
