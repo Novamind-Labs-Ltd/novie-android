@@ -5,8 +5,12 @@ import com.novamind.app.BuildConfig
 import com.novamind.app.common.net.ApiConfig
 import io.sentry.Breadcrumb
 import io.sentry.Sentry
+import io.sentry.SentryAttribute
+import io.sentry.SentryAttributes
 import io.sentry.SentryLevel
+import io.sentry.SentryLogLevel
 import io.sentry.android.core.SentryAndroid
+import io.sentry.logger.SentryLogParameters
 import io.sentry.protocol.User
 
 /**
@@ -62,6 +66,37 @@ object SentryUtils {
     /** 结构化日志：error 级。 */
     fun logError(message: String) {
         Sentry.logger().error(message)
+    }
+
+    /**
+     * 「宽事件」日志：一条日志携带整次操作的完整上下文（推荐写法，便于在 Logs UI 检索过滤）。
+     * 属性按值类型自动推断（String/Boolean/整数/浮点等），key 建议统一用 snake_case。
+     *
+     * 例：`logEvent("Checkout completed", attributes = mapOf("order_id" to id, "cart_value" to 99.9))`
+     */
+    fun logEvent(
+        message: String,
+        level: SentryLogLevel = SentryLogLevel.INFO,
+        attributes: Map<String, Any?> = emptyMap(),
+    ) {
+        if (attributes.isEmpty()) {
+            Sentry.logger().log(level, message)
+            return
+        }
+        val attrs = SentryAttributes.of(
+            *attributes.map { (k, v) -> SentryAttribute.named(k, v) }.toTypedArray()
+        )
+        Sentry.logger().log(level, SentryLogParameters.create(attrs), message)
+    }
+
+    /** 作用域属性：自动附加到后续所有日志（如 request_id、用户分层）；传播至该作用域内。 */
+    fun setLogAttribute(key: String, value: Any?) {
+        Sentry.setAttribute(key, value)
+    }
+
+    /** 移除先前设置的作用域日志属性。 */
+    fun removeLogAttribute(key: String) {
+        Sentry.removeAttribute(key)
     }
 
     // ── 应用指标（Sentry.metrics，需 SDK >= 8.34.0）─────────────────────────────

@@ -288,6 +288,18 @@ fun DebugPanel(
                         SentryUtils.logInfo("Debug panel test log @ ${SentryUtils.environment()}")
                         lastAction = "已发送结构化日志（Logs 视图）"
                     }
+                    Chip("上报宽事件日志") {
+                        // 携带自定义属性的宽事件日志，可在 Logs UI 按属性检索
+                        SentryUtils.logEvent(
+                            "Debug panel wide event",
+                            attributes = mapOf(
+                                "source" to "debug_panel",
+                                "env" to SentryUtils.environment(),
+                                "item_count" to 3,
+                            ),
+                        )
+                        lastAction = "已发送宽事件日志（含属性）"
+                    }
                     Chip("上报测试异常") {
                         SentryUtils.capture(
                             RuntimeException("Debug panel test exception"),
