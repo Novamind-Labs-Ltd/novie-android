@@ -53,6 +53,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -86,18 +87,33 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
 import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.ColorUtils
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.launch
 
-private val BgPage = Color(0xFFF4F2EC)
-private val ColorTextTitle = Color(0xFF1A1A1A)
-private val ColorTextSub = Color(0xFF6B6B6B)
-private val ColorBorder = Color(0xFFE3E0D8)
-private val ColorAccent = Color(0xFF3D7A5A)
-private val ColorIconBtn = Color(0xFFFFFFFF)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val BgPage: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val BgCard: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val ColorTextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val ColorTextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val ColorBorder: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+private val ColorAccent: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+private val ColorIconBtn: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 
 @Composable
 fun LibraryScreen(
@@ -304,7 +320,7 @@ private fun LibraryNoteRow(note: NoteItem, onClick: () -> Unit = {}) {
             .fillMaxWidth()
             .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = BgCard,
         shadowElevation = 1.dp,
     ) {
         Column(
@@ -484,7 +500,7 @@ private fun RenameFolderDialog(
     val trimmed = text.trim()
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = BgCard,
         title = { Text("Rename folder", fontWeight = FontWeight.Bold, color = ColorTextTitle) },
         text = {
             OutlinedTextField(
@@ -598,7 +614,7 @@ private fun SegmentTab(
 /** 无自定义色时：按文件夹名稳定地从色板（排除默认中性色）取一种颜色。 */
 private fun folderAccentFor(name: String): Color {
     val palette = folderColorOptions.drop(1)   // 跳过首个「默认/中性」色
-    if (palette.isEmpty()) return ColorAccent
+    if (palette.isEmpty()) return Palette.forrest600
     val idx = ((name.hashCode() % palette.size) + palette.size) % palette.size
     return palette[idx].icon
 }
@@ -622,7 +638,7 @@ private fun FolderRow(
             .fillMaxWidth()
             .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = BgCard,
         shadowElevation = elevation,
     ) {
         Row(
@@ -700,7 +716,7 @@ private fun FolderActionsMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(16.dp),
-        containerColor = Color.White,
+        containerColor = BgCard,
         shadowElevation = 8.dp,
     ) {
         DropdownMenuItem(
@@ -714,7 +730,7 @@ private fun FolderActionsMenu(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
         )
         DropdownMenuItem(
-            text = { Text("Delete", fontSize = 16.sp, color = Color(0xFFC8391A)) },
+            text = { Text("Delete", fontSize = 16.sp, color = IconColors.Error.default.current()) },
             onClick = onDelete,
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
         )
@@ -836,7 +852,7 @@ private fun FolderNoteRow(note: NoteItem, onClick: () -> Unit) {
             .fillMaxWidth()
             .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = BgCard,
         shadowElevation = 1.dp,
     ) {
         Column(
@@ -917,7 +933,7 @@ private fun EmptyState(onCreateNote: () -> Unit, modifier: Modifier = Modifier) 
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(50))
-                .background(Color(0xFF111111))
+                .background(BackgroundColors.Primary.default.current())
                 .clickable(onClick = onCreateNote)
                 .padding(vertical = 16.dp),
             contentAlignment = Alignment.Center,
@@ -929,10 +945,10 @@ private fun EmptyState(onCreateNote: () -> Unit, modifier: Modifier = Modifier) 
                 Icon(
                     painter = painterResource(R.drawable.ic_nav_create),
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = TextColors.Inverse.default.current(),
                     modifier = Modifier.size(18.dp),
                 )
-                Text("Create new note", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Create new note", color = TextColors.Inverse.default.current(), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -941,6 +957,13 @@ private fun EmptyState(onCreateNote: () -> Unit, modifier: Modifier = Modifier) 
 /** 空状态插图：叠放的笔记本/卡片 + 装饰圆点（纯 Canvas 绘制，无需图片资源）。 */
 @Composable
 private fun EmptyIllustration() {
+    // 在 composable 作用域内解析设计系统颜色，供下方 Canvas（非 composable 作用域）使用
+    val border = ColorBorder
+    val accent = ColorAccent
+    val paper = BgCard
+    val shadow = Palette.black0
+    val backBook = Palette.sand550
+    val dot = Palette.sand600
     Canvas(modifier = Modifier.size(width = 176.dp, height = 140.dp)) {
         val w = size.width
         val h = size.height
@@ -948,14 +971,14 @@ private fun EmptyIllustration() {
 
         // 底部柔和阴影
         drawOval(
-            color = Color(0x12000000),
+            color = shadow,
             topLeft = Offset(w * 0.18f, h * 0.82f),
             size = Size(w * 0.64f, h * 0.12f),
         )
         // 后面一本（向左倾斜）
         rotate(degrees = -10f, pivot = center) {
             drawRoundRect(
-                color = Color(0xFFE7E3D8),
+                color = backBook,
                 topLeft = Offset(w * 0.24f, h * 0.20f),
                 size = Size(w * 0.46f, h * 0.52f),
                 cornerRadius = CornerRadius(10f, 10f),
@@ -964,13 +987,13 @@ private fun EmptyIllustration() {
         // 中间白本（轻微右倾）
         rotate(degrees = 5f, pivot = center) {
             drawRoundRect(
-                color = Color.White,
+                color = paper,
                 topLeft = Offset(w * 0.28f, h * 0.24f),
                 size = Size(w * 0.44f, h * 0.52f),
                 cornerRadius = CornerRadius(10f, 10f),
             )
             drawRoundRect(
-                color = ColorBorder,
+                color = border,
                 topLeft = Offset(w * 0.28f, h * 0.24f),
                 size = Size(w * 0.44f, h * 0.52f),
                 cornerRadius = CornerRadius(10f, 10f),
@@ -979,28 +1002,28 @@ private fun EmptyIllustration() {
         }
         // 前面：绿色书脊 + 白色页
         drawRoundRect(
-            color = ColorAccent,
+            color = accent,
             topLeft = Offset(w * 0.30f, h * 0.40f),
             size = Size(w * 0.09f, h * 0.40f),
             cornerRadius = CornerRadius(6f, 6f),
         )
         drawRoundRect(
-            color = Color.White,
+            color = paper,
             topLeft = Offset(w * 0.39f, h * 0.40f),
             size = Size(w * 0.30f, h * 0.40f),
             cornerRadius = CornerRadius(6f, 6f),
         )
         drawRoundRect(
-            color = ColorBorder,
+            color = border,
             topLeft = Offset(w * 0.39f, h * 0.40f),
             size = Size(w * 0.30f, h * 0.40f),
             cornerRadius = CornerRadius(6f, 6f),
             style = Stroke(width = 2f),
         )
         // 装饰圆点
-        drawCircle(color = Color(0xFFCDC8BC), radius = w * 0.045f, center = Offset(w * 0.80f, h * 0.34f))
-        drawCircle(color = ColorAccent.copy(alpha = 0.35f), radius = w * 0.018f, center = Offset(w * 0.20f, h * 0.30f))
-        drawCircle(color = Color(0xFFCDC8BC), radius = w * 0.014f, center = Offset(w * 0.78f, h * 0.66f))
+        drawCircle(color = dot, radius = w * 0.045f, center = Offset(w * 0.80f, h * 0.34f))
+        drawCircle(color = accent.copy(alpha = 0.35f), radius = w * 0.018f, center = Offset(w * 0.20f, h * 0.30f))
+        drawCircle(color = dot, radius = w * 0.014f, center = Offset(w * 0.78f, h * 0.66f))
     }
 }
 
