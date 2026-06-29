@@ -858,7 +858,8 @@ private fun FolderRow(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
+            // 边框映射文件夹颜色
+            .border(1.dp, accent, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         color = BgCard,
         shadowElevation = elevation,
