@@ -1,4 +1,5 @@
 import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
+import io.sentry.android.gradle.instrumentation.logcat.LogcatLevel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Properties
@@ -155,4 +156,13 @@ sentry {
     // this will upload your source code to Sentry to show it as part of the stack traces
     // disable if you don't want to expose your sources
     includeSourceContext.set(true)
+
+    // Logcat 集成：编译期插桩，自动把 android.util.Log（含 LogUtils）调用上报。
+    // WARNING 及以上既作为面包屑随事件上传，也在开启 Structured Logs 后进入 Sentry Logs。
+    tracingInstrumentation {
+        logcat {
+            enabled.set(true)
+            minLevel.set(LogcatLevel.WARNING)
+        }
+    }
 }
