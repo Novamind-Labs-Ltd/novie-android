@@ -25,8 +25,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState = _uiState.asStateFlow()
 
-    // 本会话内手动创建、尚无笔记的空文件夹名（无独立文件夹存储，故仅会话级）
-    private val createdFolders = MutableStateFlow<List<String>>(emptyList())
+    // 本会话内手动创建的文件夹「名称 → 颜色 hex」（无独立文件夹存储，故仅会话级）
+    private val createdFolders = MutableStateFlow<Map<String, String?>>(emptyMap())
 
     init {
         combine(noteRepository.notes, createdFolders) { notes, extra -> notes to extra }
@@ -35,10 +35,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 val counts = notes.groupingBy { it.folder?.name ?: "Unfiled" }.eachCount()
                 val names = LinkedHashSet<String>().apply {
                     addAll(counts.keys)
-                    addAll(extra)
+                    addAll(extra.keys)
                 }
                 val folders = names
-                    .map { name -> LibraryFolder(name = name, noteCount = counts[name] ?: 0) }
+                    .map { name -> LibraryFolder(name = name, noteCount = counts[name] ?: 0, colorHex = extra[name]) }
                     .sortedByDescending { it.noteCount }
                 _uiState.update {
                     it.copy(
@@ -70,7 +70,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return
         createdFolders.update { existing ->
-            if (existing.any { it.equals(trimmed, ignoreCase = true) }) existing else existing + trimmed
+            // 已存在同名（忽略大小写）则保留原项；否则登记新文件夹及其颜色
+            if (existing.keys.any { it.equals(trimmed, ignoreCase = true) }) existing
+            else existing + (trimmed to colorHex)
         }
     }
 

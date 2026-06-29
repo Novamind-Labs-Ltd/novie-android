@@ -6,6 +6,8 @@ import com.novamind.app.feature.note.NoteItem
 data class LibraryFolder(
     val name: String,
     val noteCount: Int,
+    /** 文件夹颜色 #RRGGBB；null = 默认（品牌绿）。 */
+    val colorHex: String? = null,
 )
 
 /** Recent 页的视图模式：双列网格 / 单列列表。 */

@@ -76,6 +76,7 @@ import com.novamind.app.R
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.util.ColorUtils
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.launch
 
@@ -531,6 +532,8 @@ private fun SegmentTab(
 
 @Composable
 private fun FolderRow(folder: LibraryFolder, onClick: () -> Unit = {}) {
+    // 文件夹颜色：有自定义色用之，否则回退到品牌绿
+    val accent = ColorUtils.parseHexColor(folder.colorHex) ?: ColorAccent
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -549,13 +552,13 @@ private fun FolderRow(folder: LibraryFolder, onClick: () -> Unit = {}) {
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(ColorAccent.copy(alpha = 0.12f)),
+                    .background(accent.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_folder),
                     contentDescription = null,
-                    tint = ColorAccent,
+                    tint = accent,
                     modifier = Modifier.size(20.dp),
                 )
             }
