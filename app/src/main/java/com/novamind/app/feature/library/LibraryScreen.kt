@@ -26,8 +26,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -48,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,13 +59,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +105,7 @@ fun LibraryScreen(
     onOpenNote: (String) -> Unit = {},   // 点击 Recent 笔记 → 进入笔记预览/编辑页
     onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
     onCreateFolder: (name: String, colorHex: String?) -> Unit = { _, _ -> },   // Folders 页创建新文件夹
+    onReorderFolders: (List<String>) -> Unit = {},   // Folders 页拖拽排序后回传新顺序
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
@@ -189,7 +199,11 @@ fun LibraryScreen(
                     onCreateNote = onCreateNote,
                     onOpenNote = onOpenNote,
                 )
-                else -> FoldersPage(folders = uiState.folders, onOpenFolder = onOpenFolder)
+                else -> FoldersPage(
+                    folders = uiState.folders,
+                    onOpenFolder = onOpenFolder,
+                    onReorder = onReorderFolders,
+                )
             }
         }
     }
@@ -414,9 +428,16 @@ private fun LibraryNoteRow(note: NoteItem, onClick: () -> Unit = {}) {
     }
 }
 
-/** Folders 页：按文件夹聚合的列表，空则显示提示。 */
+/**
+ * Folders 页：按文件夹聚合的列表，空则显示提示。
+ * 支持长按某行拖拽排序；松手后通过 [onReorder] 回传新的名称顺序。
+ */
 @Composable
-private fun FoldersPage(folders: List<LibraryFolder>, onOpenFolder: (String) -> Unit) {
+private fun FoldersPage(
+    folders: List<LibraryFolder>,
+    onOpenFolder: (String) -> Unit,
+    onReorder: (List<String>) -> Unit = {},
+) {
     if (folders.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
@@ -426,17 +447,94 @@ private fun FoldersPage(folders: List<LibraryFolder>, onOpenFolder: (String) -> 
                 color = ColorTextSub,
             )
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-        ) {
-            items(folders, key = { it.name }) { folder ->
-                FolderRow(folder = folder, onClick = { onOpenFolder(folder.name) })
+        return
+    }
+
+    val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
+    // 本地可变副本：拖拽过程中即时换序；folders 变化（计数/新增）时重置为最新
+    var items by remember(folders) { mutableStateOf(folders) }
+
+    // 拖拽状态：拖起项在列表中的索引、拖起时的布局信息、累计拖动距离
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var draggedDistance by remember { mutableFloatStateOf(0f) }
+    var initialItemOffset by remember { mutableStateOf(0) }
+    var initialItemSize by remember { mutableStateOf(0) }
+
+    fun reset() {
+        draggingIndex = null
+        draggedDistance = 0f
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+            .pointerInput(Unit) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { offset ->
+                        listState.layoutInfo.visibleItemsInfo
+                            .firstOrNull { offset.y.toInt() in it.offset..(it.offset + it.size) }
+                            ?.let { info ->
+                                draggingIndex = info.index
+                                initialItemOffset = info.offset
+                                initialItemSize = info.size
+                                draggedDistance = 0f
+                                // 抬起时震动反馈（主流拖拽体验）
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val from = draggingIndex
+                        if (from != null) {
+                            draggedDistance += dragAmount.y
+                            // 拖拽项当前中心（相对列表视口）
+                            val draggedCenter = initialItemOffset + draggedDistance + initialItemSize / 2f
+                            // 找到被中心覆盖、且不是自身的目标行 → 与之换序
+                            val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+                                info.index != from &&
+                                    draggedCenter.toInt() in info.offset..(info.offset + info.size)
+                            }
+                            if (target != null) {
+                                items = items.toMutableList().apply { add(target.index, removeAt(from)) }
+                                draggingIndex = target.index
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        if (draggingIndex != null) onReorder(items.map { it.name })
+                        reset()
+                    },
+                    onDragCancel = { reset() },
+                )
+            },
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+    ) {
+        itemsIndexed(items, key = { _, it -> it.name }) { index, folder ->
+            val isDragging = index == draggingIndex
+            // 拖拽项：跟手 translationY + 轻微放大 + 抬升阴影凸显；其余项用 animateItem 平滑归位
+            val rowModifier = if (isDragging) {
+                Modifier
+                    .zIndex(1f)
+                    .graphicsLayer {
+                        val current = listState.layoutInfo.visibleItemsInfo
+                            .firstOrNull { it.index == index }?.offset ?: initialItemOffset
+                        translationY = initialItemOffset + draggedDistance - current
+                        scaleX = 1.03f
+                        scaleY = 1.03f
+                    }
+            } else {
+                Modifier.animateItem()
             }
+            FolderRow(
+                folder = folder,
+                onClick = { onOpenFolder(folder.name) },
+                modifier = rowModifier,
+                elevation = if (isDragging) 12.dp else 1.dp,
+            )
         }
     }
 }
@@ -531,17 +629,22 @@ private fun SegmentTab(
 }
 
 @Composable
-private fun FolderRow(folder: LibraryFolder, onClick: () -> Unit = {}) {
+private fun FolderRow(
+    folder: LibraryFolder,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    elevation: androidx.compose.ui.unit.Dp = 1.dp,   // 拖拽态抬升以凸显
+) {
     // 文件夹颜色：有自定义色用之，否则回退到品牌绿
     val accent = ColorUtils.parseHexColor(folder.colorHex) ?: ColorAccent
     Surface(
         onClick = onClick,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
-        shadowElevation = 1.dp,
+        shadowElevation = elevation,
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -944,6 +1047,7 @@ fun LibraryRoute(
                     onOpenNote = onOpenNote,
                     onOpenFolder = { selectedFolder = it },
                     onCreateFolder = viewModel::createFolder,
+                    onReorderFolders = viewModel::reorderFolders,
                     pagerState = pagerState,
                     onBack = onBack,
                     modifier = modifier,
