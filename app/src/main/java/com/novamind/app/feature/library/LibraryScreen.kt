@@ -39,7 +39,12 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalDrawerSheet
@@ -106,6 +111,8 @@ fun LibraryScreen(
     onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
     onCreateFolder: (name: String, colorHex: String?) -> Unit = { _, _ -> },   // Folders 页创建新文件夹
     onReorderFolders: (List<String>) -> Unit = {},   // Folders 页拖拽排序后回传新顺序
+    onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },   // 文件夹「更多 → Rename」
+    onDeleteFolder: (String) -> Unit = {},   // 文件夹「更多 → Delete」
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
@@ -203,6 +210,8 @@ fun LibraryScreen(
                     folders = uiState.folders,
                     onOpenFolder = onOpenFolder,
                     onReorder = onReorderFolders,
+                    onRenameFolder = onRenameFolder,
+                    onDeleteFolder = onDeleteFolder,
                 )
             }
         }
@@ -437,7 +446,12 @@ private fun FoldersPage(
     folders: List<LibraryFolder>,
     onOpenFolder: (String) -> Unit,
     onReorder: (List<String>) -> Unit = {},
+    onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },
+    onDeleteFolder: (String) -> Unit = {},
 ) {
+    // 重命名目标文件夹名（null = 不显示重命名弹窗）
+    var renameTarget by remember { mutableStateOf<String?>(null) }
+
     if (folders.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
@@ -534,9 +548,57 @@ private fun FoldersPage(
                 onClick = { onOpenFolder(folder.name) },
                 modifier = rowModifier,
                 elevation = if (isDragging) 12.dp else 1.dp,
+                onRename = { renameTarget = folder.name },
+                onDelete = { onDeleteFolder(folder.name) },
+                // Reorder：占位（拖拽排序用长按），菜单关闭即可
             )
         }
     }
+
+    // 重命名弹窗
+    renameTarget?.let { target ->
+        RenameFolderDialog(
+            initialName = target,
+            onConfirm = { newName ->
+                onRenameFolder(target, newName)
+                renameTarget = null
+            },
+            onDismiss = { renameTarget = null },
+        )
+    }
+}
+
+/** 重命名文件夹弹窗：预填当前名，确认回传新名。 */
+@Composable
+private fun RenameFolderDialog(
+    initialName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(initialName) }
+    val trimmed = text.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        title = { Text("Rename folder", fontWeight = FontWeight.Bold, color = ColorTextTitle) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(trimmed) },
+                enabled = trimmed.isNotEmpty() && trimmed != initialName,
+            ) { Text("Rename", color = ColorAccent) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = ColorTextSub) }
+        },
+    )
 }
 
 /**
@@ -634,9 +696,13 @@ private fun FolderRow(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     elevation: androidx.compose.ui.unit.Dp = 1.dp,   // 拖拽态抬升以凸显
+    onRename: () -> Unit = {},
+    onReorder: () -> Unit = {},
+    onDelete: () -> Unit = {},
 ) {
     // 文件夹颜色：有自定义色用之，否则回退到品牌绿
     val accent = ColorUtils.parseHexColor(folder.colorHex) ?: ColorAccent
+    var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         modifier = modifier
@@ -647,7 +713,7 @@ private fun FolderRow(
         shadowElevation = elevation,
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -665,21 +731,80 @@ private fun FolderRow(
                     modifier = Modifier.size(20.dp),
                 )
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(folder.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = ColorTextTitle)
-                Text(
-                    text = "${folder.noteCount} ${if (folder.noteCount == 1) "note" else "notes"}",
-                    fontSize = 12.sp,
-                    color = ColorTextSub,
+            Text(
+                text = folder.name,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = ColorTextTitle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            // 笔记数
+            Text(
+                text = folder.noteCount.toString(),
+                fontSize = 14.sp,
+                color = ColorTextSub,
+            )
+            // 更多：展开 Rename / Reorder / Delete
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .clickable { menuExpanded = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_more),
+                        contentDescription = "More",
+                        tint = ColorTextSub,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                FolderActionsMenu(
+                    expanded = menuExpanded,
+                    onDismiss = { menuExpanded = false },
+                    onRename = { menuExpanded = false; onRename() },
+                    onReorder = { menuExpanded = false; onReorder() },
+                    onDelete = { menuExpanded = false; onDelete() },
                 )
             }
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = ColorTextSub,
-                modifier = Modifier.size(18.dp),
-            )
         }
+    }
+}
+
+/** 文件夹「更多」下拉菜单：重命名 / 排序 / 删除。 */
+@Composable
+private fun FolderActionsMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onRename: () -> Unit,
+    onReorder: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(16.dp),
+        containerColor = Color.White,
+        shadowElevation = 8.dp,
+    ) {
+        DropdownMenuItem(
+            text = { Text("Rename", fontSize = 16.sp, color = ColorTextTitle) },
+            onClick = onRename,
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+        )
+        DropdownMenuItem(
+            text = { Text("Reorder", fontSize = 16.sp, color = ColorTextTitle) },
+            onClick = onReorder,
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+        )
+        DropdownMenuItem(
+            text = { Text("Delete", fontSize = 16.sp, color = Color(0xFFC8391A)) },
+            onClick = onDelete,
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+        )
     }
 }
 
@@ -1048,6 +1173,8 @@ fun LibraryRoute(
                     onOpenFolder = { selectedFolder = it },
                     onCreateFolder = viewModel::createFolder,
                     onReorderFolders = viewModel::reorderFolders,
+                    onRenameFolder = viewModel::renameFolder,
+                    onDeleteFolder = viewModel::deleteFolder,
                     pagerState = pagerState,
                     onBack = onBack,
                     modifier = modifier,

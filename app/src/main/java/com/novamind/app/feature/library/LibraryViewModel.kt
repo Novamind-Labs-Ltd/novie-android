@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.feature.create.editor.NoteDocument
+import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.util.ColorUtils
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
  * Library 页面 ViewModel：从 [com.novamind.app.data.NoteRepository] 实时派生笔记列表，
@@ -31,11 +33,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // 用户手动拖拽得到的文件夹顺序（名称序，会话级）；空 = 用默认排序（按笔记数降序）
     private val folderOrder = MutableStateFlow<List<String>>(emptyList())
 
+    // 最近一次的领域笔记快照，供重命名 / 删除文件夹时改写笔记归属
+    private var domainNotes: List<Note> = emptyList()
+
     init {
         combine(noteRepository.notes, createdFolders, folderOrder) { notes, extra, order ->
             Triple(notes, extra, order)
         }
             .onEach { (notes, extra, order) ->
+                domainNotes = notes
                 // 按文件夹聚合：无文件夹的归入「Unfiled」；并入手动创建的空文件夹（count 0）
                 val counts = notes.groupingBy { it.folder?.name ?: "Unfiled" }.eachCount()
                 val names = LinkedHashSet<String>().apply {
@@ -86,6 +92,38 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     /** 保存用户拖拽后的文件夹顺序（名称序，会话级）。 */
     fun reorderFolders(orderedNames: List<String>) {
         folderOrder.value = orderedNames
+    }
+
+    /** 重命名文件夹：改写该文件夹下所有笔记的归属名，并同步会话级颜色/顺序。 */
+    fun renameFolder(oldName: String, newName: String) {
+        val from = oldName.trim()
+        val to = newName.trim()
+        // 「Unfiled」为虚拟分组，不可改名
+        if (from.isEmpty() || to.isEmpty() || from == "Unfiled" || from.equals(to, ignoreCase = true)) return
+        viewModelScope.launch {
+            domainNotes.filter { it.folder?.name == from }.forEach { note ->
+                noteRepository.addOrUpdate(note.copy(folder = note.folder?.copy(name = to)))
+            }
+        }
+        createdFolders.update { m ->
+            val color = m.entries.firstOrNull { it.key.equals(from, ignoreCase = true) }?.value
+            if (m.keys.none { it.equals(from, ignoreCase = true) }) m
+            else m.filterKeys { !it.equals(from, ignoreCase = true) } + (to to color)
+        }
+        folderOrder.update { order -> order.map { if (it.equals(from, ignoreCase = true)) to else it } }
+    }
+
+    /** 删除文件夹：把其下笔记移到「未归档」（folder = null），并清除会话级登记。 */
+    fun deleteFolder(name: String) {
+        val target = name.trim()
+        if (target.isEmpty() || target == "Unfiled") return
+        viewModelScope.launch {
+            domainNotes.filter { it.folder?.name == target }.forEach { note ->
+                noteRepository.addOrUpdate(note.copy(folder = null))
+            }
+        }
+        createdFolders.update { m -> m.filterKeys { !it.equals(target, ignoreCase = true) } }
+        folderOrder.update { order -> order.filterNot { it.equals(target, ignoreCase = true) } }
     }
 
     /** 切换 Recent 页的网格 / 列表视图。 */
