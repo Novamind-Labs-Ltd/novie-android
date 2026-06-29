@@ -25,4 +25,14 @@ class RoomTagRepository(private val dao: TagDao) : TagRepository {
             ),
         )
     }
+
+    override suspend fun rename(oldName: String, newName: String) {
+        val to = newName.trim()
+        if (to.isEmpty()) return
+        dao.rename(oldName.trim(), to)
+    }
+
+    override suspend fun delete(name: String) {
+        dao.deleteByName(name.trim())
+    }
 }

@@ -42,6 +42,7 @@ import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.feature.library.LibraryRoute
 import com.novamind.app.feature.recyclebin.RecycleBinRoute
+import com.novamind.app.feature.tagmanager.TagManagerRoute
 import com.novamind.app.feature.asknovie.AskNovieScreen
 import com.novamind.app.feature.auth.AuthViewModel
 import com.novamind.app.feature.auth.BiometricLockScreen
@@ -112,6 +113,9 @@ class MainActivity : FragmentActivity() {
                 // 回收站页（Library 侧栏「Recycle Bin」打开，全屏覆盖）
                 var showRecycleBin by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showRecycleBin) { showRecycleBin = false }
+                // 标签管理页（Library 侧栏「Tag manager」打开，全屏覆盖）
+                var showTagManager by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = showTagManager) { showTagManager = false }
                 // Library 作为子页时，系统返回与左上角返回键一致，回到上一页（首页）
                 BackHandler(
                     enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
@@ -224,6 +228,8 @@ class MainActivity : FragmentActivity() {
                                 onFullscreenChange = { hideBottomNav = it },
                                 // 侧栏「Recycle Bin」→ 打开回收站全屏页
                                 onOpenRecycleBin = { showRecycleBin = true },
+                                // 侧栏「Tag manager」→ 打开标签管理全屏页
+                                onOpenTagManager = { showTagManager = true },
                                 // 子页进入时左上角为返回键，回到上一页（首页）；从底栏进入则保持现状
                                 onBack = if (libraryAsSubpage) {
                                     {
@@ -288,6 +294,18 @@ class MainActivity : FragmentActivity() {
                         RecycleBinRoute(
                             onBack = { showRecycleBin = false },
                             onFullscreenChange = { hideBottomNav = it },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    // 标签管理（全屏覆盖，自带返回）
+                    AnimatedVisibility(
+                        visible = showTagManager,
+                        enter = slideInHorizontally { it } + fadeIn(),
+                        exit = slideOutHorizontally { it } + fadeOut(),
+                    ) {
+                        TagManagerRoute(
+                            onBack = { showTagManager = false },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

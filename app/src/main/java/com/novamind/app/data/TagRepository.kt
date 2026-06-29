@@ -15,4 +15,10 @@ interface TagRepository {
 
     /** 新建标签（已存在同名则忽略）。 */
     suspend fun create(name: String, colorHex: String)
+
+    /** 重命名标签。 */
+    suspend fun rename(oldName: String, newName: String)
+
+    /** 删除标签。 */
+    suspend fun delete(name: String)
 }

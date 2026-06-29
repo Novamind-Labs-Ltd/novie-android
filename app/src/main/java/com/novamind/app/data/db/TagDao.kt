@@ -18,4 +18,12 @@ interface TagDao {
 
     @Upsert
     suspend fun upsert(entity: TagEntity)
+
+    /** 重命名（忽略大小写匹配）。 */
+    @Query("UPDATE tags SET name = :newName WHERE name = :oldName COLLATE NOCASE")
+    suspend fun rename(oldName: String, newName: String)
+
+    /** 按名称删除（忽略大小写）。 */
+    @Query("DELETE FROM tags WHERE name = :name COLLATE NOCASE")
+    suspend fun deleteByName(name: String)
 }
