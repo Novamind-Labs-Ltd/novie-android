@@ -21,4 +21,7 @@ interface TagRepository {
 
     /** 删除标签。 */
     suspend fun delete(name: String)
+
+    /** 修改标签颜色。 */
+    suspend fun setColor(name: String, colorHex: String)
 }

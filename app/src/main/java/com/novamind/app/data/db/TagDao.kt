@@ -26,4 +26,8 @@ interface TagDao {
     /** 按名称删除（忽略大小写）。 */
     @Query("DELETE FROM tags WHERE name = :name COLLATE NOCASE")
     suspend fun deleteByName(name: String)
+
+    /** 更新颜色（忽略大小写匹配）。 */
+    @Query("UPDATE tags SET colorHex = :colorHex WHERE name = :name COLLATE NOCASE")
+    suspend fun updateColor(name: String, colorHex: String)
 }

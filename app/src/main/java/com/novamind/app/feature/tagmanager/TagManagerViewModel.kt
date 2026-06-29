@@ -77,6 +77,19 @@ class TagManagerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /** 修改标签颜色：更新标签库与所有笔记中同名标签的颜色。 */
+    fun changeTagColor(name: String, colorHex: String) {
+        val target = name.trim()
+        if (target.isEmpty() || colorHex.isBlank()) return
+        viewModelScope.launch {
+            tagRepository.setColor(target, colorHex)
+            domainNotes.filter { note -> note.tags.any { it.name == target } }.forEach { note ->
+                val newTags = note.tags.map { if (it.name == target) it.copy(colorHex = colorHex) else it }
+                noteRepository.addOrUpdate(note.copy(tags = newTags))
+            }
+        }
+    }
+
     /** 删除标签：从标签库与所有笔记中移除该标签。 */
     fun deleteTag(name: String) {
         val target = name.trim()

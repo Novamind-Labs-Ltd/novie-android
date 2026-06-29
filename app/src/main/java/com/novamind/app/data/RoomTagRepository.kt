@@ -35,4 +35,10 @@ class RoomTagRepository(private val dao: TagDao) : TagRepository {
     override suspend fun delete(name: String) {
         dao.deleteByName(name.trim())
     }
+
+    override suspend fun setColor(name: String, colorHex: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || colorHex.isBlank()) return
+        dao.updateColor(trimmed, colorHex)
+    }
 }

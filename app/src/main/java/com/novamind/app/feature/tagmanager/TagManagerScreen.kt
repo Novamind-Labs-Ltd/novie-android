@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -71,6 +73,7 @@ import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.IconColors
@@ -79,6 +82,7 @@ import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.ColorUtils
+import com.novamind.app.util.ColorUtils.toHex
 
 // 配色：统一引用 ui/colors 设计系统令牌
 private val BgPage: Color
@@ -109,6 +113,7 @@ fun TagManagerRoute(
         onCreateTag = viewModel::createTag,
         onRenameTag = viewModel::renameTag,
         onDeleteTag = viewModel::deleteTag,
+        onChangeTagColor = viewModel::changeTagColor,
         modifier = modifier,
     )
 }
@@ -122,13 +127,15 @@ fun TagManagerScreen(
     onCreateTag: (name: String, colorHex: String) -> Unit = { _, _ -> },
     onRenameTag: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteTag: (String) -> Unit = {},
+    onChangeTagColor: (name: String, colorHex: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    // rename 目标标签名（行内编辑）；showCreateSheet = 新建标签底部弹窗
+    // rename 目标标签名（行内编辑）；showCreateSheet = 新建标签底部弹窗；colorTarget = 改色目标
     var renameTarget by remember { mutableStateOf<String?>(null) }
     var showCreateSheet by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
+    var colorTarget by remember { mutableStateOf<String?>(null) }
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -195,6 +202,7 @@ fun TagManagerScreen(
                             tag = tag,
                             onRename = { renameTarget = tag.name },
                             onDelete = { deleteTarget = tag.name },
+                            onChangeColor = { colorTarget = tag.name },
                         )
                     }
                 }
@@ -222,6 +230,19 @@ fun TagManagerScreen(
         )
     }
 
+    // 改颜色底部弹层（点击标签图标）
+    colorTarget?.let { target ->
+        val currentHex = uiState.tags.firstOrNull { it.name == target }?.colorHex
+        ChangeTagColorSheet(
+            currentHex = currentHex,
+            onPick = { hex ->
+                onChangeTagColor(target, hex)
+                colorTarget = null
+            },
+            onDismiss = { colorTarget = null },
+        )
+    }
+
     // 删除二次确认
     deleteTarget?.let { target ->
         DeleteTagSheet(
@@ -232,19 +253,81 @@ fun TagManagerScreen(
     }
 }
 
+/** 修改标签颜色（底部弹层）：点击色板即应用。 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChangeTagColorSheet(
+    currentHex: String?,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = BgCard,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "Tag colour",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = ColorTextTitle,
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AppConfig.Folder.COLORS.forEach { color ->
+                    val optionHex = color.toHex()
+                    val selected = optionHex.equals(currentHex, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(color.copy(alpha = 0.12f))
+                            .border(
+                                width = if (selected) 2.dp else 1.dp,
+                                color = if (selected) ColorTextTitle else ColorBorder,
+                                shape = CircleShape,
+                            )
+                            .clickable { onPick(optionHex) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_tag),
+                            contentDescription = null,
+                            tint = color,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** 标签行：标签图标 + 名称 + 笔记数 + 更多。 */
 @Composable
 private fun TagRow(
     tag: TagRowItem,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onChangeColor: () -> Unit = {},
 ) {
     val accent = ColorUtils.parseHexColor(tag.colorHex) ?: ColorAccent
     var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, ColorBorder, RoundedCornerShape(16.dp)),
+            // 边框映射标签颜色
+            .border(1.dp, accent, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         color = BgCard,
         shadowElevation = 1.dp,
@@ -254,11 +337,16 @@ private fun TagRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 点击图标 → 选择标签颜色
             Icon(
                 painter = painterResource(R.drawable.ic_tag),
-                contentDescription = null,
+                contentDescription = "Change colour",
                 tint = accent,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onChangeColor)
+                    .padding(6.dp),
             )
             Text(
                 text = tag.name,
