@@ -10,6 +10,8 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
+
+    id("io.sentry.android.gradle") version "6.13.0"
 }
 
 // 读取 gitignored 的 auth0.properties（不存在时用空值降级，保证 CI/沙箱可编译）
@@ -142,4 +144,13 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+sentry {
+    org.set("novamind")
+    projectName.set("android")
+
+    // this will upload your source code to Sentry to show it as part of the stack traces
+    // disable if you don't want to expose your sources
+    includeSourceContext.set(true)
 }
