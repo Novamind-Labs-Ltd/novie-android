@@ -1,5 +1,6 @@
 package com.novamind.app.feature.library
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -31,6 +32,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -39,14 +43,11 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalNavigationDrawer
@@ -70,6 +71,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -77,10 +80,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -376,6 +383,7 @@ private fun FoldersPage(
     // 重命名 / 删除目标文件夹名（null = 不显示对应弹窗）
     var renameTarget by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     if (folders.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -468,28 +476,41 @@ private fun FoldersPage(
             } else {
                 Modifier.animateItem()
             }
-            FolderRow(
-                folder = folder,
-                onClick = { onOpenFolder(folder.name) },
-                modifier = rowModifier,
-                elevation = if (isDragging) 12.dp else 1.dp,
-                onRename = { renameTarget = folder.name },
-                onDelete = { deleteTarget = folder.name },
-                // Reorder：占位（拖拽排序用长按），菜单关闭即可
-            )
+            if (folder.name == renameTarget) {
+                // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认
+                FolderRenameRow(
+                    initialName = folder.name,
+                    modifier = rowModifier,
+                    onConfirm = { newName ->
+                        // 与其它已有文件夹重名（忽略大小写）→ 提示且不修改
+                        val conflict = folders.any {
+                            it.name != folder.name && it.name.equals(newName, ignoreCase = true)
+                        }
+                        if (conflict) {
+                            Toast.makeText(
+                                context,
+                                "Folder \"$newName\" already exists",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        } else {
+                            onRenameFolder(folder.name, newName)
+                            renameTarget = null
+                        }
+                    },
+                    onCancel = { renameTarget = null },
+                )
+            } else {
+                FolderRow(
+                    folder = folder,
+                    onClick = { onOpenFolder(folder.name) },
+                    modifier = rowModifier,
+                    elevation = if (isDragging) 12.dp else 1.dp,
+                    onRename = { renameTarget = folder.name },
+                    onDelete = { deleteTarget = folder.name },
+                    // Reorder：占位（拖拽排序用长按），菜单关闭即可
+                )
+            }
         }
-    }
-
-    // 重命名弹窗
-    renameTarget?.let { target ->
-        RenameFolderDialog(
-            initialName = target,
-            onConfirm = { newName ->
-                onRenameFolder(target, newName)
-                renameTarget = null
-            },
-            onDismiss = { renameTarget = null },
-        )
     }
 
     // 删除二次确认弹窗
@@ -570,37 +591,78 @@ private fun DeleteFolderDialog(
     }
 }
 
-/** 重命名文件夹弹窗：预填当前名，确认回传新名。 */
+/** 行内重命名行：× 取消 + 自动聚焦输入框 + 绿色 ✓ 确认（回传非空且变化后的新名）。 */
 @Composable
-private fun RenameFolderDialog(
+private fun FolderRenameRow(
     initialName: String,
     onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    var text by remember { mutableStateOf(initialName) }
-    val trimmed = text.trim()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = BgCard,
-        title = { Text("Rename folder", fontWeight = FontWeight.Bold, color = ColorTextTitle) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
+    // 用 TextFieldValue 让初始光标停在文本末尾
+    var value by remember(initialName) {
+        mutableStateOf(TextFieldValue(initialName, TextRange(initialName.length)))
+    }
+    val trimmed = value.text.trim()
+    // 非空且与原名不同才可确认
+    val canConfirm = trimmed.isNotEmpty() && trimmed != initialName
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    fun confirm() {
+        if (canConfirm) onConfirm(trimmed)
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // × 取消
+        Icon(
+            painter = painterResource(R.drawable.ic_close),
+            contentDescription = "Cancel",
+            tint = ColorTextTitle,
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onCancel)
+                .padding(2.dp),
+        )
+        // 输入框（白底圆角，自动聚焦）
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp),
+            color = BgCard,
+            border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder),
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = { value = it },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp, color = ColorTextTitle),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(ColorTextTitle),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { confirm() }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
             )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(trimmed) },
-                enabled = trimmed.isNotEmpty() && trimmed != initialName,
-            ) { Text("Rename", color = ColorAccent) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = ColorTextSub) }
-        },
-    )
+        }
+        // ✓ 确认（绿色）
+        Icon(
+            painter = painterResource(R.drawable.ic_check_circle),
+            contentDescription = "Confirm",
+            tint = if (canConfirm) ColorAccent else ColorTextSub,
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .clickable(enabled = canConfirm) { confirm() },
+        )
+    }
 }
 
 /**
