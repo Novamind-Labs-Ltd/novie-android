@@ -127,6 +127,8 @@ dependencies {
     implementation(libs.retrofit.kotlinx.serialization)
     // JSON 通用解析（GsonUtils）
     implementation(libs.gson)
+    // Sentry SDK（>=8.12.0 支持 Structured Logs）；与 sentry gradle 插件配合
+    implementation(libs.sentry.android)
     // 日志拦截器仅打进 Debug 包（抓包联调用）
     debugImplementation(libs.okhttp.logging)
     // Firebase（BoM 统一管理版本）：Analytics + Crashlytics + Cloud Messaging

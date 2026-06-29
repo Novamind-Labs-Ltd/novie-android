@@ -284,8 +284,9 @@ fun DebugPanel(
                 var lastAction by remember { mutableStateOf("") }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("上报测试日志") {
-                        SentryUtils.log("Debug panel test message @ ${SentryUtils.environment()}")
-                        lastAction = "已发送测试日志"
+                        // Structured Logs：进入 Sentry「Logs」视图
+                        SentryUtils.logInfo("Debug panel test log @ ${SentryUtils.environment()}")
+                        lastAction = "已发送结构化日志（Logs 视图）"
                     }
                     Chip("上报测试异常") {
                         SentryUtils.capture(

@@ -38,7 +38,26 @@ object SentryUtils {
             options.release = BuildConfig.VERSION_NAME
             // prod 采样率压低，dev / st 全量便于联调
             options.tracesSampleRate = if (env == "prod") 0.2 else 1.0
+            // 开启 Structured Logs（需 SDK >= 8.12.0），日志进入 Sentry「Logs」视图
+            options.logs.isEnabled = true
         }
+    }
+
+    // ── Structured Logs（Sentry.logger）──────────────────────────────────────
+
+    /** 结构化日志：info 级，进入 Sentry Logs 视图（可按 environment 检索）。 */
+    fun logInfo(message: String) {
+        Sentry.logger().info(message)
+    }
+
+    /** 结构化日志：warn 级。 */
+    fun logWarn(message: String) {
+        Sentry.logger().warn(message)
+    }
+
+    /** 结构化日志：error 级。 */
+    fun logError(message: String) {
+        Sentry.logger().error(message)
     }
 
     /** 上报一条文本日志（默认 INFO 级）。 */
