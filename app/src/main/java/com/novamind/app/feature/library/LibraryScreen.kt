@@ -1105,9 +1105,9 @@ private val sampleNotes = listOf(
 )
 
 private val sampleFolders = listOf(
-    LibraryFolder("Work", 8),
-    LibraryFolder("Projects", 5),
-    LibraryFolder("Personal", 3),
+    LibraryFolder("Work", 8, colorHex = "#388E64"),
+    LibraryFolder("Projects", 5, colorHex = "#FF8C00"),
+    LibraryFolder("Personal", 3, colorHex = "#4A8292"),
     LibraryFolder("Unfiled", 2),
 )
 
@@ -1133,6 +1133,18 @@ private fun LibraryListModePreview() {
                 folders = sampleFolders,
                 viewMode = LibraryViewMode.LIST,
             )
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Folders 页")
+@Composable
+private fun LibraryFoldersPreview() {
+    AppTheme {
+        LibraryScreen(
+            uiState = LibraryUiState(notes = sampleNotes, folders = sampleFolders),
+            // 初始停在 Folders 标签页
+            pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 }),
         )
     }
 }
