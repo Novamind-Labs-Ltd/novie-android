@@ -41,13 +41,13 @@ object SentryUtils {
             options.environment = env
             options.release = BuildConfig.VERSION_NAME
             // prod 采样率压低，dev / st 全量便于联调
-            options.tracesSampleRate = if (env == "prod") 0.2 else 1.0
+            options.tracesSampleRate = 0.toDouble()
             // 开启 Structured Logs（需 SDK >= 8.12.0），日志进入 Sentry「Logs」视图
-            options.logs.isEnabled = true
+            options.logs.isEnabled = false
             // UI Profiling（trace 模式，依赖 tracing；需 SDK >= 8.7.0）：
             // 有采样 span 时自动采集性能剖析，按 session 采样，prod 压低
             options.profileLifecycle = io.sentry.ProfileLifecycle.TRACE
-            options.profileSessionSampleRate = if (env == "prod") 0.1 else 1.0
+            options.profileSessionSampleRate = 0.toDouble()
         }
     }
 
