@@ -1,20 +1,23 @@
 package com.novamind.app.feature.calendar
 
 import android.app.Application
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
 import com.novamind.app.common.google.GoogleAccount
-import com.novamind.app.common.google.GoogleCalendarAuthManager
 import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
+import com.novamind.app.common.google.TokenOutcome
 import com.novamind.app.common.session.AppUserProvider
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleAuthExpiredException
 import com.novamind.app.data.calendar.GoogleAuthRevokedException
 import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.util.LogUtils
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -42,6 +45,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState = _uiState.asStateFlow()
 
+    /** 需要用户同意时，发出恢复授权 Intent；Route 收集后用 ActivityResult 启动。 */
+    private val _consentRequest = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
+    val consentRequest = _consentRequest.asSharedFlow()
+
     init {
         // 响应式联动 App 会话：登录/登出/游客切换时重新评估，避免 VM 被保留后状态停滞
         // （如游客进过日历页后登录，仍显示「登录后使用」）。StateFlow 会立即发射当前值。
@@ -55,7 +62,6 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             // Connect / SwitchAccount 需 Activity，由 Route 拦截编排，VM 不处理。
             CalendarUiEvent.Connect -> Unit
             CalendarUiEvent.SwitchAccount -> Unit
-            is CalendarUiEvent.GoogleTokenObtained -> onTokenObtained(event.accessToken)
             is CalendarUiEvent.AuthFailed -> _uiState.update {
                 it.copy(errorMessage = event.message ?: "Google authorization failed")
             }
@@ -109,10 +115,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     errorMessage = null,
                 )
             }
-            if (trySilentAuthorize()) {
+            if (email != null && acquireTokenSilently(email)) {
                 fetchInto(date, email, allowSilentRetry = false)
             } else {
-                LogUtils.d("refreshAuthAndLoad: silent authorize needs consent -> REVOKED", TAG)
+                LogUtils.d("refreshAuthAndLoad: silent token needs consent -> REVOKED", TAG)
                 GoogleTokenProvider.clear()
                 _uiState.update {
                     it.copy(
@@ -124,19 +130,47 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** 交互式授权成功后：写 token、解析账号、写绑定、拉取事件。 */
-    private fun onTokenObtained(token: String) {
-        GoogleTokenProvider.accessToken = token
-        viewModelScope.launch {
-            _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.SYNCING, errorMessage = null) }
-            val email = runCatching { repository.currentAccountEmail() }
-                .onFailure { LogUtils.w("resolve account email failed", it, TAG) }
-                .getOrNull()
-            if (email != null) {
-                bindingStore.bind(email, AppUserProvider.currentUserKey)
-                _uiState.update { it.copy(account = GoogleAccount(email)) }
+    /**
+     * Route 层用户选定 Google 账号后调用：为该账号取 token、写绑定、拉取事件。
+     * 需要用户同意时，通过 [consentRequest] 让 Route 启动恢复意图，返回后调 [onConsentGranted] 重试。
+     */
+    fun onGoogleAccountChosen(accountName: String) {
+        LogUtils.d("account chosen: $accountName", TAG)
+        _uiState.update {
+            it.copy(
+                connectionStatus = CalendarConnectionStatus.SYNCING,
+                account = GoogleAccount(accountName),
+                errorMessage = null,
+            )
+        }
+        viewModelScope.launch { connectWithAccount(accountName) }
+    }
+
+    /** 用户在恢复授权页同意后回调：用已选账号重试取 token。 */
+    fun onConsentGranted() {
+        val accountName = _uiState.value.account?.email ?: return
+        _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.SYNCING, errorMessage = null) }
+        viewModelScope.launch { connectWithAccount(accountName) }
+    }
+
+    private suspend fun connectWithAccount(accountName: String) {
+        when (val outcome = authSource.fetchToken(accountName)) {
+            is TokenOutcome.Success -> {
+                GoogleTokenProvider.accessToken = outcome.token
+                bindingStore.bind(accountName, AppUserProvider.currentUserKey)
+                _uiState.update { it.copy(account = GoogleAccount(accountName)) }
+                fetchInto(_uiState.value.selectedDate, accountName, allowSilentRetry = false)
             }
-            fetchInto(_uiState.value.selectedDate, email ?: _uiState.value.account?.email, allowSilentRetry = false)
+            is TokenOutcome.NeedsConsent -> {
+                LogUtils.d("connect needs consent -> request UI", TAG)
+                _consentRequest.tryEmit(outcome.recoveryIntent)
+            }
+            is TokenOutcome.Failure -> _uiState.update {
+                it.copy(
+                    connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
+                    errorMessage = outcome.error.message ?: "Failed to connect Google Calendar",
+                )
+            }
         }
     }
 
@@ -181,7 +215,9 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 when (e) {
                     is GoogleAuthExpiredException -> {
                         _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.TOKEN_EXPIRED) }
-                        if (allowSilentRetry && trySilentAuthorize()) {
+                        // 清掉 GMS 缓存的旧 token，再为同一账号静默重取一个新的。
+                        GoogleTokenProvider.accessToken?.let { authSource.clearToken(it) }
+                        if (allowSilentRetry && accountId != null && acquireTokenSilently(accountId)) {
                             fetchInto(date, accountId, allowSilentRetry = false)
                         } else {
                             GoogleTokenProvider.clear()
@@ -212,20 +248,22 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             }
     }
 
-    /** 静默授权：拿到 token 返回 true（已写入 provider）；需要同意 / 失败返回 false。不弹 UI。 */
-    private suspend fun trySilentAuthorize(): Boolean =
-        runCatching { authSource.requestAuthorization() }
-            .onFailure { LogUtils.w("silent authorize failed", it, TAG) }
-            .getOrNull()
-            ?.let { outcome ->
-                when (outcome) {
-                    is GoogleCalendarAuthManager.Outcome.Authorized -> {
-                        GoogleTokenProvider.accessToken = outcome.accessToken
-                        true
-                    }
-                    is GoogleCalendarAuthManager.Outcome.NeedsConsent -> false
-                }
-            } ?: false
+    /**
+     * 为 [accountName] 静默取 token：成功写入 provider 返回 true；需同意 / 失败返回 false（不弹 UI）。
+     * 静默路径下「需同意」视为授权失效，由调用方落到 PERMISSION_REVOKED。
+     */
+    private suspend fun acquireTokenSilently(accountName: String): Boolean =
+        when (val outcome = authSource.fetchToken(accountName)) {
+            is TokenOutcome.Success -> {
+                GoogleTokenProvider.accessToken = outcome.token
+                true
+            }
+            is TokenOutcome.NeedsConsent -> false
+            is TokenOutcome.Failure -> {
+                LogUtils.w("silent token failed", outcome.error, TAG)
+                false
+            }
+        }
 
     /** 断开 Calendar：删 token + 删绑定 + 清缓存（不 revoke），回到未连接。 */
     private fun onDisconnect() {
@@ -235,12 +273,15 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 换账号前置清理：revoke 旧授权 + 删 token + 删绑定 + 清缓存。
-     * Route 在此之后立即发起交互式授权（弹账号选择器）。
+     * 换账号前置清理：清 GMS token 缓存 + 服务端 revoke + 删 token/绑定/缓存。
+     * Route 在此之后立即弹账号选择器，用户选定新账号后走 [onGoogleAccountChosen]。
      */
     suspend fun prepareAccountSwitch() {
-        LogUtils.d("prepare account switch (revoke + clear)", TAG)
-        GoogleTokenProvider.accessToken?.let { authSource.revoke(it) }
+        LogUtils.d("prepare account switch (clearToken + revoke + clear)", TAG)
+        GoogleTokenProvider.accessToken?.let { token ->
+            authSource.clearToken(token)
+            authSource.revoke(token)
+        }
         clearLocalSession()
         _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
     }

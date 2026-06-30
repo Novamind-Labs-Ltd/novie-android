@@ -50,11 +50,8 @@ data class CalendarUiState(
 
 /** UI → ViewModel 的单一事件入口类型。 */
 sealed interface CalendarUiEvent {
-    /** 点击「连接 Google 日历」。实际授权流程在 Route 层（需 Activity）发起。 */
+    /** 点击「连接 Google 日历」。Route 层弹账号选择器，选定后调 VM 取 token。 */
     data object Connect : CalendarUiEvent
-
-    /** Route 层授权成功后回传 access token。 */
-    data class GoogleTokenObtained(val accessToken: String) : CalendarUiEvent
 
     /** 授权流程失败 / 被取消。 */
     data class AuthFailed(val message: String?) : CalendarUiEvent

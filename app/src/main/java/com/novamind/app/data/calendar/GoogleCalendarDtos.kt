@@ -16,16 +16,6 @@ data class EventsResponse(
     val nextPageToken: String? = null,
 )
 
-/**
- * `calendars/{calendarId}` 响应的精简模型。主日历的 [id] 即用户邮箱。
- * 文档：https://developers.google.com/calendar/api/v3/reference/calendars/get
- */
-@Serializable
-data class CalendarDto(
-    val id: String? = null,
-    val summary: String? = null,
-)
-
 @Serializable
 data class EventDto(
     val id: String? = null,

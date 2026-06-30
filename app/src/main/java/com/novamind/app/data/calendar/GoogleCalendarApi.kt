@@ -26,13 +26,4 @@ interface GoogleCalendarApi {
         @Query("orderBy") orderBy: String = "startTime",
         @Query("maxResults") maxResults: Int = 250,
     ): EventsResponse
-
-    /**
-     * 读取单个日历的元数据。用 "primary" 取当前授权账号的主日历，
-     * 其 [CalendarDto.id] 即用户邮箱，用作账号标识与缓存分区 key。
-     */
-    @GET("calendars/{calendarId}")
-    suspend fun getCalendar(
-        @Path("calendarId") calendarId: String = "primary",
-    ): CalendarDto
 }

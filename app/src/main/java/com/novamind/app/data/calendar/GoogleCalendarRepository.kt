@@ -8,9 +8,6 @@ import java.time.LocalDate
 interface GoogleCalendarRepository {
     /** 拉取 [date] 当天主日历的事件，已按开始时间排序、转换为本地时区时间。 */
     suspend fun eventsOn(date: LocalDate): List<CalendarEvent>
-
-    /** 当前授权账号邮箱（取主日历 id）。用于写入绑定与缓存分区。 */
-    suspend fun currentAccountEmail(): String
 }
 
 /** Google access token 失效（HTTP 401）时抛出，可静默续期。 */

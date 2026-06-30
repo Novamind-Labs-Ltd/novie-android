@@ -1,107 +1,105 @@
 package com.novamind.app.common.google
 
+import android.accounts.Account
 import android.content.Context
 import android.content.Intent
-import com.google.android.gms.auth.api.identity.AuthorizationRequest
-import com.google.android.gms.auth.api.identity.AuthorizationResult
-import com.google.android.gms.auth.api.identity.Identity
-import com.google.android.gms.common.api.Scope
+import com.google.android.gms.auth.GoogleAuthUtil
+import com.google.android.gms.auth.UserRecoverableAuthException
+import com.google.android.gms.common.AccountPicker
 import com.novamind.app.util.LogUtils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+
+/** 为某个 Google 账号取 token 的结果。 */
+sealed interface TokenOutcome {
+    /** 成功拿到 access token。 */
+    data class Success(val token: String) : TokenOutcome
+
+    /** 需要用户同意 / 恢复授权。UI 用 [recoveryIntent] 启动，返回后重试取 token。 */
+    data class NeedsConsent(val recoveryIntent: Intent) : TokenOutcome
+
+    /** 失败（无网络、配置错误等）。 */
+    data class Failure(val error: Throwable) : TokenOutcome
+}
 
 /**
  * 日历授权来源抽象：供 ViewModel 依赖，便于注入假实现做单元测试，不泄漏 [Context]。
  *
- * - [requestAuthorization] 不弹 UI：已授权直接返回 token，否则返回待启动的同意意图，
- *   是否真正拉起同意由调用方决定（用于"静默续期"）。
- * - [revoke] 吊销当前授权（换账号场景），调 Google revoke 端点。
+ * 设计为「显式账号」模型：先由用户从 [newAccountChooserIntent] 选定 Google 账号，
+ * 再用 [fetchToken] 为**该账号**取 token——从而支持确定性的「换账号」（选哪个就用哪个），
+ * 解决 Identity AuthorizationClient 静默复用旧账号、无法切换的问题。
  */
 interface GoogleCalendarAuthSource {
-    suspend fun requestAuthorization(): GoogleCalendarAuthManager.Outcome
+    /** 账号选择器 Intent，列出设备上的 Google 账号供用户选择。 */
+    fun newAccountChooserIntent(): Intent
+
+    /** 为 [accountName] 取 calendar.readonly 的 access token。 */
+    suspend fun fetchToken(accountName: String): TokenOutcome
+
+    /** 清除 GMS 本地缓存的该 token（过期重取 / 换账号 / 登出前）。 */
+    suspend fun clearToken(token: String)
+
+    /** 服务端吊销该 token（换账号时，best-effort，失败不抛）。 */
     suspend fun revoke(token: String)
 }
 
 /**
- * Google Calendar 授权封装层（设备端直连方案）。
+ * Google Calendar 授权封装层（设备端直连方案，显式账号）。
  *
- * 用 Play Services 的 [com.google.android.gms.auth.api.identity.AuthorizationClient] 申请
- * `calendar.readonly` scope，拿到可直接调用 Google Calendar REST API 的 OAuth access token：
- * - 若用户此前已授权 → 直接返回 [Outcome.Authorized]（含 token）。
- * - 若需要用户选择账号 / 同意授权 → 返回 [Outcome.NeedsConsent]（含 [android.content.IntentSender]），
- *   由 UI 层用 ActivityResult 启动，回到前台后再调 [tokenFromConsentResult] 取 token。
+ * - [newAccountChooserIntent]：用 [AccountPicker] 弹出 Google 账号选择器。
+ * - [fetchToken]：用 [GoogleAuthUtil.getToken] 为所选账号取 `calendar.readonly` 的 OAuth
+ *   access token。已授权直接返回；需要用户同意时抛 [UserRecoverableAuthException]，
+ *   转成 [TokenOutcome.NeedsConsent] 由 UI 启动恢复意图，返回后重试。
  *
- * 前置条件：需在 Google Cloud 控制台为本应用配置 OAuth 同意屏幕，并创建与包名 + 签名 SHA-1
- * 对应的 **Android OAuth client**；Calendar API 需在该项目启用。否则授权会失败。
+ * 前置条件：需在 Google Cloud 控制台配置 OAuth 同意屏幕，并创建与包名 + 签名 SHA-1
+ * 对应的 OAuth client，且启用 Calendar API；否则取 token 会失败。
  */
 class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
 
-    private val authorizationClient = Identity.getAuthorizationClient(context.applicationContext)
+    private val appContext = context.applicationContext
 
-    private val requestedScopes = listOf(Scope(SCOPE_CALENDAR_READONLY))
-
-    /** 仅用于吊销的小客户端，与 Calendar 业务网络栈无关。 */
+    /** 仅用于服务端吊销的小客户端，与 Calendar 业务网络栈无关。 */
     private val revokeClient: OkHttpClient by lazy { OkHttpClient() }
 
-    sealed interface Outcome {
-        /** 已授权，[accessToken] 可直接用于调用 Calendar API。 */
-        data class Authorized(val accessToken: String) : Outcome
-
-        /** 需要用户交互（选账号 / 同意授权），UI 层用此 [intentSender] 启动同意流程。 */
-        data class NeedsConsent(val intentSender: android.content.IntentSender) : Outcome
-    }
-
-    /**
-     * 申请 Calendar 只读授权。不弹任何 UI 时直接返回 token；需要用户交互时返回待启动的同意意图。
-     * 失败（如未配置 OAuth client、无 Google 账号、网络异常）抛出异常，由调用方处理。
-     */
-    override suspend fun requestAuthorization(): Outcome = suspendCancellableCoroutine { cont ->
-        val request = AuthorizationRequest.builder()
-            .setRequestedScopes(requestedScopes)
+    override fun newAccountChooserIntent(): Intent {
+        val options = AccountPicker.AccountChooserOptions.Builder()
+            .setAllowableAccountsTypes(listOf(GOOGLE_ACCOUNT_TYPE))
             .build()
-        authorizationClient.authorize(request)
-            .addOnSuccessListener { result ->
-                cont.resume(result.toOutcome())
-            }
-            .addOnFailureListener { e ->
-                cont.resumeWithException(e)
-            }
+        return AccountPicker.newChooseAccountIntent(options)
     }
 
-    /**
-     * 解析同意流程返回的 Intent，取出 access token。
-     * 解析失败（如 OAuth client / SHA-1 不匹配）会抛出 [com.google.android.gms.common.api.ApiException]，
-     * 由调用方捕获并展示真实原因，而不是统一当成「取消」。data 为 null 返回 null。
-     */
-    fun tokenFromConsentResult(data: Intent?): String? {
-        if (data == null) return null
-        return authorizationClient.getAuthorizationResultFromIntent(data)
-            .accessToken
-            ?.takeIf { it.isNotBlank() }
-    }
-
-    private fun AuthorizationResult.toOutcome(): Outcome {
-        val pendingIntent = pendingIntent
-        if (hasResolution() && pendingIntent != null) {
-            return Outcome.NeedsConsent(pendingIntent.intentSender)
+    override suspend fun fetchToken(accountName: String): TokenOutcome = withContext(Dispatchers.IO) {
+        try {
+            val token = GoogleAuthUtil.getToken(
+                appContext,
+                Account(accountName, GOOGLE_ACCOUNT_TYPE),
+                OAUTH2_SCOPE,
+            )
+            LogUtils.d("fetchToken success for $accountName", TAG)
+            TokenOutcome.Success(token)
+        } catch (e: UserRecoverableAuthException) {
+            val intent = e.intent
+            if (intent != null) {
+                TokenOutcome.NeedsConsent(intent)
+            } else {
+                LogUtils.w("getToken recoverable but no intent", e, TAG)
+                TokenOutcome.Failure(e)
+            }
+        } catch (e: Exception) {
+            LogUtils.w("getToken failed for $accountName", e, TAG)
+            TokenOutcome.Failure(e)
         }
-        // 无需交互即返回时必须带 token；为空视为异常，避免把空 token 当成已授权（会导致 401）。
-        val token = accessToken
-        check(!token.isNullOrBlank()) { "Authorization succeeded but no access token returned" }
-        return Outcome.Authorized(token)
     }
 
-    /**
-     * 吊销 [token] 对应的授权（换账号时调用）。吊销后系统不再记住该 grant，
-     * 下次 [requestAuthorization] 会返回 [Outcome.NeedsConsent] 并重新弹出账号选择器。
-     * 失败不抛出（best-effort），本地清理照常进行。
-     */
+    override suspend fun clearToken(token: String): Unit = withContext(Dispatchers.IO) {
+        runCatching { GoogleAuthUtil.clearToken(appContext, token) }
+            .onFailure { LogUtils.w("clearToken failed", it, TAG) }
+        Unit
+    }
+
     override suspend fun revoke(token: String): Unit = withContext(Dispatchers.IO) {
         runCatching {
             val request = Request.Builder()
@@ -117,6 +115,8 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
 
     companion object {
         const val SCOPE_CALENDAR_READONLY = "https://www.googleapis.com/auth/calendar.readonly"
+        private const val OAUTH2_SCOPE = "oauth2:$SCOPE_CALENDAR_READONLY"
+        private const val GOOGLE_ACCOUNT_TYPE = "com.google"
         private const val REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
         private const val TAG = "CalendarAuth"
     }
