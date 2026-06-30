@@ -3,6 +3,7 @@ package com.novamind.app.common.google
 import android.accounts.Account
 import android.content.Context
 import android.content.Intent
+import com.google.android.gms.auth.GoogleAuthException
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.UserRecoverableAuthException
 import com.novamind.app.util.LogUtils
@@ -11,6 +12,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
 
 /** 为某个 Google 账号取 token 的结果。 */
 sealed interface TokenOutcome {
@@ -72,11 +74,24 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
             if (intent != null) {
                 TokenOutcome.NeedsConsent(intent)
             } else {
-                LogUtils.w("getToken recoverable but no intent", e, TAG)
+                LogUtils.w("getToken recoverable but no intent for $accountName", e, TAG)
                 TokenOutcome.Failure(e)
             }
+        } catch (e: GoogleAuthException) {
+            // 不可恢复：多为 OAuth client(包名/SHA-1) / 同意屏幕 / scope 未配，
+            // 或该账号是受管控的 Workspace 账号、未加入测试用户。
+            LogUtils.e(
+                "getToken non-recoverable for $accountName scope=$OAUTH2_SCOPE: " +
+                    "${e.javaClass.simpleName} ${e.message}",
+                e,
+                TAG,
+            )
+            TokenOutcome.Failure(e)
+        } catch (e: IOException) {
+            LogUtils.w("getToken network error for $accountName", e, TAG)
+            TokenOutcome.Failure(e)
         } catch (e: Exception) {
-            LogUtils.w("getToken failed for $accountName", e, TAG)
+            LogUtils.w("getToken failed for $accountName: ${e.javaClass.simpleName}", e, TAG)
             TokenOutcome.Failure(e)
         }
     }

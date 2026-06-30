@@ -95,9 +95,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED) }
             return
         }
-        // 软一致性：绑定时的 App 用户 ≠ 当前登录用户（如已切换账号）→ 清日历，回未连接。
+        // 软一致性：仅当**已知**当前登录用户、且与绑定不一致（确实换了账号）时才清日历。
+        // currentUser 为 null 多是冷启动认证层尚未写回登录态的瞬态——此时不要清绑定，
+        // 否则会误删、导致已授权用户每次冷启动都要重连。等会话就绪后会再次触发本方法。
         val currentUser = AppUserProvider.currentUserKey
-        if (bindingStore.appUserKey != currentUser) {
+        if (currentUser != null && bindingStore.appUserKey != currentUser) {
             LogUtils.d("refreshAuthAndLoad: app user mismatch -> clear calendar", TAG)
             clearLocalSession()
             _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
@@ -179,7 +181,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             is TokenOutcome.Failure -> _uiState.update {
                 it.copy(
                     connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
-                    errorMessage = outcome.error.message ?: "Failed to connect Google Calendar",
+                    errorMessage = connectFailureMessage(outcome.error),
                 )
             }
         }
@@ -295,6 +297,13 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
         clearLocalSession()
         _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
+    }
+
+    /** 连接失败的可读提示：区分网络错误与账号/授权配置问题。 */
+    private fun connectFailureMessage(error: Throwable): String = when (error) {
+        is java.io.IOException -> "Network error. Please retry."
+        else -> "Couldn't connect this account to Google Calendar. " +
+            "Make sure it's a Google account with Calendar access allowed."
     }
 
     /** 清本地会话（token + 绑定 + 缓存）。退出登录 / 断开 / 换账号共用。 */
