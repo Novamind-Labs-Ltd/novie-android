@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
@@ -42,6 +43,12 @@ fun CalendarRoute(
     // VM 请求同意时启动恢复意图。
     LaunchedEffect(Unit) {
         viewModel.consentRequest.collect { intent -> consentLauncher.launch(intent) }
+    }
+
+    // 每次页面显示（进入/切回 tab/回前台）都刷新。
+    LifecycleResumeEffect(Unit) {
+        viewModel.onScreenShown()
+        onPauseOrDispose { }
     }
 
     CalendarScreen(

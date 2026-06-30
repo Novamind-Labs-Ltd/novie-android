@@ -211,6 +211,20 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /**
+     * 每次日历页显示（进入/切回 tab/回前台）时调用：
+     * - 已连接 → 重新拉取事件（刷新）；
+     * - 同步中 → 跳过（已在进行）；
+     * - 其余（未连接/撤销/失败/游客）→ 重新评估（含自动连接探测、游客拦截）。
+     */
+    fun onScreenShown() {
+        when (_uiState.value.connectionStatus) {
+            CalendarConnectionStatus.SYNCING -> Unit
+            CalendarConnectionStatus.CONNECTED -> loadEvents()
+            else -> refreshAuthAndLoad()
+        }
+    }
+
     private fun selectDate(date: LocalDate) {
         _uiState.update { it.copy(selectedDate = date) }
         if (_uiState.value.isConnected) loadEvents()
