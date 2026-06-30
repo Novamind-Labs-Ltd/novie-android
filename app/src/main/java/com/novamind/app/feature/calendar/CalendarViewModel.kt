@@ -8,6 +8,7 @@ import com.novamind.app.common.google.GoogleAccount
 import com.novamind.app.common.google.GoogleCalendarAuthManager
 import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
+import com.novamind.app.common.session.AppUserProvider
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleAuthExpiredException
 import com.novamind.app.data.calendar.GoogleAuthRevokedException
@@ -42,7 +43,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     val uiState = _uiState.asStateFlow()
 
     init {
-        refreshAuthAndLoad()
+        // 响应式联动 App 会话：登录/登出/游客切换时重新评估，避免 VM 被保留后状态停滞
+        // （如游客进过日历页后登录，仍显示「登录后使用」）。StateFlow 会立即发射当前值。
+        viewModelScope.launch {
+            AppUserProvider.session.collect { refreshAuthAndLoad() }
+        }
     }
 
     fun onEvent(event: CalendarUiEvent) {
@@ -73,9 +78,23 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
      * 无绑定记录 → [CalendarConnectionStatus.NOT_CONNECTED]，显示首次引导。
      */
     private fun refreshAuthAndLoad() {
+        // 游客（免登录）不可用日历：拦截为「登录后使用」，不触发任何授权/拉取。
+        if (AppUserProvider.isGuest) {
+            LogUtils.d("refreshAuthAndLoad: guest -> LOGIN_REQUIRED", TAG)
+            _uiState.update { CalendarUiState(connectionStatus = CalendarConnectionStatus.LOGIN_REQUIRED) }
+            return
+        }
         if (!bindingStore.isConnected) {
             LogUtils.d("refreshAuthAndLoad: no binding -> NOT_CONNECTED", TAG)
             _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED) }
+            return
+        }
+        // 软一致性：绑定时的 App 用户 ≠ 当前登录用户（如已切换账号）→ 清日历，回未连接。
+        val currentUser = AppUserProvider.currentUserKey
+        if (bindingStore.appUserKey != currentUser) {
+            LogUtils.d("refreshAuthAndLoad: app user mismatch -> clear calendar", TAG)
+            clearLocalSession()
+            _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
             return
         }
         val email = bindingStore.accountEmail
@@ -114,7 +133,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 .onFailure { LogUtils.w("resolve account email failed", it, TAG) }
                 .getOrNull()
             if (email != null) {
-                bindingStore.bind(email)
+                bindingStore.bind(email, AppUserProvider.currentUserKey)
                 _uiState.update { it.copy(account = GoogleAccount(email)) }
             }
             fetchInto(_uiState.value.selectedDate, email ?: _uiState.value.account?.email, allowSilentRetry = false)

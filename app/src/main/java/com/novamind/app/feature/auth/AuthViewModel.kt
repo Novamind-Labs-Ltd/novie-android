@@ -8,6 +8,8 @@ import com.novamind.app.common.log.DebugLog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.auth0.android.result.Credentials
+import com.novamind.app.NovieApplication
+import com.novamind.app.common.session.AppUserProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +48,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val biometricGate = biometricPrefs.enabled && authManager.isBiometricAvailable()
         viewModelScope.launch {
             if (!authManager.hasValidCredentials()) {
+                setCurrentAppUser(null)
                 _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false, needsBiometricUnlock = false) }
                 return@launch
             }
@@ -59,6 +62,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             // 无需指纹门控：静默取凭证直接登录。
             runCatching { authManager.getCredentials() }
                 .onSuccess { creds ->
+                    setCurrentAppUser(creds.emailOrNull())
                     _uiState.update {
                         it.copy(
                             isCheckingSession = false,
@@ -84,6 +88,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             runCatching { authManager.getCredentials(activity, requireBiometric = true) }
                 .onSuccess { creds ->
+                    setCurrentAppUser(creds.emailOrNull())
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -134,6 +139,9 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     userPicture = user.picture ?: it.userPicture,
                 )
             }
+            if (_uiState.value.isAuthenticated && !_uiState.value.isGuest) {
+                setCurrentAppUser(_uiState.value.userEmail)
+            }
         }
     }
 
@@ -183,6 +191,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             runCatching { authManager.login(activity) }
                 .onSuccess { creds ->
+                    // 账户切换检测：本次登录用户与上次不同 → 清掉旧用户的日历绑定/缓存。
+                    if (AppUserProvider.currentUserKey != creds.emailOrNull()) {
+                        clearCalendarSession()
+                    }
+                    setCurrentAppUser(creds.emailOrNull())
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -201,9 +214,12 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 免登录（游客模式）：不经过 Auth0，直接进入应用。 */
+    /** 免登录（游客模式）：不经过 Auth0，直接进入应用。游客不可用日历。 */
     fun loginAsGuest() {
         if (_uiState.value.isLoading) return
+        // 先清掉可能残留的日历会话，再标记为游客（日历页将拦截显示「登录后使用」）。
+        (getApplication() as NovieApplication).clearCalendarLocalSession()
+        AppUserProvider.setGuest()
         _uiState.update {
             it.copy(
                 isLoading = false,
@@ -224,6 +240,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     fun logout(activity: Activity) {
         if (_uiState.value.isLoading) return
         authManager.logoutLocal()
+        clearCalendarSession()
         _uiState.update { loggedOutState() }
     }
 
@@ -234,6 +251,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             runCatching { authManager.logout(activity) }
                 .onSuccess {
+                    clearCalendarSession()
                     _uiState.update {
                         AuthUiState(isCheckingSession = false, isAuthenticated = false)
                     }
@@ -246,11 +264,26 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 游客切换到登录：重置为未登录状态，宿主门控会显示登录页。 */
     fun exitGuest() {
+        clearCalendarSession()
         _uiState.update { loggedOutState() }
     }
 
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    /** 记录当前登录用户（真实账户，非游客）。供日历做账户一致性校验。 */
+    private fun setCurrentAppUser(email: String?) {
+        AppUserProvider.setUser(email)
+    }
+
+    /**
+     * 清除日历本地会话并清空当前用户标记。所有登出 / 退出游客路径调用：
+     * 退出登录 → 清日历；不 revoke Google grant（重新登录同账号可静默恢复）。
+     */
+    private fun clearCalendarSession() {
+        AppUserProvider.clear()
+        (getApplication() as NovieApplication).clearCalendarLocalSession()
     }
 
     /** 未登录初始态，保留生物识别能力/开关标记供 UI 一致显示。 */

@@ -213,6 +213,19 @@ data object Retry           : CalendarUiEvent   // SYNC_FAILED 重试(也可复�
 
 ---
 
+## 7.1 登录账户 ↔ 日历账户一致性（软）
+
+日历会话绑定到 **App 登录用户**（按邮箱隔离），保证三件事：
+
+1. **退出登录 → 清日历**：所有登出 / 退出路径（`logoutLocal` / `logoutFederated` / `exitGuest`）都调用 `NovieApplication.clearCalendarLocalSession()`——删 token + 删绑定 + 清缓存。不 revoke Google grant（退出登录 ≠ 取消授权），重新登录同账号可静默恢复。
+2. **切换账号 → 更新日历**：`login` 成功时若新用户 ≠ 上次登录用户，先清掉旧用户的日历绑定/缓存；进入日历页（`refreshAuthAndLoad`）再校验「绑定时的 App 用户 == 当前登录用户」，不一致则清日历回未连接，由新用户重新连接自己的日历。
+3. **一致性载体**：当前登录用户由 `AppUserProvider.currentUserKey`（内存，认证层维护）提供；绑定记录额外存 `appUserKey`（连接时的登录邮箱）。两处比对即软一致性，不强制 Google 邮箱等于 App 邮箱（允许用公司号登录、连个人 Google 日历）。
+4. **游客（免登录）不可用日历**：游客没有 App 账户，`AppUserProvider.isGuest = true`。日历页进入时直接置 `LOGIN_REQUIRED`，不触发任何授权/拉取，UI 显示「登录后使用」拦截态（隐藏统计卡片与时段列表），不展示 Google 连接卡片。退出登录后再以游客进入也走此分支。
+
+> 触发点：认证层在登录 / 续期 / 服务端刷新时 `AppUserProvider.setUser()`，游客模式 `setGuest()`，登出 / 退游客 `clear()` 并清日历会话。`AppUserProvider.session` 是 `StateFlow`，`CalendarViewModel` 订阅它——会话一变（如游客→登录）即重新评估，**不会因 VM 被保留而停留在旧态**（修复"登录后日历仍显示游客态"）。日历层据此做游客拦截 + 不一致检测，在连接成功时写入 `appUserKey`。
+
+---
+
 ## 8. 改动清单（实现时对照）
 
 - `CalendarConnectionStatus.kt`（新增枚举）

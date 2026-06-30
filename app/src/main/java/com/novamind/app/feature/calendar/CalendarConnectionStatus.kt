@@ -26,4 +26,7 @@ enum class CalendarConnectionStatus {
 
     /** 非授权类失败（网络 / 服务端），提供重试。 */
     SYNC_FAILED,
+
+    /** 游客（免登录）会话，不允许使用日历。显示「登录后使用」拦截态。 */
+    LOGIN_REQUIRED,
 }

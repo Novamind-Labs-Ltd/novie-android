@@ -133,13 +133,15 @@ fun CalendarScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // 统计卡片
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            StatCard(uiState.meetingCount.toString(), "Meetings", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon, Modifier.weight(1f))
-            StatCard(uiState.todoCount.toString(), "To-dos", TodoBg, R.drawable.ic_check_circle, TodoIcon, Modifier.weight(1f))
+        // 统计卡片（游客拦截态不展示）
+        if (!uiState.loginRequired) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StatCard(uiState.meetingCount.toString(), "Meetings", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon, Modifier.weight(1f))
+                StatCard(uiState.todoCount.toString(), "To-dos", TodoBg, R.drawable.ic_check_circle, TodoIcon, Modifier.weight(1f))
+            }
         }
 
         Spacer(Modifier.height(if (uiState.isConnected) 12.dp else 24.dp))
@@ -155,8 +157,27 @@ fun CalendarScreen(
             )
         }
 
-        // 未连接：连接 Google 日历空状态
-        if (!uiState.isConnected) {
+        // 游客（免登录）：不展示日历，提示登录后使用。
+        if (uiState.loginRequired) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                CalendarIllustration()
+                Spacer(Modifier.height(20.dp))
+                Text("Sign in to use Calendar", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Calendar is unavailable in guest mode. Sign in with your account to connect and sync events.",
+                    fontSize = 14.sp,
+                    color = ColorTextSub,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+        } else if (!uiState.isConnected) {
+            // 未连接：连接 Google 日历空状态
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -197,13 +218,15 @@ fun CalendarScreen(
             }
         }
 
-        // 时段分组
-        SectionRow(R.drawable.ic_morning, "Morning", uiState.morningEvents, uiState.morningExpanded) {
-            onEvent(CalendarUiEvent.ToggleMorning)
-        }
-        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(vertical = 4.dp).height(1.dp).background(ColorBorder))
-        SectionRow(R.drawable.ic_sun, "Afternoon", uiState.afternoonEvents, uiState.afternoonExpanded) {
-            onEvent(CalendarUiEvent.ToggleAfternoon)
+        // 时段分组（游客拦截态不展示）
+        if (!uiState.loginRequired) {
+            SectionRow(R.drawable.ic_morning, "Morning", uiState.morningEvents, uiState.morningExpanded) {
+                onEvent(CalendarUiEvent.ToggleMorning)
+            }
+            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(vertical = 4.dp).height(1.dp).background(ColorBorder))
+            SectionRow(R.drawable.ic_sun, "Afternoon", uiState.afternoonEvents, uiState.afternoonExpanded) {
+                onEvent(CalendarUiEvent.ToggleAfternoon)
+            }
         }
     }
 }
@@ -406,6 +429,17 @@ private fun CalendarScreenDisconnectedPreview() {
     AppTheme {
         CalendarScreen(
             uiState = CalendarUiState(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 游客拦截")
+@Composable
+private fun CalendarScreenLoginRequiredPreview() {
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(connectionStatus = CalendarConnectionStatus.LOGIN_REQUIRED),
             onEvent = {},
         )
     }

@@ -20,13 +20,21 @@ class CalendarBindingStore(
     val isConnected: Boolean
         get() = store.getBoolean(KEY_CONNECTED, false)
 
-    /** 绑定账号邮箱（兼作缓存分区 key）。 */
+    /** 绑定的 Google 账号邮箱（兼作缓存分区 key）。 */
     val accountEmail: String?
         get() = store.getString(KEY_EMAIL, null)
 
-    /** 首次连接成功后写入绑定。 */
-    fun bind(email: String) {
+    /**
+     * 绑定时的 App 登录用户 key（邮箱）。用于「登录账户 ↔ 日历」软一致性校验：
+     * 进入页面时若与当前登录用户不一致，则清除日历（见设计文档）。游客可为 null。
+     */
+    val appUserKey: String?
+        get() = store.getString(KEY_APP_USER, null)
+
+    /** 首次连接成功后写入绑定：Google 账号邮箱 + 当时的 App 登录用户。 */
+    fun bind(email: String, appUserKey: String?) {
         store.putString(KEY_EMAIL, email)
+        store.putString(KEY_APP_USER, appUserKey)
         store.putBoolean(KEY_CONNECTED, true)
     }
 
@@ -39,5 +47,6 @@ class CalendarBindingStore(
         const val MMAP_ID = "calendar_binding"
         const val KEY_CONNECTED = "connected"
         const val KEY_EMAIL = "account_email"
+        const val KEY_APP_USER = "app_user_key"
     }
 }

@@ -23,13 +23,18 @@ data class CalendarUiState(
     /** 一次性错误提示文案，UI 消费后调用 [CalendarUiEvent.ErrorShown] 清除。 */
     val errorMessage: String? = null,
 ) {
-    /** 已连接：非「未连接 / 授权被撤销」态都视为已连接（含同步中、过期续期中、同步失败）。 */
+    /** 已连接：仅「同步中/已连接/过期续期中/同步失败」视为已连接，可展示事件区域。 */
     val isConnected: Boolean
-        get() = connectionStatus != CalendarConnectionStatus.NOT_CONNECTED &&
-            connectionStatus != CalendarConnectionStatus.PERMISSION_REVOKED
+        get() = connectionStatus == CalendarConnectionStatus.SYNCING ||
+            connectionStatus == CalendarConnectionStatus.CONNECTED ||
+            connectionStatus == CalendarConnectionStatus.TOKEN_EXPIRED ||
+            connectionStatus == CalendarConnectionStatus.SYNC_FAILED
 
     /** 正在同步（拉取事件）。 */
     val isLoading: Boolean get() = connectionStatus == CalendarConnectionStatus.SYNCING
+
+    /** 游客会话，不可用日历——显示「登录后使用」拦截态。 */
+    val loginRequired: Boolean get() = connectionStatus == CalendarConnectionStatus.LOGIN_REQUIRED
 
     /** 需要用户重新授权（撤销后）。 */
     val needsReconnect: Boolean get() = connectionStatus == CalendarConnectionStatus.PERMISSION_REVOKED
