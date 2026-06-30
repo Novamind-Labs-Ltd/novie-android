@@ -13,6 +13,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +59,7 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
  * 无状态 Calendar 屏幕：仅消费 [CalendarUiState] 并通过 [onEvent] 上报交互。
  * 授权后展示统计与时段事件，未授权时展示「连接 Google 日历」空状态卡片。
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
     uiState: CalendarUiState,
@@ -68,14 +72,31 @@ fun CalendarScreen(
     val dayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
     val dateStr = selectedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH))
 
-    Column(
+    // 下拉刷新：仅已连接时真正触发拉取（未连接/游客态下 Refresh 为 no-op）。
+    val pullState = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = uiState.isLoading,
+        onRefresh = { onEvent(CalendarUiEvent.Refresh) },
+        state = pullState,
         modifier = modifier
             .fillMaxSize()
-            .background(BgPage)
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 100.dp),
+            .background(BgPage),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = uiState.isLoading,
+                color = ColorPrimary,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        },
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 100.dp),
+        ) {
         // 顶部标题 + 操作 pill
         Row(
             modifier = Modifier
@@ -227,6 +248,7 @@ fun CalendarScreen(
             SectionRow(R.drawable.ic_sun, "Afternoon", uiState.afternoonEvents, uiState.afternoonExpanded) {
                 onEvent(CalendarUiEvent.ToggleAfternoon)
             }
+        }
         }
     }
 }
