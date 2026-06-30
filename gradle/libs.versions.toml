@@ -30,6 +30,8 @@ mmkv = "1.3.16"
 # 0.43.0 用 Kotlin 2.4 编译（kotlin-stdlib 2.4.0），与当前工具链不兼容。
 # 待工程 Kotlin/KSP 升到 2.4 后可再升级本库。
 markdownRenderer = "0.35.0"
+# Google 身份授权：AuthorizationClient 申请 Calendar scope 并返回 OAuth access token
+playServicesAuth = "21.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -72,6 +74,7 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 firebase-inappmessaging-display = { group = "com.google.firebase", name = "firebase-inappmessaging-display" }
 mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
 markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

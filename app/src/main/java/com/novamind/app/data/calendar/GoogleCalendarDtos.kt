@@ -1,0 +1,53 @@
+package com.novamind.app.data.calendar
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+/**
+ * Google Calendar API v3 `events.list` 响应的精简模型。
+ * 只声明用得到的字段；[com.novamind.app.data.calendar.GoogleCalendarNetwork] 的 JSON
+ * 已开启 ignoreUnknownKeys，其余字段忽略。
+ *
+ * 文档：https://developers.google.com/calendar/api/v3/reference/events/list
+ */
+@Serializable
+data class EventsResponse(
+    val items: List<EventDto> = emptyList(),
+    val nextPageToken: String? = null,
+)
+
+@Serializable
+data class EventDto(
+    val id: String? = null,
+    val status: String? = null,
+    val summary: String? = null,
+    val location: String? = null,
+    val eventType: String? = null,
+    val hangoutLink: String? = null,
+    val start: EventDateTimeDto? = null,
+    val end: EventDateTimeDto? = null,
+    val attendees: List<AttendeeDto> = emptyList(),
+    val conferenceData: ConferenceDataDto? = null,
+)
+
+/**
+ * 定时事件用 [dateTime]（RFC3339，含时区偏移）；全天事件用 [date]（yyyy-MM-dd）。两者互斥。
+ */
+@Serializable
+data class EventDateTimeDto(
+    val date: String? = null,
+    val dateTime: String? = null,
+    val timeZone: String? = null,
+)
+
+@Serializable
+data class AttendeeDto(
+    val email: String? = null,
+    val self: Boolean = false,
+    val responseStatus: String? = null,
+)
+
+@Serializable
+data class ConferenceDataDto(
+    @SerialName("conferenceId") val conferenceId: String? = null,
+)

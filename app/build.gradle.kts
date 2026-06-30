@@ -118,6 +118,8 @@ dependencies {
     implementation(libs.markdown.renderer.m3)
     // Auth0 认证（Universal Login + 凭证管理）
     implementation(libs.auth0)
+    // Google 授权：AuthorizationClient 申请 Google Calendar 只读 scope，返回 OAuth access token
+    implementation(libs.play.services.auth)
     // 指纹/生物识别（SecureCredentialsManager 生物识别门控；fragment 提供 FragmentActivity）
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment.ktx)

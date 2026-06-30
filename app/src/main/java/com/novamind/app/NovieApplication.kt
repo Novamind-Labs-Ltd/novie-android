@@ -15,6 +15,8 @@ import com.novamind.app.data.RoomNoteRepository
 import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.RoomTagRepository
 import com.novamind.app.data.TagRepository
+import com.novamind.app.data.calendar.GoogleCalendarRepository
+import com.novamind.app.data.calendar.GoogleCalendarRepositoryImpl
 import com.novamind.app.data.db.AppDatabase
 import com.novamind.app.util.SentryUtils
 import com.tencent.mmkv.MMKV
@@ -28,6 +30,8 @@ class NovieApplication : Application(), ImageLoaderFactory {
     val recordingRepository: RecordingRepository by lazy {
         RoomRecordingRepository(database.recordingDao())
     }
+    // Google 日历仓库（无状态、单例即可；token 由 GoogleTokenProvider 注入）
+    val googleCalendarRepository: GoogleCalendarRepository by lazy { GoogleCalendarRepositoryImpl() }
 
     override fun onCreate() {
         super.onCreate()

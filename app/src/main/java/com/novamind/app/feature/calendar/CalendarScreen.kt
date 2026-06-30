@@ -9,14 +9,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -52,18 +50,21 @@ private val TodoBg = Color(0xFFE9E7E1)
 private val TodoIcon = Color(0xFF2E7D6B)
 
 private val weekLetters = listOf("M", "T", "W", "T", "F", "S", "S")
+private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
 
+/**
+ * 无状态 Calendar 屏幕：仅消费 [CalendarUiState] 并通过 [onEvent] 上报交互。
+ * 授权后展示统计与时段事件，未授权时展示「连接 Google 日历」空状态卡片。
+ */
 @Composable
 fun CalendarScreen(
-    onConnect: () -> Unit = {},
+    uiState: CalendarUiState,
+    onEvent: (CalendarUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var morningOpen by remember { mutableStateOf(false) }
-    var afternoonOpen by remember { mutableStateOf(false) }
-
+    val selectedDate = uiState.selectedDate
     val monday = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val week = remember(monday) { (0..6).map { monday.plusDays(it.toLong()) } }
+    val week = (0..6).map { monday.plusDays(it.toLong()) }
     val dayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
     val dateStr = selectedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH))
 
@@ -93,7 +94,7 @@ fun CalendarScreen(
                 ) {
                     PillIcon(R.drawable.ic_add, "Add")
                     PillIcon(R.drawable.ic_search, "Search")
-                    PillIcon(R.drawable.ic_more, "More")
+                    PillIcon(R.drawable.ic_more, "More") { onEvent(CalendarUiEvent.Refresh) }
                 }
             }
         }
@@ -106,12 +107,12 @@ fun CalendarScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NavArrow(left = true) { selectedDate = selectedDate.minusDays(1) }
+            NavArrow(left = true) { onEvent(CalendarUiEvent.PrevDay) }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(dayName, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
                 Text(dateStr, fontSize = 13.sp, color = ColorTextSub)
             }
-            NavArrow(left = false) { selectedDate = selectedDate.plusDays(1) }
+            NavArrow(left = false) { onEvent(CalendarUiEvent.NextDay) }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -125,7 +126,7 @@ fun CalendarScreen(
                     selected = date == selectedDate,
                     weekend = i >= 5,
                     modifier = Modifier.weight(1f),
-                    onClick = { selectedDate = date },
+                    onClick = { onEvent(CalendarUiEvent.DateSelected(date)) },
                 )
             }
         }
@@ -137,51 +138,73 @@ fun CalendarScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            StatCard("0", "Meetings", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon, Modifier.weight(1f))
-            StatCard("0", "To-dos", TodoBg, R.drawable.ic_check_circle, TodoIcon, Modifier.weight(1f))
+            StatCard(uiState.meetingCount.toString(), "Meetings", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon, Modifier.weight(1f))
+            StatCard(uiState.todoCount.toString(), "To-dos", TodoBg, R.drawable.ic_check_circle, TodoIcon, Modifier.weight(1f))
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(if (uiState.isConnected) 12.dp else 24.dp))
 
-        // 空状态：连接 Google 日历
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            CalendarIllustration()
-            Spacer(Modifier.height(20.dp))
-            Text("Connect to Google Calendar", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
-            Spacer(Modifier.height(8.dp))
+        uiState.errorMessage?.let { message ->
             Text(
-                "Link your account to sync your events and keep your calendar up-to-date.",
-                fontSize = 14.sp,
-                color = ColorTextSub,
-                lineHeight = 20.sp,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(20.dp))
-            Box(
+                text = message,
+                fontSize = 13.sp,
+                color = Color(0xFFB3261E),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(50))
-                    .background(Color(0xFF111111))
-                    .clickable(onClick = onConnect)
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center,
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+        }
+
+        // 未连接：连接 Google 日历空状态
+        if (!uiState.isConnected) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(painterResource(R.drawable.ic_nav_calendar), null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Text("Connect to google calendar", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                CalendarIllustration()
+                Spacer(Modifier.height(20.dp))
+                Text("Connect to Google Calendar", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Link your account to sync your events and keep your calendar up-to-date.",
+                    fontSize = 14.sp,
+                    color = ColorTextSub,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(20.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFF111111))
+                        .clickable { onEvent(CalendarUiEvent.Connect) }
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(painterResource(R.drawable.ic_nav_calendar), null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Text("Connect to google calendar", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+
+        if (uiState.isLoading) {
+            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = ColorPrimary, modifier = Modifier.size(28.dp))
             }
         }
 
-        Spacer(Modifier.height(20.dp))
-
         // 时段分组
-        SectionRow(R.drawable.ic_morning, "Morning", 0, morningOpen) { morningOpen = !morningOpen }
+        SectionRow(R.drawable.ic_morning, "Morning", uiState.morningEvents, uiState.morningExpanded) {
+            onEvent(CalendarUiEvent.ToggleMorning)
+        }
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(vertical = 4.dp).height(1.dp).background(ColorBorder))
-        SectionRow(R.drawable.ic_sun, "Afternoon", 0, afternoonOpen) { afternoonOpen = !afternoonOpen }
+        SectionRow(R.drawable.ic_sun, "Afternoon", uiState.afternoonEvents, uiState.afternoonExpanded) {
+            onEvent(CalendarUiEvent.ToggleAfternoon)
+        }
     }
 }
 
@@ -276,7 +299,13 @@ private fun StatCard(
 }
 
 @Composable
-private fun SectionRow(iconRes: Int, label: String, count: Int, expanded: Boolean, onToggle: () -> Unit) {
+private fun SectionRow(
+    iconRes: Int,
+    label: String,
+    events: List<CalendarEvent>,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Surface(
             shape = RoundedCornerShape(50),
@@ -292,7 +321,7 @@ private fun SectionRow(iconRes: Int, label: String, count: Int, expanded: Boolea
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(painterResource(iconRes), null, tint = ColorTextTitle, modifier = Modifier.size(16.dp))
-                Text("$label ($count)", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
+                Text("$label (${events.size})", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_down),
                     contentDescription = null,
@@ -302,13 +331,51 @@ private fun SectionRow(iconRes: Int, label: String, count: Int, expanded: Boolea
             }
         }
         if (expanded) {
-            Text(
-                "No events",
-                fontSize = 13.sp,
-                color = ColorTextFaint,
-                modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp),
-            )
+            if (events.isEmpty()) {
+                Text(
+                    "No events",
+                    fontSize = 13.sp,
+                    color = ColorTextFaint,
+                    modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp),
+                )
+            } else {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    events.forEach { EventRow(it) }
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun EventRow(event: CalendarEvent) {
+    val accent = if (event.isMeeting) MeetingIcon else TodoIcon
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White)
+            .border(1.dp, ColorBorder, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
+        Column(Modifier.weight(1f)) {
+            Text(event.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ColorTextTitle)
+            event.location?.takeIf { it.isNotBlank() }?.let {
+                Text(it, fontSize = 12.sp, color = ColorTextSub)
+            }
+        }
+        Text(
+            text = if (event.isAllDay) "All day" else event.start.format(timeFormatter),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = ColorTextSub,
+        )
     }
 }
 
@@ -333,16 +400,32 @@ private fun CalendarIllustration() {
     }
 }
 
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 未连接")
 @Composable
-fun CalendarRoute(
-    onConnect: () -> Unit = {},
-    modifier: Modifier = Modifier,
-) {
-    CalendarScreen(onConnect = onConnect, modifier = modifier)
+private fun CalendarScreenDisconnectedPreview() {
+    AppTheme {
+        CalendarScreen(uiState = CalendarUiState(isConnected = false), onEvent = {})
+    }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 已连接")
 @Composable
-private fun CalendarScreenPreview() {
-    AppTheme { CalendarScreen() }
+private fun CalendarScreenConnectedPreview() {
+    val day = LocalDate.now()
+    val sample = listOf(
+        CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", true),
+        CalendarEvent("2", "Write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, false),
+        CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", true),
+    )
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(
+                isConnected = true,
+                events = sample,
+                morningExpanded = true,
+                afternoonExpanded = true,
+            ),
+            onEvent = {},
+        )
+    }
 }
