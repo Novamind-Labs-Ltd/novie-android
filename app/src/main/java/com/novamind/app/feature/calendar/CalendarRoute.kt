@@ -78,7 +78,16 @@ fun CalendarRoute(
     CalendarScreen(
         uiState = uiState,
         onEvent = { event ->
-            if (event is CalendarUiEvent.Connect) startAuthorization() else viewModel.onEvent(event)
+            when (event) {
+                // 首次连接：直接发起交互式授权。
+                CalendarUiEvent.Connect -> startAuthorization()
+                // 换账号：先 revoke 旧授权 + 清本地，再发起授权（系统会重新弹账号选择器）。
+                CalendarUiEvent.SwitchAccount -> scope.launch {
+                    viewModel.prepareAccountSwitch()
+                    startAuthorization()
+                }
+                else -> viewModel.onEvent(event)
+            }
         },
         modifier = modifier,
     )

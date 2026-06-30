@@ -31,9 +31,24 @@ class GoogleCalendarRepositoryImpl(
                 .mapNotNull { it.toDomain() }
                 .sortedBy { it.start }
         } catch (e: HttpException) {
-            if (e.code() == HttpURLConnection.HTTP_UNAUTHORIZED) throw GoogleAuthExpiredException()
-            throw e
+            throw e.toAuthAware()
         }
+    }
+
+    override suspend fun currentAccountEmail(): String = withContext(Dispatchers.IO) {
+        try {
+            api.getCalendar(calendarId = "primary").id
+                ?: throw IllegalStateException("primary calendar has no id")
+        } catch (e: HttpException) {
+            throw e.toAuthAware()
+        }
+    }
+
+    /** 把鉴权类 HTTP 错误转成领域异常：401→过期可续期，403→被撤销需重新同意。其余原样抛出。 */
+    private fun HttpException.toAuthAware(): Throwable = when (code()) {
+        HttpURLConnection.HTTP_UNAUTHORIZED -> GoogleAuthExpiredException()
+        HttpURLConnection.HTTP_FORBIDDEN -> GoogleAuthRevokedException()
+        else -> this
     }
 
     private fun EventDto.toDomain(): CalendarEvent? {

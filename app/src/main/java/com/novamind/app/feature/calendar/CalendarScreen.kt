@@ -404,7 +404,10 @@ private fun CalendarIllustration() {
 @Composable
 private fun CalendarScreenDisconnectedPreview() {
     AppTheme {
-        CalendarScreen(uiState = CalendarUiState(isConnected = false), onEvent = {})
+        CalendarScreen(
+            uiState = CalendarUiState(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED),
+            onEvent = {},
+        )
     }
 }
 
@@ -420,7 +423,7 @@ private fun CalendarScreenConnectedPreview() {
     AppTheme {
         CalendarScreen(
             uiState = CalendarUiState(
-                isConnected = true,
+                connectionStatus = CalendarConnectionStatus.CONNECTED,
                 events = sample,
                 morningExpanded = true,
                 afternoonExpanded = true,

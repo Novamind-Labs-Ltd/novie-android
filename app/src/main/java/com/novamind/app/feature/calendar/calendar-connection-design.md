@@ -1,0 +1,224 @@
+# 日历连接状态与产品需求设计
+
+> 模块：`feature/calendar`、`data/calendar`、`common/google`
+> 方案：设备端直连 Google Calendar（Identity `AuthorizationClient`，`calendar.readonly`）
+> 缓存：**持久化、按 Google 账号隔离**
+> 关键约束：当前流程拿到的是 **~1h 过期的 access token，没有 refresh token**；"保持登录"靠的是系统侧记住的授权——已授权时 `authorize()` **静默**返回新 token，未授权/被撤销才返回 `NeedsConsent`。
+
+---
+
+## 1. 核心概念与边界
+
+四个相互独立、**不可混为一谈**的东西，是整套设计的地基：
+
+| 概念 | 归属 | 生命周期 | 谁能销毁 |
+|---|---|---|---|
+| **App 登录态**（Auth0） | Novie 账号 | App 会话 | 用户在 App 内登出 |
+| **Google 授权（grant）** | Google 账号 ↔ 本 App 的 OS 级授权 | 跨重装存在，直到被撤销 | 用户在 Google 账号设置 / 调 revoke 端点 |
+| **access token** | 由 grant 派生 | ~1 小时 | 过期自动失效 / 本地清除 |
+| **日历绑定 + 缓存** | 本地，绑定到某个 Google 账号 id | 直到断开 / 换账号 | App 内"断开"或"换账号" |
+
+由此推出用户给的四条规则：
+
+- **退出登录 ≠ 取消授权**：App 账号登出**不** revoke Google grant；只清本地 token+缓存（防止下一个登录用户看到上个账号的日历）。Google grant 保留，重新登录可静默恢复。
+- **断开 Calendar = 删除 token + 删除绑定 + 清缓存**：本地三件套全清，状态回 `NOT_CONNECTED`。**不** revoke（用户想再连还能静默连上，无需重新同意）。
+- **切换账号 ≠ 复用旧日历数据**：换账号前必须清掉旧账号缓存，绝不允许 B 账号界面里出现 A 账号的事件。
+- **换 Google 账号 = 重新授权 + 重新同步**：revoke/解绑旧账号 → 拉起同意流程（选新账号）→ 清缓存 → 全量重新拉取。
+
+---
+
+## 2. CalendarConnectionStatus 状态语义
+
+状态枚举是**页面唯一的渲染依据**（single source of truth），UI 只看 `connectionStatus` 决定主视图。
+
+| 状态 | 含义 | 主视图 | 用户可做 |
+|---|---|---|---|
+| `NOT_CONNECTED` | 从未连接，或已断开 | 连接卡片 | 点击「连接 Google 日历」 |
+| `SYNCING` | 已授权，正在拉取事件 | 有缓存→列表+刷新条；无缓存→骨架屏 | 等待（可取消） |
+| `CONNECTED` | 已授权且 token 有效，事件已就绪 | 事件列表 | 切日期 / 刷新 / 断开 / 换账号 |
+| `TOKEN_EXPIRED` | token 过期，**可静默续期** | 通常瞬态，沿用旧列表+轻提示 | 无（自动续期） |
+| `PERMISSION_REVOKED` | grant 被撤销（Google 设置里取消 / revoke 后） | 重新授权卡片 | 重新连接（需重走同意） |
+| `SYNC_FAILED` | 非授权类失败（网络/服务端） | 错误态 + 重试 | 重试 |
+
+设计要点：
+
+- `SYNCING` 与"已连接"语义有重叠——刷新时其实仍是已授权。处理办法是 **事件列表 `events` 独立存放在 UiState 里**，`SYNCING` 时若 `events` 非空就继续展示旧列表 + 顶部刷新指示，避免白屏。
+- `TOKEN_EXPIRED` 多为**瞬态过渡**：检测到 401 → 进此态 → 立即静默 `authorize()`。成功就回 `SYNCING`；若静默返回 `NeedsConsent`（说明 grant 已没了）→ 转 `PERMISSION_REVOKED`。
+- `PERMISSION_REVOKED` 与 `NOT_CONNECTED` 的区别：前者**曾经绑定过**（绑定记录还在，只是授权失效），文案应是"授权已失效，请重新连接"，而非首次引导。
+
+---
+
+## 3. 状态机转移表
+
+```
+                ┌───────────────┐
+   首次/已断开  │ NOT_CONNECTED │
+                └───────┬───────┘
+            点 Connect → 同意 → 拿到 token
+                        ▼
+                   ┌─────────┐  拉取成功   ┌───────────┐
+                   │ SYNCING │ ──────────▶ │ CONNECTED │
+                   └────┬────┘             └─────┬─────┘
+            网络/服务端失败│                切日期/刷新│
+                        ▼                         ▼
+                ┌─────────────┐              （回到 SYNCING）
+                │ SYNC_FAILED │ ── 重试 ──▶ SYNCING
+                └─────────────┘
+                                    401 过期 │
+                          CONNECTED ─────────▼
+                                   ┌───────────────┐
+                                   │ TOKEN_EXPIRED │
+                                   └───────┬───────┘
+                       静默 authorize 成功 │ │ 静默返回 NeedsConsent
+                                  SYNCING ◀┘ ▼
+                                   ┌────────────────────┐
+              403/撤销检测 ───────▶│ PERMISSION_REVOKED │
+                                   └─────────┬──────────┘
+                              用户重新连接(走同意)│
+                                            ▼ SYNCING
+```
+
+完整转移表：
+
+| 当前状态 | 触发 | 动作 | 目标状态 |
+|---|---|---|---|
+| `NOT_CONNECTED` | 点 Connect → 同意成功 | 写 token、写绑定、写 connected 标记 | `SYNCING` |
+| `SYNCING` | 拉取成功 | 写入账号缓存、更新 events | `CONNECTED` |
+| `SYNCING` | 网络/5xx 失败 | 保留旧 events | `SYNC_FAILED` |
+| `SYNCING` | 401 | — | `TOKEN_EXPIRED` |
+| `CONNECTED` | 切日期 / 刷新 | — | `SYNCING` |
+| `CONNECTED` | 请求 401 | — | `TOKEN_EXPIRED` |
+| `CONNECTED` | 请求 403 / 检测撤销 | 清 token | `PERMISSION_REVOKED` |
+| `TOKEN_EXPIRED` | 静默 authorize → Authorized | 写新 token | `SYNCING` |
+| `TOKEN_EXPIRED` | 静默 authorize → NeedsConsent | 清 token | `PERMISSION_REVOKED` |
+| `SYNC_FAILED` | 重试 | — | `SYNCING` |
+| `PERMISSION_REVOKED` | 用户重新连接 → 同意成功 | 写新 token | `SYNCING` |
+| 任意 | **断开 Calendar** | 删 token + 删绑定 + 清缓存 | `NOT_CONNECTED` |
+| 任意 | **换 Google 账号** | revoke 旧 + 清旧缓存 → 同意选新号 | `SYNCING`（新号） |
+
+### App 冷启动 / 进入页面的进入逻辑
+
+```
+读取本地绑定:
+  无绑定记录                  → NOT_CONNECTED         （显示首次引导卡片）
+  有绑定记录:
+    先把 UI 置 SYNCING（避免闪一下未连接），有账号缓存则先渲染缓存
+    静默调 authorize():
+      Authorized   → 写新 token → 拉取 → CONNECTED / SYNC_FAILED
+      NeedsConsent → PERMISSION_REVOKED   （之前连过但授权没了）
+```
+
+要点：`authorize()` 本身**不弹 UI**，进入页时调用是安全的；只有用户主动点 Connect / 重新连接时，才 `launch` 那个 `NeedsConsent` 的 `IntentSender`。这就实现了"已登录则不需重连、自动刷新"。
+
+---
+
+## 4. 状态、事件与数据模型
+
+### 4.1 UiState 重构
+
+`isConnected` / `isLoading` 两个布尔被 `connectionStatus` 取代，所有派生量从枚举推导：
+
+```kotlin
+data class CalendarUiState(
+    val connectionStatus: CalendarConnectionStatus = CalendarConnectionStatus.NOT_CONNECTED,
+    val account: GoogleAccount? = null,        // 当前绑定账号(邮箱/头像)，用于"换账号"展示
+    val selectedDate: LocalDate = LocalDate.now(),
+    val events: List<CalendarEvent> = emptyList(),
+    val morningExpanded: Boolean = false,
+    val afternoonExpanded: Boolean = false,
+    val errorMessage: String? = null,          // 一次性提示，消费后置空
+) {
+    val showConnectCard  get() = connectionStatus == NOT_CONNECTED
+    val needsReconnect   get() = connectionStatus == PERMISSION_REVOKED
+    val isSyncing        get() = connectionStatus == SYNCING
+    val showEvents       get() = connectionStatus == CONNECTED ||
+                                 (connectionStatus == SYNCING && events.isNotEmpty())
+    // 现有派生量保持不变
+    val meetingCount get() = events.count { it.isMeeting }
+    val todoCount    get() = events.count { !it.isMeeting }
+    val morningEvents   get() = events.filter { it.isMorning }
+    val afternoonEvents get() = events.filter { !it.isMorning }
+}
+```
+
+### 4.2 事件入口
+
+在现有 `CalendarUiEvent` 上新增三个：
+
+```kotlin
+data object Disconnect      : CalendarUiEvent   // 断开 Calendar
+data object SwitchAccount   : CalendarUiEvent   // 换 Google 账号
+data object Retry           : CalendarUiEvent   // SYNC_FAILED 重试(也可复用 Refresh)
+// 既有: Connect / GoogleTokenObtained / AuthFailed / DateSelected / PrevDay / NextDay
+//       ToggleMorning / ToggleAfternoon / Refresh / ErrorShown
+```
+
+`GoogleTokenObtained` 建议带上账号信息（`token` + `accountEmail/id`），以便写绑定和给缓存分区。
+
+### 4.3 三层数据模型
+
+| 层 | 存储 | 内容 | 谁写 | 谁清 |
+|---|---|---|---|---|
+| **token** | 内存 `GoogleTokenProvider` | access token（敏感，不落盘） | 授权/静默续期成功 | 过期/登出/断开 |
+| **绑定 binding** | `KeyValueStore`(MMKV) | `connected=true`、`accountId`、`accountEmail` | 首次连接成功 | 断开 / 换账号 |
+| **事件缓存 cache** | 持久化，**key 带 accountId** | 按 `accountId + 日期` 缓存事件 | 每次拉取成功 | 断开 / 换账号 / 登出 |
+
+缓存按账号 id 分区是"切换账号不复用旧数据"的硬保证：读缓存永远只读当前绑定 `accountId` 下的分区，换账号写入新分区前先删旧分区。
+
+> 架构边界：静默 `authorize()` 需要 `AuthorizationClient`（依赖 `Context`）。**不要把 Context 泄进 ViewModel**——用一个轻接口（如 `GoogleCalendarAuthSource { suspend fun authorizeSilently(): Outcome; suspend fun revoke(token) }`）封装，ViewModel 依赖接口，实现由 Application/Route 注入。
+
+---
+
+## 5. 四类销毁操作对照（产品需求核心）
+
+| 操作 | 入口 | 清 access token | 删本地绑定 | 清账号缓存 | revoke Google grant | 结束状态 | 重新进入时 |
+|---|---|:--:|:--:|:--:|:--:|---|---|
+| **App 退出登录**（Auth0） | 设置/账号 | ✅ | ✅(当前用户) | ✅ | ❌ | App 登录页 | 重新登录后**静默恢复**日历(grant 还在) |
+| **断开 Calendar** | 日历页/设置 | ✅ | ✅ | ✅ | ❌ | `NOT_CONNECTED` | 点连接可**免同意静默连上** |
+| **换 Google 账号** | 日历页 | ✅ | ✅(旧) | ✅(旧) | ✅(旧号) | `SYNCING`(新号) | 新账号数据 |
+| **取消授权** | Google 账号设置(App 外) | (失效) | — | — | ✅(用户侧) | App 内下次请求→`PERMISSION_REVOKED` | 需重新同意 |
+
+关键差异一句话版：
+
+- **登出**只动"本设备本地状态"，不碰 Google 那侧的授权——所以登出再登录能无感恢复。
+- **断开**比登出多删绑定、回到首次态，但仍**不** revoke，方便用户反悔。
+- **换账号**是唯一需要 **revoke + 全量重同步** 的操作；revoke 旧 grant 才能让同意流程重新弹出账号选择器，否则系统会沿用旧账号。
+- **取消授权**发生在 App 之外，App 只能被动检测（403 / 静默 authorize 返回 NeedsConsent）并转 `PERMISSION_REVOKED`。
+
+---
+
+## 6. 错误 → 状态映射
+
+| 来源 | 现象 | 映射 |
+|---|---|---|
+| Calendar API 401 | token 过期 | `TOKEN_EXPIRED` → 静默续期 |
+| Calendar API 403 / 静默 authorize 返回 NeedsConsent | grant 被撤销 | `PERMISSION_REVOKED` |
+| 网络超时 / 5xx / 解析错误 | 拉取失败 | `SYNC_FAILED` |
+| 同意流程被用户取消 | `AuthFailed` | 维持原态（`NOT_CONNECTED` / `PERMISSION_REVOKED`），仅弹一次性 `errorMessage` |
+
+`data/calendar` 里已有的 `GoogleAuthExpiredException` 用来承载 401；建议再加一个 `GoogleAuthRevokedException` 区分 403，让 ViewModel 能精确落到不同状态。
+
+---
+
+## 7. 验收标准（可直接转测试用例）
+
+1. 已连接用户冷启动 App：进入日历页**不出现**连接卡片，直接看到（缓存）事件并在后台刷新 → 最终 `CONNECTED`。
+2. token 过期（模拟 401）：界面不退回未连接，旧列表保留，静默续期后无感刷新。
+3. 在 Google 账号设置里取消授权后回到 App：下次请求落到 `PERMISSION_REVOKED`，显示"重新连接"，点击需重新同意。
+4. App 退出登录再用**另一个** App 账号登录：看不到上一个用户的任何日历事件（缓存已清）。
+5. App 退出登录再用**同一** App 账号登录：日历自动恢复，无需重新点连接（grant 未 revoke）。
+6. 断开 Calendar：回到首次连接态；token/绑定/缓存均被清；再次连接走静默路径、无需重新同意。
+7. 换 Google 账号：先 revoke 旧号、清旧缓存，弹出账号选择器选新号，界面只显示新号事件，旧号数据不残留。
+8. 弱网首次连接：进入 `SYNC_FAILED` 且提供重试；重试成功转 `CONNECTED`。
+
+---
+
+## 8. 改动清单（实现时对照）
+
+- `CalendarConnectionStatus.kt`（新增枚举）
+- `CalendarUiState.kt`：用 `connectionStatus` + `account` 取代 `isConnected`/`isLoading`，加派生量
+- `CalendarUiEvent`：加 `Disconnect` / `SwitchAccount` / `Retry`；`GoogleTokenObtained` 带账号
+- `CalendarViewModel`：`init` 改静默 `refreshAuthAndLoad()`；实现登出/断开/换账号的清理编排；错误分流到对应状态
+- `GoogleCalendarAuthManager`：加 `revoke(token)`（走 Google OkHttp，`POST oauth2.googleapis.com/revoke`）；抽 `GoogleCalendarAuthSource` 接口
+- `data/calendar`：加按账号分区的持久化事件缓存；加 `GoogleAuthRevokedException`
+- 绑定存储：基于现有 `KeyValueStore`，新建一个 `CalendarBindingStore`（独立 mmapID）

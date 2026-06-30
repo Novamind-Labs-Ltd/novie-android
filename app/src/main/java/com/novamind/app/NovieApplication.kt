@@ -15,9 +15,14 @@ import com.novamind.app.data.RoomNoteRepository
 import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.RoomTagRepository
 import com.novamind.app.data.TagRepository
+import com.novamind.app.common.google.GoogleCalendarAuthManager
+import com.novamind.app.common.google.GoogleCalendarAuthSource
+import com.novamind.app.common.google.GoogleTokenProvider
+import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.calendar.GoogleCalendarRepositoryImpl
 import com.novamind.app.data.db.AppDatabase
+import com.novamind.app.feature.calendar.CalendarBindingStore
 import com.novamind.app.util.SentryUtils
 import com.tencent.mmkv.MMKV
 
@@ -32,6 +37,22 @@ class NovieApplication : Application(), ImageLoaderFactory {
     }
     // Google 日历仓库（无状态、单例即可；token 由 GoogleTokenProvider 注入）
     val googleCalendarRepository: GoogleCalendarRepository by lazy { GoogleCalendarRepositoryImpl() }
+    // 日历绑定（连接标记 + 账号邮箱）与按账号隔离的事件缓存
+    val calendarBindingStore: CalendarBindingStore by lazy { CalendarBindingStore() }
+    val calendarEventCache: CalendarEventCache by lazy { CalendarEventCache() }
+    // 静默授权 + revoke 来源（用 application context，不泄漏到 ViewModel）
+    val googleCalendarAuthSource: GoogleCalendarAuthSource by lazy { GoogleCalendarAuthManager(this) }
+
+    /**
+     * 清除日历本地会话：删 token + 删绑定 + 清缓存（不 revoke Google 授权）。
+     * 供 **App 退出登录**（Auth0）复用——退出登录 ≠ 取消授权，故不 revoke，
+     * 重新登录可静默恢复；但需清本地，避免下一个登录用户看到上个账号的日历。
+     */
+    fun clearCalendarLocalSession() {
+        GoogleTokenProvider.clear()
+        calendarBindingStore.clear()
+        calendarEventCache.clear()
+    }
 
     override fun onCreate() {
         super.onCreate()
