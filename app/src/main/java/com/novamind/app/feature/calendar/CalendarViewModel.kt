@@ -78,10 +78,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 进入页面 / 冷启动的入口。有绑定记录则先渲染缓存并尝试静默续期：
-     * - 静默拿到 token → 同步；
-     * - 需要重新同意（grant 已失效）→ [CalendarConnectionStatus.PERMISSION_REVOKED]。
-     * 无绑定记录 → [CalendarConnectionStatus.NOT_CONNECTED]，显示首次引导。
+     * 进入页面 / 冷启动的入口。
+     * - 已有绑定：一致性校验后用绑定账号静默续期（拿不到 token → [CalendarConnectionStatus.PERMISSION_REVOKED]）。
+     * - 无绑定但已登录：静默探测当前登录账户是否**已授权日历读取**——已授权则**自动连接**并建立绑定，
+     *   未授权才显示首次连接卡片（[CalendarConnectionStatus.NOT_CONNECTED]）。
      */
     private fun refreshAuthAndLoad() {
         // 游客（免登录）不可用日历：拦截为「登录后使用」，不触发任何授权/拉取。
@@ -90,43 +90,67 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             _uiState.update { CalendarUiState(connectionStatus = CalendarConnectionStatus.LOGIN_REQUIRED) }
             return
         }
-        if (!bindingStore.isConnected) {
-            LogUtils.d("refreshAuthAndLoad: no binding -> NOT_CONNECTED", TAG)
+        val currentUser = AppUserProvider.currentUserKey
+
+        if (bindingStore.isConnected) {
+            // 软一致性：仅当**已知**当前登录用户、且与绑定不一致（确实换了账号）时才清日历。
+            // currentUser 为 null 多是冷启动认证层尚未写回登录态的瞬态——此时不清绑定，
+            // 否则会误删、导致已授权用户每次冷启动都要重连；等会话就绪会再次触发本方法。
+            if (currentUser != null && bindingStore.appUserKey != currentUser) {
+                LogUtils.d("refreshAuthAndLoad: app user mismatch -> clear calendar", TAG)
+                clearLocalSession()
+                _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
+                return
+            }
+            connectSilently(bindingStore.accountEmail, isReconnect = true)
+            return
+        }
+
+        // 无绑定：未登录（或登录态未就绪）→ 先显示连接卡片，待会话就绪再触发。
+        if (currentUser.isNullOrBlank()) {
+            LogUtils.d("refreshAuthAndLoad: no binding & no login user -> NOT_CONNECTED", TAG)
             _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED) }
             return
         }
-        // 软一致性：仅当**已知**当前登录用户、且与绑定不一致（确实换了账号）时才清日历。
-        // currentUser 为 null 多是冷启动认证层尚未写回登录态的瞬态——此时不要清绑定，
-        // 否则会误删、导致已授权用户每次冷启动都要重连。等会话就绪后会再次触发本方法。
-        val currentUser = AppUserProvider.currentUserKey
-        if (currentUser != null && bindingStore.appUserKey != currentUser) {
-            LogUtils.d("refreshAuthAndLoad: app user mismatch -> clear calendar", TAG)
-            clearLocalSession()
-            _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
-            return
-        }
-        val email = bindingStore.accountEmail
+        // 已登录但无绑定：静默探测是否已授权，已授权则自动连接。
+        LogUtils.d("refreshAuthAndLoad: no binding, probe login account $currentUser", TAG)
+        connectSilently(currentUser, isReconnect = false)
+    }
+
+    /**
+     * 用 [accountName] 静默取 token 并落地。
+     * @param isReconnect true=已有绑定的续期（失败→PERMISSION_REVOKED）；
+     *                    false=无绑定的探测（成功则建立绑定；失败→NOT_CONNECTED 显示连接卡片，不当作错误）。
+     */
+    private fun connectSilently(accountName: String?, isReconnect: Boolean) {
         viewModelScope.launch {
             val date = _uiState.value.selectedDate
-            val cached = email?.let { eventCache.get(it, date) }
+            val cached = accountName?.let { eventCache.get(it, date) }
             _uiState.update {
                 it.copy(
                     connectionStatus = CalendarConnectionStatus.SYNCING,
-                    account = email?.let { e -> GoogleAccount(e) } ?: it.account,
+                    account = accountName?.let { e -> GoogleAccount(e) } ?: it.account,
                     events = cached ?: it.events,
                     errorMessage = null,
                 )
             }
-            if (email != null && acquireTokenSilently(email)) {
-                fetchInto(date, email, allowSilentRetry = false)
-            } else {
-                LogUtils.d("refreshAuthAndLoad: silent token needs consent -> REVOKED", TAG)
+            if (accountName != null && acquireTokenSilently(accountName)) {
+                if (!isReconnect) bindingStore.bind(accountName, AppUserProvider.currentUserKey)
+                fetchInto(date, accountName, allowSilentRetry = false)
+            } else if (isReconnect) {
+                LogUtils.d("connectSilently: reconnect needs consent -> REVOKED", TAG)
                 GoogleTokenProvider.clear()
                 _uiState.update {
                     it.copy(
                         connectionStatus = CalendarConnectionStatus.PERMISSION_REVOKED,
                         errorMessage = "Google authorization expired, please reconnect",
                     )
+                }
+            } else {
+                LogUtils.d("connectSilently: not yet authorized -> NOT_CONNECTED", TAG)
+                GoogleTokenProvider.clear()
+                _uiState.update {
+                    it.copy(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED, events = emptyList())
                 }
             }
         }

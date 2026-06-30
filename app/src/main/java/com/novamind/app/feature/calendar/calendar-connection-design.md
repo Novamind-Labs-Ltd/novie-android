@@ -102,12 +102,15 @@
 
 ```
 读取本地绑定:
-  无绑定记录                  → NOT_CONNECTED         （显示首次引导卡片）
   有绑定记录(含账号邮箱):
-    先把 UI 置 SYNCING（避免闪一下未连接），有账号缓存则先渲染缓存
-    静默 GoogleAuthUtil.getToken(boundAccount):
-      成功         → 写新 token → 拉取 → CONNECTED / SYNC_FAILED
-      需要同意      → PERMISSION_REVOKED   （之前连过但授权没了）
+    一致性校验后静默 GoogleAuthUtil.getToken(boundAccount):
+      成功    → 写 token → 拉取 → CONNECTED / SYNC_FAILED
+      需要同意 → PERMISSION_REVOKED        （之前连过但授权没了）
+  无绑定记录:
+    未登录(登录态未就绪)         → NOT_CONNECTED   （显示首次引导卡片）
+    已登录 → 静默探测 getToken(登录账户):
+      成功    → 建立绑定 → 拉取 → CONNECTED   （已授权日历读取 ⇒ 自动连接）
+      需要同意/失败 → NOT_CONNECTED          （未授权，等用户主动连接触发同意）
 ```
 
 要点：静默 `getToken(account)` 在已授权时**不弹 UI**，进入页时调用是安全的；用户主动连接时直接用登录账户取 token（**不弹账号选择器**），仅在 `getToken` 抛 `UserRecoverableAuthException`（首次授权 calendar 范围）时 `launch` 其恢复意图（OAuth 同意页）。这就实现了"已登录则不需重连、自动刷新"。
