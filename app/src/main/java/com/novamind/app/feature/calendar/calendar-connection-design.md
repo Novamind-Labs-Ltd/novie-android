@@ -1,11 +1,11 @@
 # 日历连接状态与产品需求设计
 
 > 模块：`feature/calendar`、`data/calendar`、`common/google`
-> 方案：设备端直连 Google Calendar（**显式账号**：`AccountPicker` 选号 + `GoogleAuthUtil.getToken`，`calendar.readonly`）
+> 方案：设备端直连 Google Calendar（**账号跟随登录账户**：用 App 登录邮箱 + `GoogleAuthUtil.getToken`，`calendar.readonly`，不弹账号选择器）
 > 缓存：**持久化、按 Google 账号隔离**
 > 关键约束：取到的是 **~1h 过期的 access token，没有 refresh token**；"保持登录"靠为**已绑定账号**重新 `GoogleAuthUtil.getToken`（已授权静默返回，未授权/被撤销抛 `UserRecoverableAuthException` → 需用户同意）。
 >
-> 为什么不用 Identity `AuthorizationClient`：它按 scope 申请、**静默复用系统已记住的账号、没有账号选择器**，导致「换账号」拿到的还是旧账号。改用「用户显式选账号 + 为该账号取 token」后，换账号是确定性的（选哪个用哪个）。
+> 为什么不用 Identity `AuthorizationClient`：它按 scope 申请、静默复用系统已记住的账号，导致换账号拿到的还是旧账号。改用「为指定账号（当前登录账户）取 token」后是确定性的。**不弹账号选择器**：日历账户始终 = App 登录账户（`AppUserProvider.currentUserKey`），与"登录账户↔日历账户一致性"一致。
 
 ---
 
@@ -96,7 +96,7 @@
 | `SYNC_FAILED` | 重试 | — | `SYNCING` |
 | `PERMISSION_REVOKED` | 用户重新连接 → 同意成功 | 写新 token | `SYNCING` |
 | 任意 | **断开 Calendar** | 删 token + 删绑定 + 清缓存 | `NOT_CONNECTED` |
-| 任意 | **换 Google 账号** | revoke 旧 + 清旧缓存 → 同意选新号 | `SYNCING`（新号） |
+| 任意 | **重新授权当前账户** | revoke 旧 + 清旧缓存 → 用登录账户重取 token | `SYNCING` |
 
 ### App 冷启动 / 进入页面的进入逻辑
 
@@ -110,7 +110,7 @@
       需要同意      → PERMISSION_REVOKED   （之前连过但授权没了）
 ```
 
-要点：静默 `getToken(account)` 在已授权时**不弹 UI**，进入页时调用是安全的；只有用户主动连接/换账号时，才弹账号选择器，并在 `getToken` 抛 `UserRecoverableAuthException` 时 `launch` 其恢复意图。这就实现了"已登录则不需重连、自动刷新"。
+要点：静默 `getToken(account)` 在已授权时**不弹 UI**，进入页时调用是安全的；用户主动连接时直接用登录账户取 token（**不弹账号选择器**），仅在 `getToken` 抛 `UserRecoverableAuthException`（首次授权 calendar 范围）时 `launch` 其恢复意图（OAuth 同意页）。这就实现了"已登录则不需重连、自动刷新"。
 
 ---
 
@@ -167,7 +167,7 @@ data object Retry           : CalendarUiEvent   // SYNC_FAILED 重试(也可复�
 
 缓存按账号 id 分区是"切换账号不复用旧数据"的硬保证：读缓存永远只读当前绑定 `accountId` 下的分区，换账号写入新分区前先删旧分区。
 
-> 架构边界：`GoogleAuthUtil` / `AccountPicker` 依赖 `Context`。**不要把 Context 泄进 ViewModel**——用轻接口 `GoogleCalendarAuthSource { newAccountChooserIntent(); fetchToken(account); clearToken(token); revoke(token) }` 封装，ViewModel 依赖接口（实现由 Application 注入），账号选择器/同意恢复意图的 ActivityResult 在 Route 启动。
+> 架构边界：`GoogleAuthUtil` 依赖 `Context`。**不要把 Context 泄进 ViewModel**——用轻接口 `GoogleCalendarAuthSource { fetchToken(account); clearToken(token); revoke(token) }` 封装，ViewModel 依赖接口（实现由 Application 注入），同意恢复意图的 ActivityResult 在 Route 启动。账号名取自 `AppUserProvider.currentUserKey`，无需选择器。
 
 ---
 
@@ -184,7 +184,7 @@ data object Retry           : CalendarUiEvent   // SYNC_FAILED 重试(也可复�
 
 - **登出**只动"本设备本地状态"，不碰 Google 那侧的授权——所以登出再登录能无感恢复。
 - **断开**比登出多删绑定、回到首次态，但仍**不** revoke，方便用户反悔。
-- **换账号**：清旧 token 缓存 + revoke 旧 grant + 清旧账号缓存，再**弹账号选择器让用户选新号**，为新号 `getToken` 后全量重同步。账号是用户显式选定的，不会沿用旧账号。
+- **重新授权当前账户**：清旧 token 缓存 + revoke 旧 grant + 清旧缓存，再用**登录账户**重新 `getToken` 后全量重同步。日历账户始终跟随 App 登录账户，无账号选择器；要换日历账户需切换 App 登录账户。
 - **取消授权**发生在 App 之外，App 只能被动检测（403 / 静默 `getToken` 抛 `UserRecoverableAuthException`）并转 `PERMISSION_REVOKED`。
 
 ---
@@ -210,7 +210,7 @@ data object Retry           : CalendarUiEvent   // SYNC_FAILED 重试(也可复�
 4. App 退出登录再用**另一个** App 账号登录：看不到上一个用户的任何日历事件（缓存已清）。
 5. App 退出登录再用**同一** App 账号登录：日历自动恢复，无需重新点连接（grant 未 revoke）。
 6. 断开 Calendar：回到首次连接态；token/绑定/缓存均被清；再次连接走静默路径、无需重新同意。
-7. 换 Google 账号：先 revoke 旧号、清旧缓存，弹出账号选择器选新号，界面只显示新号事件，旧号数据不残留。
+7. 重新授权当前账户：先 revoke 旧 token、清旧缓存，用登录账户重新取 token 并重同步；切换 App 登录账户后日历账户随之变更。
 8. 弱网首次连接：进入 `SYNC_FAILED` 且提供重试；重试成功转 `CONNECTED`。
 
 ---
@@ -234,6 +234,6 @@ data object Retry           : CalendarUiEvent   // SYNC_FAILED 重试(也可复�
 - `CalendarUiState.kt`：用 `connectionStatus` + `account` 取代 `isConnected`/`isLoading`，加派生量
 - `CalendarUiEvent`：加 `Disconnect` / `SwitchAccount` / `Retry`；`GoogleTokenObtained` 带账号
 - `CalendarViewModel`：`init` 改静默 `refreshAuthAndLoad()`；实现登出/断开/换账号的清理编排；错误分流到对应状态
-- `GoogleCalendarAuthManager`：显式账号方案——`newAccountChooserIntent()`（`AccountPicker`）、`fetchToken(account)`（`GoogleAuthUtil.getToken`，`UserRecoverableAuthException`→`NeedsConsent`）、`clearToken`、`revoke`（`POST oauth2.googleapis.com/revoke`）；抽 `GoogleCalendarAuthSource` 接口
+- `GoogleCalendarAuthManager`：账号跟随登录账户——`fetchToken(account)`（`GoogleAuthUtil.getToken`，`UserRecoverableAuthException`→`NeedsConsent`）、`clearToken`、`revoke`（`POST oauth2.googleapis.com/revoke`）；抽 `GoogleCalendarAuthSource` 接口。无账号选择器，账号名取 `AppUserProvider.currentUserKey`
 - `data/calendar`：加按账号分区的持久化事件缓存；加 `GoogleAuthRevokedException`
 - 绑定存储：基于现有 `KeyValueStore`，新建一个 `CalendarBindingStore`（独立 mmapID）

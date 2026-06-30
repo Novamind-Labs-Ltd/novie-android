@@ -131,11 +131,22 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Route 层用户选定 Google 账号后调用：为该账号取 token、写绑定、拉取事件。
+     * 连接日历：直接用**当前 App 登录账户**邮箱取 token，不弹账号选择器（日历账户跟随登录账户）。
      * 需要用户同意时，通过 [consentRequest] 让 Route 启动恢复意图，返回后调 [onConsentGranted] 重试。
      */
-    fun onGoogleAccountChosen(accountName: String) {
-        LogUtils.d("account chosen: $accountName", TAG)
+    fun connectWithCurrentAccount() {
+        val accountName = AppUserProvider.currentUserKey
+        if (accountName.isNullOrBlank()) {
+            LogUtils.w("connect: no login account email", tag = TAG)
+            _uiState.update {
+                it.copy(
+                    connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
+                    errorMessage = "No login account to connect",
+                )
+            }
+            return
+        }
+        LogUtils.d("connect with login account: $accountName", TAG)
         _uiState.update {
             it.copy(
                 connectionStatus = CalendarConnectionStatus.SYNCING,
@@ -273,8 +284,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 换账号前置清理：清 GMS token 缓存 + 服务端 revoke + 删 token/绑定/缓存。
-     * Route 在此之后立即弹账号选择器，用户选定新账号后走 [onGoogleAccountChosen]。
+     * 重新授权前置清理：清 GMS token 缓存 + 服务端 revoke + 删 token/绑定/缓存。
+     * Route 在此之后立即用当前登录账户重连（[connectWithCurrentAccount]）。
      */
     suspend fun prepareAccountSwitch() {
         LogUtils.d("prepare account switch (clearToken + revoke + clear)", TAG)
