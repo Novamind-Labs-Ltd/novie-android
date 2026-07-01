@@ -16,6 +16,11 @@ data class CalendarEvent(
     val location: String?,
     /** 是否为「会议」：含本人之外的参与者，或带视频会议链接。否则视为个人待办/日程。 */
     val isMeeting: Boolean,
+    /**
+     * Google Calendar 的事件类型：default / outOfOffice / focusTime / workingLocation /
+     * birthday / fromGmail。缺省为 null（按 default 处理）。
+     */
+    val eventType: String? = null,
 ) {
     /** 上午（开始时间早于 12:00）；全天事件归入上午。 */
     val isMorning: Boolean get() = isAllDay || start.hour < 12

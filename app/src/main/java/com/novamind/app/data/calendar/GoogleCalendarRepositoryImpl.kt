@@ -1,5 +1,6 @@
 package com.novamind.app.data.calendar
 
+import com.novamind.app.util.LogUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -43,6 +44,13 @@ class GoogleCalendarRepositoryImpl(
     }
 
     private fun EventDto.toDomain(): CalendarEvent? {
+        // 打印 EventDto 原始字段，便于核对与 CalendarEvent 的映射对应关系。
+        LogUtils.d(
+            "EventDto raw: id=$id status=$status summary=$summary location=$location " +
+                "eventType=$eventType hangoutLink=$hangoutLink start=$start end=$end " +
+                "attendees=$attendees conferenceData=$conferenceData",
+            TAG,
+        )
         val id = id ?: return null
         val startDt = start ?: return null
         val isAllDay = startDt.dateTime == null && startDt.date != null
@@ -50,7 +58,7 @@ class GoogleCalendarRepositoryImpl(
         val endLocal = end?.toLocalDateTime() ?: startLocal
         val hasOtherAttendees = attendees.any { !it.self }
         val isMeeting = hasOtherAttendees || hangoutLink != null || conferenceData != null
-        return CalendarEvent(
+        val event = CalendarEvent(
             id = id,
             title = summary?.takeIf { it.isNotBlank() } ?: "(No title)",
             isAllDay = isAllDay,
@@ -58,7 +66,19 @@ class GoogleCalendarRepositoryImpl(
             end = endLocal,
             location = location,
             isMeeting = isMeeting,
+            eventType = eventType,
         )
+        // 映射结果（字段对应）：
+        // id<-id, title<-summary, isAllDay<-(start.dateTime==null&&start.date!=null),
+        // start<-start.(dateTime|date), end<-end.(dateTime|date)?:start,
+        // location<-location, isMeeting<-(其他参与者|hangoutLink|conferenceData), eventType<-eventType
+        LogUtils.d(
+            "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
+                "start=${event.start} end=${event.end} location=${event.location} " +
+                "isMeeting=${event.isMeeting} eventType=${event.eventType}",
+            TAG,
+        )
+        return event
     }
 
     private fun EventDateTimeDto.toLocalDateTime(): LocalDateTime? = when {
@@ -70,6 +90,7 @@ class GoogleCalendarRepositoryImpl(
     }
 
     private companion object {
+        const val TAG = "CalendarRepo"
         val RFC3339: DateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
     }
 }

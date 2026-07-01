@@ -260,21 +260,39 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             coroutineScope {
                 val eventsDeferred = async { repository.eventsOn(date) }
                 val tasksDeferred = async {
-                    runCatching { tasksRepository.tasksOn(date) }
+                    runCatching {
+                        tasksRepository.tasksOn(date)
+                    }
                         .onFailure { LogUtils.w("loadTasks failed: date=$date", it, TAG) }
                         .getOrDefault(emptyList())
                 }
+
                 eventsDeferred.await() to tasksDeferred.await()
             }
         }
             .onSuccess { (events, tasks) ->
                 LogUtils.d("load success: date=$date, events=${events.size}, tasks=${tasks.size}", TAG)
+                events.forEachIndexed { i, e ->
+                    LogUtils.d(
+                        "  event[$i] id=${e.id} title=${e.title} allDay=${e.isAllDay} " +
+                            "start=${e.start} end=${e.end} meeting=${e.isMeeting} " +
+                            "eventType=${e.eventType} location=${e.location}",
+                        TAG,
+                    )
+                }
+                tasks.forEachIndexed { i, t ->
+                    LogUtils.d(
+                        "  task[$i] id=${t.id} title=${t.title} due=${t.due} " +
+                            "completed=${t.isCompleted} notes=${t.notes}",
+                        TAG,
+                    )
+                }
                 if (accountId != null) eventCache.put(accountId, date, events)
                 _uiState.update {
                     it.copy(
                         connectionStatus = CalendarConnectionStatus.CONNECTED,
                         events = events,
-                        tasks = tasks,
+                        tasks = emptyList(),
                     )
                 }
             }

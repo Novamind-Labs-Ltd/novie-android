@@ -53,6 +53,7 @@ class CalendarEventCache(
         val end: String,
         val location: String?,
         val isMeeting: Boolean,
+        val eventType: String? = null,
     ) {
         fun toDomain() = CalendarEvent(
             id = id,
@@ -62,6 +63,7 @@ class CalendarEventCache(
             end = LocalDateTime.parse(end),
             location = location,
             isMeeting = isMeeting,
+            eventType = eventType,
         )
 
         companion object {
@@ -73,6 +75,7 @@ class CalendarEventCache(
                 end = e.end.toString(),
                 location = e.location,
                 isMeeting = e.isMeeting,
+                eventType = e.eventType,
             )
         }
     }
