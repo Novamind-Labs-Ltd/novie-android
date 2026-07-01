@@ -313,7 +313,7 @@ fun CalendarScreen(
                     uiState.tasks.forEach { task ->
                         TaskRow(
                             task = task,
-                            onComplete = { onEvent(CalendarUiEvent.CompleteTask(it)) },
+                            onComplete = { onEvent(CalendarUiEvent.SetTaskCompleted(it, completed = true)) },
                             onClick = { onEvent(CalendarUiEvent.TaskClicked(it)) },
                         )
                     }

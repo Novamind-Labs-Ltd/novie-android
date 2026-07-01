@@ -72,6 +72,8 @@ private val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 private val ColorPrimary: Color
     @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+private val ColorSuccess: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Success.default.current()
 
 private val dueFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
 
@@ -95,6 +97,10 @@ fun AddTaskScreen(
     modifier: Modifier = Modifier,
     initialTitle: String = "",
     initialNotes: String = "",
+    /** 编辑模式的完成状态；null = 新增模式（不显示完成状态切换按钮）。 */
+    completed: Boolean? = null,
+    /** 点击完成状态切换按钮（仅编辑模式显示）。 */
+    onToggleCompleted: () -> Unit = {},
 ) {
     var title by rememberSaveable { mutableStateOf(initialTitle) }
     var notes by rememberSaveable { mutableStateOf(initialNotes) }
@@ -250,6 +256,35 @@ fun AddTaskScreen(
                 }
             }
         }
+
+        // 完成状态切换（仅编辑模式）：已完成 → 标记未完成；未完成 → 标记已完成。
+        if (completed != null) {
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(ColorSurface)
+                    .clickable(onClick = onToggleCompleted)
+                    .padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_check_circle),
+                    contentDescription = null,
+                    tint = if (completed) ColorTextSub else ColorSuccess,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = if (completed) "Mark as not completed" else "Mark as completed",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (completed) ColorTextSub else ColorSuccess,
+                )
+            }
+        }
     }
 
     // 日期选择弹窗：DatePicker 用 UTC 毫秒，转换固定走 ZoneOffset.UTC 避免时区偏一天。
@@ -285,6 +320,35 @@ private fun AddTaskScreenPreview() {
             initialDue = LocalDate.now(),
             onSave = { _, _, _ -> },
             onBack = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "AddTask · 编辑未完成")
+@Composable
+private fun AddTaskScreenEditPreview() {
+    AppTheme {
+        AddTaskScreen(
+            initialDue = LocalDate.now(),
+            onSave = { _, _, _ -> },
+            onBack = {},
+            initialTitle = "Submit expense report",
+            initialNotes = "Include taxi receipts",
+            completed = false,
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "AddTask · 编辑已完成")
+@Composable
+private fun AddTaskScreenEditCompletedPreview() {
+    AppTheme {
+        AddTaskScreen(
+            initialDue = LocalDate.now(),
+            onSave = { _, _, _ -> },
+            onBack = {},
+            initialTitle = "Reply to Alice",
+            completed = true,
         )
     }
 }

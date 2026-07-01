@@ -81,7 +81,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             is CalendarUiEvent.TaskClicked -> Unit
             is CalendarUiEvent.CreateTask -> createTask(event.title, event.notes, event.due)
             is CalendarUiEvent.UpdateTask -> updateTask(event.task, event.title, event.notes, event.due)
-            is CalendarUiEvent.CompleteTask -> completeTask(event.task)
+            is CalendarUiEvent.SetTaskCompleted -> setTaskCompleted(event.task, event.completed)
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
             CalendarUiEvent.NextDay -> selectDate(_uiState.value.selectedDate.plusDays(1))
@@ -283,25 +283,26 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * 右滑完成任务：先乐观置为已完成（未完成在前、已完成在后，与仓库排序一致），
-     * 再调 API；失败回滚原列表并提示。已完成的任务忽略（UI 侧也不可滑）。
+     * 设置任务完成状态（右滑置已完成、详情页按钮双向切换）：
+     * 先乐观更新并重排（未完成在前、已完成在后，与仓库排序一致），
+     * 再调 API；失败回滚原列表并提示。状态未变化时忽略。
      */
-    private fun completeTask(task: CalendarTask) {
-        if (task.isCompleted) return
+    private fun setTaskCompleted(task: CalendarTask, completed: Boolean) {
+        if (task.isCompleted == completed) return
         val previous = _uiState.value.tasks
         _uiState.update { state ->
             state.copy(
                 tasks = state.tasks
-                    .map { if (it.id == task.id) it.copy(isCompleted = true) else it }
+                    .map { if (it.id == task.id) it.copy(isCompleted = completed) else it }
                     .sortedWith(compareBy({ it.isCompleted }, { it.title })),
             )
         }
         viewModelScope.launch {
-            runCatching { tasksRepository.completeTask(task.listId, task.id) }
+            runCatching { tasksRepository.setCompleted(task.listId, task.id, completed) }
                 .onFailure { e ->
-                    LogUtils.w("completeTask failed: id=${task.id}", e, TAG)
+                    LogUtils.w("setTaskCompleted failed: id=${task.id} completed=$completed", e, TAG)
                     _uiState.update {
-                        it.copy(tasks = previous, errorMessage = "Couldn't complete the task. Please retry.")
+                        it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
                     }
                 }
         }

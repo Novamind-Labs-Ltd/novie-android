@@ -14,8 +14,8 @@ interface GoogleTasksRepository {
     /** 拉取截止日期为 [date] 的任务（跨所有任务列表）。 */
     suspend fun tasksOn(date: LocalDate): List<CalendarTask>
 
-    /** 将任务标记为已完成。失败抛异常，由调用方回滚乐观更新。 */
-    suspend fun completeTask(listId: String, taskId: String)
+    /** 设置任务完成状态（true=已完成，false=未完成）。失败抛异常，由调用方回滚乐观更新。 */
+    suspend fun setCompleted(listId: String, taskId: String, completed: Boolean)
 
     /** 在默认任务列表创建任务。失败抛异常，由调用方提示。 */
     suspend fun createTask(title: String, notes: String?, due: LocalDate?)
@@ -76,16 +76,18 @@ class GoogleTasksRepositoryImpl(
         }
     }
 
-    override suspend fun completeTask(listId: String, taskId: String) = withContext(Dispatchers.IO) {
-        try {
-            api.patchTask(listId, taskId, TaskPatchDto(status = "completed"))
-            LogUtils.d("completeTask ok: listId=$listId taskId=$taskId", TAG)
-        } catch (e: HttpException) {
-            val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-            LogUtils.w("completeTask failed http=${e.code()} body=$body", e, TAG)
-            throw e
+    override suspend fun setCompleted(listId: String, taskId: String, completed: Boolean): Unit =
+        withContext(Dispatchers.IO) {
+            try {
+                val status = if (completed) "completed" else "needsAction"
+                api.patchTask(listId, taskId, TaskPatchDto(status = status))
+                LogUtils.d("setCompleted ok: listId=$listId taskId=$taskId completed=$completed", TAG)
+            } catch (e: HttpException) {
+                val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                LogUtils.w("setCompleted failed http=${e.code()} body=$body", e, TAG)
+                throw e
+            }
         }
-    }
 
     override suspend fun createTask(title: String, notes: String?, due: LocalDate?): Unit =
         withContext(Dispatchers.IO) {

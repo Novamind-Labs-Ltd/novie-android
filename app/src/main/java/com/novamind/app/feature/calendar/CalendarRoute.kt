@@ -128,6 +128,15 @@ fun CalendarRoute(
                         )
                     },
                     onBack = { showAddTask = false },
+                    completed = editingTask?.isCompleted,
+                    onToggleCompleted = {
+                        editingTask?.let { task ->
+                            showAddTask = false
+                            viewModel.onEvent(
+                                CalendarUiEvent.SetTaskCompleted(task, completed = !task.isCompleted),
+                            )
+                        }
+                    },
                 )
             }
         }
