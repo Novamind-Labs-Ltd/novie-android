@@ -17,8 +17,10 @@ import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.util.LogUtils
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -328,9 +330,33 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** 切换日期的网络刷新防抖任务：连续切换只保留最后一次。 */
+    private var dateSwitchDebounceJob: Job? = null
+
+    /**
+     * 切换日期：立即更新选中日与本地缓存渲染，网络刷新做防抖——
+     * [DATE_SWITCH_DEBOUNCE_MS] 内再次切换则取消上一次，停止切换后才真正请求。
+     * 快速连点箭头 / 连续滑周条时只发最后一次请求。
+     */
     private fun selectDate(date: LocalDate) {
         _uiState.update { it.copy(selectedDate = date) }
-        if (_uiState.value.isConnected) loadEvents()
+        if (!_uiState.value.isConnected) return
+        // 立即渲染新日期的事件缓存（无缓存则清空，避免显示旧日期数据）；任务无缓存，先清空。
+        val cached = _uiState.value.account?.email?.let { eventCache.get(it, date) }
+        _uiState.update {
+            it.copy(
+                connectionStatus = CalendarConnectionStatus.SYNCING,
+                events = cached ?: emptyList(),
+                tasks = emptyList(),
+                errorMessage = null,
+            )
+        }
+        dateSwitchDebounceJob?.cancel()
+        dateSwitchDebounceJob = viewModelScope.launch {
+            delay(DATE_SWITCH_DEBOUNCE_MS)
+            // 防抖期间可能断开/登出，请求前再校验。
+            if (_uiState.value.isConnected) loadEvents()
+        }
     }
 
     /** 拉取选中日期事件：进入同步态、先渲染缓存，再请求网络。 */
@@ -372,6 +398,12 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             }
         }
             .onSuccess { (events, tasks) ->
+                // 响应到达时用户可能已切走该日期（防抖只约束发起，不约束在途响应）：丢弃过期结果。
+                if (date != _uiState.value.selectedDate) {
+                    LogUtils.d("load success but date switched away, drop: date=$date", TAG)
+                    if (accountId != null) eventCache.put(accountId, date, events)
+                    return@onSuccess
+                }
                 LogUtils.d("load success: date=$date, events=${events.size}, tasks=${tasks.size}", TAG)
                 events.forEachIndexed { i, e ->
                     LogUtils.d(
@@ -489,5 +521,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
 
     private companion object {
         const val TAG = "CalendarVM"
+
+        /** 切换日期后的网络刷新防抖窗口。 */
+        const val DATE_SWITCH_DEBOUNCE_MS = 1_000L
     }
 }
