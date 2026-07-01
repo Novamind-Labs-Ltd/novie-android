@@ -30,17 +30,36 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
-// ─── 颜色 ─────────────────────────────────────────────────────────────────────
+// ─── 颜色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）──────
 
-private val BgPage = Color(0xFFF0EFEA)
-private val BgCard = Color(0xFFFFFFFF)
-private val BgActionBar = Color(0xFFFFFFFF)
-private val ColorTextTitle = Color(0xFF1A1A1A)
-private val ColorTextSub = Color(0xFF6B6B6B)
-private val ColorTextHint = Color(0xFFAAAAAA)
+private val BgPage: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val BgCard: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val BgActionBar: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val ColorTextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val ColorTextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val ColorTextHint: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val ColorAvatarBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Interactive.active.current()
+private val ColorBadge: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Error.default.current()
+private val ColorOnBadge: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.onColor.current()
+private val ColorMenuIcon: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.secondary.current()
 
 // ─── 顶部「更多」底部弹窗菜单 ──────────────────────────────────────────────────
 
@@ -87,11 +106,11 @@ fun HomeScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
-    // 下拉刷新：每次刷新随机换一个指示器颜色
+    // 下拉刷新：每次开始刷新时从共享配色池随机换一个指示器颜色（配色池见 AppConfig）。
     val pullState = rememberPullToRefreshState()
-    var indicatorColor by remember { mutableStateOf(randomVividColor()) }
+    var indicatorColor by remember { mutableStateOf(AppConfig.PullRefresh.INDICATOR_COLORS.first()) }
     LaunchedEffect(uiState.isRefreshing) {
-        if (uiState.isRefreshing) indicatorColor = randomVividColor()
+        if (uiState.isRefreshing) indicatorColor = AppConfig.PullRefresh.INDICATOR_COLORS.random()
     }
 
     PullToRefreshBox(
@@ -233,7 +252,7 @@ private fun TopBar(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFD0C8B8))
+                .background(ColorAvatarBg)
                 .clickable(onClick = onAvatarClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -277,12 +296,12 @@ private fun TopBar(
                                 .offset(x = 3.dp, y = (-2).dp)
                                 .size(13.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFD13C3C)),
+                                .background(ColorBadge),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = if (notificationCount > 9) "9+" else "$notificationCount",
-                                color = Color.White,
+                                color = ColorOnBadge,
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
                                 lineHeight = 8.sp,
@@ -482,7 +501,7 @@ private fun UpcomingCard(
             Icon(
                 painter = painterResource(id = item.iconResId),
                 contentDescription = null,
-                tint = Color(0xFF9E8E78),
+                tint = ColorMenuIcon,
                 modifier = Modifier.size(36.dp),
             )
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -535,11 +554,3 @@ private fun MoreSheetContentPreview() {
         MoreSheetContent(onItemClick = {})
     }
 }
-
-// 随机鲜明颜色（下拉刷新指示器用）
-private fun randomVividColor(): Color =
-    Color.hsv(
-        hue = kotlin.random.Random.nextInt(0, 360).toFloat(),
-        saturation = 0.75f,
-        value = 0.85f,
-    )
