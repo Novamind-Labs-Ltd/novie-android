@@ -39,7 +39,7 @@ class NovieApplication : Application(), ImageLoaderFactory {
     }
     // Google 日历仓库（无状态、单例即可；token 由 GoogleTokenProvider 注入）
     val googleCalendarRepository: GoogleCalendarRepository by lazy { GoogleCalendarRepositoryImpl() }
-    // Google 任务仓库（与日历共用同一 Google token，scope 含 tasks.readonly）
+    // Google 任务仓库（与日历共用同一 Google token，scope 含 tasks 读写）
     val googleTasksRepository: GoogleTasksRepository by lazy { GoogleTasksRepositoryImpl() }
     // 日历绑定（连接标记 + 账号邮箱）与按账号隔离的事件缓存
     val calendarBindingStore: CalendarBindingStore by lazy { CalendarBindingStore() }

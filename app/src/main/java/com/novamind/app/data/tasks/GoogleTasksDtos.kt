@@ -33,3 +33,10 @@ data class TaskDto(
     val due: String? = null,
     val completed: String? = null,
 )
+
+/** PATCH 局部更新请求体：仅携带需变更的字段。 */
+@Serializable
+data class TaskPatchDto(
+    /** needsAction | completed。置 completed 时 Google 自动写入完成时间。 */
+    val status: String,
+)

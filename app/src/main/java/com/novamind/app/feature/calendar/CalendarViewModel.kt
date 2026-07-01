@@ -14,6 +14,7 @@ import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleAuthExpiredException
 import com.novamind.app.data.calendar.GoogleAuthRevokedException
 import com.novamind.app.data.calendar.GoogleCalendarRepository
+import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.util.LogUtils
 import kotlinx.coroutines.async
@@ -75,6 +76,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 // 再次点击已选过滤 → 回到全部。
                 it.copy(filter = if (it.filter == event.filter) AgendaFilter.ALL else event.filter)
             }
+            is CalendarUiEvent.CompleteTask -> completeTask(event.task)
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
             CalendarUiEvent.NextDay -> selectDate(_uiState.value.selectedDate.plusDays(1))
@@ -228,6 +230,31 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             CalendarConnectionStatus.SYNCING -> Unit
             CalendarConnectionStatus.CONNECTED -> loadEvents()
             else -> refreshAuthAndLoad()
+        }
+    }
+
+    /**
+     * 右滑完成任务：先乐观置为已完成（未完成在前、已完成在后，与仓库排序一致），
+     * 再调 API；失败回滚原列表并提示。已完成的任务忽略（UI 侧也不可滑）。
+     */
+    private fun completeTask(task: CalendarTask) {
+        if (task.isCompleted) return
+        val previous = _uiState.value.tasks
+        _uiState.update { state ->
+            state.copy(
+                tasks = state.tasks
+                    .map { if (it.id == task.id) it.copy(isCompleted = true) else it }
+                    .sortedWith(compareBy({ it.isCompleted }, { it.title })),
+            )
+        }
+        viewModelScope.launch {
+            runCatching { tasksRepository.completeTask(task.listId, task.id) }
+                .onFailure { e ->
+                    LogUtils.w("completeTask failed: id=${task.id}", e, TAG)
+                    _uiState.update {
+                        it.copy(tasks = previous, errorMessage = "Couldn't complete the task. Please retry.")
+                    }
+                }
         }
     }
 

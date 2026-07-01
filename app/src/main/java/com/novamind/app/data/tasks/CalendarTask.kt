@@ -8,6 +8,8 @@ import java.time.LocalDate
  */
 data class CalendarTask(
     val id: String,
+    /** 所属任务列表 id（更新任务时 API 路径需要）。 */
+    val listId: String,
     val title: String,
     /** 截止日期（date-only）。无截止日的任务不归属到某一天。 */
     val due: LocalDate?,

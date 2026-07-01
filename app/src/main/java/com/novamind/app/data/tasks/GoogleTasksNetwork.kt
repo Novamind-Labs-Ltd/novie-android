@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Google Tasks 专用网络栈：host 是 tasks.googleapis.com，Authorization 取自
- * [GoogleTokenProvider]（与日历共用同一 Google access token，scope 需含 tasks.readonly）。
+ * [GoogleTokenProvider]（与日历共用同一 Google access token，scope 需含 tasks 读写）。
  */
 object GoogleTasksNetwork {
 

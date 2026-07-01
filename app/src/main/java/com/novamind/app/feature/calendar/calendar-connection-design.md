@@ -1,7 +1,7 @@
 # 日历连接状态与产品需求设计
 
 > 模块：`feature/calendar`、`data/calendar`、`common/google`
-> 方案：设备端直连 Google Calendar + Google Tasks（**账号跟随登录账户**：用 App 登录邮箱 + `GoogleAuthUtil.getToken`，scope = `calendar.readonly` + `tasks.readonly`，不弹账号选择器）
+> 方案：设备端直连 Google Calendar + Google Tasks（**账号跟随登录账户**：用 App 登录邮箱 + `GoogleAuthUtil.getToken`，scope = `calendar.readonly` + `tasks`（读写，右滑完成任务需要），不弹账号选择器）
 > 内容：**活动**(Calendar events) 与 **任务**(Google Tasks) 是两套 API，合并成一条按时间排序的议程 `agenda`；任务的 due 仅到日期。
 > 缓存：**持久化、按 Google 账号隔离**
 > 关键约束：取到的是 **~1h 过期的 access token，没有 refresh token**；"保持登录"靠为**已绑定账号**重新 `GoogleAuthUtil.getToken`（已授权静默返回，未授权/被撤销抛 `UserRecoverableAuthException` → 需用户同意）。

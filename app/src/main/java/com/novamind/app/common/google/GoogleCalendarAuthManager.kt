@@ -117,9 +117,10 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
 
     companion object {
         const val SCOPE_CALENDAR_READONLY = "https://www.googleapis.com/auth/calendar.readonly"
-        const val SCOPE_TASKS_READONLY = "https://www.googleapis.com/auth/tasks.readonly"
-        // 多个 scope 用空格分隔；新增 tasks.readonly 会触发已有用户重新同意一次。
-        private const val OAUTH2_SCOPE = "oauth2:$SCOPE_CALENDAR_READONLY $SCOPE_TASKS_READONLY"
+        // 读写 scope：右滑完成任务需要写权限（PATCH task.status）。
+        const val SCOPE_TASKS = "https://www.googleapis.com/auth/tasks"
+        // 多个 scope 用空格分隔；scope 变化（readonly → 读写）会触发已有用户重新同意一次。
+        private const val OAUTH2_SCOPE = "oauth2:$SCOPE_CALENDAR_READONLY $SCOPE_TASKS"
         private const val GOOGLE_ACCOUNT_TYPE = "com.google"
         private const val REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
         private const val TAG = "CalendarAuth"
