@@ -22,6 +22,8 @@ import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.calendar.GoogleCalendarRepositoryImpl
 import com.novamind.app.data.db.AppDatabase
+import com.novamind.app.data.tasks.GoogleTasksRepository
+import com.novamind.app.data.tasks.GoogleTasksRepositoryImpl
 import com.novamind.app.feature.calendar.CalendarBindingStore
 import com.novamind.app.util.SentryUtils
 import com.tencent.mmkv.MMKV
@@ -37,6 +39,8 @@ class NovieApplication : Application(), ImageLoaderFactory {
     }
     // Google 日历仓库（无状态、单例即可；token 由 GoogleTokenProvider 注入）
     val googleCalendarRepository: GoogleCalendarRepository by lazy { GoogleCalendarRepositoryImpl() }
+    // Google 任务仓库（与日历共用同一 Google token，scope 含 tasks.readonly）
+    val googleTasksRepository: GoogleTasksRepository by lazy { GoogleTasksRepositoryImpl() }
     // 日历绑定（连接标记 + 账号邮箱）与按账号隔离的事件缓存
     val calendarBindingStore: CalendarBindingStore by lazy { CalendarBindingStore() }
     val calendarEventCache: CalendarEventCache by lazy { CalendarEventCache() }

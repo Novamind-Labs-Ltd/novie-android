@@ -117,7 +117,9 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
 
     companion object {
         const val SCOPE_CALENDAR_READONLY = "https://www.googleapis.com/auth/calendar.readonly"
-        private const val OAUTH2_SCOPE = "oauth2:$SCOPE_CALENDAR_READONLY"
+        const val SCOPE_TASKS_READONLY = "https://www.googleapis.com/auth/tasks.readonly"
+        // 多个 scope 用空格分隔；新增 tasks.readonly 会触发已有用户重新同意一次。
+        private const val OAUTH2_SCOPE = "oauth2:$SCOPE_CALENDAR_READONLY $SCOPE_TASKS_READONLY"
         private const val GOOGLE_ACCOUNT_TYPE = "com.google"
         private const val REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
         private const val TAG = "CalendarAuth"

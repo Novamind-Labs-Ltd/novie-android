@@ -109,6 +109,7 @@ dependencies {
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.play.services.auth.base)
     ksp(libs.androidx.room.compiler)
     // 图片加载
     implementation(libs.coil.compose)

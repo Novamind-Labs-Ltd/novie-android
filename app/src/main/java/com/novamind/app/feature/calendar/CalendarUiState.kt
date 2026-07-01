@@ -2,6 +2,7 @@ package com.novamind.app.feature.calendar
 
 import com.novamind.app.common.google.GoogleAccount
 import com.novamind.app.data.calendar.CalendarEvent
+import com.novamind.app.data.tasks.CalendarTask
 import java.time.LocalDate
 
 /**
@@ -9,17 +10,17 @@ import java.time.LocalDate
  *
  * [connectionStatus] 是唯一渲染依据（见 [CalendarConnectionStatus] 状态机）；
  * [isConnected] / [isLoading] 由它派生，仅为兼容现有 UI。
- * 会议/待办计数与时段分组都由 [events] 派生。
+ * 「活动」([events], Calendar) 与「任务」([tasks], Google Tasks) 合并为按时间排序的 [agenda]。
  */
 data class CalendarUiState(
     val connectionStatus: CalendarConnectionStatus = CalendarConnectionStatus.NOT_CONNECTED,
     /** 当前绑定的 Google 账号（用于展示与「换账号」入口）。 */
     val account: GoogleAccount? = null,
     val selectedDate: LocalDate = LocalDate.now(),
-    /** 选中日期的事件（已按开始时间排序）。 */
+    /** 选中日期的活动（Calendar events，已按开始时间排序）。 */
     val events: List<CalendarEvent> = emptyList(),
-    val morningExpanded: Boolean = false,
-    val afternoonExpanded: Boolean = false,
+    /** 选中日期的任务（Google Tasks）。 */
+    val tasks: List<CalendarTask> = emptyList(),
     /** 一次性错误提示文案，UI 消费后调用 [CalendarUiEvent.ErrorShown] 清除。 */
     val errorMessage: String? = null,
 ) {
@@ -42,10 +43,13 @@ data class CalendarUiState(
     /** 同步失败，可重试。 */
     val syncFailed: Boolean get() = connectionStatus == CalendarConnectionStatus.SYNC_FAILED
 
-    val meetingCount: Int get() = events.count { it.isMeeting }
-    val todoCount: Int get() = events.count { !it.isMeeting }
-    val morningEvents: List<CalendarEvent> get() = events.filter { it.isMorning }
-    val afternoonEvents: List<CalendarEvent> get() = events.filter { !it.isMorning }
+    val eventCount: Int get() = events.size
+    val taskCount: Int get() = tasks.size
+
+    /** 活动 + 任务合并、按时间排序的一条议程时间线。 */
+    val agenda: List<AgendaItem>
+        get() = (events.map { AgendaItem.Event(it) } + tasks.map { AgendaItem.Task(it) })
+            .sortedBy { it.sortKey }
 }
 
 /** UI → ViewModel 的单一事件入口类型。 */
@@ -68,8 +72,6 @@ sealed interface CalendarUiEvent {
     data class DateSelected(val date: LocalDate) : CalendarUiEvent
     data object PrevDay : CalendarUiEvent
     data object NextDay : CalendarUiEvent
-    data object ToggleMorning : CalendarUiEvent
-    data object ToggleAfternoon : CalendarUiEvent
     data object Refresh : CalendarUiEvent
     data object ErrorShown : CalendarUiEvent
 }

@@ -28,11 +28,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.data.calendar.CalendarEvent
+import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -160,8 +162,8 @@ fun CalendarScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                StatCard(uiState.meetingCount.toString(), "Meetings", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon, Modifier.weight(1f))
-                StatCard(uiState.todoCount.toString(), "To-dos", TodoBg, R.drawable.ic_check_circle, TodoIcon, Modifier.weight(1f))
+                StatCard(uiState.eventCount.toString(), "Events", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon, Modifier.weight(1f))
+                StatCard(uiState.taskCount.toString(), "Tasks", TodoBg, R.drawable.ic_check_circle, TodoIcon, Modifier.weight(1f))
             }
         }
 
@@ -239,14 +241,29 @@ fun CalendarScreen(
             }
         }
 
-        // 时段分组（游客拦截态不展示）
-        if (!uiState.loginRequired) {
-            SectionRow(R.drawable.ic_morning, "Morning", uiState.morningEvents, uiState.morningExpanded) {
-                onEvent(CalendarUiEvent.ToggleMorning)
-            }
-            Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(vertical = 4.dp).height(1.dp).background(ColorBorder))
-            SectionRow(R.drawable.ic_sun, "Afternoon", uiState.afternoonEvents, uiState.afternoonExpanded) {
-                onEvent(CalendarUiEvent.ToggleAfternoon)
+        // 议程：活动 + 任务合并、按时间排成一条线（游客拦截态不展示）
+        if (!uiState.loginRequired && uiState.isConnected) {
+            if (uiState.agenda.isEmpty()) {
+                if (!uiState.isLoading) {
+                    Text(
+                        "No events or tasks",
+                        fontSize = 13.sp,
+                        color = ColorTextFaint,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    uiState.agenda.forEach { item ->
+                        when (item) {
+                            is AgendaItem.Event -> EventRow(item.event)
+                            is AgendaItem.Task -> TaskRow(item.task)
+                        }
+                    }
+                }
             }
         }
         }
@@ -344,54 +361,37 @@ private fun StatCard(
 }
 
 @Composable
-private fun SectionRow(
-    iconRes: Int,
-    label: String,
-    events: List<CalendarEvent>,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = Color.White,
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .border(1.dp, ColorBorder, RoundedCornerShape(50))
-                .clickable(onClick = onToggle),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(painterResource(iconRes), null, tint = ColorTextTitle, modifier = Modifier.size(16.dp))
-                Text("$label (${events.size})", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
-                Icon(
-                    painter = painterResource(R.drawable.ic_arrow_down),
-                    contentDescription = null,
-                    tint = ColorTextSub,
-                    modifier = Modifier.size(16.dp).rotate(if (expanded) 180f else 0f),
-                )
+private fun TaskRow(task: CalendarTask) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White)
+            .border(1.dp, ColorBorder, RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 任务用勾选圈图标与活动区分；已完成置灰 + 删除线。
+        Icon(
+            painter = painterResource(R.drawable.ic_check_circle),
+            contentDescription = null,
+            tint = if (task.isCompleted) TodoIcon else ColorTextFaint,
+            modifier = Modifier.size(18.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = task.title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (task.isCompleted) ColorTextFaint else ColorTextTitle,
+                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
+            )
+            task.notes?.takeIf { it.isNotBlank() }?.let {
+                Text(it, fontSize = 12.sp, color = ColorTextSub, maxLines = 1)
             }
         }
-        if (expanded) {
-            if (events.isEmpty()) {
-                Text(
-                    "No events",
-                    fontSize = 13.sp,
-                    color = ColorTextFaint,
-                    modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp),
-                )
-            } else {
-                Column(
-                    modifier = Modifier.padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    events.forEach { EventRow(it) }
-                }
-            }
-        }
+        Text("Task", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TodoIcon)
     }
 }
 
@@ -476,13 +476,16 @@ private fun CalendarScreenConnectedPreview() {
         CalendarEvent("2", "Write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, false),
         CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", true),
     )
+    val sampleTasks = listOf(
+        CalendarTask("t1", "Submit expense report", day, isCompleted = false, notes = null),
+        CalendarTask("t2", "Reply to Alice", day, isCompleted = true, notes = null),
+    )
     AppTheme {
         CalendarScreen(
             uiState = CalendarUiState(
                 connectionStatus = CalendarConnectionStatus.CONNECTED,
                 events = sample,
-                morningExpanded = true,
-                afternoonExpanded = true,
+                tasks = sampleTasks,
             ),
             onEvent = {},
         )

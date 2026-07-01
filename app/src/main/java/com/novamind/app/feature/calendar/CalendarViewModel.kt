@@ -14,7 +14,10 @@ import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleAuthExpiredException
 import com.novamind.app.data.calendar.GoogleAuthRevokedException
 import com.novamind.app.data.calendar.GoogleCalendarRepository
+import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.util.LogUtils
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -38,6 +41,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
 
     private val app = application as NovieApplication
     private val repository: GoogleCalendarRepository = app.googleCalendarRepository
+    private val tasksRepository: GoogleTasksRepository = app.googleTasksRepository
     private val bindingStore: CalendarBindingStore = app.calendarBindingStore
     private val eventCache: CalendarEventCache = app.calendarEventCache
     private val authSource: GoogleCalendarAuthSource = app.googleCalendarAuthSource
@@ -70,8 +74,6 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
             CalendarUiEvent.NextDay -> selectDate(_uiState.value.selectedDate.plusDays(1))
-            CalendarUiEvent.ToggleMorning -> _uiState.update { it.copy(morningExpanded = !it.morningExpanded) }
-            CalendarUiEvent.ToggleAfternoon -> _uiState.update { it.copy(afternoonExpanded = !it.afternoonExpanded) }
             CalendarUiEvent.Refresh -> if (_uiState.value.isConnected) loadEvents()
             CalendarUiEvent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
         }
@@ -253,12 +255,27 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
      * 续期失败或 403 → [CalendarConnectionStatus.PERMISSION_REVOKED]；其余 → [CalendarConnectionStatus.SYNC_FAILED]。
      */
     private suspend fun fetchInto(date: LocalDate, accountId: String?, allowSilentRetry: Boolean) {
-        runCatching { repository.eventsOn(date) }
-            .onSuccess { events ->
-                LogUtils.d("loadEvents success: date=$date, count=${events.size}", TAG)
+        // 活动与任务并行拉取；活动的鉴权错误驱动状态，任务为 best-effort（失败不影响活动展示）。
+        runCatching {
+            coroutineScope {
+                val eventsDeferred = async { repository.eventsOn(date) }
+                val tasksDeferred = async {
+                    runCatching { tasksRepository.tasksOn(date) }
+                        .onFailure { LogUtils.w("loadTasks failed: date=$date", it, TAG) }
+                        .getOrDefault(emptyList())
+                }
+                eventsDeferred.await() to tasksDeferred.await()
+            }
+        }
+            .onSuccess { (events, tasks) ->
+                LogUtils.d("load success: date=$date, events=${events.size}, tasks=${tasks.size}", TAG)
                 if (accountId != null) eventCache.put(accountId, date, events)
                 _uiState.update {
-                    it.copy(connectionStatus = CalendarConnectionStatus.CONNECTED, events = events)
+                    it.copy(
+                        connectionStatus = CalendarConnectionStatus.CONNECTED,
+                        events = events,
+                        tasks = tasks,
+                    )
                 }
             }
             .onFailure { e ->
