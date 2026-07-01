@@ -39,6 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -118,11 +120,27 @@ fun AddTaskScreen(
     // 编辑已有描述时直接展开输入框。
     var showNotesField by rememberSaveable { mutableStateOf(initialNotes.isNotBlank()) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
-    val canSave = title.isNotBlank()
+
+    // 内容是否有变更：驱动 Save 可用性与返回时的放弃确认。
+    val dirty = title != initialTitle || notes != initialNotes || dueEpochDay != initialDue.toEpochDay()
+    // 标题非空且有变更才可保存（内容没变时 Save 置灰）。
+    val canSave = title.isNotBlank() && dirty
+
+    // 关闭页面前**立即**收起键盘：AnimatedVisibility 退出动画期间文本框仍持有焦点，
+    // 若等其销毁后 IME 才开始收起，会与页面滑出串行、观感迟滞（Activity 为
+    // adjustNothing，键盘不参与布局重排，滞留更明显）。主动收起让两者并行。
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val hideKeyboard: () -> Unit = {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+    }
 
     // 内容有变更时，返回需二次确认（左上角返回与系统返回同一路径）。
-    val dirty = title != initialTitle || notes != initialNotes || dueEpochDay != initialDue.toEpochDay()
-    val attemptClose = { if (dirty) showDiscardConfirm = true else onBack() }
+    val attemptClose = {
+        hideKeyboard()
+        if (dirty) showDiscardConfirm = true else onBack()
+    }
     BackHandler(onBack = attemptClose)
 
     Column(
@@ -161,7 +179,10 @@ fun AddTaskScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .clickable(enabled = canSave) { onSave(title.trim(), notes.trim().ifBlank { null }, due) }
+                        .clickable(enabled = canSave) {
+                            hideKeyboard()
+                            onSave(title.trim(), notes.trim().ifBlank { null }, due)
+                        }
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
                     Text(
@@ -206,7 +227,10 @@ fun AddTaskScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .clickable { showDatePicker = true }
+                    .clickable {
+                        hideKeyboard()
+                        showDatePicker = true
+                    }
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -279,7 +303,10 @@ fun AddTaskScreen(
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(50))
                     .background(ColorSurface)
-                    .clickable(onClick = onToggleCompleted)
+                    .clickable {
+                        hideKeyboard()
+                        onToggleCompleted()
+                    }
                     .padding(vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
@@ -308,7 +335,10 @@ fun AddTaskScreen(
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(50))
                     .background(ColorSurface)
-                    .clickable { showDeleteConfirm = true }
+                    .clickable {
+                        hideKeyboard()
+                        showDeleteConfirm = true
+                    }
                     .padding(vertical = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
