@@ -9,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -274,39 +273,28 @@ fun CalendarScreen(
             Spacer(Modifier.height(20.dp))
         }
 
-        if (uiState.isLoading) {
-            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = ColorPrimary, modifier = Modifier.size(28.dp))
-            }
-        }
-
-        // 议程：活动 + 任务合并、按时间排成一条线（按 filter 过滤；游客拦截态不展示）
+        // 议程：活动、任务分两个区块（各带小标题）；按 filter 决定显示哪块（游客拦截态不展示）
         if (!uiState.loginRequired && uiState.isConnected) {
-            val items = uiState.visibleAgenda
-            if (items.isEmpty()) {
-                if (!uiState.isLoading) {
-                    Text(
-                        when (uiState.filter) {
-                            AgendaFilter.EVENTS -> "No events"
-                            AgendaFilter.TASKS -> "No tasks"
-                            AgendaFilter.ALL -> "No events or tasks"
-                        },
-                        fontSize = 13.sp,
-                        color = ColorTextFaint,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+            if (uiState.showEventsSection) {
+                AgendaSection(
+                    label = "Events",
+                    count = uiState.eventCount,
+                    empty = uiState.events.isEmpty(),
+                    emptyText = "No events",
+                    loading = uiState.isLoading,
                 ) {
-                    items.forEach { item ->
-                        when (item) {
-                            is AgendaItem.Event -> EventRow(item.event)
-                            is AgendaItem.Task -> TaskRow(item.task)
-                        }
-                    }
+                    uiState.events.forEach { EventRow(it) }
+                }
+            }
+            if (uiState.showTasksSection) {
+                AgendaSection(
+                    label = "Tasks",
+                    count = uiState.taskCount,
+                    empty = uiState.tasks.isEmpty(),
+                    emptyText = "No tasks",
+                    loading = uiState.isLoading,
+                ) {
+                    uiState.tasks.forEach { TaskRow(it) }
                 }
             }
         }
@@ -404,6 +392,43 @@ private fun StatCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Text(count, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
             Text(label, fontSize = 13.sp, color = ColorTextSub)
+        }
+    }
+}
+
+@Composable
+private fun AgendaSection(
+    label: String,
+    count: Int,
+    empty: Boolean,
+    emptyText: String,
+    loading: Boolean,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(top = 4.dp, bottom = 8.dp),
+    ) {
+        Text(
+            "$label ($count)",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = ColorTextSub,
+            modifier = Modifier.padding(vertical = 6.dp),
+        )
+        if (empty) {
+            if (!loading) {
+                Text(
+                    emptyText,
+                    fontSize = 13.sp,
+                    color = ColorTextFaint,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
         }
     }
 }

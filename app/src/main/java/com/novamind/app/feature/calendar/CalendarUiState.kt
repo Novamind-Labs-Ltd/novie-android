@@ -48,18 +48,11 @@ data class CalendarUiState(
     val eventCount: Int get() = events.size
     val taskCount: Int get() = tasks.size
 
-    /** 活动 + 任务合并、按时间排序的一条议程时间线。 */
-    val agenda: List<AgendaItem>
-        get() = (events.map { AgendaItem.Event(it) } + tasks.map { AgendaItem.Task(it) })
-            .sortedBy { it.sortKey }
+    /** 是否展示活动区块（全部 / 仅活动）。 */
+    val showEventsSection: Boolean get() = filter == AgendaFilter.ALL || filter == AgendaFilter.EVENTS
 
-    /** 应用 [filter] 后实际展示的议程。 */
-    val visibleAgenda: List<AgendaItem>
-        get() = when (filter) {
-            AgendaFilter.ALL -> agenda
-            AgendaFilter.EVENTS -> agenda.filterIsInstance<AgendaItem.Event>()
-            AgendaFilter.TASKS -> agenda.filterIsInstance<AgendaItem.Task>()
-        }
+    /** 是否展示任务区块（全部 / 仅任务）。 */
+    val showTasksSection: Boolean get() = filter == AgendaFilter.ALL || filter == AgendaFilter.TASKS
 }
 
 /** 议程展示过滤维度。 */
