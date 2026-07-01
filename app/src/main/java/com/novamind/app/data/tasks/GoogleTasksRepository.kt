@@ -1,11 +1,9 @@
 package com.novamind.app.data.tasks
 
-import com.novamind.app.data.calendar.GoogleAuthExpiredException
-import com.novamind.app.data.calendar.GoogleAuthRevokedException
+import com.novamind.app.util.LogUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
-import java.net.HttpURLConnection
 import java.time.LocalDate
 
 /**
@@ -30,11 +28,10 @@ class GoogleTasksRepositoryImpl(
                 .filter { it.due == date }
                 .sortedBy { it.title }
         } catch (e: HttpException) {
-            throw when (e.code()) {
-                HttpURLConnection.HTTP_UNAUTHORIZED -> GoogleAuthExpiredException()
-                HttpURLConnection.HTTP_FORBIDDEN -> GoogleAuthRevokedException()
-                else -> e
-            }
+            // 打印 Google 返回的真实原因，便于区分「Tasks API 未启用」vs「scope 不足」等。
+            val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+            LogUtils.w("tasks fetch failed http=${e.code()} body=$body", e, TAG)
+            throw e
         }
     }
 
@@ -48,5 +45,9 @@ class GoogleTasksRepositoryImpl(
             isCompleted = status == "completed",
             notes = notes?.takeIf { it.isNotBlank() },
         )
+    }
+
+    private companion object {
+        const val TAG = "CalendarTasks"
     }
 }
