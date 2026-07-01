@@ -30,6 +30,8 @@ class GoogleCalendarRepositoryImpl(
                 .items
                 .filter { it.status != "cancelled" }
                 .mapNotNull { it.toDomain() }
+                // 仅展示常规活动与专注时间，其余类型（外出/工作地点/生日/Gmail 等）不进列表。
+                .filter { it.eventType == CalendarEventType.DEFAULT || it.eventType == CalendarEventType.FOCUS_TIME }
                 .sortedBy { it.start }
         } catch (e: HttpException) {
             throw e.toAuthAware()
