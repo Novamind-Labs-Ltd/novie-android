@@ -21,7 +21,13 @@ class GoogleTasksRepositoryImpl(
 
     override suspend fun tasksOn(date: LocalDate): List<CalendarTask> = withContext(Dispatchers.IO) {
         try {
-            api.taskLists().items
+            val taskLists = api.taskLists().items
+            LogUtils.d(
+                "taskLists count=${taskLists.size} items=" +
+                    taskLists.joinToString { "[id=${it.id}, title=${it.title}]" },
+                TAG,
+            )
+            taskLists
                 .mapNotNull { it.id }
                 .flatMap { listId -> api.tasks(listId).items }
                 .mapNotNull { it.toDomain() }

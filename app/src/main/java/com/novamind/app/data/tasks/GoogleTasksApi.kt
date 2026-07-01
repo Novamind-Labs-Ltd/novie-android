@@ -6,7 +6,7 @@ import retrofit2.http.Query
 
 /**
  * Google Tasks REST API v1（只读）。Authorization 头由 [GoogleTasksNetwork] 的拦截器注入。
- * baseUrl 为 https://tasks.googleapis.com/tasks/v1/。
+ * baseUrl 为 https://developers.google.com/workspace/tasks/reference/rest/v1/tasks/list?hl=zh-cn
  */
 interface GoogleTasksApi {
 
