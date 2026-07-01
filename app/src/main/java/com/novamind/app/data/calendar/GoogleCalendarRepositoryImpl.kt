@@ -68,11 +68,11 @@ class GoogleCalendarRepositoryImpl(
         // 映射结果（字段对应）：
         // id<-id, title<-summary, isAllDay<-(start.dateTime==null&&start.date!=null),
         // start<-start.(dateTime|date), end<-end.(dateTime|date)?:start,
-        // location<-location, eventType<-eventType（会议/任务分类由 category/isMeetingType 派生）
+        // location<-location, eventType<-eventType（仅信息展示，不再区分会议/任务）
         LogUtils.d(
             "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
                 "start=${event.start} end=${event.end} location=${event.location} " +
-                "eventType=${event.eventType} category=${event.category}",
+                "eventType=${event.eventType}",
             TAG,
         )
         return event

@@ -426,7 +426,7 @@ private fun TaskRow(task: CalendarTask) {
 
 @Composable
 private fun EventRow(event: CalendarEvent) {
-    val accent = if (event.isMeetingType) MeetingIcon else TodoIcon
+    val accent = MeetingIcon
     Row(
         modifier = Modifier
             .fillMaxWidth()

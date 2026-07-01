@@ -14,36 +14,6 @@ data class CalendarEvent(
     val start: LocalDateTime,
     val end: LocalDateTime,
     val location: String?,
-    /** Google Calendar 事件类型（见 [CalendarEventType]）。缺省为 [CalendarEventType.DEFAULT]。 */
+    /** Google Calendar 事件类型（见 [CalendarEventType]），仅作信息展示，不再区分会议/任务。 */
     val eventType: CalendarEventType = CalendarEventType.DEFAULT,
-) {
-    /**
-     * 基于 [eventType] 的分类：
-     * default → [CalendarEventCategory.MEETING]，focusTime → [CalendarEventCategory.TASK]，
-     * 其余（outOfOffice / workingLocation / birthday / fromGmail / unknown）→ [CalendarEventCategory.OTHER]。
-     */
-    val category: CalendarEventCategory
-        get() = when (eventType) {
-            CalendarEventType.DEFAULT -> CalendarEventCategory.MEETING
-            CalendarEventType.FOCUS_TIME -> CalendarEventCategory.TASK
-            else -> CalendarEventCategory.OTHER
-        }
-
-    /** 是否为「会议」类型（eventType==default）。 */
-    val isMeetingType: Boolean get() = category == CalendarEventCategory.MEETING
-
-    /** 是否为「任务」类型（eventType==focusTime）。 */
-    val isTaskType: Boolean get() = category == CalendarEventCategory.TASK
-}
-
-/** 基于 [CalendarEventType] 的活动分类。 */
-enum class CalendarEventCategory {
-    /** 会议（eventType==default）。 */
-    MEETING,
-
-    /** 任务（eventType==focusTime）。 */
-    TASK,
-
-    /** 其他活动（outOfOffice / workingLocation / birthday / fromGmail / unknown）。 */
-    OTHER,
-}
+)

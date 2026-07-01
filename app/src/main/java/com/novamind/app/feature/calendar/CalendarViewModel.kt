@@ -276,7 +276,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     LogUtils.d(
                         "  event[$i] id=${e.id} title=${e.title} allDay=${e.isAllDay} " +
                             "start=${e.start} end=${e.end} eventType=${e.eventType} " +
-                            "category=${e.category} location=${e.location}",
+                            "location=${e.location}",
                         TAG,
                     )
                 }
