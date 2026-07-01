@@ -1,5 +1,6 @@
 package com.novamind.app.feature.calendar
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -108,6 +109,7 @@ fun AddTaskScreen(
     onDelete: (() -> Unit)? = null,
 ) {
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
     var title by rememberSaveable { mutableStateOf(initialTitle) }
     var notes by rememberSaveable { mutableStateOf(initialNotes) }
     // LocalDate 非 Bundle 类型，以 epochDay(Long) 持久化，进程重建后可恢复。
@@ -117,6 +119,11 @@ fun AddTaskScreen(
     var showNotesField by rememberSaveable { mutableStateOf(initialNotes.isNotBlank()) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val canSave = title.isNotBlank()
+
+    // 内容有变更时，返回需二次确认（左上角返回与系统返回同一路径）。
+    val dirty = title != initialTitle || notes != initialNotes || dueEpochDay != initialDue.toEpochDay()
+    val attemptClose = { if (dirty) showDiscardConfirm = true else onBack() }
+    BackHandler(onBack = attemptClose)
 
     Column(
         modifier = modifier
@@ -136,7 +143,7 @@ fun AddTaskScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .clickable(onClick = onBack),
+                        .clickable(onClick = attemptClose),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -320,6 +327,24 @@ fun AddTaskScreen(
                 )
             }
         }
+    }
+
+    // 放弃变更确认：内容已修改但未保存时，返回先确认。
+    if (showDiscardConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDiscardConfirm = false },
+            title = { Text("Discard changes?") },
+            text = { Text("Your edits haven't been saved.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiscardConfirm = false
+                    onBack()
+                }) { Text("Discard", color = ColorError) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardConfirm = false }) { Text("Keep editing") }
+            },
+        )
     }
 
     // 删除确认：Google Tasks 无回收站，删除不可恢复。

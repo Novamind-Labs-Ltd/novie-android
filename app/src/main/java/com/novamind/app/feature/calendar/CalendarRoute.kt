@@ -1,7 +1,6 @@
 package com.novamind.app.feature.calendar
 
 import android.app.Activity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -53,7 +52,8 @@ fun CalendarRoute(
     LaunchedEffect(showAddTask) { onFullscreenChange(showAddTask) }
     // 覆盖层开着时切走 tab（本 Route 离开组合）→ 恢复底栏，避免 hideBottomNav 卡住。
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
-    BackHandler(enabled = showAddTask) { showAddTask = false }
+    // 系统返回由 AddTaskScreen 内部的 BackHandler 接管（含未保存变更的放弃确认），
+    // 此处不再拦截，避免绕过脏检查直接关闭。
 
     // 恢复授权（OAuth 同意）结果：同意后用登录账户重试取 token。
     val consentLauncher = rememberLauncherForActivityResult(
