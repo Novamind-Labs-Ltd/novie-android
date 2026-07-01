@@ -23,6 +23,19 @@ object AppConfig {
         )
     }
 
+    /** 下拉刷新组件（PullToRefresh）通用配置，供所有使用下拉刷新的页面共享。 */
+    object PullRefresh {
+        /** 刷新指示器随机配色池：每次开始刷新时从中随机取一色，取自 [Palette]。 */
+        val INDICATOR_COLORS: List<Color> = listOf(
+            Palette.forrest600,
+            Palette.teal600,
+            Palette.orange600,
+            Palette.red500,
+            Palette.slate600,
+            Palette.green600,
+        )
+    }
+
     /** 笔记编辑器行为。 */
     object Editor {
         /** 自动保存防抖延时（毫秒）：停顿超过此时长才落盘。 */

@@ -16,7 +16,12 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventType
 import com.novamind.app.data.calendar.isPast
@@ -105,6 +111,11 @@ fun CalendarScreen(
 
     // 下拉刷新：仅已连接时真正触发拉取（未连接/游客态下 Refresh 为 no-op）。
     val pullState = rememberPullToRefreshState()
+    // 刷新指示器随机配色：仅在「开始刷新」这一刻换色，避免每次重组闪烁。配色池见 AppConfig。
+    var indicatorColor by remember { mutableStateOf(AppConfig.PullRefresh.INDICATOR_COLORS.first()) }
+    LaunchedEffect(uiState.isLoading) {
+        if (uiState.isLoading) indicatorColor = AppConfig.PullRefresh.INDICATOR_COLORS.random()
+    }
     PullToRefreshBox(
         isRefreshing = uiState.isLoading,
         onRefresh = { onEvent(CalendarUiEvent.Refresh) },
@@ -116,7 +127,7 @@ fun CalendarScreen(
             PullToRefreshDefaults.Indicator(
                 state = pullState,
                 isRefreshing = uiState.isLoading,
-                color = ColorPrimary,
+                color = indicatorColor,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         },
