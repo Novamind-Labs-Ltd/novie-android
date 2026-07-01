@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +60,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
@@ -96,6 +99,10 @@ private val TodoIcon: Color
 private val weekLetters = listOf("M", "T", "W", "T", "F", "S", "S")
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
 
+// 周条 pager：足够大的页数模拟"无限"前后翻周，中间页为锚点周（本周）。
+private const val WEEK_PAGE_COUNT = 20_000
+private const val WEEK_INITIAL_PAGE = WEEK_PAGE_COUNT / 2
+
 /**
  * 无状态 Calendar 屏幕：仅消费 [CalendarUiState] 并通过 [onEvent] 上报交互。
  * 授权后展示统计与时段事件，未授权时展示「连接 Google 日历」空状态卡片。
@@ -109,7 +116,6 @@ fun CalendarScreen(
 ) {
     val selectedDate = uiState.selectedDate
     val monday = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val week = (0..6).map { monday.plusDays(it.toLong()) }
     val dayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
     val dateStr = selectedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH))
 
@@ -184,17 +190,47 @@ fun CalendarScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // 周条
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
-            week.forEachIndexed { i, date ->
-                DayCell(
-                    letter = weekLetters[i],
-                    day = date.dayOfMonth,
-                    selected = date == selectedDate,
-                    weekend = i >= 5,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onEvent(CalendarUiEvent.DateSelected(date)) },
+        // 周条：HorizontalPager 支持左右滑动切周。
+        // 锚点 = 本周周一，页号 = 锚点周 ± 偏移；只在 Screen 内换算，周切换仍通过 DateSelected 上报。
+        val anchorMonday = remember { LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
+        val weekPage = WEEK_INITIAL_PAGE + ChronoUnit.WEEKS.between(anchorMonday, monday).toInt()
+        val weekPagerState = rememberPagerState(initialPage = weekPage) { WEEK_PAGE_COUNT }
+
+        // 滑动翻页停定 → 切换选中日期（保持星期几不变）。初始与同周停定为 no-op。
+        LaunchedEffect(weekPagerState.settledPage) {
+            val newMonday = anchorMonday.plusWeeks((weekPagerState.settledPage - WEEK_INITIAL_PAGE).toLong())
+            if (newMonday != monday) {
+                onEvent(
+                    CalendarUiEvent.DateSelected(
+                        newMonday.plusDays((selectedDate.dayOfWeek.value - 1).toLong()),
+                    ),
                 )
+            }
+        }
+        // 外部改日期（箭头/点日期）跨周时，pager 动画跟随；滑动中不打断手势。
+        LaunchedEffect(weekPage) {
+            if (weekPagerState.currentPage != weekPage && !weekPagerState.isScrollInProgress) {
+                weekPagerState.animateScrollToPage(weekPage)
+            }
+        }
+
+        HorizontalPager(
+            state = weekPagerState,
+            modifier = Modifier.fillMaxWidth(),
+        ) { page ->
+            val pageMonday = anchorMonday.plusWeeks((page - WEEK_INITIAL_PAGE).toLong())
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
+                (0..6).forEach { i ->
+                    val date = pageMonday.plusDays(i.toLong())
+                    DayCell(
+                        letter = weekLetters[i],
+                        day = date.dayOfMonth,
+                        selected = date == selectedDate,
+                        weekend = i >= 5,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onEvent(CalendarUiEvent.DateSelected(date)) },
+                    )
+                }
             }
         }
 
