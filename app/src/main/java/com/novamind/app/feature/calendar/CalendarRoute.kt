@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.novamind.app.data.tasks.CalendarTask
 import kotlinx.coroutines.launch
 
 /**
@@ -42,8 +45,11 @@ fun CalendarRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    // 新增任务覆盖层（点顶部「+」打开）；打开时隐藏底部导航栏。
+    // 新增/编辑任务覆盖层（点顶部「+」或任务行打开）；打开时隐藏底部导航栏。
     var showAddTask by rememberSaveable { mutableStateOf(false) }
+    // 正在编辑的任务；null = 新增模式。CalendarTask 非 Parcelable，进程重建后
+    // 覆盖层可能退化为新增模式，可接受（编辑内容本就未保存）。
+    var editingTask by remember { mutableStateOf<CalendarTask?>(null) }
     LaunchedEffect(showAddTask) { onFullscreenChange(showAddTask) }
     // 覆盖层开着时切走 tab（本 Route 离开组合）→ 恢复底栏，避免 hideBottomNav 卡住。
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
@@ -84,8 +90,15 @@ fun CalendarRoute(
                         viewModel.connectWithCurrentAccount()
                     }
                     // 新增任务：仅已连接时打开（未连接创建必然失败）。
-                    CalendarUiEvent.AddTaskClicked ->
-                        if (uiState.isConnected) showAddTask = true
+                    CalendarUiEvent.AddTaskClicked -> if (uiState.isConnected) {
+                        editingTask = null
+                        showAddTask = true
+                    }
+                    // 点击任务行 → 编辑模式打开同一覆盖层。
+                    is CalendarUiEvent.TaskClicked -> {
+                        editingTask = event.task
+                        showAddTask = true
+                    }
                     else -> viewModel.onEvent(event)
                 }
             },
@@ -97,14 +110,26 @@ fun CalendarRoute(
             enter = slideInHorizontally { it } + fadeIn(),
             exit = slideOutHorizontally { it } + fadeOut(),
         ) {
-            AddTaskScreen(
-                initialDue = uiState.selectedDate,
-                onSave = { title, notes, due ->
-                    showAddTask = false
-                    viewModel.onEvent(CalendarUiEvent.CreateTask(title, notes, due))
-                },
-                onBack = { showAddTask = false },
-            )
+            // key：在「新增 ↔ 编辑不同任务」之间切换时强制重建表单状态（rememberSaveable 只取首次初值）。
+            key(editingTask?.id) {
+                AddTaskScreen(
+                    initialDue = editingTask?.due ?: uiState.selectedDate,
+                    initialTitle = editingTask?.title.orEmpty(),
+                    initialNotes = editingTask?.notes.orEmpty(),
+                    onSave = { title, notes, due ->
+                        showAddTask = false
+                        val editing = editingTask
+                        viewModel.onEvent(
+                            if (editing != null) {
+                                CalendarUiEvent.UpdateTask(editing, title, notes, due)
+                            } else {
+                                CalendarUiEvent.CreateTask(title, notes, due)
+                            },
+                        )
+                    },
+                    onBack = { showAddTask = false },
+                )
+            }
         }
     }
 }

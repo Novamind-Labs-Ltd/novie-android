@@ -76,10 +76,13 @@ private val ColorPrimary: Color
 private val dueFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
 
 /**
- * 新增任务（To-do）页：标题 + 截止日期 + 描述（对应 Google Tasks 的 title/due/notes）。
+ * 新增/编辑任务（To-do）页：标题 + 截止日期 + 描述（对应 Google Tasks 的 title/due/notes）。
+ *
+ * 新增与编辑共用：编辑时由调用方传入 [initialTitle] / [initialNotes] 预填，
+ * Save 统一通过 [onSave] 上报当前值，创建还是更新由调用方决定。
  *
  * 无状态入口由 [CalendarRoute] 作为覆盖层承载；编辑中的文本/日期是**瞬态 UI 状态**，
- * 用 rememberSaveable 留在本组件内，Save 时通过 [onSave] 一次性上报。
+ * 用 rememberSaveable 留在本组件内，Save 时一次性上报。
  *
  * 设计稿中的时间段/提醒/附件 Google Tasks API 不支持，此版本裁剪（见 calendar-connection-design.md）。
  */
@@ -90,13 +93,16 @@ fun AddTaskScreen(
     onSave: (title: String, notes: String?, due: LocalDate) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    initialTitle: String = "",
+    initialNotes: String = "",
 ) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var notes by rememberSaveable { mutableStateOf("") }
+    var title by rememberSaveable { mutableStateOf(initialTitle) }
+    var notes by rememberSaveable { mutableStateOf(initialNotes) }
     // LocalDate 非 Bundle 类型，以 epochDay(Long) 持久化，进程重建后可恢复。
     var dueEpochDay by rememberSaveable { mutableStateOf(initialDue.toEpochDay()) }
     val due = LocalDate.ofEpochDay(dueEpochDay)
-    var showNotesField by rememberSaveable { mutableStateOf(false) }
+    // 编辑已有描述时直接展开输入框。
+    var showNotesField by rememberSaveable { mutableStateOf(initialNotes.isNotBlank()) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val canSave = title.isNotBlank()
 

@@ -19,6 +19,9 @@ interface GoogleTasksRepository {
 
     /** 在默认任务列表创建任务。失败抛异常，由调用方提示。 */
     suspend fun createTask(title: String, notes: String?, due: LocalDate?)
+
+    /** 更新任务的标题/描述/截止日期。notes 传 null 表示清空描述。失败抛异常。 */
+    suspend fun updateTask(listId: String, taskId: String, title: String, notes: String?, due: LocalDate?)
 }
 
 class GoogleTasksRepositoryImpl(
@@ -43,6 +46,32 @@ class GoogleTasksRepositoryImpl(
             // 打印 Google 返回的真实原因，便于区分「Tasks API 未启用」vs「scope 不足」等。
             val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
             LogUtils.w("tasks fetch failed http=${e.code()} body=$body", e, TAG)
+            throw e
+        }
+    }
+
+    override suspend fun updateTask(
+        listId: String,
+        taskId: String,
+        title: String,
+        notes: String?,
+        due: LocalDate?,
+    ): Unit = withContext(Dispatchers.IO) {
+        try {
+            api.patchTask(
+                taskListId = listId,
+                taskId = taskId,
+                body = TaskPatchDto(
+                    title = title,
+                    // 清空描述需发空串（null 会被序列化省略、字段不更新）。
+                    notes = notes ?: "",
+                    due = due?.let { "${it}T00:00:00.000Z" },
+                ),
+            )
+            LogUtils.d("updateTask ok: listId=$listId taskId=$taskId due=$due", TAG)
+        } catch (e: HttpException) {
+            val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+            LogUtils.w("updateTask failed http=${e.code()} body=$body", e, TAG)
             throw e
         }
     }

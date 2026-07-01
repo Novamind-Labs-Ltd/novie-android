@@ -87,6 +87,17 @@ sealed interface CalendarUiEvent {
     /** 新增任务页点 Save：在默认列表创建任务（notes 可空；due 为截止日期）。 */
     data class CreateTask(val title: String, val notes: String?, val due: LocalDate) : CalendarUiEvent
 
+    /** 点击任务行进入编辑页。Route 层拦截显示覆盖层（编辑模式），VM 不处理。 */
+    data class TaskClicked(val task: CalendarTask) : CalendarUiEvent
+
+    /** 编辑任务页点 Save：更新标题/描述/截止日期。 */
+    data class UpdateTask(
+        val task: CalendarTask,
+        val title: String,
+        val notes: String?,
+        val due: LocalDate,
+    ) : CalendarUiEvent
+
     data class DateSelected(val date: LocalDate) : CalendarUiEvent
     data object PrevDay : CalendarUiEvent
     data object NextDay : CalendarUiEvent

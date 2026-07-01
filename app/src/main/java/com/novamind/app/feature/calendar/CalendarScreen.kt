@@ -311,7 +311,11 @@ fun CalendarScreen(
                     loading = uiState.isLoading,
                 ) {
                     uiState.tasks.forEach { task ->
-                        TaskRow(task, onComplete = { onEvent(CalendarUiEvent.CompleteTask(it)) })
+                        TaskRow(
+                            task = task,
+                            onComplete = { onEvent(CalendarUiEvent.CompleteTask(it)) },
+                            onClick = { onEvent(CalendarUiEvent.TaskClicked(it)) },
+                        )
                     }
                 }
             }
@@ -457,7 +461,11 @@ private fun AgendaSection(
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun TaskRow(task: CalendarTask, onComplete: (CalendarTask) -> Unit) {
+private fun TaskRow(
+    task: CalendarTask,
+    onComplete: (CalendarTask) -> Unit,
+    onClick: (CalendarTask) -> Unit,
+) {
     val currentTask by rememberUpdatedState(task)
     val currentOnComplete by rememberUpdatedState(onComplete)
     val dismissState = rememberSwipeToDismissBoxState(
@@ -492,18 +500,19 @@ private fun TaskRow(task: CalendarTask, onComplete: (CalendarTask) -> Unit) {
             }
         },
     ) {
-        TaskRowContent(task)
+        TaskRowContent(task, onClick = { onClick(task) })
     }
 }
 
 @Composable
-private fun TaskRowContent(task: CalendarTask) {
+private fun TaskRowContent(task: CalendarTask, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(ColorSurface)
             .border(1.dp, ColorBorder, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,

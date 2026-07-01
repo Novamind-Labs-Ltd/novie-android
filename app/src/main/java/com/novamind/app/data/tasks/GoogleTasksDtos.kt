@@ -34,11 +34,15 @@ data class TaskDto(
     val completed: String? = null,
 )
 
-/** PATCH 局部更新请求体：仅携带需变更的字段。 */
+/** PATCH 局部更新请求体：仅携带需变更的字段（null 会被序列化省略，见 explicitNulls=false）。 */
 @Serializable
 data class TaskPatchDto(
     /** needsAction | completed。置 completed 时 Google 自动写入完成时间。 */
-    val status: String,
+    val status: String? = null,
+    val title: String? = null,
+    val notes: String? = null,
+    /** RFC3339，仅日期部分生效。 */
+    val due: String? = null,
 )
 
 /** POST 新建任务请求体。due 为 RFC3339，但 API 仅识别日期部分。 */

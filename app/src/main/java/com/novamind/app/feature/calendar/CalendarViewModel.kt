@@ -76,9 +76,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 // 再次点击已选过滤 → 回到全部。
                 it.copy(filter = if (it.filter == event.filter) AgendaFilter.ALL else event.filter)
             }
-            // AddTaskClicked 仅切换 UI 覆盖层，由 Route 拦截，VM 不处理。
+            // AddTaskClicked / TaskClicked 仅切换 UI 覆盖层，由 Route 拦截，VM 不处理。
             CalendarUiEvent.AddTaskClicked -> Unit
+            is CalendarUiEvent.TaskClicked -> Unit
             is CalendarUiEvent.CreateTask -> createTask(event.title, event.notes, event.due)
+            is CalendarUiEvent.UpdateTask -> updateTask(event.task, event.title, event.notes, event.due)
             is CalendarUiEvent.CompleteTask -> completeTask(event.task)
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
@@ -250,6 +252,31 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     LogUtils.w("createTask failed: title=$title", e, TAG)
                     _uiState.update {
                         it.copy(errorMessage = "Couldn't create the task. Please retry.")
+                    }
+                }
+        }
+    }
+
+    /**
+     * 编辑任务（Save 后覆盖层已关闭，后台更新）：
+     * 先乐观更新本地列表（改了截止日则从当天移除），API 失败回滚并提示。
+     */
+    private fun updateTask(task: CalendarTask, title: String, notes: String?, due: LocalDate) {
+        val previous = _uiState.value.tasks
+        _uiState.update { state ->
+            state.copy(
+                tasks = state.tasks
+                    .map { if (it.id == task.id) it.copy(title = title, notes = notes, due = due) else it }
+                    .filter { it.due == state.selectedDate }
+                    .sortedWith(compareBy({ it.isCompleted }, { it.title })),
+            )
+        }
+        viewModelScope.launch {
+            runCatching { tasksRepository.updateTask(task.listId, task.id, title, notes, due) }
+                .onFailure { e ->
+                    LogUtils.w("updateTask failed: id=${task.id}", e, TAG)
+                    _uiState.update {
+                        it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
                     }
                 }
         }
