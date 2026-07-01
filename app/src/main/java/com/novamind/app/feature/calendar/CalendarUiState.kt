@@ -21,6 +21,8 @@ data class CalendarUiState(
     val events: List<CalendarEvent> = emptyList(),
     /** 选中日期的任务（Google Tasks）。 */
     val tasks: List<CalendarTask> = emptyList(),
+    /** 议程展示过滤：全部 / 仅活动 / 仅任务（点击统计卡切换）。 */
+    val filter: AgendaFilter = AgendaFilter.ALL,
     /** 一次性错误提示文案，UI 消费后调用 [CalendarUiEvent.ErrorShown] 清除。 */
     val errorMessage: String? = null,
 ) {
@@ -50,7 +52,18 @@ data class CalendarUiState(
     val agenda: List<AgendaItem>
         get() = (events.map { AgendaItem.Event(it) } + tasks.map { AgendaItem.Task(it) })
             .sortedBy { it.sortKey }
+
+    /** 应用 [filter] 后实际展示的议程。 */
+    val visibleAgenda: List<AgendaItem>
+        get() = when (filter) {
+            AgendaFilter.ALL -> agenda
+            AgendaFilter.EVENTS -> agenda.filterIsInstance<AgendaItem.Event>()
+            AgendaFilter.TASKS -> agenda.filterIsInstance<AgendaItem.Task>()
+        }
 }
+
+/** 议程展示过滤维度。 */
+enum class AgendaFilter { ALL, EVENTS, TASKS }
 
 /** UI → ViewModel 的单一事件入口类型。 */
 sealed interface CalendarUiEvent {
@@ -68,6 +81,9 @@ sealed interface CalendarUiEvent {
 
     /** 同步失败后重试。 */
     data object Retry : CalendarUiEvent
+
+    /** 点击统计卡切换议程过滤（再次点击已选项回到全部）。 */
+    data class SelectAgendaFilter(val filter: AgendaFilter) : CalendarUiEvent
 
     data class DateSelected(val date: LocalDate) : CalendarUiEvent
     data object PrevDay : CalendarUiEvent

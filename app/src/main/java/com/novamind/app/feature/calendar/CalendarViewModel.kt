@@ -71,6 +71,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             }
             CalendarUiEvent.Disconnect -> onDisconnect()
             CalendarUiEvent.Retry -> loadEvents()
+            is CalendarUiEvent.SelectAgendaFilter -> _uiState.update {
+                // 再次点击已选过滤 → 回到全部。
+                it.copy(filter = if (it.filter == event.filter) AgendaFilter.ALL else event.filter)
+            }
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
             CalendarUiEvent.NextDay -> selectDate(_uiState.value.selectedDate.plusDays(1))

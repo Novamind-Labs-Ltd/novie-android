@@ -191,8 +191,18 @@ fun CalendarScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                StatCard(uiState.eventCount.toString(), "Events", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon, Modifier.weight(1f))
-                StatCard(uiState.taskCount.toString(), "Tasks", TodoBg, R.drawable.ic_check_circle, TodoIcon, Modifier.weight(1f))
+                StatCard(
+                    uiState.eventCount.toString(), "Events", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon,
+                    Modifier.weight(1f),
+                    selected = uiState.filter == AgendaFilter.EVENTS,
+                    onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.EVENTS)) },
+                )
+                StatCard(
+                    uiState.taskCount.toString(), "Tasks", TodoBg, R.drawable.ic_check_circle, TodoIcon,
+                    Modifier.weight(1f),
+                    selected = uiState.filter == AgendaFilter.TASKS,
+                    onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.TASKS)) },
+                )
             }
         }
 
@@ -270,12 +280,17 @@ fun CalendarScreen(
             }
         }
 
-        // 议程：活动 + 任务合并、按时间排成一条线（游客拦截态不展示）
+        // 议程：活动 + 任务合并、按时间排成一条线（按 filter 过滤；游客拦截态不展示）
         if (!uiState.loginRequired && uiState.isConnected) {
-            if (uiState.agenda.isEmpty()) {
+            val items = uiState.visibleAgenda
+            if (items.isEmpty()) {
                 if (!uiState.isLoading) {
                     Text(
-                        "No events or tasks",
+                        when (uiState.filter) {
+                            AgendaFilter.EVENTS -> "No events"
+                            AgendaFilter.TASKS -> "No tasks"
+                            AgendaFilter.ALL -> "No events or tasks"
+                        },
                         fontSize = 13.sp,
                         color = ColorTextFaint,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -286,7 +301,7 @@ fun CalendarScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    uiState.agenda.forEach { item ->
+                    items.forEach { item ->
                         when (item) {
                             is AgendaItem.Event -> EventRow(item.event)
                             is AgendaItem.Task -> TaskRow(item.task)
@@ -366,11 +381,15 @@ private fun StatCard(
     iconRes: Int,
     iconTint: Color,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
             .background(bg)
+            .then(if (selected) Modifier.border(2.dp, ColorPrimary, RoundedCornerShape(18.dp)) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .height(92.dp),
     ) {
         Icon(
