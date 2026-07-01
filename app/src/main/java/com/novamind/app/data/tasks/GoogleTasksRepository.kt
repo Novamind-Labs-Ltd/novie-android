@@ -26,7 +26,8 @@ class GoogleTasksRepositoryImpl(
                 .flatMap { listId -> api.tasks(listId).items }
                 .mapNotNull { it.toDomain() }
                 .filter { it.due == date }
-                .sortedBy { it.title }
+                // 未完成在前、已完成在后，同组按标题排序。
+                .sortedWith(compareBy({ it.isCompleted }, { it.title }))
         } catch (e: HttpException) {
             // 打印 Google 返回的真实原因，便于区分「Tasks API 未启用」vs「scope 不足」等。
             val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()

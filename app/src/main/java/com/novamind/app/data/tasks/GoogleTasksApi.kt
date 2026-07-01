@@ -19,7 +19,8 @@ interface GoogleTasksApi {
     suspend fun tasks(
         @Path("tasklist") taskListId: String,
         @Query("showCompleted") showCompleted: Boolean = true,
-        @Query("showHidden") showHidden: Boolean = false,
+        // 已完成的任务会被 Google 自动置为 hidden，需 showHidden=true 才会返回，否则日历里看不到已完成项。
+        @Query("showHidden") showHidden: Boolean = true,
         @Query("maxResults") maxResults: Int = 100,
     ): TasksResponse
 }
