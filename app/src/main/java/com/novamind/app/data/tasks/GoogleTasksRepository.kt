@@ -22,6 +22,9 @@ interface GoogleTasksRepository {
 
     /** 更新任务的标题/描述/截止日期。notes 传 null 表示清空描述。失败抛异常。 */
     suspend fun updateTask(listId: String, taskId: String, title: String, notes: String?, due: LocalDate?)
+
+    /** 删除任务。失败抛异常，由调用方回滚乐观更新。 */
+    suspend fun deleteTask(listId: String, taskId: String)
 }
 
 class GoogleTasksRepositoryImpl(
@@ -72,6 +75,17 @@ class GoogleTasksRepositoryImpl(
         } catch (e: HttpException) {
             val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
             LogUtils.w("updateTask failed http=${e.code()} body=$body", e, TAG)
+            throw e
+        }
+    }
+
+    override suspend fun deleteTask(listId: String, taskId: String): Unit = withContext(Dispatchers.IO) {
+        try {
+            api.deleteTask(listId, taskId)
+            LogUtils.d("deleteTask ok: listId=$listId taskId=$taskId", TAG)
+        } catch (e: HttpException) {
+            val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+            LogUtils.w("deleteTask failed http=${e.code()} body=$body", e, TAG)
             throw e
         }
     }

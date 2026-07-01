@@ -137,6 +137,12 @@ fun CalendarRoute(
                             )
                         }
                     },
+                    onDelete = editingTask?.let { task ->
+                        {
+                            showAddTask = false
+                            viewModel.onEvent(CalendarUiEvent.DeleteTask(task))
+                        }
+                    },
                 )
             }
         }

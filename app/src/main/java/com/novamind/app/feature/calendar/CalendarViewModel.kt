@@ -82,6 +82,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             is CalendarUiEvent.CreateTask -> createTask(event.title, event.notes, event.due)
             is CalendarUiEvent.UpdateTask -> updateTask(event.task, event.title, event.notes, event.due)
             is CalendarUiEvent.SetTaskCompleted -> setTaskCompleted(event.task, event.completed)
+            is CalendarUiEvent.DeleteTask -> deleteTask(event.task)
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
             CalendarUiEvent.NextDay -> selectDate(_uiState.value.selectedDate.plusDays(1))
@@ -277,6 +278,25 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     LogUtils.w("updateTask failed: id=${task.id}", e, TAG)
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
+                    }
+                }
+        }
+    }
+
+    /**
+     * 删除任务（详情页触发，覆盖层已关闭）：先乐观从列表移除，API 失败回滚并提示。
+     */
+    private fun deleteTask(task: CalendarTask) {
+        val previous = _uiState.value.tasks
+        _uiState.update { state ->
+            state.copy(tasks = state.tasks.filterNot { it.id == task.id })
+        }
+        viewModelScope.launch {
+            runCatching { tasksRepository.deleteTask(task.listId, task.id) }
+                .onFailure { e ->
+                    LogUtils.w("deleteTask failed: id=${task.id}", e, TAG)
+                    _uiState.update {
+                        it.copy(tasks = previous, errorMessage = "Couldn't delete the task. Please retry.")
                     }
                 }
         }

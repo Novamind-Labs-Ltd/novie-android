@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,6 +75,8 @@ private val ColorPrimary: Color
     @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
 private val ColorSuccess: Color
     @Composable @ReadOnlyComposable get() = IconColors.Success.default.current()
+private val ColorError: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
 
 private val dueFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
 
@@ -101,7 +104,10 @@ fun AddTaskScreen(
     completed: Boolean? = null,
     /** 点击完成状态切换按钮（仅编辑模式显示）。 */
     onToggleCompleted: () -> Unit = {},
+    /** 删除任务；null = 不显示删除按钮（新增模式）。 */
+    onDelete: (() -> Unit)? = null,
 ) {
+    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     var title by rememberSaveable { mutableStateOf(initialTitle) }
     var notes by rememberSaveable { mutableStateOf(initialNotes) }
     // LocalDate 非 Bundle 类型，以 epochDay(Long) 持久化，进程重建后可恢复。
@@ -285,6 +291,53 @@ fun AddTaskScreen(
                 )
             }
         }
+
+        // 删除任务（仅编辑模式）：不可恢复，需二次确认。
+        if (onDelete != null) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(ColorSurface)
+                    .clickable { showDeleteConfirm = true }
+                    .padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = null,
+                    tint = ColorError,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = "Delete task",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ColorError,
+                )
+            }
+        }
+    }
+
+    // 删除确认：Google Tasks 无回收站，删除不可恢复。
+    if (showDeleteConfirm && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete this task?") },
+            text = { Text("This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    onDelete()
+                }) { Text("Delete", color = ColorError) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            },
+        )
     }
 
     // 日期选择弹窗：DatePicker 用 UTC 毫秒，转换固定走 ZoneOffset.UTC 避免时区偏一天。
@@ -335,6 +388,7 @@ private fun AddTaskScreenEditPreview() {
             initialTitle = "Submit expense report",
             initialNotes = "Include taxi receipts",
             completed = false,
+            onDelete = {},
         )
     }
 }
@@ -349,6 +403,7 @@ private fun AddTaskScreenEditCompletedPreview() {
             onBack = {},
             initialTitle = "Reply to Alice",
             completed = true,
+            onDelete = {},
         )
     }
 }

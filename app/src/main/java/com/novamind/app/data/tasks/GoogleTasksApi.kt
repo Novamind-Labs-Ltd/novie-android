@@ -1,6 +1,7 @@
 package com.novamind.app.data.tasks
 
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -41,4 +42,11 @@ interface GoogleTasksApi {
         @Path("tasklist") taskListId: String,
         @Body body: TaskInsertDto,
     ): TaskDto
+
+    /** 删除任务（响应无内容）。需读写 scope `tasks`。 */
+    @DELETE("lists/{tasklist}/tasks/{task}")
+    suspend fun deleteTask(
+        @Path("tasklist") taskListId: String,
+        @Path("task") taskId: String,
+    )
 }

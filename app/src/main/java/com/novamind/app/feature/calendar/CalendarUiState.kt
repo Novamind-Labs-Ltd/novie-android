@@ -81,6 +81,9 @@ sealed interface CalendarUiEvent {
     /** 设置任务完成状态：右滑置已完成、详情页按钮双向切换（乐观更新，失败回滚）。 */
     data class SetTaskCompleted(val task: CalendarTask, val completed: Boolean) : CalendarUiEvent
 
+    /** 详情页删除任务（乐观移除，失败回滚）。 */
+    data class DeleteTask(val task: CalendarTask) : CalendarUiEvent
+
     /** 点击顶部「+」打开新增任务页。Route 层拦截显示覆盖层，VM 不处理。 */
     data object AddTaskClicked : CalendarUiEvent
 
