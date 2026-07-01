@@ -17,6 +17,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +36,12 @@ import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.tasks.CalendarTask
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -43,16 +50,37 @@ import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-private val BgPage = Color(0xFFF4F2EC)
-private val ColorTextTitle = Color(0xFF1A1A1A)
-private val ColorTextSub = Color(0xFF6B6B6B)
-private val ColorTextFaint = Color(0xFFB4B0A6)
-private val ColorBorder = Color(0xFFE3E0D8)
-private val ColorPrimary = Color(0xFF3D7A5A)
-private val MeetingBg = Color(0xFFDCEAF1)
-private val MeetingIcon = Color(0xFF5B89A6)
-private val TodoBg = Color(0xFFE9E7E1)
-private val TodoIcon = Color(0xFF2E7D6B)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val BgPage: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val ColorSurface: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val ColorTextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val ColorTextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val ColorTextFaint: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val ColorTextInverse: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
+private val ColorTextError: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
+private val ColorBorder: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+private val ColorPrimary: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+private val ColorPrimaryBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Primary.default.current()
+private val ColorOnPrimary: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.onColor.current()
+private val MeetingBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Scenario.teal.current()
+private val MeetingIcon: Color
+    @Composable @ReadOnlyComposable get() = IconColors.BrandSecondary.default.current()
+private val TodoBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
+private val TodoIcon: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Success.default.current()
 
 private val weekLetters = listOf("M", "T", "W", "T", "F", "S", "S")
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
@@ -109,7 +137,7 @@ fun CalendarScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Calendar", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = ColorTextTitle)
-            Surface(shape = RoundedCornerShape(50), color = Color.White, shadowElevation = 1.dp) {
+            Surface(shape = RoundedCornerShape(50), color = ColorSurface, shadowElevation = 1.dp) {
                 Row(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -173,7 +201,7 @@ fun CalendarScreen(
             Text(
                 text = message,
                 fontSize = 13.sp,
-                color = Color(0xFFB3261E),
+                color = ColorTextError,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 4.dp),
@@ -221,14 +249,14 @@ fun CalendarScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(50))
-                        .background(Color(0xFF111111))
+                        .background(ColorPrimaryBg)
                         .clickable { onEvent(CalendarUiEvent.Connect) }
                         .padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(painterResource(R.drawable.ic_nav_calendar), null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        Text("Connect to google calendar", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(painterResource(R.drawable.ic_nav_calendar), null, tint = ColorOnPrimary, modifier = Modifier.size(18.dp))
+                        Text("Connect to google calendar", color = ColorTextInverse, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -323,7 +351,7 @@ private fun DayCell(
                 text = day.toString(),
                 fontSize = 15.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) Color.White else ColorTextTitle,
+                color = if (selected) ColorTextInverse else ColorTextTitle,
             )
         }
     }
@@ -366,7 +394,7 @@ private fun TaskRow(task: CalendarTask) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(ColorSurface)
             .border(1.dp, ColorBorder, RoundedCornerShape(14.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -402,7 +430,7 @@ private fun EventRow(event: CalendarEvent) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(ColorSurface)
             .border(1.dp, ColorBorder, RoundedCornerShape(14.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -427,21 +455,29 @@ private fun EventRow(event: CalendarEvent) {
 /** 空状态插图：叠放的笔记本/文件夹 + 装饰圆点（纯 Canvas，无图片资源）。 */
 @Composable
 private fun CalendarIllustration() {
+    // Canvas DrawScope 非 @Composable，颜色令牌须在此先解析为 Color 再传入。
+    val primary = ColorPrimary
+    val accent = MeetingIcon
+    val shadow = Palette.black0
+    val cover = Palette.sand550
+    val page = Palette.white
+    val dotLarge = Palette.sand700
+    val dotSmall = Palette.sand550
     Canvas(modifier = Modifier.size(width = 168.dp, height = 124.dp)) {
         val w = size.width
         val h = size.height
-        drawOval(Color(0x12000000), topLeft = Offset(w * 0.20f, h * 0.84f), size = Size(w * 0.60f, h * 0.12f))
+        drawOval(shadow, topLeft = Offset(w * 0.20f, h * 0.84f), size = Size(w * 0.60f, h * 0.12f))
         // 后封面
-        drawRoundRect(Color(0xFFE7E3D8), topLeft = Offset(w * 0.26f, h * 0.18f), size = Size(w * 0.46f, h * 0.56f), cornerRadius = CornerRadius(10f, 10f))
+        drawRoundRect(cover, topLeft = Offset(w * 0.26f, h * 0.18f), size = Size(w * 0.46f, h * 0.56f), cornerRadius = CornerRadius(10f, 10f))
         // 白页
-        drawRoundRect(Color.White, topLeft = Offset(w * 0.31f, h * 0.24f), size = Size(w * 0.40f, h * 0.52f), cornerRadius = CornerRadius(8f, 8f))
+        drawRoundRect(page, topLeft = Offset(w * 0.31f, h * 0.24f), size = Size(w * 0.40f, h * 0.52f), cornerRadius = CornerRadius(8f, 8f))
         // 绿色书签/卡
-        drawRoundRect(ColorPrimary, topLeft = Offset(w * 0.30f, h * 0.46f), size = Size(w * 0.14f, h * 0.14f), cornerRadius = CornerRadius(4f, 4f))
-        drawRoundRect(MeetingIcon, topLeft = Offset(w * 0.50f, h * 0.58f), size = Size(w * 0.12f, h * 0.12f), cornerRadius = CornerRadius(4f, 4f))
+        drawRoundRect(primary, topLeft = Offset(w * 0.30f, h * 0.46f), size = Size(w * 0.14f, h * 0.14f), cornerRadius = CornerRadius(4f, 4f))
+        drawRoundRect(accent, topLeft = Offset(w * 0.50f, h * 0.58f), size = Size(w * 0.12f, h * 0.12f), cornerRadius = CornerRadius(4f, 4f))
         // 装饰
-        drawCircle(Color(0xFFCDC8BC), radius = w * 0.05f, center = Offset(w * 0.80f, h * 0.30f))
-        drawCircle(Color(0xFFE2DED4), radius = w * 0.055f, center = Offset(w * 0.18f, h * 0.66f))
-        drawCircle(ColorPrimary.copy(alpha = 0.4f), radius = w * 0.016f, center = Offset(w * 0.74f, h * 0.7f))
+        drawCircle(dotLarge, radius = w * 0.05f, center = Offset(w * 0.80f, h * 0.30f))
+        drawCircle(dotSmall, radius = w * 0.055f, center = Offset(w * 0.18f, h * 0.66f))
+        drawCircle(primary.copy(alpha = 0.4f), radius = w * 0.016f, center = Offset(w * 0.74f, h * 0.7f))
     }
 }
 
