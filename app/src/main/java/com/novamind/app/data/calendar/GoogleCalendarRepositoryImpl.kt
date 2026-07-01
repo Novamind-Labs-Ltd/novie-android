@@ -56,8 +56,6 @@ class GoogleCalendarRepositoryImpl(
         val isAllDay = startDt.dateTime == null && startDt.date != null
         val startLocal = startDt.toLocalDateTime() ?: return null
         val endLocal = end?.toLocalDateTime() ?: startLocal
-        val hasOtherAttendees = attendees.any { !it.self }
-        val isMeeting = hasOtherAttendees || hangoutLink != null || conferenceData != null
         val event = CalendarEvent(
             id = id,
             title = summary?.takeIf { it.isNotBlank() } ?: "(No title)",
@@ -65,17 +63,16 @@ class GoogleCalendarRepositoryImpl(
             start = startLocal,
             end = endLocal,
             location = location,
-            isMeeting = isMeeting,
-            eventType = eventType,
+            eventType = CalendarEventType.fromApi(eventType),
         )
         // 映射结果（字段对应）：
         // id<-id, title<-summary, isAllDay<-(start.dateTime==null&&start.date!=null),
         // start<-start.(dateTime|date), end<-end.(dateTime|date)?:start,
-        // location<-location, isMeeting<-(其他参与者|hangoutLink|conferenceData), eventType<-eventType
+        // location<-location, eventType<-eventType（会议/任务分类由 category/isMeetingType 派生）
         LogUtils.d(
             "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
                 "start=${event.start} end=${event.end} location=${event.location} " +
-                "isMeeting=${event.isMeeting} eventType=${event.eventType}",
+                "eventType=${event.eventType} category=${event.category}",
             TAG,
         )
         return event

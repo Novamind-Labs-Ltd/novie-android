@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.data.calendar.CalendarEvent
+import com.novamind.app.data.calendar.CalendarEventType
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
@@ -425,7 +426,7 @@ private fun TaskRow(task: CalendarTask) {
 
 @Composable
 private fun EventRow(event: CalendarEvent) {
-    val accent = if (event.isMeeting) MeetingIcon else TodoIcon
+    val accent = if (event.isMeetingType) MeetingIcon else TodoIcon
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -508,9 +509,9 @@ private fun CalendarScreenLoginRequiredPreview() {
 private fun CalendarScreenConnectedPreview() {
     val day = LocalDate.now()
     val sample = listOf(
-        CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", true),
-        CalendarEvent("2", "Write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, false),
-        CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", true),
+        CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", CalendarEventType.DEFAULT),
+        CalendarEvent("2", "Focus: write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, CalendarEventType.FOCUS_TIME),
+        CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", CalendarEventType.DEFAULT),
     )
     val sampleTasks = listOf(
         CalendarTask("t1", "Submit expense report", day, isCompleted = false, notes = null),

@@ -275,8 +275,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 events.forEachIndexed { i, e ->
                     LogUtils.d(
                         "  event[$i] id=${e.id} title=${e.title} allDay=${e.isAllDay} " +
-                            "start=${e.start} end=${e.end} meeting=${e.isMeeting} " +
-                            "eventType=${e.eventType} location=${e.location}",
+                            "start=${e.start} end=${e.end} eventType=${e.eventType} " +
+                            "category=${e.category} location=${e.location}",
                         TAG,
                     )
                 }
@@ -292,7 +292,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     it.copy(
                         connectionStatus = CalendarConnectionStatus.CONNECTED,
                         events = events,
-                        tasks = emptyList(),
+                        tasks = tasks,
                     )
                 }
             }

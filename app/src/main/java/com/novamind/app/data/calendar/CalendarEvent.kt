@@ -14,14 +14,36 @@ data class CalendarEvent(
     val start: LocalDateTime,
     val end: LocalDateTime,
     val location: String?,
-    /** 是否为「会议」：含本人之外的参与者，或带视频会议链接。否则视为个人待办/日程。 */
-    val isMeeting: Boolean,
-    /**
-     * Google Calendar 的事件类型：default / outOfOffice / focusTime / workingLocation /
-     * birthday / fromGmail。缺省为 null（按 default 处理）。
-     */
-    val eventType: String? = null,
+    /** Google Calendar 事件类型（见 [CalendarEventType]）。缺省为 [CalendarEventType.DEFAULT]。 */
+    val eventType: CalendarEventType = CalendarEventType.DEFAULT,
 ) {
-    /** 上午（开始时间早于 12:00）；全天事件归入上午。 */
-    val isMorning: Boolean get() = isAllDay || start.hour < 12
+    /**
+     * 基于 [eventType] 的分类：
+     * default → [CalendarEventCategory.MEETING]，focusTime → [CalendarEventCategory.TASK]，
+     * 其余（outOfOffice / workingLocation / birthday / fromGmail / unknown）→ [CalendarEventCategory.OTHER]。
+     */
+    val category: CalendarEventCategory
+        get() = when (eventType) {
+            CalendarEventType.DEFAULT -> CalendarEventCategory.MEETING
+            CalendarEventType.FOCUS_TIME -> CalendarEventCategory.TASK
+            else -> CalendarEventCategory.OTHER
+        }
+
+    /** 是否为「会议」类型（eventType==default）。 */
+    val isMeetingType: Boolean get() = category == CalendarEventCategory.MEETING
+
+    /** 是否为「任务」类型（eventType==focusTime）。 */
+    val isTaskType: Boolean get() = category == CalendarEventCategory.TASK
+}
+
+/** 基于 [CalendarEventType] 的活动分类。 */
+enum class CalendarEventCategory {
+    /** 会议（eventType==default）。 */
+    MEETING,
+
+    /** 任务（eventType==focusTime）。 */
+    TASK,
+
+    /** 其他活动（outOfOffice / workingLocation / birthday / fromGmail / unknown）。 */
+    OTHER,
 }
