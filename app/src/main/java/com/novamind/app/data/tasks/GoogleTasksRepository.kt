@@ -16,6 +16,9 @@ interface GoogleTasksRepository {
 
     /** 将任务标记为已完成。失败抛异常，由调用方回滚乐观更新。 */
     suspend fun completeTask(listId: String, taskId: String)
+
+    /** 在默认任务列表创建任务。失败抛异常，由调用方提示。 */
+    suspend fun createTask(title: String, notes: String?, due: LocalDate?)
 }
 
 class GoogleTasksRepositoryImpl(
@@ -55,6 +58,26 @@ class GoogleTasksRepositoryImpl(
         }
     }
 
+    override suspend fun createTask(title: String, notes: String?, due: LocalDate?): Unit =
+        withContext(Dispatchers.IO) {
+            try {
+                val created = api.insertTask(
+                    taskListId = DEFAULT_LIST,
+                    body = TaskInsertDto(
+                        title = title,
+                        notes = notes?.takeIf { it.isNotBlank() },
+                        // Google 只识别日期部分，时间固定 00:00:00Z。
+                        due = due?.let { "${it}T00:00:00.000Z" },
+                    ),
+                )
+                LogUtils.d("createTask ok: id=${created.id} title=$title due=$due", TAG)
+            } catch (e: HttpException) {
+                val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                LogUtils.w("createTask failed http=${e.code()} body=$body", e, TAG)
+                throw e
+            }
+        }
+
     private fun TaskDto.toDomain(listId: String): CalendarTask? {
         val id = id ?: return null
         return CalendarTask(
@@ -70,5 +93,8 @@ class GoogleTasksRepositoryImpl(
 
     private companion object {
         const val TAG = "CalendarTasks"
+
+        /** Google Tasks 的默认列表别名。 */
+        const val DEFAULT_LIST = "@default"
     }
 }

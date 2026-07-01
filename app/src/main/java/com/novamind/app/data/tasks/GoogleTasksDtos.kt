@@ -40,3 +40,11 @@ data class TaskPatchDto(
     /** needsAction | completed。置 completed 时 Google 自动写入完成时间。 */
     val status: String,
 )
+
+/** POST 新建任务请求体。due 为 RFC3339，但 API 仅识别日期部分。 */
+@Serializable
+data class TaskInsertDto(
+    val title: String,
+    val notes: String? = null,
+    val due: String? = null,
+)

@@ -3,6 +3,7 @@ package com.novamind.app.data.tasks
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -32,5 +33,12 @@ interface GoogleTasksApi {
         @Path("tasklist") taskListId: String,
         @Path("task") taskId: String,
         @Body body: TaskPatchDto,
+    ): TaskDto
+
+    /** 新建任务。需读写 scope `tasks`；taskListId 可用别名 `@default`（默认列表）。 */
+    @POST("lists/{tasklist}/tasks")
+    suspend fun insertTask(
+        @Path("tasklist") taskListId: String,
+        @Body body: TaskInsertDto,
     ): TaskDto
 }

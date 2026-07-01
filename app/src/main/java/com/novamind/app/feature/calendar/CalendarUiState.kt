@@ -81,6 +81,12 @@ sealed interface CalendarUiEvent {
     /** 右滑任务将其标记为已完成（乐观更新，失败回滚）。 */
     data class CompleteTask(val task: CalendarTask) : CalendarUiEvent
 
+    /** 点击顶部「+」打开新增任务页。Route 层拦截显示覆盖层，VM 不处理。 */
+    data object AddTaskClicked : CalendarUiEvent
+
+    /** 新增任务页点 Save：在默认列表创建任务（notes 可空；due 为截止日期）。 */
+    data class CreateTask(val title: String, val notes: String?, val due: LocalDate) : CalendarUiEvent
+
     data class DateSelected(val date: LocalDate) : CalendarUiEvent
     data object PrevDay : CalendarUiEvent
     data object NextDay : CalendarUiEvent

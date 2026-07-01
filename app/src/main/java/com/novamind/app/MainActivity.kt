@@ -240,7 +240,10 @@ class MainActivity : FragmentActivity() {
                                     null
                                 },
                             )
-                            BottomNavDestination.Calendar.route -> CalendarRoute()
+                            BottomNavDestination.Calendar.route -> CalendarRoute(
+                                // 新增任务覆盖层打开时隐藏底部导航栏
+                                onFullscreenChange = { hideBottomNav = it },
+                            )
                         }
                     }
 

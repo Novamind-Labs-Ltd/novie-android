@@ -159,7 +159,7 @@ fun CalendarScreen(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    PillIcon(R.drawable.ic_add, "Add")
+                    PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
                     PillIcon(R.drawable.ic_search, "Search")
                     PillIcon(R.drawable.ic_more, "More") { onEvent(CalendarUiEvent.Refresh) }
                 }

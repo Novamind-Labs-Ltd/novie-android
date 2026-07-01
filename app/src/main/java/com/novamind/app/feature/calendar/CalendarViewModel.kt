@@ -76,6 +76,9 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 // 再次点击已选过滤 → 回到全部。
                 it.copy(filter = if (it.filter == event.filter) AgendaFilter.ALL else event.filter)
             }
+            // AddTaskClicked 仅切换 UI 覆盖层，由 Route 拦截，VM 不处理。
+            CalendarUiEvent.AddTaskClicked -> Unit
+            is CalendarUiEvent.CreateTask -> createTask(event.title, event.notes, event.due)
             is CalendarUiEvent.CompleteTask -> completeTask(event.task)
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
@@ -230,6 +233,25 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             CalendarConnectionStatus.SYNCING -> Unit
             CalendarConnectionStatus.CONNECTED -> loadEvents()
             else -> refreshAuthAndLoad()
+        }
+    }
+
+    /**
+     * 新增任务（Save 后覆盖层已关闭，后台创建）：
+     * 成功且截止日为当前选中日期 → 重新拉取刷新列表；失败 → 日历页提示错误。
+     */
+    private fun createTask(title: String, notes: String?, due: LocalDate) {
+        viewModelScope.launch {
+            runCatching { tasksRepository.createTask(title, notes, due) }
+                .onSuccess {
+                    if (due == _uiState.value.selectedDate && _uiState.value.isConnected) loadEvents()
+                }
+                .onFailure { e ->
+                    LogUtils.w("createTask failed: title=$title", e, TAG)
+                    _uiState.update {
+                        it.copy(errorMessage = "Couldn't create the task. Please retry.")
+                    }
+                }
         }
     }
 

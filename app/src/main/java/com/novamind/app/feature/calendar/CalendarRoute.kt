@@ -1,12 +1,24 @@
 package com.novamind.app.feature.calendar
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,10 +36,18 @@ import kotlinx.coroutines.launch
 @Composable
 fun CalendarRoute(
     modifier: Modifier = Modifier,
+    onFullscreenChange: (Boolean) -> Unit = {},
     viewModel: CalendarViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+
+    // 新增任务覆盖层（点顶部「+」打开）；打开时隐藏底部导航栏。
+    var showAddTask by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showAddTask) { onFullscreenChange(showAddTask) }
+    // 覆盖层开着时切走 tab（本 Route 离开组合）→ 恢复底栏，避免 hideBottomNav 卡住。
+    DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
+    BackHandler(enabled = showAddTask) { showAddTask = false }
 
     // 恢复授权（OAuth 同意）结果：同意后用登录账户重试取 token。
     val consentLauncher = rememberLauncherForActivityResult(
@@ -51,20 +71,40 @@ fun CalendarRoute(
         onPauseOrDispose { }
     }
 
-    CalendarScreen(
-        uiState = uiState,
-        onEvent = { event ->
-            when (event) {
-                // 连接：直接用当前登录账户取 token。
-                CalendarUiEvent.Connect -> viewModel.connectWithCurrentAccount()
-                // 重新授权当前账户：先清/吊销旧授权，再用登录账户重连。
-                CalendarUiEvent.SwitchAccount -> scope.launch {
-                    viewModel.prepareAccountSwitch()
-                    viewModel.connectWithCurrentAccount()
+    Box(modifier = modifier.fillMaxSize()) {
+        CalendarScreen(
+            uiState = uiState,
+            onEvent = { event ->
+                when (event) {
+                    // 连接：直接用当前登录账户取 token。
+                    CalendarUiEvent.Connect -> viewModel.connectWithCurrentAccount()
+                    // 重新授权当前账户：先清/吊销旧授权，再用登录账户重连。
+                    CalendarUiEvent.SwitchAccount -> scope.launch {
+                        viewModel.prepareAccountSwitch()
+                        viewModel.connectWithCurrentAccount()
+                    }
+                    // 新增任务：仅已连接时打开（未连接创建必然失败）。
+                    CalendarUiEvent.AddTaskClicked ->
+                        if (uiState.isConnected) showAddTask = true
+                    else -> viewModel.onEvent(event)
                 }
-                else -> viewModel.onEvent(event)
-            }
-        },
-        modifier = modifier,
-    )
+            },
+        )
+
+        // 新增任务页（全屏覆盖，自带返回；与其他子页一致的左右滑动转场）
+        AnimatedVisibility(
+            visible = showAddTask,
+            enter = slideInHorizontally { it } + fadeIn(),
+            exit = slideOutHorizontally { it } + fadeOut(),
+        ) {
+            AddTaskScreen(
+                initialDue = uiState.selectedDate,
+                onSave = { title, notes, due ->
+                    showAddTask = false
+                    viewModel.onEvent(CalendarUiEvent.CreateTask(title, notes, due))
+                },
+                onBack = { showAddTask = false },
+            )
+        }
+    }
 }
