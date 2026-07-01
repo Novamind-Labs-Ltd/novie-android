@@ -159,15 +159,35 @@ fun CalendarScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text("Calendar", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = ColorTextTitle)
-            Surface(shape = RoundedCornerShape(50), color = ColorSurface, shadowElevation = 1.dp) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
-                    PillIcon(R.drawable.ic_search, "Search")
-                    PillIcon(R.drawable.ic_more, "More") { onEvent(CalendarUiEvent.Refresh) }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 「Today」：非今天时显示，点击立刻回到今天（周条 pager 会自动跟随）。
+                if (selectedDate != LocalDate.now()) {
+                    Surface(shape = RoundedCornerShape(50), color = ColorSurface, shadowElevation = 1.dp) {
+                        Text(
+                            text = "Today",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ColorPrimary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .clickable { onEvent(CalendarUiEvent.DateSelected(LocalDate.now())) }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+                Surface(shape = RoundedCornerShape(50), color = ColorSurface, shadowElevation = 1.dp) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
+                        PillIcon(R.drawable.ic_search, "Search")
+                        PillIcon(R.drawable.ic_more, "More") { onEvent(CalendarUiEvent.Refresh) }
+                    }
                 }
             }
         }
