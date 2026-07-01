@@ -17,6 +17,11 @@ data class CalendarEvent(
     val location: String?,
     /** Google Calendar 事件类型（见 [CalendarEventType]），仅作信息展示，不再区分会议/任务。 */
     val eventType: CalendarEventType = CalendarEventType.DEFAULT,
+    /**
+     * 是否为「会议」：eventType 为 [CalendarEventType.DEFAULT] 且（有除自己外的邀请人 或 有会议链接）。
+     * 判定在数据层映射时完成（依赖 API 的 attendees / hangoutLink / conferenceData，领域层不保留原始字段）。
+     */
+    val isMeeting: Boolean = false,
 )
 
 /**

@@ -22,21 +22,22 @@ class GoogleCalendarRepositoryImpl(
     private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) : GoogleCalendarRepository {
 
-    override suspend fun eventsOn(date: LocalDate): List<CalendarEvent> = withContext(Dispatchers.IO) {
-        val timeMin = date.atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
-        val timeMax = date.plusDays(1).atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
-        try {
-            api.listEvents(calendarId = "primary", timeMin = timeMin, timeMax = timeMax)
-                .items
-                .filter { it.status != "cancelled" }
-                .mapNotNull { it.toDomain() }
-                // 仅展示常规活动与专注时间，其余类型（外出/工作地点/生日/Gmail 等）不进列表。
-                .filter { it.eventType == CalendarEventType.DEFAULT || it.eventType == CalendarEventType.FOCUS_TIME }
-                .sortedBy { it.start }
-        } catch (e: HttpException) {
-            throw e.toAuthAware()
+    override suspend fun eventsOn(date: LocalDate): List<CalendarEvent> =
+        withContext(Dispatchers.IO) {
+            val timeMin = date.atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
+            val timeMax = date.plusDays(1).atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
+            try {
+                api.listEvents(calendarId = "primary", timeMin = timeMin, timeMax = timeMax)
+                    .items
+                    .filter { it.status != "cancelled" }
+                    .mapNotNull { it.toDomain() }
+                    // 仅展示常规活动与专注时间，其余类型（外出/工作地点/生日/Gmail 等）不进列表。
+                    .filter { it.isMeeting }
+                    .sortedBy { it.start }
+            } catch (e: HttpException) {
+                throw e.toAuthAware()
+            }
         }
-    }
 
     /** 把鉴权类 HTTP 错误转成领域异常：401→过期可续期，403→被撤销需重新同意。其余原样抛出。 */
     private fun HttpException.toAuthAware(): Throwable = when (code()) {
@@ -49,8 +50,8 @@ class GoogleCalendarRepositoryImpl(
         // 打印 EventDto 原始字段，便于核对与 CalendarEvent 的映射对应关系。
         LogUtils.d(
             "EventDto raw: id=$id status=$status summary=$summary location=$location " +
-                "eventType=$eventType hangoutLink=$hangoutLink start=$start end=$end " +
-                "attendees=$attendees conferenceData=$conferenceData",
+                    "eventType=$eventType hangoutLink=$hangoutLink start=$start end=$end " +
+                    "attendees=$attendees conferenceData=$conferenceData",
             TAG,
         )
         val id = id ?: return null
@@ -58,6 +59,12 @@ class GoogleCalendarRepositoryImpl(
         val isAllDay = startDt.dateTime == null && startDt.date != null
         val startLocal = startDt.toLocalDateTime() ?: return null
         val endLocal = end?.toLocalDateTime() ?: startLocal
+        val domainType = CalendarEventType.fromApi(eventType)
+        // 会议判定：常规事件 且（有除自己外的邀请人 或 有会议链接）。
+        // 仅有自己（self）在 attendees 里的独立事件不算会议；链接看 hangoutLink 或 conferenceData。
+        val hasInvitees = attendees.any { !it.self }
+        val hasMeetingLink = !hangoutLink.isNullOrBlank() ||
+                !conferenceData?.conferenceId.isNullOrBlank()
         val event = CalendarEvent(
             id = id,
             title = summary?.takeIf { it.isNotBlank() } ?: "(No title)",
@@ -65,16 +72,18 @@ class GoogleCalendarRepositoryImpl(
             start = startLocal,
             end = endLocal,
             location = location,
-            eventType = CalendarEventType.fromApi(eventType),
+            eventType = domainType,
+            isMeeting = domainType == CalendarEventType.DEFAULT && (hasInvitees || hasMeetingLink),
         )
         // 映射结果（字段对应）：
         // id<-id, title<-summary, isAllDay<-(start.dateTime==null&&start.date!=null),
         // start<-start.(dateTime|date), end<-end.(dateTime|date)?:start,
-        // location<-location, eventType<-eventType（仅信息展示，不再区分会议/任务）
+        // location<-location, eventType<-eventType（仅信息展示，不再区分会议/任务），
+        // isMeeting<-eventType==default&&(attendees 有他人||hangoutLink/conferenceId 非空)
         LogUtils.d(
             "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
-                "start=${event.start} end=${event.end} location=${event.location} " +
-                "eventType=${event.eventType}",
+                    "start=${event.start} end=${event.end} location=${event.location} " +
+                    "eventType=${event.eventType} isMeeting=${event.isMeeting}",
             TAG,
         )
         return event
@@ -84,6 +93,7 @@ class GoogleCalendarRepositoryImpl(
         dateTime != null -> OffsetDateTime.parse(dateTime)
             .atZoneSameInstant(zoneId)
             .toLocalDateTime()
+
         date != null -> LocalDate.parse(date).atStartOfDay()
         else -> null
     }

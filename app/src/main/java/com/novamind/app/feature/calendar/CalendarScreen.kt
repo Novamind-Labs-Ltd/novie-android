@@ -626,7 +626,7 @@ private fun CalendarScreenConnectedPreview() {
     val sample = listOf(
         // 已结束事件（昨天）：预览中应显示置灰 + 删除线。
         CalendarEvent("0", "Morning sync", false, day.minusDays(1).atTime(9, 30), day.minusDays(1).atTime(10, 0), "Meet", CalendarEventType.DEFAULT),
-        CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", CalendarEventType.DEFAULT),
+        CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", CalendarEventType.DEFAULT, isMeeting = true),
         CalendarEvent("2", "Focus: write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, CalendarEventType.FOCUS_TIME),
         CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", CalendarEventType.DEFAULT),
     )

@@ -53,6 +53,8 @@ class CalendarEventCache(
         val end: String,
         val location: String?,
         val eventType: CalendarEventType = CalendarEventType.DEFAULT,
+        // 旧缓存无此字段 → 默认 false，网络刷新后回正。
+        val isMeeting: Boolean = false,
     ) {
         fun toDomain() = CalendarEvent(
             id = id,
@@ -62,6 +64,7 @@ class CalendarEventCache(
             end = LocalDateTime.parse(end),
             location = location,
             eventType = eventType,
+            isMeeting = isMeeting,
         )
 
         companion object {
@@ -73,6 +76,7 @@ class CalendarEventCache(
                 end = e.end.toString(),
                 location = e.location,
                 eventType = e.eventType,
+                isMeeting = e.isMeeting,
             )
         }
     }
