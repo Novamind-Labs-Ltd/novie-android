@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventType
+import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
@@ -470,7 +471,9 @@ private fun TaskRow(task: CalendarTask) {
 
 @Composable
 private fun EventRow(event: CalendarEvent) {
-    val accent = MeetingIcon
+    // 已结束的事件视为「已完成」：圆点、标题置灰 + 删除线，与已完成任务保持一致。
+    val past = event.isPast
+    val accent = if (past) ColorTextFaint else MeetingIcon
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -483,7 +486,13 @@ private fun EventRow(event: CalendarEvent) {
     ) {
         Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
         Column(Modifier.weight(1f)) {
-            Text(event.title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ColorTextTitle)
+            Text(
+                text = event.title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (past) ColorTextFaint else ColorTextTitle,
+                textDecoration = if (past) TextDecoration.LineThrough else null,
+            )
             event.location?.takeIf { it.isNotBlank() }?.let {
                 Text(it, fontSize = 12.sp, color = ColorTextSub)
             }
@@ -553,6 +562,8 @@ private fun CalendarScreenLoginRequiredPreview() {
 private fun CalendarScreenConnectedPreview() {
     val day = LocalDate.now()
     val sample = listOf(
+        // 已结束事件（昨天）：预览中应显示置灰 + 删除线。
+        CalendarEvent("0", "Morning sync", false, day.minusDays(1).atTime(9, 30), day.minusDays(1).atTime(10, 0), "Meet", CalendarEventType.DEFAULT),
         CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", CalendarEventType.DEFAULT),
         CalendarEvent("2", "Focus: write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, CalendarEventType.FOCUS_TIME),
         CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", CalendarEventType.DEFAULT),

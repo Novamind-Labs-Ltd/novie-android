@@ -1,5 +1,6 @@
 package com.novamind.app.data.calendar
 
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
@@ -17,3 +18,11 @@ data class CalendarEvent(
     /** Google Calendar 事件类型（见 [CalendarEventType]），仅作信息展示，不再区分会议/任务。 */
     val eventType: CalendarEventType = CalendarEventType.DEFAULT,
 )
+
+/**
+ * 事件是否已结束（视为「已完成」）。日历事件本身没有完成状态，此处以结束时间是否早于当前时间近似。
+ * 全天事件的 [CalendarEvent.start] / [CalendarEvent.end] 仅为 00:00 占位，故按日期判断：当天结束后才算过去。
+ */
+val CalendarEvent.isPast: Boolean
+    get() = if (isAllDay) end.toLocalDate().isBefore(LocalDate.now())
+            else end.isBefore(LocalDateTime.now())
