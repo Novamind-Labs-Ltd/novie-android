@@ -42,7 +42,10 @@ import com.novamind.app.ui.components.ShimmerBlock
 import com.novamind.app.ui.components.shimmer
 import com.novamind.app.ui.theme.AppTheme
 
-private val CardSoft = Color(0xFFF7F6F2)
+// 配色：引用 ui/colors 设计系统令牌（不使用硬编码颜色）
+private val CardSoft: Color
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    get() = BackgroundColors.Page.secondary.current()
 
 /**
  * 笔记编辑页加载 / AI「Polishing」骨架图：标题、正文行用扫光占位，
