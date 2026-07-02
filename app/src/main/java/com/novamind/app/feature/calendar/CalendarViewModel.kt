@@ -17,6 +17,7 @@ import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.util.LogUtils
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -252,6 +253,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     if (due == _uiState.value.selectedDate && _uiState.value.isConnected) loadEvents()
                 }
                 .onFailure { e ->
+                    if (e is CancellationException) throw e
                     LogUtils.w("createTask failed: title=$title", e, TAG)
                     _uiState.update {
                         it.copy(errorMessage = "Couldn't create the task. Please retry.")
@@ -277,6 +279,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             runCatching { tasksRepository.updateTask(task.listId, task.id, title, notes, due) }
                 .onFailure { e ->
+                    if (e is CancellationException) throw e
                     LogUtils.w("updateTask failed: id=${task.id}", e, TAG)
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
@@ -296,6 +299,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             runCatching { tasksRepository.deleteTask(task.listId, task.id) }
                 .onFailure { e ->
+                    if (e is CancellationException) throw e
                     LogUtils.w("deleteTask failed: id=${task.id}", e, TAG)
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't delete the task. Please retry.")
@@ -322,6 +326,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             runCatching { tasksRepository.setCompleted(task.listId, task.id, completed) }
                 .onFailure { e ->
+                    if (e is CancellationException) throw e
                     LogUtils.w("setTaskCompleted failed: id=${task.id} completed=$completed", e, TAG)
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
@@ -394,7 +399,10 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     runCatching {
                         tasksRepository.tasksOn(date)
                     }
-                        .onFailure { LogUtils.w("loadTasks failed: date=$date", it, TAG) }
+                        .onFailure {
+                            if (it is CancellationException) throw it
+                            LogUtils.w("loadTasks failed: date=$date", it, TAG)
+                        }
                         .getOrDefault(emptyList())
                 }
 
@@ -434,6 +442,9 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 }
             }
             .onFailure { e ->
+                // 协程取消是正常控制流（防抖切换会取消上一次在途请求），不能当作加载失败：
+                // 重新抛出以正确终止协程，否则会误显示 "job was cancelled" 错误。
+                if (e is CancellationException) throw e
                 LogUtils.e("loadEvents failure: date=$date", e, TAG)
                 when (e) {
                     is GoogleAuthExpiredException -> {
