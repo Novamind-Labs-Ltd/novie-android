@@ -47,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,18 +76,38 @@ import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.VoiceRecordingBar
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import kotlinx.coroutines.launch
 import java.io.File
 
-private val Bg = Color(0xFFF1EEE6)
-private val Card = Color(0xFFFFFFFF)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Dark = Color(0xFF1A1A1A)
-private val ChipText = Color(0xFF3A3A3A)
-private val SendGreen = Color(0xFF2E9E5B)
-private val MenuBg = Color(0xFFF4F2EA)
-private val AttachChipBg = Color(0xFFE9E7DF)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val Bg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val Card: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Dark: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
+private val OnDark: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
+private val ChipText: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val SendGreen: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Success.background.current()
+private val OnSendGreen: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()
+private val MenuBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.secondary.current()
+private val AttachChipBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
+private val PlaceholderBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Interactive.active.current()
 
 /** 预设的快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
@@ -930,7 +951,7 @@ private fun SendButton(onClick: () -> Unit) {
             .background(SendGreen)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = Color.White),
+                indication = ripple(bounded = false, color = OnSendGreen),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
@@ -938,7 +959,7 @@ private fun SendButton(onClick: () -> Unit) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.ic_arrow_up),
             contentDescription = "发送",
-            tint = Color.White,
+            tint = OnSendGreen,
             modifier = Modifier.size(22.dp),
         )
     }
@@ -954,7 +975,7 @@ private fun MicButton(onClick: () -> Unit) {
             .background(Dark)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = Color.White),
+                indication = ripple(bounded = false, color = OnDark),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
@@ -962,7 +983,7 @@ private fun MicButton(onClick: () -> Unit) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.ic_mic),
             contentDescription = "语音",
-            tint = Color.White,
+            tint = OnDark,
             modifier = Modifier.size(20.dp),
         )
     }
@@ -978,7 +999,7 @@ private fun StopButton(onClick: () -> Unit) {
             .background(Dark)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = Color.White),
+                indication = ripple(bounded = false, color = OnDark),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
@@ -988,7 +1009,7 @@ private fun StopButton(onClick: () -> Unit) {
             modifier = Modifier
                 .size(13.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(Color.White),
+                .background(OnDark),
         )
     }
 }
@@ -1011,7 +1032,7 @@ private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClic
             .size(width = 72.dp, height = 40.dp)
             // 胶囊型裁剪：圆角半径 = 高度的一半，两端呈半圆
             .clip(RoundedCornerShape(50))
-            .background(Color(0xFFD8D5CC))
+            .background(PlaceholderBg)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(),
@@ -1031,7 +1052,7 @@ private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClic
                 .padding(end = 5.dp)
                 .size(18.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.92f))
+                .background(Card.copy(alpha = 0.92f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false),
@@ -1061,7 +1082,7 @@ private fun FileAttachmentChip(att: Attachment, onRemove: () -> Unit) {
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFD8D5CC)),
+                    .background(PlaceholderBg),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -1189,7 +1210,7 @@ private fun AudioBubble(att: Attachment) {
                         if (playing) R.drawable.ic_pause else R.drawable.ic_play,
                     ),
                     contentDescription = if (playing) "暂停" else "播放",
-                    tint = Color.White,
+                    tint = OnSendGreen,
                     modifier = Modifier.size(15.dp),
                 )
             }
@@ -1250,7 +1271,7 @@ private fun UserBubble(msg: ChatMessage) {
                         .widthIn(max = 220.dp)
                         .height(160.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFFE3E0D8)),
+                        .background(PlaceholderBg),
                 )
             }
             // 文本气泡（有文字才显示）

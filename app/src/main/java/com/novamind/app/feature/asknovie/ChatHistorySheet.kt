@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,13 +43,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 
-private val SheetBg = Color(0xFFFBFAF7)
-private val TitleColor = Color(0xFF1A1A1A)
-private val SubColor = Color(0xFF8A8A8A)
-private val ItemColor = Color(0xFF2A2A2A)
-private val DarkPill = Color(0xFF1A1A1A)
-private val SearchBg = Color(0xFFFFFFFF)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val SheetBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val TitleColor: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val SubColor: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val ItemColor: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val DarkPill: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
+private val OnDarkPill: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
+private val SearchBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 
 /**
  * 「Chat history」底部弹窗：搜索框 + 最近会话列表 + 新建会话。
@@ -151,7 +165,7 @@ private fun NewChatButton(onClick: () -> Unit) {
             .background(DarkPill)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(color = Color.White),
+                indication = ripple(color = OnDarkPill),
                 onClick = onClick,
             )
             .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -160,11 +174,11 @@ private fun NewChatButton(onClick: () -> Unit) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.ic_chat),
             contentDescription = null,
-            tint = Color.White,
+            tint = OnDarkPill,
             modifier = Modifier.size(16.dp),
         )
         Spacer(Modifier.width(8.dp))
-        Text("New chat", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text("New chat", color = OnDarkPill, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 

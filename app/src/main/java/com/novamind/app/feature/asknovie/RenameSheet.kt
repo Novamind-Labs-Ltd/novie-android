@@ -20,6 +20,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,13 +41,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 
-private val SheetBg = Color(0xFFFBFAF7)
-private val TitleColor = Color(0xFF1A1A1A)
-private val SubColor = Color(0xFF8A8A8A)
-private val FieldBg = Color(0xFFF2F0E9)
-private val FieldBorder = Color(0xFFE0DDD3)
-private val DarkPill = Color(0xFF1A1A1A)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val SheetBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val TitleColor: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val SubColor: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val FieldBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
+private val FieldBorder: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+private val DarkPill: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
+private val OnDarkPill: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
 
 /** 重命名会话标题的底部弹窗。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,7 +161,7 @@ private fun PillButton(text: String, filled: Boolean, enabled: Boolean, onClick:
     ) {
         Text(
             text = text,
-            color = if (filled) Color.White else DarkPill,
+            color = if (filled) OnDarkPill else DarkPill,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
         )

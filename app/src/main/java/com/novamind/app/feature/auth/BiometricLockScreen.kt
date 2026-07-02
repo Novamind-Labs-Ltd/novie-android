@@ -14,17 +14,29 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 
-private val Bg = Color(0xFFFBFAF7)
-private val Accent = Color(0xFF3D7A5A)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val Bg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val Accent: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val ErrorText: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
 
 /**
  * 指纹解锁门控页。进入时自动弹一次系统生物识别框；用户取消/失败后可重试，
@@ -59,7 +71,7 @@ fun BiometricLockScreen(
         Text(
             text = errorMessage ?: "请验证身份以继续",
             fontSize = 14.sp,
-            color = if (errorMessage != null) Color(0xFFB00020) else TextSub,
+            color = if (errorMessage != null) ErrorText else TextSub,
         )
         Spacer(Modifier.height(28.dp))
 
