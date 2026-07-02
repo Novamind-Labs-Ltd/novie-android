@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -101,6 +102,8 @@ fun VoiceRecordingBar(
 
     var started by remember { mutableStateOf(false) }
     var showNoVoice by remember { mutableStateOf(false) }
+    // 点 Send 后的上传中状态：停止指令已下发、等待服务回写结果。期间全部控件禁用，不可继续录音。
+    var sending by remember { mutableStateOf(false) }
     // 点删除后的「丢弃录音」二次确认
     var showDiscardConfirm by remember { mutableStateOf(false) }
     // 是否因弹确认而主动暂停（用于「Keep recording」时恢复；本就暂停则保持暂停）
@@ -128,6 +131,7 @@ fun VoiceRecordingBar(
                 result.durationSeconds < MIN_RECORD_SECONDS -> {
                     runCatching { java.io.File(result.path).delete() }
                     com.novamind.app.common.audio.RecordingController.reset()
+                    sending = false
                     onCancel()
                 }
                 result.peakAmplitude >= NO_VOICE_THRESHOLD -> {
@@ -136,6 +140,7 @@ fun VoiceRecordingBar(
                 }
                 else -> {
                     runCatching { java.io.File(result.path).delete() }
+                    sending = false
                     showNoVoice = true
                 }
             }
@@ -161,6 +166,7 @@ fun VoiceRecordingBar(
     fun restartRecording() {
         levels = List(WAVE_BARS) { WAVE_BASELINE }
         showNoVoice = false
+        sending = false
         com.novamind.app.common.audio.RecordingController.reset()
         com.novamind.app.common.audio.RecordingService.start(context)
     }
@@ -169,6 +175,7 @@ fun VoiceRecordingBar(
         levels = levels,
         elapsed = elapsed,
         paused = paused,
+        sending = sending,
         sendEnabled = elapsed >= MIN_RECORD_SECONDS,   // 不足 3 秒禁止发送
         onCancelClick = {
             // 点删除：先暂停录音，再弹二次确认；确认后才真正取消
@@ -186,7 +193,8 @@ fun VoiceRecordingBar(
             }
         },
         onSend = {
-            // 停止由服务下发，完成 / 无声判定在状态回写后统一处理
+            // 进入上传中：停止由服务下发，完成 / 无声判定在状态回写后统一处理
+            sending = true
             com.novamind.app.common.audio.RecordingService.stop(context)
         },
         modifier = modifier,
@@ -224,6 +232,8 @@ fun VoiceRecordingBar(
 /**
  * 录音条的**无状态**内容层：波形 + 计时 + 取消/暂停-继续/完成。
  * 与录音服务解耦，供 [VoiceRecordingBar] 复用并可直接 @Preview。
+ *
+ * @param sending 上传中（点 Send 后等待结果回写）：发送按钮变 loading，全部控件禁用，不可继续录音。
  */
 @Composable
 private fun RecordingBarContent(
@@ -235,6 +245,7 @@ private fun RecordingBarContent(
     onPauseResume: () -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier,
+    sending: Boolean = false,
 ) {
     Box(
         modifier = modifier
@@ -282,6 +293,7 @@ private fun RecordingBarContent(
                     desc = "取消",
                     bg = ControlBg,
                     tint = ControlIcon,
+                    enabled = !sending,
                     onClick = onCancelClick,
                 )
                 RoundButton(
@@ -289,14 +301,16 @@ private fun RecordingBarContent(
                     desc = if (paused) "继续" else "暂停",
                     bg = ControlBg,
                     tint = ControlIcon,
+                    enabled = !sending,
                     onClick = onPauseResume,
                 )
                 RoundButton(
                     iconRes = R.drawable.ic_arrow_up,
-                    desc = "完成",
+                    desc = if (sending) "上传中" else "完成",
                     bg = SendBg,
                     tint = SendIcon,
-                    enabled = sendEnabled,
+                    enabled = sendEnabled && !sending,
+                    loading = sending,
                     onClick = onSend,
                 )
             }
@@ -401,13 +415,15 @@ private fun RoundButton(
     bg: Color,
     tint: Color,
     enabled: Boolean = true,
+    loading: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = Modifier
             .size(52.dp)
             .clip(CircleShape)
-            .background(if (enabled) bg else bg.copy(alpha = 0.4f))
+            // loading 是「进行中」而非「禁用」：背景保持全亮，仅不可点击
+            .background(if (enabled || loading) bg else bg.copy(alpha = 0.4f))
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -416,12 +432,20 @@ private fun RoundButton(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = desc,
-            tint = if (enabled) tint else tint.copy(alpha = 0.5f),
-            modifier = Modifier.size(if (iconRes == R.drawable.ic_arrow_up) 24.dp else 22.dp),
-        )
+        if (loading) {
+            CircularProgressIndicator(
+                color = tint,
+                strokeWidth = 2.5.dp,
+                modifier = Modifier.size(22.dp),
+            )
+        } else {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = desc,
+                tint = if (enabled) tint else tint.copy(alpha = 0.5f),
+                modifier = Modifier.size(if (iconRes == R.drawable.ic_arrow_up) 24.dp else 22.dp),
+            )
+        }
     }
 }
 
@@ -462,6 +486,23 @@ private fun RecordingBarPausedPreview() {
             elapsed = 75,
             paused = true,
             sendEnabled = true,
+            onCancelClick = {},
+            onPauseResume = {},
+            onSend = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 上传中")
+@Composable
+private fun RecordingBarSendingPreview() {
+    AppTheme {
+        RecordingBarContent(
+            levels = previewLevels(),
+            elapsed = 42,
+            paused = false,
+            sendEnabled = true,
+            sending = true,
             onCancelClick = {},
             onPauseResume = {},
             onSend = {},
