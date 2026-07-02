@@ -351,6 +351,84 @@ fun CalendarScreen(
     }
 }
 
+// ── Preview 样例数据 ──
+
+private fun previewEvents(day: LocalDate) = listOf(
+    // 已结束事件（昨天）：预览中应显示置灰 + 删除线。
+    CalendarEvent("0", "Morning sync", false, day.minusDays(1).atTime(9, 30), day.minusDays(1).atTime(10, 0), "Meet", CalendarEventType.DEFAULT),
+    CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", CalendarEventType.DEFAULT, isMeeting = true),
+    CalendarEvent("2", "Focus: write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, CalendarEventType.FOCUS_TIME),
+    CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", CalendarEventType.DEFAULT),
+)
+
+private fun previewTasks(day: LocalDate) = listOf(
+    CalendarTask("t1", "list1", "Submit expense report", day, isCompleted = false, notes = null),
+    CalendarTask("t2", "list1", "Reply to Alice", day, isCompleted = true, notes = null),
+)
+
+// ── 正常状态 ──
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 已连接")
+@Composable
+private fun CalendarScreenConnectedPreview() {
+    val day = LocalDate.now()
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(
+                connectionStatus = CalendarConnectionStatus.CONNECTED,
+                events = previewEvents(day),
+                tasks = previewTasks(day),
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 已连接 · 空日程")
+@Composable
+private fun CalendarScreenEmptyAgendaPreview() {
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(connectionStatus = CalendarConnectionStatus.CONNECTED),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 仅任务过滤")
+@Composable
+private fun CalendarScreenTasksFilterPreview() {
+    val day = LocalDate.now()
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(
+                connectionStatus = CalendarConnectionStatus.CONNECTED,
+                events = previewEvents(day),
+                tasks = previewTasks(day),
+                filter = AgendaFilter.TASKS,
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 同步中（有缓存）")
+@Composable
+private fun CalendarScreenSyncingPreview() {
+    val day = LocalDate.now()
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(
+                connectionStatus = CalendarConnectionStatus.SYNCING,
+                events = previewEvents(day),
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+// ── 未连接 / 拦截状态 ──
+
 @Preview(showBackground = true, showSystemUi = true, name = "Calendar · 未连接")
 @Composable
 private fun CalendarScreenDisconnectedPreview() {
@@ -373,27 +451,65 @@ private fun CalendarScreenLoginRequiredPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 已连接")
+// ── 异常状态 ──
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 同步失败（可重试）")
 @Composable
-private fun CalendarScreenConnectedPreview() {
+private fun CalendarScreenSyncFailedPreview() {
     val day = LocalDate.now()
-    val sample = listOf(
-        // 已结束事件（昨天）：预览中应显示置灰 + 删除线。
-        CalendarEvent("0", "Morning sync", false, day.minusDays(1).atTime(9, 30), day.minusDays(1).atTime(10, 0), "Meet", CalendarEventType.DEFAULT),
-        CalendarEvent("1", "Team standup", false, day.atTime(9, 30), day.atTime(10, 0), "Meet", CalendarEventType.DEFAULT, isMeeting = true),
-        CalendarEvent("2", "Focus: write spec", false, day.atTime(11, 0), day.atTime(12, 0), null, CalendarEventType.FOCUS_TIME),
-        CalendarEvent("3", "Design review", false, day.atTime(14, 0), day.atTime(15, 0), "Room A", CalendarEventType.DEFAULT),
-    )
-    val sampleTasks = listOf(
-        CalendarTask("t1", "list1", "Submit expense report", day, isCompleted = false, notes = null),
-        CalendarTask("t2", "list1", "Reply to Alice", day, isCompleted = true, notes = null),
-    )
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(
+                connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
+                events = previewEvents(day),
+                errorMessage = "Failed to load calendar",
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 授权已撤销")
+@Composable
+private fun CalendarScreenRevokedPreview() {
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(
+                connectionStatus = CalendarConnectionStatus.PERMISSION_REVOKED,
+                errorMessage = "Google authorization expired, please reconnect",
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · token 过期（静默续期中）")
+@Composable
+private fun CalendarScreenTokenExpiredPreview() {
+    val day = LocalDate.now()
+    AppTheme {
+        CalendarScreen(
+            uiState = CalendarUiState(
+                connectionStatus = CalendarConnectionStatus.TOKEN_EXPIRED,
+                events = previewEvents(day),
+                tasks = previewTasks(day),
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 操作失败提示（已连接）")
+@Composable
+private fun CalendarScreenActionErrorPreview() {
+    val day = LocalDate.now()
     AppTheme {
         CalendarScreen(
             uiState = CalendarUiState(
                 connectionStatus = CalendarConnectionStatus.CONNECTED,
-                events = sample,
-                tasks = sampleTasks,
+                events = previewEvents(day),
+                tasks = previewTasks(day),
+                errorMessage = "Couldn't complete the task. Please retry.",
             ),
             onEvent = {},
         )
