@@ -58,6 +58,7 @@ import com.novamind.app.debug.apitest.ApiTarget
 import com.novamind.app.debug.files.FileBrowserActivity
 import com.novamind.app.debug.imageupload.ImageUploadActivity
 import com.novamind.app.debug.markdown.MarkdownPreviewActivity
+import com.novamind.app.debug.notification.NotificationDebugger
 import com.novamind.app.common.pdf.PdfViewerActivity
 import com.novamind.app.debug.speech.SpeechToTextActivity
 import kotlinx.coroutines.Dispatchers
@@ -252,6 +253,61 @@ fun DebugPanel(
                     Chip("打开 JSBridge 测试页") {
                         WebViewActivity.start(context, "file:///android_asset/bridge_test.html", bridgeLevel)
                     }
+                }
+            }
+
+            // ── 通知调试 ──
+            Section("通知调试（熄屏/锁屏/悬浮/角标）") {
+                // 每次进面板重建调试渠道，保证渠道参数改动生效
+                LaunchedEffect(Unit) { NotificationDebugger.ensureChannels(context) }
+                var badgeCount by remember { mutableStateOf(0) }
+                var notifyHint by remember { mutableStateOf("") }
+                InfoRow("通知权限", if (NotificationDebugger.areEnabled(context)) "已开启" else "已关闭")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("通知设置") { NotificationDebugger.openSettings(context) }
+                    Chip("悬浮通知") {
+                        NotificationDebugger.postHeadsUp(context)
+                        notifyHint = "已发送：亮屏时应弹出横幅"
+                    }
+                    Chip("锁屏·公开") {
+                        NotificationDebugger.postLockScreenDelayed(
+                            context, androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC,
+                        )
+                        notifyHint = "5s 后发送，请先锁屏：应完整显示"
+                    }
+                    Chip("锁屏·隐藏内容") {
+                        NotificationDebugger.postLockScreenDelayed(
+                            context, androidx.core.app.NotificationCompat.VISIBILITY_PRIVATE,
+                        )
+                        notifyHint = "5s 后发送，请先锁屏：只显示应用名、隐藏内容"
+                    }
+                    Chip("锁屏·不显示") {
+                        NotificationDebugger.postLockScreenDelayed(
+                            context, androidx.core.app.NotificationCompat.VISIBILITY_SECRET,
+                        )
+                        notifyHint = "5s 后发送，请先锁屏：锁屏上不应出现"
+                    }
+                    Chip("熄屏通知") {
+                        NotificationDebugger.postScreenOffDelayed(context, fullScreen = false)
+                        notifyHint = "5s 后发送，请先熄屏：观察是否点亮/出现在锁屏"
+                    }
+                    Chip("熄屏·全屏意图") {
+                        NotificationDebugger.postScreenOffDelayed(context, fullScreen = true)
+                        notifyHint = "5s 后发送，请先熄屏：应点亮并拉起页面（API 34+ 需在系统设置授予全屏通知权限）"
+                    }
+                    Chip("角标 +1") {
+                        badgeCount++
+                        NotificationDebugger.postBadge(context, badgeCount)
+                        notifyHint = "已发送 setNumber($badgeCount)：回桌面看角标（依赖启动器支持）"
+                    }
+                    Chip("清除通知/角标", danger = true) {
+                        NotificationDebugger.clearAll(context)
+                        badgeCount = 0
+                        notifyHint = "已清除本工具全部通知"
+                    }
+                }
+                if (notifyHint.isNotEmpty()) {
+                    Text("✓ $notifyHint", fontSize = 12.sp, color = TextSub)
                 }
             }
 

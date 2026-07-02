@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 通知调试：熄屏全屏通知（fullScreenIntent）需要；仅 debug 包携带。 -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <!-- 仅 debug 变体注册的调试工具页面（代码位于 src/debug/java/.../debug）。
          合并策略：随 debug 构建并入主清单，release 不含这些 Activity。 -->
     <application>
