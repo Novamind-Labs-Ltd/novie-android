@@ -1,12 +1,7 @@
 package com.novamind.app.feature.asknovie
 
-import android.content.Intent
 import android.speech.tts.TextToSpeech
 import android.widget.Toast
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -14,9 +9,7 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,22 +25,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,11 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -69,46 +51,34 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.VoiceRecordingBar
-import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.ButtonColors
-import com.novamind.app.ui.colors.TextColors
-import com.novamind.app.ui.colors.current
+import com.novamind.app.feature.asknovie.components.AssistantText
+import com.novamind.app.feature.asknovie.components.AttachmentChip
+import com.novamind.app.feature.asknovie.components.BareIconButton
+import com.novamind.app.feature.asknovie.components.Bg
+import com.novamind.app.feature.asknovie.components.Card
+import com.novamind.app.feature.asknovie.components.CircleIconButton
+import com.novamind.app.feature.asknovie.components.Dark
+import com.novamind.app.feature.asknovie.components.MicButton
+import com.novamind.app.feature.asknovie.components.MoreMenu
+import com.novamind.app.feature.asknovie.components.ScrollToBottomButton
+import com.novamind.app.feature.asknovie.components.SendButton
+import com.novamind.app.feature.asknovie.components.StopButton
+import com.novamind.app.feature.asknovie.components.SuggestionChip
+import com.novamind.app.feature.asknovie.components.TextSub
+import com.novamind.app.feature.asknovie.components.TextTitle
+import com.novamind.app.feature.asknovie.components.TypingIndicator
+import com.novamind.app.feature.asknovie.components.UserBubble
 import com.novamind.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 import java.io.File
 
-// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
-private val Bg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
-private val Card: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
-private val TextTitle: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
-private val TextSub: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
-private val Dark: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
-private val OnDark: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
-private val ChipText: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
-private val SendGreen: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Success.background.current()
-private val OnSendGreen: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()
-private val MenuBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.secondary.current()
-private val AttachChipBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
-private val PlaceholderBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Interactive.active.current()
+// 配色与视觉组件统一在 feature/asknovie/components 包（AskNovieColors 等），本文件只保留屏幕编排。
 
 /** 预设的快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
@@ -838,553 +808,6 @@ private suspend fun androidx.compose.foundation.lazy.LazyListState.smoothScrollT
             .coerceAtLeast(1f)
         val consumed = animateScrollBy(step, animationSpec = tween(durationMillis = 240, easing = LinearEasing))
         if (consumed == 0f) break   // 已到底 / 滚不动：退出，防止死循环
-    }
-}
-
-/** 悬浮「滚到最新」按钮（圆形白底 + 向下箭头）。 */
-@Composable
-private fun ScrollToBottomButton(onClick: () -> Unit) {
-    Surface(color = Card, shape = CircleShape, shadowElevation = 0.dp) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    // 按压高亮跟随圆形（bounded=false → 圆形状态层），半径=按钮半径，半透明
-                    indication = ripple(
-                        bounded = false,
-                        radius = 18.dp,
-                        color = TextTitle.copy(alpha = 0.18f),
-                    ),
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_arrow_down),
-                contentDescription = "滚到最新",
-                tint = TextTitle,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun CircleIconButton(iconRes: Int, desc: String, onClick: () -> Unit) {
-    Surface(color = Card, shape = CircleShape, shadowElevation = 1.dp) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = androidx.compose.ui.res.painterResource(iconRes),
-                contentDescription = desc,
-                tint = TextTitle,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun BareIconButton(
-    iconRes: Int,
-    desc: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit = {},
-) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .clickable(
-                enabled = enabled,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = androidx.compose.ui.res.painterResource(iconRes),
-            contentDescription = desc,
-            tint = if (enabled) TextTitle else TextTitle.copy(alpha = 0.3f),
-            modifier = Modifier.size(22.dp),
-        )
-    }
-}
-
-@Composable
-private fun SuggestionChip(text: String, onClick: () -> Unit) {
-    Surface(color = Card, shape = RoundedCornerShape(50), shadowElevation = 1.dp) {
-        Text(
-            text = text,
-            color = ChipText,
-            fontSize = 14.sp,
-            maxLines = 1,
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(),
-                    onClick = onClick,
-                )
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-        )
-    }
-}
-
-/** 发送按钮：绿色圆形，仅在有输入内容时显示。 */
-@Composable
-private fun SendButton(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(SendGreen)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = OnSendGreen),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_arrow_up),
-            contentDescription = "发送",
-            tint = OnSendGreen,
-            modifier = Modifier.size(22.dp),
-        )
-    }
-}
-
-/** 语音按钮（深色圆形）：失焦时显示。 */
-@Composable
-private fun MicButton(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(Dark)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = OnDark),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_mic),
-            contentDescription = "语音",
-            tint = OnDark,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-/** 停止按钮（深色圆形 + 白色方块）：回复生成中显示，点击取消本次回复。 */
-@Composable
-private fun StopButton(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(Dark)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = OnDark),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        // 实心圆角方块表示「停止」
-        Box(
-            modifier = Modifier
-                .size(13.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(OnDark),
-        )
-    }
-}
-
-/** 已选附件 chip：图片显示圆角预览缩略图（不展示文件名）；文件显示图标 + 文件名。 */
-@Composable
-private fun AttachmentChip(att: Attachment, onRemove: () -> Unit, onClick: () -> Unit = {}) {
-    if (att.type == AttachType.Image) {
-        ImageAttachmentPreview(att = att, onRemove = onRemove, onClick = onClick)
-    } else {
-        FileAttachmentChip(att = att, onRemove = onRemove)
-    }
-}
-
-/** 图片附件：胶囊预览缩略图 + 右端移除按钮，不展示文件名；点击打开全屏预览。 */
-@Composable
-private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(width = 72.dp, height = 40.dp)
-            // 胶囊型裁剪：圆角半径 = 高度的一半，两端呈半圆
-            .clip(RoundedCornerShape(50))
-            .background(PlaceholderBg)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            ),
-    ) {
-        AsyncImage(
-            model = File(att.path),
-            contentDescription = null,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        // 右端移除按钮（白底圆形，叠在预览图上，垂直居中）
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 5.dp)
-                .size(18.dp)
-                .clip(CircleShape)
-                .background(Card.copy(alpha = 0.92f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onRemove,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_close),
-                contentDescription = "移除",
-                tint = TextTitle,
-                modifier = Modifier.size(11.dp),
-            )
-        }
-    }
-}
-
-/** 文件 / 语音附件：图标 + 文件名 + 移除。 */
-@Composable
-private fun FileAttachmentChip(att: Attachment, onRemove: () -> Unit) {
-    Surface(color = AttachChipBg, shape = RoundedCornerShape(50)) {
-        Row(
-            modifier = Modifier.padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(PlaceholderBg),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
-                    contentDescription = null,
-                    tint = TextSub,
-                    modifier = Modifier.size(15.dp),
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = att.name,
-                color = TextTitle,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 120.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false),
-                        onClick = onRemove,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_close),
-                    contentDescription = "移除",
-                    tint = TextSub,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-        }
-    }
-}
-
-/** 右上角「更多」下拉菜单。 */
-@Composable
-private fun MoreMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    onShare: () -> Unit,
-    onRename: () -> Unit,
-    onExportToNotes: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        containerColor = MenuBg,
-        shape = RoundedCornerShape(22.dp),
-        shadowElevation = 12.dp,
-        tonalElevation = 0.dp,
-        modifier = Modifier.width(220.dp),
-    ) {
-        MoreMenuItem("Share", onShare)
-        MoreMenuItem("Rename", onRename)
-        MoreMenuItem("Export to notes", onExportToNotes)
-        MoreMenuItem("Delete", onDelete)
-    }
-}
-
-@Composable
-private fun MoreMenuItem(label: String, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(label, color = TextTitle, fontSize = 16.sp) },
-        onClick = onClick,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 24.dp,
-            vertical = 12.dp,
-        ),
-    )
-}
-
-/** 语音气泡：播放/暂停 + 名称（含时长）。点击播放录音文件。 */
-@Composable
-private fun AudioBubble(att: Attachment) {
-    val player = remember { android.media.MediaPlayer() }
-    var playing by remember { mutableStateOf(false) }
-    var prepared by remember { mutableStateOf(false) }
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        onDispose { runCatching { player.release() } }
-    }
-    player.setOnCompletionListener { playing = false }
-
-    Surface(
-        color = Card,
-        shape = RoundedCornerShape(50),
-        shadowElevation = 1.dp,
-        modifier = Modifier.padding(bottom = 6.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(),
-                    onClick = {
-                        runCatching {
-                            if (playing) {
-                                player.pause(); playing = false
-                            } else {
-                                if (!prepared) {
-                                    player.setDataSource(att.path); player.prepare(); prepared = true
-                                }
-                                player.start(); playing = true
-                            }
-                        }
-                    },
-                )
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape).background(SendGreen),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(
-                        if (playing) R.drawable.ic_pause else R.drawable.ic_play,
-                    ),
-                    contentDescription = if (playing) "暂停" else "播放",
-                    tint = OnSendGreen,
-                    modifier = Modifier.size(15.dp),
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Text(att.name, color = TextTitle, fontSize = 14.sp)
-        }
-    }
-}
-
-/** 用户消息气泡：右对齐。附件（图片预览 / 文件 chip）在上，文本在下。 */
-@Composable
-private fun UserBubble(msg: ChatMessage) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        Column(
-            modifier = Modifier.padding(start = 48.dp),
-            horizontalAlignment = Alignment.End,
-        ) {
-            // 文件附件：静态 chip（置于最前）
-            msg.attachments.filter { it.type == AttachType.File }.forEach { att ->
-                Surface(
-                    color = AttachChipBg,
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.padding(bottom = 6.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_document),
-                            contentDescription = null,
-                            tint = TextSub,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        // 文件名完整显示（过长则换行，不省略）
-                        Text(
-                            att.name,
-                            color = TextTitle,
-                            fontSize = 13.sp,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                    }
-                }
-            }
-            // 语音附件：可播放气泡
-            msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
-                AudioBubble(att)
-            }
-            // 图片附件：圆角预览
-            msg.attachments.filter { it.type == AttachType.Image }.forEach { att ->
-                AsyncImage(
-                    model = File(att.path),
-                    contentDescription = att.name,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    modifier = Modifier
-                        .padding(bottom = 6.dp)
-                        .widthIn(max = 220.dp)
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(PlaceholderBg),
-                )
-            }
-            // 文本气泡（有文字才显示）
-            if (msg.text.isNotEmpty()) {
-                Surface(
-                    color = Card,
-                    shape = RoundedCornerShape(18.dp),
-                    shadowElevation = 1.dp,
-                ) {
-                    SelectionContainer {
-                        Text(
-                            text = msg.text,
-                            color = TextTitle,
-                            fontSize = 15.sp,
-                            lineHeight = 21.sp,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/翻译/语音播报）。 */
-@Composable
-private fun AssistantText(text: String, onSpeak: (String) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SelectionContainer {
-            Text(
-                text = text,
-                color = TextTitle,
-                fontSize = 15.sp,
-                lineHeight = 22.sp,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        AssistantActions(text = text, onSpeak = onSpeak)
-    }
-}
-
-/** 助手回复下方的操作行：复制 / 分享 / 翻译 / 语音播报。 */
-@Composable
-private fun AssistantActions(text: String, onSpeak: (String) -> Unit) {
-    val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
-    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        ActionIcon(R.drawable.ic_copy, "复制") {
-            clipboard.setText(AnnotatedString(text))
-            Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
-        }
-        ActionIcon(R.drawable.ic_share, "分享") {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, text)
-            }
-            context.startActivity(Intent.createChooser(intent, "分享"))
-        }
-        ActionIcon(R.drawable.ic_translate, "翻译") {
-            // TODO: 接入翻译服务（如 ML Kit / 翻译 API）
-            Toast.makeText(context, "翻译功能即将上线", Toast.LENGTH_SHORT).show()
-        }
-        ActionIcon(R.drawable.ic_volume, "语音播报") { onSpeak(text) }
-    }
-}
-
-@Composable
-private fun ActionIcon(iconRes: Int, desc: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(CircleShape)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = androidx.compose.ui.res.painterResource(iconRes),
-            contentDescription = desc,
-            tint = TextSub,
-            modifier = Modifier.size(19.dp),
-        )
-    }
-}
-
-/** 助手「正在输入」的三点动画。 */
-@Composable
-private fun TypingIndicator() {
-    val transition = rememberInfiniteTransition(label = "typing")
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        repeat(3) { i ->
-            val alpha by transition.animateFloat(
-                initialValue = 0.25f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600, delayMillis = i * 150),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-                label = "dot$i",
-            )
-            Box(
-                modifier = Modifier
-                    .padding(end = 5.dp)
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(TextSub.copy(alpha = alpha)),
-            )
-        }
     }
 }
 

@@ -1,70 +1,36 @@
 package com.novamind.app.feature.asknovie
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.novamind.app.R
+import com.novamind.app.feature.asknovie.components.ChatRow
+import com.novamind.app.feature.asknovie.components.NewChatButton
+import com.novamind.app.feature.asknovie.components.SearchField
+import com.novamind.app.feature.asknovie.components.SheetBg
+import com.novamind.app.feature.asknovie.components.SubColor
+import com.novamind.app.feature.asknovie.components.TitleColor
 import com.novamind.app.ui.theme.AppTheme
-import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.ButtonColors
-import com.novamind.app.ui.colors.TextColors
-import com.novamind.app.ui.colors.current
-
-// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
-private val SheetBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
-private val TitleColor: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
-private val SubColor: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
-private val ItemColor: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
-private val DarkPill: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
-private val OnDarkPill: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
-private val SearchBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 
 /**
  * 「Chat history」底部弹窗：搜索框 + 最近会话列表 + 新建会话。
@@ -178,84 +144,6 @@ private fun ChatHistoryContent(
             }
         }
     }
-}
-
-@Composable
-private fun NewChatButton(onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(DarkPill)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(color = OnDarkPill),
-                onClick = onClick,
-            )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_chat),
-            contentDescription = null,
-            tint = OnDarkPill,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text("New chat", color = OnDarkPill, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
-    Surface(color = SearchBg, shape = RoundedCornerShape(50), shadowElevation = 1.dp) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                painter = androidx.compose.ui.res.painterResource(R.drawable.ic_search),
-                contentDescription = null,
-                tint = SubColor,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                if (query.isEmpty()) {
-                    Text("Search chats", color = SubColor, fontSize = 15.sp)
-                }
-                BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    textStyle = TextStyle(color = TitleColor, fontSize = 15.sp),
-                    cursorBrush = SolidColor(TitleColor),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChatRow(title: String, onClick: () -> Unit) {
-    Text(
-        text = title,
-        fontSize = 15.sp,
-        color = ItemColor,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            )
-            .padding(vertical = 14.dp),
-    )
 }
 
 // ── Preview（预览内容层；ModalBottomSheet 为窗口层，静态预览不渲染） ──

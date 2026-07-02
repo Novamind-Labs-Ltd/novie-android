@@ -1,0 +1,305 @@
+package com.novamind.app.feature.asknovie.components
+
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.novamind.app.R
+import com.novamind.app.feature.asknovie.AttachType
+import com.novamind.app.feature.asknovie.Attachment
+import com.novamind.app.feature.asknovie.ChatMessage
+import com.novamind.app.feature.asknovie.Role
+import com.novamind.app.ui.theme.AppTheme
+import java.io.File
+
+/** 语音气泡：播放/暂停 + 名称（含时长）。点击播放录音文件；预览态不创建 MediaPlayer。 */
+@Composable
+internal fun AudioBubble(att: Attachment) {
+    val inPreview = LocalInspectionMode.current
+    val player = if (inPreview) null else remember { android.media.MediaPlayer() }
+    var playing by remember { mutableStateOf(false) }
+    var prepared by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        onDispose { runCatching { player?.release() } }
+    }
+    player?.setOnCompletionListener { playing = false }
+
+    Surface(
+        color = Card,
+        shape = RoundedCornerShape(50),
+        shadowElevation = 1.dp,
+        modifier = Modifier.padding(bottom = 6.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(),
+                    onClick = {
+                        val p = player ?: return@clickable
+                        runCatching {
+                            if (playing) {
+                                p.pause(); playing = false
+                            } else {
+                                if (!prepared) {
+                                    p.setDataSource(att.path); p.prepare(); prepared = true
+                                }
+                                p.start(); playing = true
+                            }
+                        }
+                    },
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier.size(28.dp).clip(CircleShape).background(SendGreen),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (playing) R.drawable.ic_pause else R.drawable.ic_play,
+                    ),
+                    contentDescription = if (playing) "暂停" else "播放",
+                    tint = OnSendGreen,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(att.name, color = TextTitle, fontSize = 14.sp)
+        }
+    }
+}
+
+/** 用户消息气泡：右对齐。附件（图片预览 / 文件 chip）在上，文本在下。 */
+@Composable
+internal fun UserBubble(msg: ChatMessage) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Column(
+            modifier = Modifier.padding(start = 48.dp),
+            horizontalAlignment = Alignment.End,
+        ) {
+            // 文件附件：静态 chip（置于最前）
+            msg.attachments.filter { it.type == AttachType.File }.forEach { att ->
+                Surface(
+                    color = AttachChipBg,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.padding(bottom = 6.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_document),
+                            contentDescription = null,
+                            tint = TextSub,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        // 文件名完整显示（过长则换行，不省略）
+                        Text(
+                            att.name,
+                            color = TextTitle,
+                            fontSize = 13.sp,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
+                }
+            }
+            // 语音附件：可播放气泡
+            msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
+                AudioBubble(att)
+            }
+            // 图片附件：圆角预览
+            msg.attachments.filter { it.type == AttachType.Image }.forEach { att ->
+                AsyncImage(
+                    model = File(att.path),
+                    contentDescription = att.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .widthIn(max = 220.dp)
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(PlaceholderBg),
+                )
+            }
+            // 文本气泡（有文字才显示）
+            if (msg.text.isNotEmpty()) {
+                Surface(
+                    color = Card,
+                    shape = RoundedCornerShape(18.dp),
+                    shadowElevation = 1.dp,
+                ) {
+                    SelectionContainer {
+                        Text(
+                            text = msg.text,
+                            color = TextTitle,
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/翻译/语音播报）。 */
+@Composable
+internal fun AssistantText(text: String, onSpeak: (String) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SelectionContainer {
+            Text(
+                text = text,
+                color = TextTitle,
+                fontSize = 15.sp,
+                lineHeight = 22.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        AssistantActions(text = text, onSpeak = onSpeak)
+    }
+}
+
+/** 助手回复下方的操作行：复制 / 分享 / 翻译 / 语音播报。 */
+@Composable
+private fun AssistantActions(text: String, onSpeak: (String) -> Unit) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        ActionIcon(R.drawable.ic_copy, "复制") {
+            clipboard.setText(AnnotatedString(text))
+            Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+        }
+        ActionIcon(R.drawable.ic_share, "分享") {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+            context.startActivity(Intent.createChooser(intent, "分享"))
+        }
+        ActionIcon(R.drawable.ic_translate, "翻译") {
+            // TODO: 接入翻译服务（如 ML Kit / 翻译 API）
+            Toast.makeText(context, "翻译功能即将上线", Toast.LENGTH_SHORT).show()
+        }
+        ActionIcon(R.drawable.ic_volume, "语音播报") { onSpeak(text) }
+    }
+}
+
+@Composable
+private fun ActionIcon(iconRes: Int, desc: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = desc,
+            tint = TextSub,
+            modifier = Modifier.size(19.dp),
+        )
+    }
+}
+
+/** 助手「正在输入」的三点动画。 */
+@Composable
+internal fun TypingIndicator() {
+    val transition = rememberInfiniteTransition(label = "typing")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        repeat(3) { i ->
+            val alpha by transition.animateFloat(
+                initialValue = 0.25f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600, delayMillis = i * 150),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "dot$i",
+            )
+            Box(
+                modifier = Modifier
+                    .padding(end = 5.dp)
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(TextSub.copy(alpha = alpha)),
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · 消息气泡")
+@Composable
+private fun MessageBubblesPreview() {
+    AppTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            UserBubble(
+                ChatMessage(
+                    Role.User,
+                    "帮我总结一下这份文档",
+                    listOf(Attachment(AttachType.File, "/tmp/doc.pdf", "quarterly-report.pdf")),
+                ),
+            )
+            AssistantText(text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。", onSpeak = {})
+            UserBubble(ChatMessage(Role.User, "", listOf(Attachment(AttachType.Audio, "/tmp/a.m4a", "Voice 0:08"))))
+            TypingIndicator()
+        }
+    }
+}
