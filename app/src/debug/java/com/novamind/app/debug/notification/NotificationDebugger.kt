@@ -30,11 +30,14 @@ object NotificationDebugger {
     private const val CH_LOCK_SECRET = "debug_lock_secret"
     private const val CH_BADGE = "debug_badge"
     private const val CH_FULLSCREEN = "debug_fullscreen"
+    private const val CH_ONGOING = "debug_ongoing"
+    private const val CH_ONGOING_HEADS_UP = "debug_ongoing_heads_up"
 
     private const val ID_HEADS_UP = 9001
     private const val ID_LOCK = 9002
     private const val ID_SCREEN_OFF = 9003
     private const val ID_BADGE = 9004
+    private const val ID_ONGOING = 9005
 
     /** 延迟发送的等待时长：给用户留出锁屏/熄屏的操作时间。 */
     private const val DELAY_MS = 5_000L
@@ -46,6 +49,7 @@ object NotificationDebugger {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         listOf(
             CH_HEADS_UP, CH_LOCK_PUBLIC, CH_LOCK_PRIVATE, CH_LOCK_SECRET, CH_BADGE, CH_FULLSCREEN,
+            CH_ONGOING, CH_ONGOING_HEADS_UP,
         ).forEach { nm.deleteNotificationChannel(it) }
 
         nm.createNotificationChannel(
@@ -71,6 +75,21 @@ object NotificationDebugger {
         nm.createNotificationChannel(
             NotificationChannel(CH_FULLSCREEN, "Debug·熄屏全屏", NotificationManager.IMPORTANCE_HIGH)
                 .apply { description = "带 fullScreenIntent，熄屏时应点亮并全屏拉起" },
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CH_ONGOING, "Debug·常驻通知", NotificationManager.IMPORTANCE_DEFAULT)
+                .apply {
+                    description = "ongoing 常驻，锁屏公开可见"
+                    lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+                },
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CH_ONGOING_HEADS_UP, "Debug·常驻悬浮", NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "ongoing + HIGH：亮屏弹横幅并常驻，锁屏公开可见"
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+            },
         )
     }
 
@@ -145,10 +164,55 @@ object NotificationDebugger {
         )
     }
 
+    /**
+     * 常驻锁屏通知：setOngoing(true) 不可滑除 + 锁屏公开可见，直到 [cancelOngoing]。
+     * 注意 Android 14+ 系统允许用户滑掉 ongoing 通知（仅 CallStyle/媒体等豁免）。
+     */
+    fun postOngoing(context: Context) {
+        notify(
+            context, ID_ONGOING,
+            builder(context, CH_ONGOING, "常驻通知", "ongoing=true：常驻通知栏与锁屏，点「取消常驻」移除")
+                .setOngoing(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                // 显示计时器便于确认通知存活时长。
+                .setUsesChronometer(true)
+                .setAutoCancel(false),
+        )
+    }
+
+    /**
+     * 熄屏常驻悬浮通知：延迟 [DELAY_MS] 发送（期间请熄屏）——
+     * IMPORTANCE_HIGH（亮屏时弹悬浮横幅）+ ongoing 常驻 + 锁屏公开可见。
+     * 熄屏时是否点亮屏幕取决于系统/厂商（原生一般亮起 Ambient/锁屏展示）。
+     */
+    fun postOngoingHeadsUpDelayed(context: Context) {
+        val appContext = context.applicationContext
+        handler.postDelayed({
+            notify(
+                appContext, ID_ONGOING,
+                builder(
+                    appContext, CH_ONGOING_HEADS_UP,
+                    "熄屏常驻悬浮通知",
+                    "HIGH + ongoing：亮屏弹横幅、常驻通知栏与锁屏，点「取消常驻」移除",
+                )
+                    .setOngoing(true)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setUsesChronometer(true)
+                    .setAutoCancel(false),
+            )
+        }, DELAY_MS)
+    }
+
+    /** 取消常驻通知（含常驻悬浮）。 */
+    fun cancelOngoing(context: Context) {
+        NotificationManagerCompat.from(context).cancel(ID_ONGOING)
+    }
+
     /** 清除本工具发出的全部通知（角标随之消失）。 */
     fun clearAll(context: Context) {
         val nm = NotificationManagerCompat.from(context)
-        listOf(ID_HEADS_UP, ID_LOCK, ID_SCREEN_OFF, ID_BADGE).forEach { nm.cancel(it) }
+        listOf(ID_HEADS_UP, ID_LOCK, ID_SCREEN_OFF, ID_BADGE, ID_ONGOING).forEach { nm.cancel(it) }
     }
 
     private fun builder(

@@ -295,6 +295,18 @@ fun DebugPanel(
                         NotificationDebugger.postScreenOffDelayed(context, fullScreen = true)
                         notifyHint = "5s 后发送，请先熄屏：应点亮并拉起页面（API 34+ 需在系统设置授予全屏通知权限）"
                     }
+                    Chip("常驻通知") {
+                        NotificationDebugger.postOngoing(context)
+                        notifyHint = "已发送 ongoing 常驻通知（锁屏公开可见，带计时器；Android 14+ 用户仍可滑除）"
+                    }
+                    Chip("熄屏·常驻悬浮") {
+                        NotificationDebugger.postOngoingHeadsUpDelayed(context)
+                        notifyHint = "5s 后发送，请先熄屏：HIGH+ongoing，亮屏弹横幅并常驻（能否点亮屏幕看厂商）"
+                    }
+                    Chip("取消常驻") {
+                        NotificationDebugger.cancelOngoing(context)
+                        notifyHint = "已取消常驻通知"
+                    }
                     Chip("角标 +1") {
                         badgeCount++
                         NotificationDebugger.postBadge(context, badgeCount)
