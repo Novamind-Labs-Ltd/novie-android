@@ -14,4 +14,9 @@ object FunConfig {
 
     /** 上传文档（附件弹窗的 Document 入口）。第一期不开放：按钮置灰不可点击。 */
     const val UPLOAD_DOCUMENT_ENABLED = false
+
+    // ── 分享 ──
+
+    /** 文档分享（笔记编辑页「更多 → Share」）。不开放时**隐藏入口**（菜单项不显示）。 */
+    const val DOCUMENT_SHARE_ENABLED = false
 }

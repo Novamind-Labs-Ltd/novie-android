@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.FunConfig
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 
@@ -128,16 +129,19 @@ fun CreateTopBar(
                         containerColor = BackgroundColors.Surface.default.current(),
                         shadowElevation = 8.dp,
                     ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text("Share", fontSize = 16.sp, color = TextColors.Primary.default.current())
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onShare()
-                            },
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        )
+                        // 文档分享由 FunConfig 分期控制：未开放时隐藏菜单项。
+                        if (FunConfig.DOCUMENT_SHARE_ENABLED) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text("Share", fontSize = 16.sp, color = TextColors.Primary.default.current())
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onShare()
+                                },
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                        }
                         DropdownMenuItem(
                             text = {
                                 Text("Change color", fontSize = 16.sp, color = TextColors.Primary.default.current())
