@@ -1,29 +1,22 @@
 package com.novamind.app.feature.calendar
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,17 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,14 +37,28 @@ import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventType
-import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
-import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.BorderColors
-import com.novamind.app.ui.colors.IconColors
-import com.novamind.app.ui.colors.Palette
-import com.novamind.app.ui.colors.TextColors
-import com.novamind.app.ui.colors.current
+import com.novamind.app.feature.calendar.components.AgendaSection
+import com.novamind.app.feature.calendar.components.BgPage
+import com.novamind.app.feature.calendar.components.CalendarIllustration
+import com.novamind.app.feature.calendar.components.ColorOnPrimary
+import com.novamind.app.feature.calendar.components.ColorPrimary
+import com.novamind.app.feature.calendar.components.ColorPrimaryBg
+import com.novamind.app.feature.calendar.components.ColorSurface
+import com.novamind.app.feature.calendar.components.ColorTextError
+import com.novamind.app.feature.calendar.components.ColorTextInverse
+import com.novamind.app.feature.calendar.components.ColorTextSub
+import com.novamind.app.feature.calendar.components.ColorTextTitle
+import com.novamind.app.feature.calendar.components.DayCell
+import com.novamind.app.feature.calendar.components.EventRow
+import com.novamind.app.feature.calendar.components.MeetingBg
+import com.novamind.app.feature.calendar.components.MeetingIcon
+import com.novamind.app.feature.calendar.components.NavArrow
+import com.novamind.app.feature.calendar.components.PillIcon
+import com.novamind.app.feature.calendar.components.StatCard
+import com.novamind.app.feature.calendar.components.TaskRow
+import com.novamind.app.feature.calendar.components.TodoBg
+import com.novamind.app.feature.calendar.components.TodoIcon
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -67,40 +68,7 @@ import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
-private val BgPage: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
-private val ColorSurface: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
-private val ColorTextTitle: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
-private val ColorTextSub: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
-private val ColorTextFaint: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
-private val ColorTextInverse: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
-private val ColorTextError: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
-private val ColorBorder: Color
-    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
-private val ColorPrimary: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
-private val ColorPrimaryBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Primary.default.current()
-private val ColorOnPrimary: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Default.onColor.current()
-private val MeetingBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Scenario.teal.current()
-private val MeetingIcon: Color
-    @Composable @ReadOnlyComposable get() = IconColors.BrandSecondary.default.current()
-private val TodoBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
-private val TodoIcon: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Success.default.current()
-
 private val weekLetters = listOf("M", "T", "W", "T", "F", "S", "S")
-private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
 
 // 周条 pager：足够大的页数模拟"无限"前后翻周，中间页为锚点周（本周）。
 private const val WEEK_PAGE_COUNT = 20_000
@@ -116,6 +84,7 @@ private const val DAY_INITIAL_PAGE = DAY_PAGE_COUNT / 2
 /**
  * 无状态 Calendar 屏幕：仅消费 [CalendarUiState] 并通过 [onEvent] 上报交互。
  * 授权后展示统计与时段事件，未授权时展示「连接 Google 日历」空状态卡片。
+ * 视觉组件拆分在 [com.novamind.app.feature.calendar.components] 包下。
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -436,288 +405,6 @@ fun CalendarScreen(
             }
         }
         }
-    }
-}
-
-@Composable
-private fun PillIcon(iconRes: Int, desc: String, onClick: () -> Unit = {}) {
-    Box(
-        modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painterResource(iconRes), desc, tint = ColorTextTitle, modifier = Modifier.size(20.dp))
-    }
-}
-
-@Composable
-private fun NavArrow(left: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier.size(36.dp).clip(CircleShape).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_chevron_right),
-            contentDescription = if (left) "Previous day" else "Next day",
-            tint = ColorTextTitle,
-            modifier = Modifier
-                .size(22.dp)
-                .then(if (left) Modifier.rotate(180f) else Modifier),
-        )
-    }
-}
-
-@Composable
-private fun DayCell(
-    letter: String,
-    day: Int,
-    selected: Boolean,
-    weekend: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(letter, fontSize = 12.sp, color = if (weekend) ColorTextFaint else ColorTextSub)
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .then(if (selected) Modifier.background(ColorPrimary) else Modifier),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = day.toString(),
-                fontSize = 15.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) ColorTextInverse else ColorTextTitle,
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatCard(
-    count: String,
-    label: String,
-    bg: Color,
-    iconRes: Int,
-    iconTint: Color,
-    modifier: Modifier = Modifier,
-    selected: Boolean = false,
-    onClick: (() -> Unit)? = null,
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(bg)
-            .then(if (selected) Modifier.border(2.dp, ColorPrimary, RoundedCornerShape(18.dp)) else Modifier)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .height(92.dp),
-    ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            tint = iconTint.copy(alpha = 0.55f),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(10.dp)
-                .size(48.dp),
-        )
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(count, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
-            Text(label, fontSize = 13.sp, color = ColorTextSub)
-        }
-    }
-}
-
-@Composable
-private fun AgendaSection(
-    label: String,
-    count: Int,
-    empty: Boolean,
-    emptyText: String,
-    loading: Boolean,
-    content: @Composable () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .padding(top = 4.dp, bottom = 8.dp),
-    ) {
-        Text(
-            "$label ($count)",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = ColorTextSub,
-            modifier = Modifier.padding(vertical = 6.dp),
-        )
-        if (empty) {
-            if (!loading) {
-                Text(
-                    emptyText,
-                    fontSize = 13.sp,
-                    color = ColorTextFaint,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
-        }
-    }
-}
-
-/**
- * 任务行：未完成任务支持**右滑完成**（StartToEnd）。
- * 滑动只触发 [onComplete] 后回弹，不真正移除条目——完成态由状态更新驱动（置灰 + 删除线）。
- */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun TaskRow(
-    task: CalendarTask,
-    onComplete: (CalendarTask) -> Unit,
-    onClick: (CalendarTask) -> Unit,
-) {
-    val currentTask by rememberUpdatedState(task)
-    val currentOnComplete by rememberUpdatedState(onComplete)
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.StartToEnd && !currentTask.isCompleted) {
-                currentOnComplete(currentTask)
-            }
-            false // 永不真正 dismiss：回弹，由 UiState 变化切换为已完成样式
-        },
-    )
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = !task.isCompleted,
-        enableDismissFromEndToStart = false,
-        modifier = Modifier.clip(RoundedCornerShape(14.dp)),
-        backgroundContent = {
-            // 右滑露出的背景：绿色 + 勾选图标，示意「完成」
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(TodoIcon.copy(alpha = 0.18f))
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_check_circle),
-                    contentDescription = "Complete task",
-                    tint = TodoIcon,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-        },
-    ) {
-        TaskRowContent(task, onClick = { onClick(task) })
-    }
-}
-
-@Composable
-private fun TaskRowContent(task: CalendarTask, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(ColorSurface)
-            .border(1.dp, ColorBorder, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // 任务用勾选圈图标与活动区分；已完成置灰 + 删除线。
-        Icon(
-            painter = painterResource(R.drawable.ic_check_circle),
-            contentDescription = null,
-            tint = if (task.isCompleted) TodoIcon else ColorTextFaint,
-            modifier = Modifier.size(18.dp),
-        )
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = task.title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (task.isCompleted) ColorTextFaint else ColorTextTitle,
-                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
-            )
-            task.notes?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 12.sp, color = ColorTextSub, maxLines = 1)
-            }
-        }
-        Text("Task", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TodoIcon)
-    }
-}
-
-@Composable
-private fun EventRow(event: CalendarEvent) {
-    // 已结束的事件视为「已完成」：圆点、标题置灰 + 删除线，与已完成任务保持一致。
-    val past = event.isPast
-    val accent = if (past) ColorTextFaint else MeetingIcon
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(ColorSurface)
-            .border(1.dp, ColorBorder, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = event.title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (past) ColorTextFaint else ColorTextTitle,
-                textDecoration = if (past) TextDecoration.LineThrough else null,
-            )
-            event.location?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 12.sp, color = ColorTextSub)
-            }
-        }
-        Text(
-            text = if (event.isAllDay) "All day" else event.start.format(timeFormatter),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = ColorTextSub,
-        )
-    }
-}
-
-/** 空状态插图：叠放的笔记本/文件夹 + 装饰圆点（纯 Canvas，无图片资源）。 */
-@Composable
-private fun CalendarIllustration() {
-    // Canvas DrawScope 非 @Composable，颜色令牌须在此先解析为 Color 再传入。
-    val primary = ColorPrimary
-    val accent = MeetingIcon
-    val shadow = Palette.black0
-    val cover = Palette.sand550
-    val page = Palette.white
-    val dotLarge = Palette.sand700
-    val dotSmall = Palette.sand550
-    Canvas(modifier = Modifier.size(width = 168.dp, height = 124.dp)) {
-        val w = size.width
-        val h = size.height
-        drawOval(shadow, topLeft = Offset(w * 0.20f, h * 0.84f), size = Size(w * 0.60f, h * 0.12f))
-        // 后封面
-        drawRoundRect(cover, topLeft = Offset(w * 0.26f, h * 0.18f), size = Size(w * 0.46f, h * 0.56f), cornerRadius = CornerRadius(10f, 10f))
-        // 白页
-        drawRoundRect(page, topLeft = Offset(w * 0.31f, h * 0.24f), size = Size(w * 0.40f, h * 0.52f), cornerRadius = CornerRadius(8f, 8f))
-        // 绿色书签/卡
-        drawRoundRect(primary, topLeft = Offset(w * 0.30f, h * 0.46f), size = Size(w * 0.14f, h * 0.14f), cornerRadius = CornerRadius(4f, 4f))
-        drawRoundRect(accent, topLeft = Offset(w * 0.50f, h * 0.58f), size = Size(w * 0.12f, h * 0.12f), cornerRadius = CornerRadius(4f, 4f))
-        // 装饰
-        drawCircle(dotLarge, radius = w * 0.05f, center = Offset(w * 0.80f, h * 0.30f))
-        drawCircle(dotSmall, radius = w * 0.055f, center = Offset(w * 0.18f, h * 0.66f))
-        drawCircle(primary.copy(alpha = 0.4f), radius = w * 0.016f, center = Offset(w * 0.74f, h * 0.7f))
     }
 }
 
