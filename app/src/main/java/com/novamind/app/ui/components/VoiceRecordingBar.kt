@@ -45,6 +45,7 @@ import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 // 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
@@ -77,6 +78,9 @@ private const val NO_VOICE_THRESHOLD = AppConfig.Media.NO_VOICE_THRESHOLD
 // 录音时长不足此秒数时禁止发送（集中配置见 AppConfig.Media）
 private const val MIN_RECORD_SECONDS = AppConfig.Media.MIN_RECORD_SECONDS
 
+/** 录音条阶段：录制中 / 上传中（Send 后等待结果）/ 上传失败（可重试）。 */
+private enum class RecordingBarPhase { Recording, Sending, UploadFailed }
+
 /**
  * 录音条（点击工具栏「Voice」后出现）。
  *
@@ -85,13 +89,16 @@ private const val MIN_RECORD_SECONDS = AppConfig.Media.MIN_RECORD_SECONDS
  * 录音不中断，且会在通知栏 / 锁屏常驻一条录音通知。本组件只负责观察状态、下发指令。
  *
  * @param onCancel 取消录音（丢弃）
- * @param onConfirm 完成录音，回传时长（秒）
+ * @param onConfirm 完成录音（上传成功后）回传路径与时长（秒）
+ * @param onUpload 可选上传步骤：录音落盘后调用，返回 false 进入失败态（绿色重试按钮，
+ *   可重传同一文件）；为 null 时跳过上传直接 [onConfirm]（当前 CreateScreen 本地插入即此路径）。
  */
 @Composable
 fun VoiceRecordingBar(
     onCancel: () -> Unit,
     onConfirm: (path: String, durationSeconds: Int) -> Unit,
     modifier: Modifier = Modifier,
+    onUpload: (suspend (path: String, durationSeconds: Int) -> Boolean)? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val snapshot by com.novamind.app.common.audio.RecordingController.state
@@ -102,8 +109,24 @@ fun VoiceRecordingBar(
 
     var started by remember { mutableStateOf(false) }
     var showNoVoice by remember { mutableStateOf(false) }
-    // 点 Send 后的上传中状态：停止指令已下发、等待服务回写结果。期间全部控件禁用，不可继续录音。
+    // 点 Send 后的上传中状态：停止指令已下发、等待服务回写结果 / 上传中。期间全部控件禁用。
     var sending by remember { mutableStateOf(false) }
+    // 上传失败：保留已落盘的录音（path, duration），显示重试按钮可重传。
+    var pendingUpload by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // 执行上传：成功 → onConfirm；失败 → 进入失败态（保留文件待重试）。
+    suspend fun uploadAndConfirm(path: String, durationSeconds: Int) {
+        val ok = onUpload?.invoke(path, durationSeconds) ?: true
+        if (ok) {
+            pendingUpload = null
+            com.novamind.app.common.audio.RecordingController.reset()
+            onConfirm(path, durationSeconds)
+        } else {
+            sending = false
+            pendingUpload = path to durationSeconds
+        }
+    }
     // 点删除后的「丢弃录音」二次确认
     var showDiscardConfirm by remember { mutableStateOf(false) }
     // 是否因弹确认而主动暂停（用于「Keep recording」时恢复；本就暂停则保持暂停）
@@ -134,10 +157,8 @@ fun VoiceRecordingBar(
                     sending = false
                     onCancel()
                 }
-                result.peakAmplitude >= NO_VOICE_THRESHOLD -> {
-                    com.novamind.app.common.audio.RecordingController.reset()
-                    onConfirm(result.path, result.durationSeconds)
-                }
+                result.peakAmplitude >= NO_VOICE_THRESHOLD ->
+                    uploadAndConfirm(result.path, result.durationSeconds)
                 else -> {
                     runCatching { java.io.File(result.path).delete() }
                     sending = false
@@ -167,19 +188,25 @@ fun VoiceRecordingBar(
         levels = List(WAVE_BARS) { WAVE_BASELINE }
         showNoVoice = false
         sending = false
+        pendingUpload = null
         com.novamind.app.common.audio.RecordingController.reset()
         com.novamind.app.common.audio.RecordingService.start(context)
     }
 
+    val phase = when {
+        pendingUpload != null -> RecordingBarPhase.UploadFailed
+        sending -> RecordingBarPhase.Sending
+        else -> RecordingBarPhase.Recording
+    }
     RecordingBarContent(
         levels = levels,
-        elapsed = elapsed,
+        elapsed = pendingUpload?.second ?: elapsed,
         paused = paused,
-        sending = sending,
+        phase = phase,
         sendEnabled = elapsed >= MIN_RECORD_SECONDS,   // 不足 3 秒禁止发送
         onCancelClick = {
-            // 点删除：先暂停录音，再弹二次确认；确认后才真正取消
-            if (!paused) {
+            // 点删除：先暂停录音（失败态录音已停止，无需暂停），再弹二次确认
+            if (phase == RecordingBarPhase.Recording && !paused) {
                 com.novamind.app.common.audio.RecordingService.pause(context)
                 pausedForConfirm = true
             }
@@ -197,6 +224,14 @@ fun VoiceRecordingBar(
             sending = true
             com.novamind.app.common.audio.RecordingService.stop(context)
         },
+        onRetry = {
+            // 重传同一文件：回到上传中，结果仍走 uploadAndConfirm 分支
+            pendingUpload?.let { (path, duration) ->
+                sending = true
+                pendingUpload = null
+                scope.launch { uploadAndConfirm(path, duration) }
+            }
+        },
         modifier = modifier,
     )
 
@@ -212,10 +247,19 @@ fun VoiceRecordingBar(
             confirmLabel = "Discard",
             dismissLabel = "Keep recording",
             onConfirm = {
-                // Discard：取消录音（handleCancel → recorder.cancel 会删除录音源文件）
                 showDiscardConfirm = false
                 pausedForConfirm = false
-                com.novamind.app.common.audio.RecordingService.cancel(context)
+                val pending = pendingUpload
+                if (pending != null) {
+                    // 失败态：录音服务已停止，直接删除待重传文件并退出
+                    runCatching { java.io.File(pending.first).delete() }
+                    pendingUpload = null
+                    com.novamind.app.common.audio.RecordingController.reset()
+                    onCancel()
+                } else {
+                    // Discard：取消录音（handleCancel → recorder.cancel 会删除录音源文件）
+                    com.novamind.app.common.audio.RecordingService.cancel(context)
+                }
             },
             onDismiss = {
                 // Keep recording：若是为确认而暂停的，则恢复录音
@@ -233,7 +277,8 @@ fun VoiceRecordingBar(
  * 录音条的**无状态**内容层：波形 + 计时 + 取消/暂停-继续/完成。
  * 与录音服务解耦，供 [VoiceRecordingBar] 复用并可直接 @Preview。
  *
- * @param sending 上传中（点 Send 后等待结果回写）：发送按钮变 loading，全部控件禁用，不可继续录音。
+ * @param phase [RecordingBarPhase.Sending] 上传中：发送按钮变 loading，全部控件禁用；
+ *   [RecordingBarPhase.UploadFailed] 上传失败：中间变麦克风（录音已停止），右侧变绿色重试。
  */
 @Composable
 private fun RecordingBarContent(
@@ -245,7 +290,8 @@ private fun RecordingBarContent(
     onPauseResume: () -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier,
-    sending: Boolean = false,
+    phase: RecordingBarPhase = RecordingBarPhase.Recording,
+    onRetry: () -> Unit = {},
 ) {
     Box(
         modifier = modifier
@@ -293,26 +339,47 @@ private fun RecordingBarContent(
                     desc = "取消",
                     bg = ControlBg,
                     tint = ControlIcon,
-                    enabled = !sending,
+                    enabled = phase != RecordingBarPhase.Sending,
                     onClick = onCancelClick,
                 )
-                RoundButton(
-                    iconRes = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    desc = if (paused) "继续" else "暂停",
-                    bg = ControlBg,
-                    tint = ControlIcon,
-                    enabled = !sending,
-                    onClick = onPauseResume,
-                )
-                RoundButton(
-                    iconRes = R.drawable.ic_arrow_up,
-                    desc = if (sending) "上传中" else "完成",
-                    bg = SendBg,
-                    tint = SendIcon,
-                    enabled = sendEnabled && !sending,
-                    loading = sending,
-                    onClick = onSend,
-                )
+                if (phase == RecordingBarPhase.UploadFailed) {
+                    // 失败态：录音已结束，中间显示麦克风占位（不可点）
+                    RoundButton(
+                        iconRes = R.drawable.ic_mic,
+                        desc = "录音已结束",
+                        bg = ControlBg,
+                        tint = ControlIcon,
+                        enabled = false,
+                        onClick = {},
+                    )
+                    // 右侧：绿色重试（重传同一段录音）
+                    RoundButton(
+                        iconRes = R.drawable.ic_refresh,
+                        desc = "重试上传",
+                        bg = SendBg,
+                        tint = SendIcon,
+                        onClick = onRetry,
+                    )
+                } else {
+                    val sending = phase == RecordingBarPhase.Sending
+                    RoundButton(
+                        iconRes = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
+                        desc = if (paused) "继续" else "暂停",
+                        bg = ControlBg,
+                        tint = ControlIcon,
+                        enabled = !sending,
+                        onClick = onPauseResume,
+                    )
+                    RoundButton(
+                        iconRes = R.drawable.ic_arrow_up,
+                        desc = if (sending) "上传中" else "完成",
+                        bg = SendBg,
+                        tint = SendIcon,
+                        enabled = sendEnabled && !sending,
+                        loading = sending,
+                        onClick = onSend,
+                    )
+                }
             }
         }
     }
@@ -502,10 +569,28 @@ private fun RecordingBarSendingPreview() {
             elapsed = 42,
             paused = false,
             sendEnabled = true,
-            sending = true,
+            phase = RecordingBarPhase.Sending,
             onCancelClick = {},
             onPauseResume = {},
             onSend = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 上传失败（可重试）")
+@Composable
+private fun RecordingBarUploadFailedPreview() {
+    AppTheme {
+        RecordingBarContent(
+            levels = previewLevels(),
+            elapsed = 8,
+            paused = false,
+            sendEnabled = true,
+            phase = RecordingBarPhase.UploadFailed,
+            onCancelClick = {},
+            onPauseResume = {},
+            onSend = {},
+            onRetry = {},
         )
     }
 }
