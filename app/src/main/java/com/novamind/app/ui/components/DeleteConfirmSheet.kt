@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,13 +27,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
-// 公共组件自带配色，避免依赖各 feature 内部颜色常量
-private val SheetBg = Color(0xFFFFFFFF)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Danger = Color(0xFFD13C3C)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）。
+// @Composable 函数的默认参数在组合上下文中求值，可直接引用这些 getter。
+private val SheetBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Danger: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Destructive.background.current()
+private val OnDanger: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Destructive.text.current()
 
 /**
  * 通用「二次确认」底部弹窗：标题 + 说明 + Cancel（描边）/ 确认（红色实心）。
@@ -48,7 +60,7 @@ fun DeleteConfirmSheet(
     confirmLabel: String = "Delete",
     dismissLabel: String = "Cancel",
     confirmBackground: Color = Danger,
-    confirmTextColor: Color = Color.White,
+    confirmTextColor: Color = OnDanger,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -79,7 +91,7 @@ fun DeleteConfirmContent(
     confirmLabel: String = "Delete",
     dismissLabel: String = "Cancel",
     confirmBackground: Color = Danger,
-    confirmTextColor: Color = Color.White,
+    confirmTextColor: Color = OnDanger,
 ) {
     Column(
         modifier = Modifier

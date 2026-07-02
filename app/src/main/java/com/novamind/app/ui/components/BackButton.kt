@@ -19,11 +19,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
 /**
  * 通用返回按钮：圆形白底带阴影 + 返回箭头，无界波纹。
  * 供 Create / Library / 各导航子页等复用，保证返回键样式统一。
+ *
+ * 配色默认取 ui/colors 设计系统令牌（@Composable 默认参数在组合上下文求值），随主题深浅自动解析。
  *
  * @param onClick 点击返回回调
  * @param size 命中区直径
@@ -37,8 +42,8 @@ fun BackButton(
     modifier: Modifier = Modifier,
     size: Dp = 44.dp,
     iconSize: Dp = 20.dp,
-    background: Color = Color.White,
-    tint: Color = Color(0xFF1A1A1A),
+    background: Color = BackgroundColors.Surface.default.current(),
+    tint: Color = IconColors.Default.default.current(),
     contentDescription: String = "Back",
 ) {
     Surface(

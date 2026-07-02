@@ -20,7 +20,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.ReadOnlyComposable
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
 // ─── 导航目标 ────────────────────────────────────────────────────────────────
@@ -46,11 +50,16 @@ val bottomNavDestinations = listOf(
     BottomNavDestination.Calendar,
 )
 
-// ─── 颜色 ─────────────────────────────────────────────────────────────────────
+// ─── 颜色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色） ──
 
-private val ColorSelected = Color(0xFF3D7A5A)
-private val ColorUnselected = Color(0xFF8A8A8A)
-private val ColorBrand = Color(0xFF1A1A1A)
+private val ColorSelected: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+private val ColorUnselected: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.secondary.current()
+private val ColorBrand: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()
+private val BarBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 
@@ -77,7 +86,7 @@ fun AppBottomNavBar(
     ) {
         // 左侧：独立圆形品牌胶囊
         Surface(
-            color = Color.White,
+            color = BarBg,
             shadowElevation = 12.dp,
             shape = RoundedCornerShape(50), // 正圆
         ) {
@@ -90,7 +99,7 @@ fun AppBottomNavBar(
         // 右侧：四个导航项的长胶囊
         Surface(
             modifier = Modifier.weight(1f),
-            color = Color.White,
+            color = BarBg,
             shadowElevation = 12.dp,
             shape = RoundedCornerShape(50),
         ) {

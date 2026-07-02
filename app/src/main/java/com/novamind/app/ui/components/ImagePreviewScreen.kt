@@ -67,14 +67,27 @@ import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 
-// 公共组件自带配色，避免依赖各 feature 内部颜色常量
-private val PreviewBg = Color(0xFFF0EFEA)
-private val PreviewText = Color(0xFF1A1A1A)
-private val PreviewBtnBg = Color(0xFFFFFFFF)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val PreviewBg: Color
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    get() = BackgroundColors.Page.default.current()
+private val PreviewText: Color
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    get() = TextColors.Primary.default.current()
+private val PreviewBtnBg: Color
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    get() = BackgroundColors.Surface.default.current()
+
+// 沉浸态背景：图片预览通用惯例，两主题都用纯黑（取 Palette，非硬编码）
+private val ImmersiveBg: Color = Palette.black
 
 /**
  * 图片预览全屏页：左右滑动翻页（[HorizontalPager]）、双指缩放 / 双击放大、下拉关闭，
@@ -206,7 +219,7 @@ fun ImagePreviewScreen(
     // 沉浸模式：单击切换。开启时背景变黑、隐藏顶栏（顶部/底部留黑边）
     var immersive by remember { mutableStateOf(false) }
     val bgColor by animateColorAsState(
-        targetValue = if (immersive) Color.Black else PreviewBg,
+        targetValue = if (immersive) ImmersiveBg else PreviewBg,
         animationSpec = tween(220),
         label = "previewBg",
     )
