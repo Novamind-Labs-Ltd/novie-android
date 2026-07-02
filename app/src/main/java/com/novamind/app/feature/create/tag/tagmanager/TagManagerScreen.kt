@@ -1,14 +1,7 @@
 package com.novamind.app.feature.create.tag.tagmanager
 
 import android.widget.Toast
-import androidx.compose.animation.core.Animatable
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,94 +12,53 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.novamind.app.feature.create.tag.tagmanager.components.BgCard
+import com.novamind.app.feature.create.tag.tagmanager.components.BgPage
+import com.novamind.app.feature.create.tag.tagmanager.components.ChangeTagColorSheet
+import com.novamind.app.feature.create.tag.tagmanager.components.ColorTextTitle
+import com.novamind.app.feature.create.tag.tagmanager.components.DeleteTagSheet
+import com.novamind.app.feature.create.tag.tagmanager.components.SwipeToDeleteRow
+import com.novamind.app.feature.create.tag.tagmanager.components.TagEditRow
+import com.novamind.app.feature.create.tag.tagmanager.components.TagRow
+import com.novamind.app.feature.create.tag.tagmanager.components.TopIconButton
 import com.novamind.app.R
-import com.novamind.app.common.config.AppConfig
 import com.novamind.app.ui.components.BackButton
-import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.BorderColors
-import com.novamind.app.ui.colors.IconColors
-import com.novamind.app.ui.colors.Palette
-import com.novamind.app.ui.colors.TextColors
-import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
-import com.novamind.app.util.ColorUtils
-import com.novamind.app.util.ColorUtils.toHex
 
-// 配色：统一引用 ui/colors 设计系统令牌
-private val BgPage: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
-private val BgCard: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
-private val ColorTextTitle: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
-private val ColorTextSub: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
-private val ColorBorder: Color
-    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
-private val ColorAccent: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+// 配色与视觉组件在 feature/create/tag/tagmanager/components 包（TagManagerColors 等），本文件只保留编排。
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -325,381 +277,6 @@ fun TagManagerScreen(
             tagName = target,
             onConfirm = { onDeleteTag(target); deleteTarget = null },
             onDismiss = { deleteTarget = null },
-        )
-    }
-}
-
-/** 修改标签颜色（底部弹层）：点击色板即应用。 */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChangeTagColorSheet(
-    currentHex: String?,
-    onPick: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = BgCard,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(
-                text = "Tag colour",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = ColorTextTitle,
-            )
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                AppConfig.Folder.COLORS.forEach { color ->
-                    val optionHex = color.toHex()
-                    val selected = optionHex.equals(currentHex, ignoreCase = true)
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(color.copy(alpha = 0.12f))
-                            .border(
-                                width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) ColorTextTitle else ColorBorder,
-                                shape = CircleShape,
-                            )
-                            .clickable { onPick(optionHex) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_tag),
-                            contentDescription = null,
-                            tint = color,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** 标签行：标签图标 + 名称 + 笔记数 + 更多。 */
-@Composable
-private fun TagRow(
-    tag: TagRowItem,
-    onRename: () -> Unit,
-    onDelete: () -> Unit,
-    onChangeColor: () -> Unit = {},
-) {
-    val accent = ColorUtils.parseHexColor(tag.colorHex) ?: ColorAccent
-    var menuExpanded by remember { mutableStateOf(false) }
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            // 边框映射标签颜色
-            .border(1.dp, accent, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        color = BgCard,
-        shadowElevation = 1.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 14.dp, top = 14.dp, bottom = 14.dp, end = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 点击图标 → 选择标签颜色
-            Icon(
-                painter = painterResource(R.drawable.ic_tag),
-                contentDescription = "Change colour",
-                tint = accent,
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onChangeColor)
-                    .padding(6.dp),
-            )
-            Text(
-                text = tag.name,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = ColorTextTitle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Text(tag.noteCount.toString(), fontSize = 14.sp, color = ColorTextSub)
-            Box {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .clickable { menuExpanded = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_more),
-                        contentDescription = "More",
-                        tint = ColorTextSub,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-                DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false },
-                    shape = RoundedCornerShape(16.dp),
-                    containerColor = BgCard,
-                    shadowElevation = 8.dp,
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Rename", fontSize = 16.sp, color = ColorTextTitle) },
-                        onClick = { menuExpanded = false; onRename() },
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete", fontSize = 16.sp, color = IconColors.Error.default.current()) },
-                        onClick = { menuExpanded = false; onDelete() },
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** 行内编辑（新建/重命名）：× 取消 + 自动聚焦输入框（光标在末尾）+ 绿色 ✓ 确认。 */
-@Composable
-private fun TagEditRow(
-    initialName: String,
-    onConfirm: (String) -> Unit,
-    onCancel: () -> Unit,
-) {
-    var value by remember(initialName) {
-        mutableStateOf(TextFieldValue(initialName, TextRange(initialName.length)))
-    }
-    val trimmed = value.text.trim()
-    val canConfirm = trimmed.isNotEmpty() && trimmed != initialName
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
-    fun confirm() {
-        if (canConfirm) onConfirm(trimmed)
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_close),
-            contentDescription = "Cancel",
-            tint = ColorTextTitle,
-            modifier = Modifier
-                .size(24.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onCancel)
-                .padding(2.dp),
-        )
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(10.dp),
-            color = BgCard,
-            border = BorderStroke(1.dp, ColorBorder),
-        ) {
-            BasicTextField(
-                value = value,
-                onValueChange = { value = it },
-                singleLine = true,
-                textStyle = TextStyle(fontSize = 15.sp, color = ColorTextTitle),
-                cursorBrush = SolidColor(ColorTextTitle),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { confirm() }),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-            )
-        }
-        Icon(
-            painter = painterResource(R.drawable.ic_check_circle),
-            contentDescription = "Confirm",
-            tint = if (canConfirm) ColorAccent else ColorTextSub,
-            modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .clickable(enabled = canConfirm) { confirm() },
-        )
-    }
-}
-
-/** 删除标签二次确认（底部弹层）。 */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DeleteTagSheet(
-    tagName: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = BgCard,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "Delete “$tagName” tag?",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = ColorTextTitle,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = "This removes the tag from all notes.",
-                fontSize = 14.sp,
-                color = ColorTextSub,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp,
-            )
-            Box(Modifier.height(8.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(50))
-                    .background(BackgroundColors.Error.default.current())
-                    .clickable(onClick = onConfirm)
-                    .height(52.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Delete", color = Palette.white, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(50))
-                    .border(1.dp, ColorTextTitle, RoundedCornerShape(50))
-                    .clickable(onClick = onDismiss)
-                    .height(52.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("Cancel", color = ColorTextTitle, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-/**
- * 左滑露出删除按钮（点击触发 [onDelete]）；长按可拖拽排序（[onReorderStart]/[onReorderDrag]/[onReorderEnd]）。
- * 两个手势同处前景元素：水平滑动→删除，长按后纵向拖动→排序，互不冲突。
- */
-@Composable
-private fun SwipeToDeleteRow(
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
-    onReorderStart: () -> Unit = {},
-    onReorderDrag: (Float) -> Unit = {},
-    onReorderEnd: () -> Unit = {},
-    onReorderCancel: () -> Unit = {},
-    content: @Composable () -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
-    val revealPx = with(density) { 60.dp.toPx() }
-    val offsetX = remember { Animatable(0f) }
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        // 背后：右侧深色圆形删除按钮
-        Box(
-            modifier = Modifier.matchParentSize(),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(BackgroundColors.Primary.default.current())
-                    .clickable {
-                        scope.launch { offsetX.animateTo(0f) }
-                        onDelete()
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_delete),
-                    contentDescription = "Delete",
-                    tint = Palette.white,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
-        // 前景：可左滑的内容 + 长按拖拽排序（两个 pointerInput 并存于同一元素）
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            val newX = (offsetX.value + dragAmount).coerceIn(-revealPx, 0f)
-                            scope.launch { offsetX.snapTo(newX) }
-                        },
-                        onDragEnd = {
-                            // 过半则吸附到展开，否则收回
-                            val target = if (offsetX.value < -revealPx / 2) -revealPx else 0f
-                            scope.launch { offsetX.animateTo(target) }
-                        },
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { onReorderStart() },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            onReorderDrag(dragAmount.y)
-                        },
-                        onDragEnd = { onReorderEnd() },
-                        onDragCancel = { onReorderCancel() },
-                    )
-                },
-        ) { content() }
-    }
-}
-
-@Composable
-private fun TopIconButton(
-    iconRes: Int,
-    desc: String,
-    shape: Shape,
-    onClick: () -> Unit = {},
-) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .clip(shape)
-            .background(BgCard)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = desc,
-            tint = ColorTextTitle,
-            modifier = Modifier.size(20.dp),
         )
     }
 }

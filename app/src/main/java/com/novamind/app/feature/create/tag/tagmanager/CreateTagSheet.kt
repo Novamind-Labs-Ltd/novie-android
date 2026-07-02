@@ -1,8 +1,6 @@
 package com.novamind.app.feature.create.tag.tagmanager
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -16,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,23 +42,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.feature.create.tag.tagmanager.components.BgCard
+import com.novamind.app.feature.create.tag.tagmanager.components.BgPage
+import com.novamind.app.feature.create.tag.tagmanager.components.ColorTextHint
+import com.novamind.app.feature.create.tag.tagmanager.components.ColorTextTitle
+import com.novamind.app.feature.create.tag.tagmanager.components.TagColorSwatch
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.util.ColorUtils.toHex
 
+// 配色与颜色圆点组件在 tagmanager/components 包（TagManagerColors / TagColorSwatch）。
 private val SheetBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+    @Composable @ReadOnlyComposable get() = BgPage
 private val TextDark: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+    @Composable @ReadOnlyComposable get() = ColorTextTitle
 private val TextHint: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+    @Composable @ReadOnlyComposable get() = ColorTextHint
 private val FieldBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
-private val Border: Color
-    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+    @Composable @ReadOnlyComposable get() = BgCard
 
 /**
  * 「创建新标签」底部弹层：名称输入 + 颜色选择 + 创建 / 取消（交互对齐创建文件夹）。
@@ -205,34 +205,6 @@ private fun CreateTagContent(
                 Text("Cancel", color = TextDark, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-    }
-}
-
-@Composable
-private fun TagColorSwatch(
-    color: Color,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(color.copy(alpha = 0.12f))
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) TextDark else Border,
-                shape = CircleShape,
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_tag),
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(20.dp),
-        )
     }
 }
 
