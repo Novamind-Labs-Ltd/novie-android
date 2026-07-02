@@ -80,6 +80,7 @@ import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -1387,8 +1388,18 @@ private fun TypingIndicator() {
     }
 }
 
-@Preview(showBackground = true, heightDp = 720)
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 空状态问候")
 @Composable
 private fun AskNovieScreenPreview() {
-    AskNovieScreen()
+    AppTheme {
+        AskNovieScreen()
+    }
+}
+
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 空状态 · 深色")
+@Composable
+private fun AskNovieScreenDarkPreview() {
+    AppTheme(darkTheme = true, dynamicColor = false) {
+        AskNovieScreen()
+    }
 }

@@ -39,8 +39,10 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.ButtonColors
@@ -90,52 +92,71 @@ fun RenameSheet(
         sheetState = sheetState,
         containerColor = SheetBg,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
-        ) {
-            Text("Rename", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TitleColor)
-            Spacer(20)
+        RenameContent(
+            text = text,
+            onTextChange = { text = it },
+            onSave = { onSave(text.text.trim()) },
+            onCancel = onDismiss,
+            focusRequester = focusRequester,
+        )
+    }
+}
 
-            Text("Title", fontSize = 13.sp, color = SubColor)
-            Spacer(8)
+/** 弹窗的纯内容（不含 sheet 容器与聚焦时序），便于复用与 @Preview。 */
+@Composable
+private fun RenameContent(
+    text: TextFieldValue,
+    onTextChange: (TextFieldValue) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester = remember { FocusRequester() },
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
+    ) {
+        Text("Rename", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TitleColor)
+        Spacer(20)
 
-            // 标题输入框
-            Surface(color = FieldBg, shape = RoundedCornerShape(12.dp)) {
-                BasicTextField(
-                    value = text,
-                    // 重建不带 composition 的值，去掉输入法的 composing 下划线
-                    onValueChange = { text = TextFieldValue(it.text, it.selection) },
-                    textStyle = TextStyle(color = TitleColor, fontSize = 15.sp),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        autoCorrectEnabled = false,
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
-                    ),
-                    cursorBrush = SolidColor(TitleColor),
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, FieldBorder, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 14.dp)
-                        .focusRequester(focusRequester),
-                )
-            }
+        Text("Title", fontSize = 13.sp, color = SubColor)
+        Spacer(8)
 
-            Spacer(24)
-
-            // Save（黑色实心）
-            PillButton(
-                text = "Save",
-                filled = true,
-                enabled = text.text.isNotBlank(),
-                onClick = { onSave(text.text.trim()) },
+        // 标题输入框
+        Surface(color = FieldBg, shape = RoundedCornerShape(12.dp)) {
+            BasicTextField(
+                value = text,
+                // 重建不带 composition 的值，去掉输入法的 composing 下划线
+                onValueChange = { onTextChange(TextFieldValue(it.text, it.selection)) },
+                textStyle = TextStyle(color = TitleColor, fontSize = 15.sp),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                ),
+                cursorBrush = SolidColor(TitleColor),
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, FieldBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 14.dp)
+                    .focusRequester(focusRequester),
             )
-            Spacer(12)
-            // Cancel（描边）
-            PillButton(text = "Cancel", filled = false, enabled = true, onClick = onDismiss)
         }
+
+        Spacer(24)
+
+        // Save（黑色实心）
+        PillButton(
+            text = "Save",
+            filled = true,
+            enabled = text.text.isNotBlank(),
+            onClick = onSave,
+        )
+        Spacer(12)
+        // Cancel（描边）
+        PillButton(text = "Cancel", filled = false, enabled = true, onClick = onCancel)
     }
 }
 
@@ -171,4 +192,32 @@ private fun PillButton(text: String, filled: Boolean, enabled: Boolean, onClick:
 @Composable
 private fun Spacer(dp: Int) {
     androidx.compose.foundation.layout.Spacer(Modifier.height(dp.dp))
+}
+
+// ── Preview（预览内容层；ModalBottomSheet 为窗口层，静态预览不渲染） ──
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Rename · 有标题")
+@Composable
+private fun RenameContentPreview() {
+    AppTheme {
+        RenameContent(
+            text = TextFieldValue("Trip planning for Tokyo"),
+            onTextChange = {},
+            onSave = {},
+            onCancel = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Rename · 空标题（Save 置灰）")
+@Composable
+private fun RenameContentEmptyPreview() {
+    AppTheme {
+        RenameContent(
+            text = TextFieldValue(""),
+            onTextChange = {},
+            onSave = {},
+            onCancel = {},
+        )
+    }
 }

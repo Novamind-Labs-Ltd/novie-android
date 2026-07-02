@@ -40,9 +40,11 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.TextColors
@@ -84,6 +86,38 @@ fun ChatHistorySheet(
         if (query.isBlank()) sessions
         else sessions.filter { it.title.contains(query, ignoreCase = true) }
     }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = SheetBg,
+    ) {
+        // 固定较高的整体高度（用屏幕高度的固定比例，避免相对约束在拖动时抖动）
+        val sheetHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.85f
+        ChatHistoryContent(
+            sessions = sessions,
+            filtered = filtered,
+            query = query,
+            onQueryChange = { query = it },
+            onNewChat = onNewChat,
+            onSelectSession = onSelectSession,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(sheetHeight),
+        )
+    }
+}
+
+/** 弹窗的纯内容（不含 sheet 容器与存储读取），便于复用与 @Preview。 */
+@Composable
+private fun ChatHistoryContent(
+    sessions: List<ChatSession>,
+    filtered: List<ChatSession>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onNewChat: () -> Unit,
+    onSelectSession: (ChatSession) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     // 列表消费不掉的滚动 / fling 全部在此吃掉，不再上抛给 ModalBottomSheet，
     // 避免内容不足一屏时手势在列表与弹窗之间来回争夺而剧烈抖动。
     val keepScrollInList = remember {
@@ -100,57 +134,46 @@ fun ChatHistorySheet(
             ): androidx.compose.ui.unit.Velocity = available
         }
     }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = SheetBg,
+    Column(
+        modifier = modifier
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp),
     ) {
-        // 固定较高的整体高度（用屏幕高度的固定比例，避免相对约束在拖动时抖动）
-        val sheetHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.85f
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sheetHeight)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
-        ) {
-            // 标题 + New chat
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Chat history", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TitleColor)
-                Spacer(Modifier.weight(1f))
-                NewChatButton(onClick = onNewChat)
-            }
+        // 标题 + New chat
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Chat history", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TitleColor)
+            Spacer(Modifier.weight(1f))
+            NewChatButton(onClick = onNewChat)
+        }
 
-            Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
 
-            // 搜索框
-            SearchField(query = query, onQueryChange = { query = it })
+        // 搜索框
+        SearchField(query = query, onQueryChange = onQueryChange)
 
-            Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(20.dp))
 
-            Text("Recent", fontSize = 14.sp, color = SubColor)
-            Spacer(Modifier.height(4.dp))
+        Text("Recent", fontSize = 14.sp, color = SubColor)
+        Spacer(Modifier.height(4.dp))
 
-            if (filtered.isEmpty()) {
-                Text(
-                    if (sessions.isEmpty()) "暂无历史会话" else "没有匹配的会话",
-                    fontSize = 14.sp,
-                    color = SubColor,
-                    modifier = Modifier.padding(vertical = 16.dp),
-                )
-            } else {
-                // 用 LazyColumn 作为唯一滚动容器：与 ModalBottomSheet 的嵌套滚动正确协作，
-                // fling 到边界时不会与弹窗拖拽来回争夺手势（避免剧烈抖动）。
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .nestedScroll(keepScrollInList),
-                ) {
-                    items(filtered) { session ->
-                        ChatRow(title = session.title, onClick = { onSelectSession(session) })
-                    }
+        if (filtered.isEmpty()) {
+            Text(
+                if (sessions.isEmpty()) "暂无历史会话" else "没有匹配的会话",
+                fontSize = 14.sp,
+                color = SubColor,
+                modifier = Modifier.padding(vertical = 16.dp),
+            )
+        } else {
+            // 用 LazyColumn 作为唯一滚动容器：与 ModalBottomSheet 的嵌套滚动正确协作，
+            // fling 到边界时不会与弹窗拖拽来回争夺手势（避免剧烈抖动）。
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .nestedScroll(keepScrollInList),
+            ) {
+                items(filtered) { session ->
+                    ChatRow(title = session.title, onClick = { onSelectSession(session) })
                 }
             }
         }
@@ -233,4 +256,58 @@ private fun ChatRow(title: String, onClick: () -> Unit) {
             )
             .padding(vertical = 14.dp),
     )
+}
+
+// ── Preview（预览内容层；ModalBottomSheet 为窗口层，静态预览不渲染） ──
+
+private fun previewSessions() = listOf(
+    ChatSession("1", "Trip planning for Tokyo", 0L, emptyList()),
+    ChatSession("2", "Summarize meeting notes", 0L, emptyList()),
+    ChatSession("3", "Brainstorm app names", 0L, emptyList()),
+)
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 560, name = "ChatHistory · 有会话")
+@Composable
+private fun ChatHistoryContentPreview() {
+    val sessions = previewSessions()
+    AppTheme {
+        ChatHistoryContent(
+            sessions = sessions,
+            filtered = sessions,
+            query = "",
+            onQueryChange = {},
+            onNewChat = {},
+            onSelectSession = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · 空历史")
+@Composable
+private fun ChatHistoryContentEmptyPreview() {
+    AppTheme {
+        ChatHistoryContent(
+            sessions = emptyList(),
+            filtered = emptyList(),
+            query = "",
+            onQueryChange = {},
+            onNewChat = {},
+            onSelectSession = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · 搜索无结果")
+@Composable
+private fun ChatHistoryContentNoMatchPreview() {
+    AppTheme {
+        ChatHistoryContent(
+            sessions = previewSessions(),
+            filtered = emptyList(),
+            query = "xyz",
+            onQueryChange = {},
+            onNewChat = {},
+            onSelectSession = {},
+        )
+    }
 }
