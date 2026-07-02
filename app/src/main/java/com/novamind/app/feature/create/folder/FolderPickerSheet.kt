@@ -20,12 +20,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
-private val Primary = Color(0xFF3D7A5A)
-private val TextDark = Color(0xFF1A1A1A)
-private val TextHint = Color(0xFFAAAAAA)
-private val SheetBg = Color(0xFFF0EFEA)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val Primary: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+private val TextDark: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextHint: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val SheetBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val ItemBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val RadioUnselected: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.tertiary.current()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +104,7 @@ private fun FolderPickerContent(
         // 搜索 / 新建输入框
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = Color.White,
+            color = ItemBg,
             shadowElevation = 1.dp,
         ) {
             BasicTextField(
@@ -200,7 +213,7 @@ private fun FolderRow(
             onClick = onClick,
             colors = RadioButtonDefaults.colors(
                 selectedColor = Primary,
-                unselectedColor = Color(0xFFBDBDBD),
+                unselectedColor = RadioUnselected,
             ),
         )
         Text(

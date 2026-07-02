@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,12 +27,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 
-private val Bg = Color(0xFFFBFAF7)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Accent = Color(0xFF3D7A5A)
-private val ErrorColor = Color(0xFFB3261E)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val Bg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Accent: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()
+private val OnAccent: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
+private val ErrorColor: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
 
 /**
  * 登录页（无状态）。展示 [uiState]，交互通过 [onLogin] / [onDismissError] 上抛。
@@ -68,7 +81,7 @@ fun LoginScreen(
                     .background(Accent),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("N", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Text("N", color = OnAccent, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             }
 
             Spacer(20)
@@ -93,12 +106,12 @@ fun LoginScreen(
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color = OnAccent,
                         strokeWidth = 2.dp,
                         modifier = Modifier.size(22.dp),
                     )
                 } else {
-                    Text("登录 / 注册", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                    Text("登录 / 注册", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = OnAccent)
                 }
             }
 
