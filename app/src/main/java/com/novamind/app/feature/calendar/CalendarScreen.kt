@@ -2,7 +2,6 @@ package com.novamind.app.feature.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -20,13 +19,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -74,13 +70,6 @@ private val weekLetters = listOf("M", "T", "W", "T", "F", "S", "S")
 private const val WEEK_PAGE_COUNT = 20_000
 private const val WEEK_INITIAL_PAGE = WEEK_PAGE_COUNT / 2
 
-// 全屏横滑切天的触发阈值（累计拖动距离）。
-private val DaySwipeThreshold = 72.dp
-
-// 议程区按天分页：足够大的页数模拟"无限"前后翻天，中间页为锚点日（今天）。
-private const val DAY_PAGE_COUNT = 20_000
-private const val DAY_INITIAL_PAGE = DAY_PAGE_COUNT / 2
-
 /**
  * 无状态 Calendar 屏幕：仅消费 [CalendarUiState] 并通过 [onEvent] 上报交互。
  * 授权后展示统计与时段事件，未授权时展示「连接 Google 日历」空状态卡片。
@@ -121,29 +110,12 @@ fun CalendarScreen(
             )
         },
     ) {
-        // 全屏横滑切天：滑一下 = 前一天/后一天（跨周时周条 pager 自动跟随）。
-        // 挂在内容 Column 上，周条 pager / 任务行横滑由子组件优先消费，互不冲突；
-        // detectHorizontalDragGestures 自带轴向 slop，纵向滚动/下拉刷新不受影响。
-        val currentOnEvent by rememberUpdatedState(onEvent)
-        val daySwipeThresholdPx = with(LocalDensity.current) { DaySwipeThreshold.toPx() }
+        // 左右滑动只在周条（DayCell 区域）内生效：由周条自身的 HorizontalPager 处理，
+        // 内容区不挂全局横滑手势，统计卡/议程等区域滑动不切换日期。
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .pointerInput(daySwipeThresholdPx) {
-                    var totalDrag = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { totalDrag = 0f },
-                        onDragCancel = { totalDrag = 0f },
-                        onDragEnd = {
-                            when {
-                                // 左滑（负向）→ 后一天；右滑 → 前一天
-                                totalDrag <= -daySwipeThresholdPx -> currentOnEvent(CalendarUiEvent.NextDay)
-                                totalDrag >= daySwipeThresholdPx -> currentOnEvent(CalendarUiEvent.PrevDay)
-                            }
-                        },
-                    ) { _, dragAmount -> totalDrag += dragAmount }
-                }
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 100.dp),
         ) {
@@ -344,62 +316,33 @@ fun CalendarScreen(
         }
 
         // 议程：活动、任务分两个区块（各带小标题）；按 filter 决定显示哪块（游客拦截态不展示）。
-        // 按天分页：横滑时 events/tasks 内容跟手滑动，停定后通过 DateSelected 切日并拉取。
+        // 外层已无全局横滑手势，议程区天然不响应左右滑动；任务行右滑完成不受影响。
         if (!uiState.loginRequired && uiState.isConnected) {
-            val anchorDay = remember { LocalDate.now() }
-            val dayPage = DAY_INITIAL_PAGE + ChronoUnit.DAYS.between(anchorDay, selectedDate).toInt()
-            val dayPagerState = rememberPagerState(initialPage = dayPage) { DAY_PAGE_COUNT }
-
-            // 滑动停定 → 切换选中日期。初始与同日停定为 no-op。
-            LaunchedEffect(dayPagerState.settledPage) {
-                val newDate = anchorDay.plusDays((dayPagerState.settledPage - DAY_INITIAL_PAGE).toLong())
-                if (newDate != selectedDate) onEvent(CalendarUiEvent.DateSelected(newDate))
-            }
-            // 外部改日期（箭头/周条/Today/全屏手势）→ pager 动画跟随；滑动中不打断手势。
-            LaunchedEffect(dayPage) {
-                if (dayPagerState.currentPage != dayPage && !dayPagerState.isScrollInProgress) {
-                    dayPagerState.animateScrollToPage(dayPage)
+            if (uiState.showEventsSection) {
+                AgendaSection(
+                    label = "Events",
+                    count = uiState.eventCount,
+                    empty = uiState.events.isEmpty(),
+                    emptyText = "No events",
+                    loading = uiState.isLoading,
+                ) {
+                    uiState.events.forEach { EventRow(it) }
                 }
             }
-
-            HorizontalPager(
-                state = dayPagerState,
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-            ) { page ->
-                val pageDate = anchorDay.plusDays((page - DAY_INITIAL_PAGE).toLong())
-                // 仅选中日持有数据；相邻页在停定拉取前显示加载占位（只有区块标题）。
-                val isCurrent = pageDate == selectedDate
-                Column(Modifier.fillMaxWidth()) {
-                    if (uiState.showEventsSection) {
-                        AgendaSection(
-                            label = "Events",
-                            count = if (isCurrent) uiState.eventCount else 0,
-                            empty = !isCurrent || uiState.events.isEmpty(),
-                            emptyText = "No events",
-                            loading = !isCurrent || uiState.isLoading,
-                        ) {
-                            if (isCurrent) uiState.events.forEach { EventRow(it) }
-                        }
-                    }
-                    if (uiState.showTasksSection) {
-                        AgendaSection(
-                            label = "Tasks",
-                            count = if (isCurrent) uiState.taskCount else 0,
-                            empty = !isCurrent || uiState.tasks.isEmpty(),
-                            emptyText = "No tasks",
-                            loading = !isCurrent || uiState.isLoading,
-                        ) {
-                            if (isCurrent) {
-                                uiState.tasks.forEach { task ->
-                                    TaskRow(
-                                        task = task,
-                                        onComplete = { onEvent(CalendarUiEvent.SetTaskCompleted(it, completed = true)) },
-                                        onClick = { onEvent(CalendarUiEvent.TaskClicked(it)) },
-                                    )
-                                }
-                            }
-                        }
+            if (uiState.showTasksSection) {
+                AgendaSection(
+                    label = "Tasks",
+                    count = uiState.taskCount,
+                    empty = uiState.tasks.isEmpty(),
+                    emptyText = "No tasks",
+                    loading = uiState.isLoading,
+                ) {
+                    uiState.tasks.forEach { task ->
+                        TaskRow(
+                            task = task,
+                            onComplete = { onEvent(CalendarUiEvent.SetTaskCompleted(it, completed = true)) },
+                            onClick = { onEvent(CalendarUiEvent.TaskClicked(it)) },
+                        )
                     }
                 }
             }
