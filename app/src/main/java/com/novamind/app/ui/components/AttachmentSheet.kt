@@ -25,14 +25,26 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.ReadOnlyComposable
 import com.novamind.app.R
 import com.novamind.app.common.config.FunConfig
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
-// 公共组件自带配色，避免依赖各 feature 内部颜色常量
-private val SheetBg = Color(0xFFFFFFFF)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextDisabled = Color(0xFFB5B5B5)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val SheetBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val IconDefault: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()
+private val IconDisabled: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.disabled.current()
+private val LabelDefault: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val LabelDisabled: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Disabled.default.current()
 
 /**
  * 通用「插入附件」选择弹窗：Image / Camera / Document 三列。
@@ -92,7 +104,6 @@ private fun AttachmentItem(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    val tint = if (enabled) TextTitle else TextDisabled
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
@@ -109,10 +120,10 @@ private fun AttachmentItem(
         Icon(
             painter = painterResource(id = iconResId),
             contentDescription = label,
-            tint = tint,
+            tint = if (enabled) IconDefault else IconDisabled,
             modifier = Modifier.size(26.dp),
         )
-        Text(label, fontSize = 14.sp, color = tint)
+        Text(label, fontSize = 14.sp, color = if (enabled) LabelDefault else LabelDisabled)
     }
 }
 
