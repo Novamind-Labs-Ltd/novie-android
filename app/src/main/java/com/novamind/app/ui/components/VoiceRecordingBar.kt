@@ -35,14 +35,40 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.tooling.preview.Preview
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.theme.AppTheme
 import kotlin.math.sqrt
 
-private val BarBg = Color(0xFF1E1E1E)
-private val WaveColor = Color(0xFFE9E9E9)
-private val ControlBg = Color(0xFFFFFFFF)
-private val SendGreen = Color(0xFF2E9E5B)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val BarBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Primary.default.current()
+private val OnBar: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
+private val ControlBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val ControlIcon: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val SendBg: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Success.background.current()
+private val SendIcon: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()
+private val DialogBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val DialogTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val DialogBody: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val DialogButtonBg: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
+private val DialogButtonText: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
 private const val WAVE_BARS = 48
 private const val WAVE_BASELINE = 0.06f
 // 峰值振幅低于此值（0..32767）视为「没有声音」（集中配置见 AppConfig.Media）
@@ -139,87 +165,32 @@ fun VoiceRecordingBar(
         com.novamind.app.common.audio.RecordingService.start(context)
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(BarBg)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        ) {
-            // 顶部：波形铺满整行 + 计时（右）
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Waveform(
-                    levels = levels,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(26.dp),
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = formatTime(elapsed),
-                    color = WaveColor,
-                    fontSize = 13.sp,
-                )
+    RecordingBarContent(
+        levels = levels,
+        elapsed = elapsed,
+        paused = paused,
+        sendEnabled = elapsed >= MIN_RECORD_SECONDS,   // 不足 3 秒禁止发送
+        onCancelClick = {
+            // 点删除：先暂停录音，再弹二次确认；确认后才真正取消
+            if (!paused) {
+                com.novamind.app.common.audio.RecordingService.pause(context)
+                pausedForConfirm = true
             }
-
-            Spacer(Modifier.height(14.dp))
-
-            // 底部：取消 / 暂停-继续 / 完成
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RoundButton(
-                    iconRes = R.drawable.ic_close,
-                    desc = "取消",
-                    bg = ControlBg,
-                    tint = Color(0xFF1A1A1A),
-                    onClick = {
-                        // 点删除：先暂停录音，再弹二次确认；确认后才真正取消
-                        if (!paused) {
-                            com.novamind.app.common.audio.RecordingService.pause(context)
-                            pausedForConfirm = true
-                        }
-                        showDiscardConfirm = true
-                    },
-                )
-                RoundButton(
-                    iconRes = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                    desc = if (paused) "继续" else "暂停",
-                    bg = ControlBg,
-                    tint = Color(0xFF1A1A1A),
-                    onClick = {
-                        if (paused) {
-                            com.novamind.app.common.audio.RecordingService.resume(context)
-                        } else {
-                            com.novamind.app.common.audio.RecordingService.pause(context)
-                        }
-                    },
-                )
-                RoundButton(
-                    iconRes = R.drawable.ic_arrow_up,
-                    desc = "完成",
-                    bg = SendGreen,
-                    tint = Color.White,
-                    enabled = elapsed >= MIN_RECORD_SECONDS,   // 不足 3 秒禁止发送
-                    onClick = {
-                        // 停止由服务下发，完成 / 无声判定在状态回写后统一处理
-                        com.novamind.app.common.audio.RecordingService.stop(context)
-                    },
-                )
+            showDiscardConfirm = true
+        },
+        onPauseResume = {
+            if (paused) {
+                com.novamind.app.common.audio.RecordingService.resume(context)
+            } else {
+                com.novamind.app.common.audio.RecordingService.pause(context)
             }
-        }
-    }
+        },
+        onSend = {
+            // 停止由服务下发，完成 / 无声判定在状态回写后统一处理
+            com.novamind.app.common.audio.RecordingService.stop(context)
+        },
+        modifier = modifier,
+    )
 
     if (showNoVoice) {
         NoVoiceDialog(onTryAgain = { restartRecording() })
@@ -250,6 +221,89 @@ fun VoiceRecordingBar(
     }
 }
 
+/**
+ * 录音条的**无状态**内容层：波形 + 计时 + 取消/暂停-继续/完成。
+ * 与录音服务解耦，供 [VoiceRecordingBar] 复用并可直接 @Preview。
+ */
+@Composable
+private fun RecordingBarContent(
+    levels: List<Float>,
+    elapsed: Int,
+    paused: Boolean,
+    sendEnabled: Boolean,
+    onCancelClick: () -> Unit,
+    onPauseResume: () -> Unit,
+    onSend: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(BarBg)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            // 顶部：波形铺满整行 + 计时（右）
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Waveform(
+                    levels = levels,
+                    color = OnBar,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(26.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = formatTime(elapsed),
+                    color = OnBar,
+                    fontSize = 13.sp,
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // 底部：取消 / 暂停-继续 / 完成
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RoundButton(
+                    iconRes = R.drawable.ic_close,
+                    desc = "取消",
+                    bg = ControlBg,
+                    tint = ControlIcon,
+                    onClick = onCancelClick,
+                )
+                RoundButton(
+                    iconRes = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
+                    desc = if (paused) "继续" else "暂停",
+                    bg = ControlBg,
+                    tint = ControlIcon,
+                    onClick = onPauseResume,
+                )
+                RoundButton(
+                    iconRes = R.drawable.ic_arrow_up,
+                    desc = "完成",
+                    bg = SendBg,
+                    tint = SendIcon,
+                    enabled = sendEnabled,
+                    onClick = onSend,
+                )
+            }
+        }
+    }
+}
+
 /** 「没有检测到声音」弹窗（底部弹出）。 */
 @Composable
 private fun NoVoiceDialog(onTryAgain: () -> Unit) {
@@ -272,13 +326,13 @@ private fun NoVoiceDialog(onTryAgain: () -> Unit) {
                 .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp)
                 .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFFFBFAF7))
+                .background(DialogBg)
                 .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 "No voice detected",
-                color = Color(0xFF1A1A1A),
+                color = DialogTitle,
                 fontSize = 20.sp,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             )
@@ -286,7 +340,7 @@ private fun NoVoiceDialog(onTryAgain: () -> Unit) {
             Text(
                 "We couldn't hear any audio. Please check your microphone, " +
                     "ensure you're in a quiet environment, and try again.",
-                color = Color(0xFF6B6B6B),
+                color = DialogBody,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -297,17 +351,17 @@ private fun NoVoiceDialog(onTryAgain: () -> Unit) {
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(RoundedCornerShape(26.dp))
-                    .background(Color(0xFF1A1A1A))
+                    .background(DialogButtonBg)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(color = Color.White),
+                        indication = ripple(color = DialogButtonText),
                         onClick = onTryAgain,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     "Try again",
-                    color = Color.White,
+                    color = DialogButtonText,
                     fontSize = 16.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 )
@@ -317,9 +371,9 @@ private fun NoVoiceDialog(onTryAgain: () -> Unit) {
     }
 }
 
-/** 按 [levels]（0..1，最新值在右侧）绘制随音量变化的波形。 */
+/** 按 [levels]（0..1，最新值在右侧）绘制随音量变化的波形。Canvas 非 @Composable，颜色由调用方解析传入。 */
 @Composable
-private fun Waveform(levels: List<Float>, modifier: Modifier = Modifier) {
+private fun Waveform(levels: List<Float>, color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val barCount = levels.size
         if (barCount == 0) return@Canvas
@@ -331,7 +385,7 @@ private fun Waveform(levels: List<Float>, modifier: Modifier = Modifier) {
             val x = i * (barWidth + gap)
             val y = (maxH - h) / 2f
             drawRoundRect(
-                color = WaveColor,
+                color = color,
                 topLeft = androidx.compose.ui.geometry.Offset(x, y),
                 size = androidx.compose.ui.geometry.Size(barWidth, h),
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(barWidth / 2f, barWidth / 2f),
@@ -375,4 +429,58 @@ private fun formatTime(totalSeconds: Int): String {
     val m = totalSeconds / 60
     val s = totalSeconds % 60
     return "$m:${s.toString().padStart(2, '0')}"
+}
+
+// 预览用假波形：正弦叠加基线，模拟录音中的动态起伏。
+private fun previewLevels(): List<Float> =
+    List(WAVE_BARS) { i ->
+        (WAVE_BASELINE + 0.75f * kotlin.math.abs(kotlin.math.sin(i / 3.5f))).coerceAtMost(1f)
+    }
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 录制中")
+@Composable
+private fun RecordingBarRecordingPreview() {
+    AppTheme {
+        RecordingBarContent(
+            levels = previewLevels(),
+            elapsed = 23,
+            paused = false,
+            sendEnabled = true,
+            onCancelClick = {},
+            onPauseResume = {},
+            onSend = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 已暂停")
+@Composable
+private fun RecordingBarPausedPreview() {
+    AppTheme {
+        RecordingBarContent(
+            levels = previewLevels(),
+            elapsed = 75,
+            paused = true,
+            sendEnabled = true,
+            onCancelClick = {},
+            onPauseResume = {},
+            onSend = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 刚开始（不足3s禁止发送）")
+@Composable
+private fun RecordingBarJustStartedPreview() {
+    AppTheme {
+        RecordingBarContent(
+            levels = List(WAVE_BARS) { WAVE_BASELINE },
+            elapsed = 1,
+            paused = false,
+            sendEnabled = false,
+            onCancelClick = {},
+            onPauseResume = {},
+            onSend = {},
+        )
+    }
 }
