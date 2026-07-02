@@ -334,28 +334,32 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     private var dateSwitchDebounceJob: Job? = null
 
     /**
-     * 切换日期：立即更新选中日与本地缓存渲染，网络刷新做防抖——
-     * [DATE_SWITCH_DEBOUNCE_MS] 内再次切换则取消上一次，停止切换后才真正请求。
-     * 快速连点箭头 / 连续滑周条时只发最后一次请求。
+     * 切换日期：**仅立即更新选中日**（周条/标题即时跟手），内容区的 UI 状态更新
+     * （缓存渲染/清空/进 SYNCING）与网络请求一并防抖——[DATE_SWITCH_DEBOUNCE_MS] 内
+     * 再次切换则取消上一次。快速连点箭头 / 连续滑周条期间列表保持原样不闪烁，
+     * 停止切换后一次性切换内容并只发最后一次请求。
      */
     private fun selectDate(date: LocalDate) {
         _uiState.update { it.copy(selectedDate = date) }
         if (!_uiState.value.isConnected) return
-        // 立即渲染新日期的事件缓存（无缓存则清空，避免显示旧日期数据）；任务无缓存，先清空。
-        val cached = _uiState.value.account?.email?.let { eventCache.get(it, date) }
-        _uiState.update {
-            it.copy(
-                connectionStatus = CalendarConnectionStatus.SYNCING,
-                events = cached ?: emptyList(),
-                tasks = emptyList(),
-                errorMessage = null,
-            )
-        }
         dateSwitchDebounceJob?.cancel()
         dateSwitchDebounceJob = viewModelScope.launch {
             delay(DATE_SWITCH_DEBOUNCE_MS)
-            // 防抖期间可能断开/登出，请求前再校验。
-            if (_uiState.value.isConnected) loadEvents()
+            // 防抖期间可能断开/登出，更新内容前再校验。
+            if (!_uiState.value.isConnected) return@launch
+            val target = _uiState.value.selectedDate
+            val accountId = _uiState.value.account?.email
+            // 渲染目标日期的事件缓存（无缓存则清空，避免显示旧日期数据）；任务无缓存，先清空。
+            val cached = accountId?.let { eventCache.get(it, target) }
+            _uiState.update {
+                it.copy(
+                    connectionStatus = CalendarConnectionStatus.SYNCING,
+                    events = cached ?: emptyList(),
+                    tasks = emptyList(),
+                    errorMessage = null,
+                )
+            }
+            fetchInto(target, accountId, allowSilentRetry = true)
         }
     }
 
