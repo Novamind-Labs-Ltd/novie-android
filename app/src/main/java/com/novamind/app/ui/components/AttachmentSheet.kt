@@ -26,11 +26,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.FunConfig
 import com.novamind.app.ui.theme.AppTheme
 
 // 公共组件自带配色，避免依赖各 feature 内部颜色常量
 private val SheetBg = Color(0xFFFFFFFF)
 private val TextTitle = Color(0xFF1A1A1A)
+private val TextDisabled = Color(0xFFB5B5B5)
 
 /**
  * 通用「插入附件」选择弹窗：Image / Camera / Document 三列。
@@ -73,7 +75,13 @@ private fun AttachmentContent(
     ) {
         AttachmentItem(R.drawable.ic_image, "Image", onClick = onPickImage)
         AttachmentItem(R.drawable.ic_camera, "Camera", onClick = onTakePhoto)
-        AttachmentItem(R.drawable.ic_document, "Document", onClick = onPickDocument)
+        // 上传文档由 FunConfig 分期控制：未开放时置灰不可点击（入口保留占位）。
+        AttachmentItem(
+            R.drawable.ic_document,
+            "Document",
+            enabled = FunConfig.UPLOAD_DOCUMENT_ENABLED,
+            onClick = onPickDocument,
+        )
     }
 }
 
@@ -81,14 +89,17 @@ private fun AttachmentContent(
 private fun AttachmentItem(
     iconResId: Int,
     label: String,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val tint = if (enabled) TextTitle else TextDisabled
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(),
+                enabled = enabled,
                 onClick = onClick,
             )
             .padding(horizontal = 20.dp, vertical = 12.dp),
@@ -98,10 +109,10 @@ private fun AttachmentItem(
         Icon(
             painter = painterResource(id = iconResId),
             contentDescription = label,
-            tint = TextTitle,
+            tint = tint,
             modifier = Modifier.size(26.dp),
         )
-        Text(label, fontSize = 14.sp, color = TextTitle)
+        Text(label, fontSize = 14.sp, color = tint)
     }
 }
 
