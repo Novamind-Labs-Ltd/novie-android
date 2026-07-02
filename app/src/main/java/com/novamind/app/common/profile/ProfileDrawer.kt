@@ -32,15 +32,29 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.ReadOnlyComposable
 import coil.compose.AsyncImage
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import java.io.File
 
-private val Bg = Color(0xFFFBFAF7)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Accent = Color(0xFF3D7A5A)
-private val Divider = Color(0xFFE8E6E0)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val Bg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Accent: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+private val Divider: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+private val AvatarPlaceholder: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Interactive.active.current()
 
 /** 个人中心抽屉内容。点头像或「更换头像」可更换。 */
 @Composable
@@ -75,7 +89,7 @@ fun ProfileDrawerContent(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFD0C8B8))
+                    .background(AvatarPlaceholder)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(),

@@ -64,14 +64,24 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import coil.compose.AsyncImage
 import com.novamind.app.R
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 import java.io.File
 
-private val Scrim = Color(0xFF101010)
-private val BtnBg = Color(0xFFFFFFFF)
-private val BtnText = Color(0xFF1A1A1A)
-private val Accent = Color(0xFF3D7A5A)
+// 配色：引用 ui/colors 设计系统（不使用硬编码颜色）。
+// 头像查看为**固定深色**沉浸页（与图片预览/裁剪页同策略），深色底及其上元素
+// 取 Palette 主题无关色；品牌强调色走语义令牌。
+private val Scrim = Palette.gray900
+private val OnScrim = Palette.white
+private val BtnBg = Palette.white
+private val BtnText = Palette.gray800
+private val CircleBtnBg = Palette.gray800
+private val Accent: Color
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    get() = ButtonColors.Brand.default.current()
 
 /**
  * 头像查看 / 编辑页：交互参照图片预览页（沉浸式深色全屏、单击切换工具栏、下拉关闭、
@@ -249,7 +259,7 @@ fun AvatarViewerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     CircleIconButton(R.drawable.ic_arrow_back, "返回", onClick = onBack)
-                    Text("头像", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("头像", color = OnScrim, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Box(modifier = Modifier.size(44.dp)) // 占位保持标题居中
                 }
 
@@ -291,10 +301,10 @@ private fun EmptyAvatar(onClick: () -> Unit) {
         modifier = Modifier
             .size(160.dp)
             .clip(CircleShape)
-            .background(Color(0xFF2A2A2A))
+            .background(CircleBtnBg)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(color = Color.White),
+                indication = ripple(color = OnScrim),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,

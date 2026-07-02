@@ -51,11 +51,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.feature.create.editor.ImageStore
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.current
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val Scrim = Color(0xFF101010)
-private val Accent = Color(0xFF3D7A5A)
+// 配色：引用 ui/colors 设计系统（不使用硬编码颜色）。
+// 头像编辑为**固定深色**全屏页（与图片预览沉浸态同策略），深色底与其上白色元素
+// 取 Palette 主题无关色；品牌强调色走语义令牌。
+private val Scrim = Palette.gray900
+private val OnScrim = Palette.white
+private val ChipBg = Palette.white30a
+private val Accent: Color
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    get() = ButtonColors.Brand.default.current()
 private const val OUTPUT_SIZE = 512
 private const val CROP_MARGIN_DP = 24f
 
@@ -110,7 +120,7 @@ fun AvatarCropScreen(
         ) {
             IconButton(R.drawable.ic_arrow_back, "取消", onClick = onCancel)
             Spacer(Modifier.weight(1f))
-            Text("编辑头像", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("编辑头像", color = OnScrim, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.size(44.dp)) // 占位，保持标题居中
         }
@@ -136,8 +146,8 @@ fun AvatarCropScreen(
                         offset += panChange
                     },
                 )
-                loadFailed -> Text("无法加载该图片", color = Color.White, fontSize = 14.sp)
-                else -> CircularProgressIndicator(color = Color.White)
+                loadFailed -> Text("无法加载该图片", color = OnScrim, fontSize = 14.sp)
+                else -> CircularProgressIndicator(color = OnScrim)
             }
         }
 
@@ -313,7 +323,7 @@ private fun IconButton(iconRes: Int, contentDescription: String, onClick: () -> 
             .clip(CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = Color.White),
+                indication = ripple(bounded = false, color = OnScrim),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
@@ -321,7 +331,7 @@ private fun IconButton(iconRes: Int, contentDescription: String, onClick: () -> 
         Icon(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
-            tint = Color.White,
+            tint = OnScrim,
             modifier = Modifier.size(24.dp),
         )
     }
@@ -332,10 +342,10 @@ private fun TextChip(iconRes: Int, label: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(Color(0x22FFFFFF))
+            .background(ChipBg)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(color = Color.White),
+                indication = ripple(color = OnScrim),
                 onClick = onClick,
             )
             .padding(horizontal = 14.dp, vertical = 8.dp),
@@ -344,11 +354,11 @@ private fun TextChip(iconRes: Int, label: String, onClick: () -> Unit) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = label,
-            tint = Color.White,
+            tint = OnScrim,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(6.dp))
-        Text(label, color = Color.White, fontSize = 13.sp)
+        Text(label, color = OnScrim, fontSize = 13.sp)
     }
 }
 
@@ -360,7 +370,7 @@ private fun ActionButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val baseColor = if (filled) Accent else Color(0x22FFFFFF)
+    val baseColor = if (filled) Accent else ChipBg
     Box(
         modifier = modifier
             .height(48.dp)
@@ -369,14 +379,14 @@ private fun ActionButton(
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(color = Color.White),
+                indication = ripple(color = OnScrim),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            color = Color.White,
+            color = OnScrim,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
         )

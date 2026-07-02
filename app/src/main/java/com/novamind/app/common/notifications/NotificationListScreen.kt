@@ -22,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,16 +31,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 
-private val BgPage = Color(0xFFF0EFEA)
-private val Card = Color(0xFFFFFFFF)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Unread = Color(0xFFD13C3C)
-private val Accent = Color(0xFF3D7A5A)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val BgPage: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val Card: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Unread: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Error.default.current()
+private val Accent: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
 
 /** 通知列表全屏页。点左上角返回或系统返回关闭。 */
 @Composable

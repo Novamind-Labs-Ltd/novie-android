@@ -51,22 +51,37 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.ReadOnlyComposable
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 
 /* ---------------------------------------------------------------------------
- * 配色：与全局主题保持一致（米白底 / 墨绿主色）
+ * 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
  * ------------------------------------------------------------------------- */
-private val BgPage = Color(0xFFF0EFEA)
-private val Card = Color(0xFFFFFFFF)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Accent = Color(0xFF3D7A5A)
-private val AccentSoft = Color(0xFFE8F0EB)
-private val Divider = Color(0xFFEFEDE7)
-private val PillOffBg = Color(0xFFF1F0EC)
-private val PillOffText = Color(0xFF8A8A85)
+private val BgPage: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val Card: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Accent: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+private val AccentSoft: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Scenario.fern.current()
+private val Divider: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+private val PillOffBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
+private val PillOffText: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
 
 /* ---------------------------------------------------------------------------
  * 数据模型

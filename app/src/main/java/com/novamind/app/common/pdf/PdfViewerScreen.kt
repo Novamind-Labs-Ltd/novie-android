@@ -78,6 +78,9 @@ import androidx.compose.ui.util.lerp
 import com.novamind.app.R
 import com.novamind.app.common.pdf.PdfPageCache
 import com.novamind.app.common.pdf.PdfRenderSession
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.Palette
+import com.novamind.app.ui.colors.current
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -85,11 +88,20 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.roundToInt
 
-private val Bg = Color(0xFF2A2A2D)        // 阅读器深色底，突出页面
-private val PageBg = Color(0xFFFFFFFF)
-private val OnDark = Color(0xFFF2F2F2)
-private val Accent = Color(0xFF3D7A5A)
-private val Danger = Color(0xFFE07A7A)
+// 配色：引用 ui/colors 设计系统（不使用硬编码颜色）。
+// 阅读器为**固定深色**页面（突出白色 PDF 页），深色底及其上元素取 Palette
+// 主题无关色；品牌强调色走语义令牌。
+private val Bg = Palette.gray800                              // 阅读器深色底
+private val PageBg = Palette.white                            // PDF 页面固定白底
+private val OnDark = Palette.white
+private val OnDarkDisabled = Palette.white50a
+private val PillScrim = Palette.gray900.copy(alpha = 0.8f)    // 底部工具条半透明深底
+private val PagerBtnBg = Palette.white30a
+private val PagerBtnBgDisabled = Palette.white.copy(alpha = 0.08f)
+private val Danger = Palette.red300                           // 深底上的柔和红
+private val Accent: Color
+    @Composable @androidx.compose.runtime.ReadOnlyComposable
+    get() = ButtonColors.Brand.default.current()
 
 // 集中配置见 AppConfig.Pdf
 private const val MAX_SCALE = AppConfig.Pdf.MAX_SCALE
@@ -163,7 +175,7 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
                 actions = {
                     Text(
                         "选择文件",
-                        color = Color.White,
+                        color = OnDark,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier
@@ -352,7 +364,7 @@ internal fun PdfReader(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 20.dp)
                 .clip(RoundedCornerShape(50))
-                .background(Color(0xCC1A1A1A))
+                .background(PillScrim)
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -402,7 +414,7 @@ internal fun PdfReader(
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(Color(0xCC1A1A1A))
+                    .background(PillScrim)
                     .padding(horizontal = 12.dp, vertical = 5.dp),
             )
         }
@@ -445,13 +457,13 @@ private fun ZoomButton(label: String, enabled: Boolean = true, onClick: () -> Un
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(Color(if (enabled) 0x33FFFFFF else 0x14FFFFFF))
+            .background(if (enabled) PagerBtnBg else PagerBtnBgDisabled)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            color = if (enabled) Color.White else Color(0x66FFFFFF),
+            color = if (enabled) OnDark else OnDarkDisabled,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
         )
@@ -465,13 +477,13 @@ private fun PagerButton(label: String, enabled: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(Color(if (enabled) 0x33FFFFFF else 0x14FFFFFF))
+            .background(if (enabled) PagerBtnBg else PagerBtnBgDisabled)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            color = if (enabled) Color.White else Color(0x66FFFFFF),
+            color = if (enabled) OnDark else OnDarkDisabled,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
         )
@@ -489,7 +501,7 @@ private fun EmptyState(onPick: () -> Unit) {
         Text("选择一个 PDF 文件，逐页阅读（支持翻页、捏合/双击缩放）。", color = OnDark, fontSize = 14.sp)
         Text(
             "选择 PDF 文件",
-            color = Color.White,
+            color = OnDark,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier

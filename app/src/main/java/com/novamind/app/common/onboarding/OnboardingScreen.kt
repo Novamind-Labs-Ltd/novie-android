@@ -24,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -35,13 +36,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 import kotlinx.coroutines.launch
 
-private val Bg = Color(0xFFF0EFEA)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Accent = Color(0xFF3D7A5A)
-private val DotIdle = Color(0xFFCFCBC0)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val Bg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Accent: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()
+private val OnAccent: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
+private val DotIdle: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Interactive.active.current()
 
 private data class Page(val emoji: String, val title: String, val subtitle: String)
 
@@ -150,7 +163,7 @@ fun OnboardingScreen(
                 ) {
                     Text(
                         text = if (isLast) "开始使用" else "下一步",
-                        color = Color.White,
+                        color = OnAccent,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                     )

@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,11 +24,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.ButtonColors
+import com.novamind.app.ui.colors.TextColors
+import com.novamind.app.ui.colors.current
 
-private val Card = Color(0xFFFFFFFF)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
-private val Accent = Color(0xFF3D7A5A)
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
+private val Card: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val TextTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val TextSub: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
+private val Accent: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()
+private val OnAccent: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
 
 /**
  * 升级弹窗。可选升级可「稍后」关闭；强制升级不可关闭（不可点外、不可返回），仅「立即升级」「退出」。
@@ -93,7 +105,7 @@ private fun PrimaryButton(label: String, onClick: () -> Unit) {
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Text(label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = OnAccent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
