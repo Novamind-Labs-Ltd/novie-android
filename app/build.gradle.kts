@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
     alias(libs.plugins.firebase.crashlytics)
+    alias(libs.plugins.hilt)
 
     id("io.sentry.android.gradle") version "6.13.0"
 }
@@ -111,6 +112,9 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.play.services.auth.base)
     ksp(libs.androidx.room.compiler)
+    // Hilt 依赖注入（组合根从 NovieApplication 手工 DI 逐步迁移到 Hilt）
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
     // 图片加载
     implementation(libs.coil.compose)
     // 键值存储：MMKV（封装在 common/storage/KeyValueStore，逐步替换 SharedPreferences）

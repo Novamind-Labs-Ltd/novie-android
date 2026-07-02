@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
 import com.novamind.app.common.log.DebugLog
+import dagger.hilt.android.AndroidEntryPoint
 
 // 导航顺序，用于判断滑动方向
 private val navOrder = listOf(
@@ -72,6 +73,9 @@ private val navOrder = listOf(
     BottomNavDestination.Calendar.route,
 )
 
+// Hilt 入口：使 Activity 的 defaultViewModelProviderFactory 支持 @HiltViewModel
+// （Compose 内 viewModel() 对 Hilt / 非 Hilt ViewModel 均可用）。
+@AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
     // App Links 进入时的目标 route：由 onCreate / onNewIntent 写入，Compose 侧 LaunchedEffect 消费后清空

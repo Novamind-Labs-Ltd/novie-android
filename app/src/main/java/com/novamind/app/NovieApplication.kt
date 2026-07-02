@@ -15,19 +15,21 @@ import com.novamind.app.data.RoomNoteRepository
 import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.RoomTagRepository
 import com.novamind.app.data.TagRepository
-import com.novamind.app.common.google.GoogleCalendarAuthManager
-import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.data.calendar.CalendarEventCache
-import com.novamind.app.data.calendar.GoogleCalendarRepository
-import com.novamind.app.data.calendar.GoogleCalendarRepositoryImpl
 import com.novamind.app.data.db.AppDatabase
-import com.novamind.app.data.tasks.GoogleTasksRepository
-import com.novamind.app.data.tasks.GoogleTasksRepositoryImpl
 import com.novamind.app.feature.calendar.CalendarBindingStore
 import com.novamind.app.util.SentryUtils
 import com.tencent.mmkv.MMKV
+import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
+import javax.inject.Provider
 
+/**
+ * 组合根：Hilt（@HiltAndroidApp）为主，遗留的手工 DI 字段（Room 仓库等）待逐步迁移。
+ * 日历依赖已迁至 [com.novamind.app.di.CalendarModule]。
+ */
+@HiltAndroidApp
 class NovieApplication : Application(), ImageLoaderFactory {
 
     val database by lazy { AppDatabase.getInstance(this) }
@@ -37,15 +39,11 @@ class NovieApplication : Application(), ImageLoaderFactory {
     val recordingRepository: RecordingRepository by lazy {
         RoomRecordingRepository(database.recordingDao())
     }
-    // Google 日历仓库（无状态、单例即可；token 由 GoogleTokenProvider 注入）
-    val googleCalendarRepository: GoogleCalendarRepository by lazy { GoogleCalendarRepositoryImpl() }
-    // Google 任务仓库（与日历共用同一 Google token，scope 含 tasks 读写）
-    val googleTasksRepository: GoogleTasksRepository by lazy { GoogleTasksRepositoryImpl() }
-    // 日历绑定（连接标记 + 账号邮箱）与按账号隔离的事件缓存
-    val calendarBindingStore: CalendarBindingStore by lazy { CalendarBindingStore() }
-    val calendarEventCache: CalendarEventCache by lazy { CalendarEventCache() }
-    // 静默授权 + revoke 来源（用 application context，不泄漏到 ViewModel）
-    val googleCalendarAuthSource: GoogleCalendarAuthSource by lazy { GoogleCalendarAuthManager(this) }
+
+    // 用 Provider 惰性取用：Application 字段注入发生在 super.onCreate()，
+    // 早于 MMKV.initialize；Provider.get() 推迟到实际调用时，规避初始化顺序问题。
+    @Inject lateinit var calendarBindingStore: Provider<CalendarBindingStore>
+    @Inject lateinit var calendarEventCache: Provider<CalendarEventCache>
 
     /**
      * 清除日历本地会话：删 token + 删绑定 + 清缓存（不 revoke Google 授权）。
@@ -54,8 +52,8 @@ class NovieApplication : Application(), ImageLoaderFactory {
      */
     fun clearCalendarLocalSession() {
         GoogleTokenProvider.clear()
-        calendarBindingStore.clear()
-        calendarEventCache.clear()
+        calendarBindingStore.get().clear()
+        calendarEventCache.get().clear()
     }
 
     override fun onCreate() {

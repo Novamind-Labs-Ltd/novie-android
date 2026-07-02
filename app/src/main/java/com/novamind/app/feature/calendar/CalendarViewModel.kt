@@ -1,10 +1,8 @@
 package com.novamind.app.feature.calendar
 
-import android.app.Application
 import android.content.Intent
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.novamind.app.NovieApplication
 import com.novamind.app.common.google.GoogleAccount
 import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
@@ -17,6 +15,7 @@ import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.util.LogUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -29,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import javax.inject.Inject
 
 /**
  * Calendar 页面 ViewModel：以 [CalendarConnectionStatus] 状态机驱动 UI。
@@ -40,15 +40,17 @@ import java.time.LocalDate
  *
  * 需 Activity 的交互式授权（选账号/同意）仍在 [CalendarRoute]；本类只用
  * [GoogleCalendarAuthSource] 做静默授权与 revoke。
+ *
+ * 依赖经 Hilt 构造注入（[com.novamind.app.di.CalendarModule]），可直接换假实现做单测。
  */
-class CalendarViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val app = application as NovieApplication
-    private val repository: GoogleCalendarRepository = app.googleCalendarRepository
-    private val tasksRepository: GoogleTasksRepository = app.googleTasksRepository
-    private val bindingStore: CalendarBindingStore = app.calendarBindingStore
-    private val eventCache: CalendarEventCache = app.calendarEventCache
-    private val authSource: GoogleCalendarAuthSource = app.googleCalendarAuthSource
+@HiltViewModel
+class CalendarViewModel @Inject constructor(
+    private val repository: GoogleCalendarRepository,
+    private val tasksRepository: GoogleTasksRepository,
+    private val bindingStore: CalendarBindingStore,
+    private val eventCache: CalendarEventCache,
+    private val authSource: GoogleCalendarAuthSource,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState = _uiState.asStateFlow()
