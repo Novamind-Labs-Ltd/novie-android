@@ -112,6 +112,30 @@ object AppConfig {
         const val BAR_HIGHLIGHT = 0xFFF0F0F0
     }
 
+    /** 日志系统（common/log，设计见 log-system-design.md）。 */
+    object Log {
+        /** 单个日志分片上限（字节），超过滚动新分片。 */
+        const val MAX_FILE_BYTES = 2L * 1024 * 1024
+
+        /** 单日日志总量上限（字节），超过删最旧分片。 */
+        const val MAX_DAY_BYTES = 10L * 1024 * 1024
+
+        /** 日志文件保留天数。 */
+        const val RETENTION_DAYS = 7
+
+        /** 可用空间低于此值（MB）时停止落盘。 */
+        const val STORAGE_MIN_FREE_MB = 50L
+
+        /** 定时 flush 间隔（毫秒）；W/E 级别另有即时 flush。 */
+        const val FLUSH_INTERVAL_MS = 5_000L
+
+        /** 内存环形缓冲条数（Debug 工具箱）。 */
+        const val MEMORY_BUFFER_SIZE = 500
+
+        /** 管道队列容量，满则丢弃新日志（不阻塞调用线程）。 */
+        const val CHANNEL_CAPACITY = 1024
+    }
+
     /** 回收站。 */
     object RecycleBin {
         /** 回收站保留天数：软删后超过该天数会被「彻底删除」。 */

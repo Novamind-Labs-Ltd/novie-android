@@ -5,6 +5,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.novamind.app.common.audio.RecordingCleaner
 import com.novamind.app.common.google.GoogleTokenProvider
+import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
 import com.novamind.app.common.push.PushChannels
@@ -40,7 +41,9 @@ class NovieApplication : Application(), ImageLoaderFactory {
     /** 进程级初始化，顺序敏感。 */
     override fun onCreate() {
         super.onCreate()
-        MMKV.initialize(this)              // 键值存储，必须最先
+        AppLog.init(this)                  // 日志管道最先起，后续初始化即可记日志
+        MMKV.initialize(this)              // 键值存储
+
         ApiConfig.init(this)               // API 环境选择，供 NetworkModule 读取
         SentryUtils.init(this)             // 须在 ApiConfig 之后（按环境上报）
         CommonHeaders.init(this)           // 缓存 HTTPS 公用头部

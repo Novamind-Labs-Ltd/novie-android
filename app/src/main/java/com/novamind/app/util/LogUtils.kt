@@ -1,39 +1,25 @@
 package com.novamind.app.util
 
-import android.util.Log
-import com.novamind.app.BuildConfig
+import com.novamind.app.common.log.AppLog
 
 /**
- * 日志工具：统一封装 [android.util.Log]。
- *
- * - 统一默认 TAG，调用处可覆盖；
- * - verbose / debug / info 仅在 Debug 构建输出，Release 自动静默（[BuildConfig.DEBUG]）；
- * - warn / error 始终输出，并支持携带异常堆栈。
+ * 日志工具（遗留门面）：已迁移为转发 [AppLog]，行为对齐迁移前
+ * （V/D/I Release 静默、W/E 始终输出），额外获得落盘能力。
+ * 新代码请直接用 [AppLog]。
  */
 object LogUtils {
 
     private const val DEFAULT_TAG = "Novie"
 
-    /** 总开关：Debug 构建才输出低级别日志。 */
-    private val loggable: Boolean = BuildConfig.DEBUG
+    fun v(message: String, tag: String = DEFAULT_TAG) = AppLog.v(tag) { message }
 
-    fun v(message: String, tag: String = DEFAULT_TAG) {
-        if (loggable) Log.v(tag, message)
-    }
+    fun d(message: String, tag: String = DEFAULT_TAG) = AppLog.d(tag) { message }
 
-    fun d(message: String, tag: String = DEFAULT_TAG) {
-        if (loggable) Log.d(tag, message)
-    }
+    fun i(message: String, tag: String = DEFAULT_TAG) = AppLog.i(tag) { message }
 
-    fun i(message: String, tag: String = DEFAULT_TAG) {
-        if (loggable) Log.i(tag, message)
-    }
+    fun w(message: String, throwable: Throwable? = null, tag: String = DEFAULT_TAG) =
+        AppLog.w(tag, throwable) { message }
 
-    fun w(message: String, throwable: Throwable? = null, tag: String = DEFAULT_TAG) {
-        Log.w(tag, message, throwable)
-    }
-
-    fun e(message: String, throwable: Throwable? = null, tag: String = DEFAULT_TAG) {
-        Log.e(tag, message, throwable)
-    }
+    fun e(message: String, throwable: Throwable? = null, tag: String = DEFAULT_TAG) =
+        AppLog.e(tag, throwable) { message }
 }
