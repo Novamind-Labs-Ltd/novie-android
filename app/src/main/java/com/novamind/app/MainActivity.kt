@@ -73,15 +73,14 @@ private val navOrder = listOf(
     BottomNavDestination.Calendar.route,
 )
 
-// Hilt 入口：使 Activity 的 defaultViewModelProviderFactory 支持 @HiltViewModel
-// （Compose 内 viewModel() 对 Hilt / 非 Hilt ViewModel 均可用）。
+// Hilt 入口：使 viewModel() 支持 @HiltViewModel
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
-    // App Links 进入时的目标 route：由 onCreate / onNewIntent 写入，Compose 侧 LaunchedEffect 消费后清空
+    // App Link 目标页：onCreate/onNewIntent 写入，Compose 侧消费后清空
     private var deepLinkRoute by mutableStateOf<String?>(null)
 
-    // Android 13+ 通知权限申请器；授予与否都不阻塞主流程
+    // Android 13+ 通知权限；结果不阻塞主流程
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             DebugLog.i("Fcm", "POST_NOTIFICATIONS granted=$granted")
@@ -90,12 +89,10 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // 冷启动若由 App Link 拉起，解析目标页（Compose 侧消费）
         deepLinkRoute = DeepLinks.resolve(intent)
         askNotificationPermission()
         logFcmToken()
-        // Block-editor 光标方案：adjustNothing —— 键盘弹出窗口不重排，内容/光标布局不动，
-        // 仅由编辑器在「光标被键盘遮住」时自行滚动。
+        // adjustNothing：键盘弹出不重排布局，光标遮挡由编辑器自行滚动
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         setContent {
             AppTheme {
@@ -103,24 +100,22 @@ class MainActivity : FragmentActivity() {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
-                // 进入 Create 前记录来源页，Create 返回时回到该页（首页/Library/Calendar 等）
+                // Create 的来源页，返回时回到该页
                 var createReturnRoute by rememberSaveable {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
-                // Library 是否作为子页进入（首页 See all）：true 时左上角显示返回键、可回上一页
+                // Library 作为子页进入（首页 See all）：显示返回键、可回上一页
                 var libraryAsSubpage by rememberSaveable { mutableStateOf(false) }
-                // 图片预览等全屏页打开时隐藏底部导航栏
+                // 全屏页（图片预览等）打开时隐藏底栏
                 var hideBottomNav by rememberSaveable { mutableStateOf(false) }
-                // Ask Novie 聊天页（点底部导航最左品牌按钮打开）
+                // 三个全屏覆盖层：Ask Novie（底栏品牌按钮）、回收站 / 标签管理（Library 侧栏）
                 var showAskNovie by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showAskNovie) { showAskNovie = false }
-                // 回收站页（Library 侧栏「Recycle Bin」打开，全屏覆盖）
                 var showRecycleBin by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showRecycleBin) { showRecycleBin = false }
-                // 标签管理页（Library 侧栏「Tag manager」打开，全屏覆盖）
                 var showTagManager by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showTagManager) { showTagManager = false }
-                // Library 作为子页时，系统返回与左上角返回键一致，回到上一页（首页）
+                // Library 子页时，系统返回与左上角返回键行为一致
                 BackHandler(
                     enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
                 ) {
@@ -133,11 +128,11 @@ class MainActivity : FragmentActivity() {
                     mutableStateOf(!OnboardingStore.isCompleted(appContext))
                 }
 
-                // 认证状态（Auth0）：未登录时用登录页门控整个应用
+                // 认证状态（Auth0）：未登录时用登录页门控
                 val authViewModel: AuthViewModel = viewModel()
                 val authState by authViewModel.uiState.collectAsStateWithLifecycle()
 
-                // 进程级前后台监听：后台超时后回前台触发生物识别重新上锁
+                // 前后台监听：后台超时后回前台触发生物识别上锁
                 DisposableEffect(authViewModel) {
                     val owner = ProcessLifecycleOwner.get()
                     val observer = object : DefaultLifecycleObserver {
@@ -148,10 +143,10 @@ class MainActivity : FragmentActivity() {
                     onDispose { owner.lifecycle.removeObserver(observer) }
                 }
 
-                // 冷启动检查升级（Mock 策略；可在 Debug 工具箱模拟）
+                // 冷启动检查升级（Mock 策略，Debug 工具箱可模拟）
                 LaunchedEffect(Unit) { UpdateController.checkOnStartup(appContext, BuildConfig.VERSION_CODE) }
 
-                // App Link 进入：切到目标页并退出覆盖层，消费后清空避免重复触发
+                // App Link：切到目标页并退出覆盖层，消费后清空防重复触发
                 LaunchedEffect(deepLinkRoute) {
                     deepLinkRoute?.let { target ->
                         currentRoute = target
@@ -164,13 +159,12 @@ class MainActivity : FragmentActivity() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
                         targetState = currentRoute,
-                        modifier = Modifier.fillMaxSize(),   // 填满屏幕，给子页面有界高度（CreateScreen 的 weight 依赖此）
+                        modifier = Modifier.fillMaxSize(),   // 给子页面有界高度（CreateScreen 的 weight 依赖）
                         transitionSpec = {
                             val fromIndex = navOrder.indexOf(initialState)
                             val toIndex = navOrder.indexOf(targetState)
                             val createRoute = BottomNavDestination.Create.route
-                            // Create/编辑页始终视作详情页：进入时从右侧推入，返回时向右滑出，
-                            // 与文件夹详情一致（不受 navOrder 顺序影响）
+                            // Create 视作详情页：进从右入、返向右出，不受 navOrder 影响
                             val forward = when {
                                 targetState == createRoute -> true
                                 initialState == createRoute -> false
@@ -211,7 +205,6 @@ class MainActivity : FragmentActivity() {
                                 noteId = editingNoteId,
                                 onBack = {
                                     editingNoteId = null
-                                    // 返回进入 Create 前的来源页
                                     currentRoute = createReturnRoute
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
@@ -222,19 +215,16 @@ class MainActivity : FragmentActivity() {
                                     createReturnRoute = BottomNavDestination.Library.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },
-                                // 点击笔记进入预览/编辑页；返回回到 Library
                                 onOpenNote = { noteId ->
                                     editingNoteId = noteId
                                     createReturnRoute = BottomNavDestination.Library.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },
-                                // 抽屉打开时隐藏底部导航栏，让抽屉盖住底栏
+                                // 抽屉打开时隐藏底栏，让抽屉盖住底栏
                                 onFullscreenChange = { hideBottomNav = it },
-                                // 侧栏「Recycle Bin」→ 打开回收站全屏页
                                 onOpenRecycleBin = { showRecycleBin = true },
-                                // 侧栏「Tag manager」→ 打开标签管理全屏页
                                 onOpenTagManager = { showTagManager = true },
-                                // 子页进入时左上角为返回键，回到上一页（首页）；从底栏进入则保持现状
+                                // 子页进入时提供返回；底栏进入无返回键
                                 onBack = if (libraryAsSubpage) {
                                     {
                                         libraryAsSubpage = false
@@ -245,13 +235,12 @@ class MainActivity : FragmentActivity() {
                                 },
                             )
                             BottomNavDestination.Calendar.route -> CalendarRoute(
-                                // 新增任务覆盖层打开时隐藏底部导航栏
                                 onFullscreenChange = { hideBottomNav = it },
                             )
                         }
                     }
 
-                    // 全屏页（如图片预览）打开、或进入 Create 编辑页时滑出隐藏底部导航栏
+                    // 底部导航栏：全屏页或 Create 编辑页时滑出隐藏
                     AnimatedVisibility(
                         visible = !hideBottomNav && currentRoute != BottomNavDestination.Create.route,
                         enter = slideInVertically { it } + fadeIn(),
@@ -261,18 +250,17 @@ class MainActivity : FragmentActivity() {
                         AppBottomNavBar(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
-                                // 最左品牌按钮 → 打开 Ask Novie，不切换底部 tab
+                                // 品牌按钮 → Ask Novie，不切换 tab
                                 if (route == BottomNavDestination.Brand.route) {
                                     showAskNovie = true
                                     return@AppBottomNavBar
                                 }
-                                // 从底栏进入 Library 即「现状」（侧栏入口），清掉子页标记
+                                // 底栏进入 Library 清掉子页标记
                                 if (route == BottomNavDestination.Library.route) libraryAsSubpage = false
-                                // 已在当前页（如编辑中点 Create）→ 保持不变，不重置不跳转
+                                // 已在当前页（如编辑中点 Create）不重置不跳转
                                 if (route == currentRoute) return@AppBottomNavBar
                                 if (route == BottomNavDestination.Create.route) {
                                     editingNoteId = null
-                                    // 记录来源页，Create 返回时回到此处（可能是 Home/Library/Calendar）
                                     createReturnRoute = currentRoute
                                 }
                                 currentRoute = route
@@ -280,7 +268,7 @@ class MainActivity : FragmentActivity() {
                         )
                     }
 
-                    // Ask Novie 聊天页（全屏覆盖，自带返回；带左右滑动转场）
+                    // Ask Novie（全屏覆盖，自带返回）
                     AnimatedVisibility(
                         visible = showAskNovie,
                         enter = slideInHorizontally { it } + fadeIn(),
@@ -292,7 +280,7 @@ class MainActivity : FragmentActivity() {
                         )
                     }
 
-                    // 回收站（全屏覆盖，自带返回；带左右滑动转场）
+                    // 回收站（全屏覆盖，自带返回）
                     AnimatedVisibility(
                         visible = showRecycleBin,
                         enter = slideInHorizontally { it } + fadeIn(),
@@ -317,14 +305,13 @@ class MainActivity : FragmentActivity() {
                         )
                     }
 
-                    // Debug 工具箱：仅 debug 变体有实现（摇一摇打开），release 为空实现。
-                    // 调试工具及其依赖只存在于 src/debug，不会编入 release 包。
+                    // Debug 工具箱（摇一摇打开）：实现只在 src/debug，release 为空实现
                     DebugOverlay(onNavigate = { route ->
                         editingNoteId = null
                         currentRoute = route
                     })
 
-                    // 升级弹窗（可选可关闭；强制不可关闭）
+                    // 升级弹窗（强制升级时不可关闭）
                     val update by UpdateController.state.collectAsState()
                     update?.let { info ->
                         UpdateDialog(
@@ -339,7 +326,7 @@ class MainActivity : FragmentActivity() {
                         )
                     }
 
-                    // 首启引导页（最顶层，覆盖全屏）
+                    // 首启引导页（最顶层）
                     if (showOnboarding) {
                         OnboardingScreen(
                             onFinish = {
@@ -378,20 +365,14 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    /**
-     * App 已在运行时再点链接进入（singleTask 复用实例）：更新目标页。
-     */
+    /** App 运行中再点链接（singleTask 复用实例）：更新目标页。 */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         DeepLinks.resolve(intent)?.let { deepLinkRoute = it }
     }
 
-    /**
-     * Android 13+（TIRAMISU）需运行时授予 POST_NOTIFICATIONS 才能显示通知。
-     * 这里在未授权时直接请求；如需更友好的体验，可在请求前用
-     * shouldShowRequestPermissionRationale 弹一段说明 UI。
-     */
+    /** Android 13+ 需运行时授予 POST_NOTIFICATIONS；未授权时直接请求。 */
     private fun askNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
