@@ -12,6 +12,8 @@ import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.tag.Tag
 import com.novamind.app.util.ColorUtils
 import com.novamind.app.util.ColorUtils.toHex
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,9 +32,13 @@ import java.util.UUID
 private data class TextSnapshot(val title: String, val body: String)
 
 @OptIn(FlowPreview::class)
-class CreateViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class CreateViewModel @Inject constructor(
+    application: Application,
+    private val noteRepository: NoteRepository,
+) : AndroidViewModel(application) {
 
-    private val noteRepository: NoteRepository = (application as NovieApplication).noteRepository
+    // 遗留手工 DI：Folder / Tag 仓库尚未迁入 Hilt（见 NovieApplication）
     private val folderRepository = (application as NovieApplication).folderRepository
     private val tagRepository = (application as NovieApplication).tagRepository
 

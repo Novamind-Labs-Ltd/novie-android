@@ -1,4 +1,4 @@
-package com.novamind.app.feature.recyclebin
+package com.novamind.app.feature.recyclebin.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
@@ -44,10 +45,11 @@ private val ColorTextSub: Color
 private val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 
-/** 软删后剩余天数（保留期 [RECYCLE_RETENTION_DAYS] 天，从软删时间 updatedAt 起算），范围 0..保留期。 */
+/** 软删后剩余天数（保留期 [AppConfig.RecycleBin.RETENTION_DAYS] 天，从软删时间 updatedAt 起算），范围 0..保留期。 */
 internal fun daysLeftUntilPurge(deletedAt: Long, now: Long = System.currentTimeMillis()): Int {
+    val retentionDays = AppConfig.RecycleBin.RETENTION_DAYS
     val elapsedDays = ((now - deletedAt) / 86_400_000L).toInt()
-    return (RECYCLE_RETENTION_DAYS - elapsedDays).coerceIn(0, RECYCLE_RETENTION_DAYS)
+    return (retentionDays - elapsedDays).coerceIn(0, retentionDays)
 }
 
 /** 回收站笔记卡片：顶部「剩余 N 天」+ 标题 + 内容（占剩余空间）+ 底部缩略图。 */

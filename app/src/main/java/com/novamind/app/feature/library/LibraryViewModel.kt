@@ -4,10 +4,13 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
+import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.util.ColorUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,9 +23,13 @@ import kotlinx.coroutines.launch
  * Library 页面 ViewModel：从 [com.novamind.app.data.NoteRepository] 实时派生笔记列表，
  * 并结合 [com.novamind.app.data.FolderRepository] 中持久化的文件夹（含颜色与排序）。
  */
-class LibraryViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class LibraryViewModel @Inject constructor(
+    application: Application,
+    private val noteRepository: NoteRepository,
+) : AndroidViewModel(application) {
 
-    private val noteRepository = (application as NovieApplication).noteRepository
+    // 遗留手工 DI：Folder 仓库尚未迁入 Hilt（见 NovieApplication）
     private val folderRepository = (application as NovieApplication).folderRepository
 
     private val _uiState = MutableStateFlow(LibraryUiState())

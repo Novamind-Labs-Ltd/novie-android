@@ -1,12 +1,13 @@
 package com.novamind.app.feature.recyclebin
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.novamind.app.NovieApplication
+import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.util.ColorUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
@@ -14,16 +15,14 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** 回收站保留天数：软删后超过该天数会被「彻底删除」。 */
-const val RECYCLE_RETENTION_DAYS = 30
-
 /**
  * 回收站 ViewModel：从 [com.novamind.app.data.NoteRepository] 实时派生已软删的笔记，
  * 支持恢复（restore）与彻底删除（deleteForever）。
  */
-class RecycleBinViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val noteRepository = (application as NovieApplication).noteRepository
+@HiltViewModel
+class RecycleBinViewModel @Inject constructor(
+    private val noteRepository: NoteRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecycleBinUiState())
     val uiState = _uiState.asStateFlow()

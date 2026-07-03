@@ -1,13 +1,14 @@
 package com.novamind.app.feature.home
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.novamind.app.NovieApplication
 import com.novamind.app.R
+import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.util.ColorUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,9 +17,10 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class HomeViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val noteRepository = (application as NovieApplication).noteRepository
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val noteRepository: NoteRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
         HomeUiState(

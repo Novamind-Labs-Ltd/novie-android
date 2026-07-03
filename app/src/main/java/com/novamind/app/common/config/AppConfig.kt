@@ -5,7 +5,7 @@ import com.novamind.app.ui.colors.Palette
 
 /**
  * 应用级可调参数集中处。把分散在各处的“魔法数字”收拢到这里，方便后续统一调整。
- * 按领域分组：[Editor]、[Network]、[Media]、[Pdf]、[Folder]。
+ * 按领域分组：[Editor]、[Network]、[Media]、[Pdf]、[Folder]、[RecycleBin]。
  */
 object AppConfig {
 
@@ -110,6 +110,12 @@ object AppConfig {
     object Polish {
         const val BAR_BASE = 0xFFDFDFDF
         const val BAR_HIGHLIGHT = 0xFFF0F0F0
+    }
+
+    /** 回收站。 */
+    object RecycleBin {
+        /** 回收站保留天数：软删后超过该天数会被「彻底删除」。 */
+        const val RETENTION_DAYS = 30
     }
 
     /** 分享 / 协作。 */

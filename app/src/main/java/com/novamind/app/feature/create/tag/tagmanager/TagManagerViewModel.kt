@@ -4,7 +4,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.NovieApplication
+import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.model.Note
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,9 +23,13 @@ private const val DEFAULT_TAG_COLOR = "#3D7A5A"
  * Tag 管理页 ViewModel：结合持久化标签与笔记，统计每个标签的关联笔记数；
  * 支持新建 / 重命名 / 删除（重命名/删除会同步改写笔记里的标签）。
  */
-class TagManagerViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class TagManagerViewModel @Inject constructor(
+    application: Application,
+    private val noteRepository: NoteRepository,
+) : AndroidViewModel(application) {
 
-    private val noteRepository = (application as NovieApplication).noteRepository
+    // 遗留手工 DI：Tag 仓库尚未迁入 Hilt（见 NovieApplication）
     private val tagRepository = (application as NovieApplication).tagRepository
 
     private val _uiState = MutableStateFlow(TagManagerUiState())
