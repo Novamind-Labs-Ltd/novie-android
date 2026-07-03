@@ -149,6 +149,8 @@ adb shell am start -a android.intent.action.VIEW \
 adb shell pm get-app-links com.novamind.app
 ```
 
+注意：debug 变体包名有 `.debug` 后缀，测试 debug 包时包名用 `com.novamind.app.debug`。
+
 单测入口：`DeepLinks.resolve(Uri?)` 为纯函数，可直接断言 URI → route 映射。
 
 ## 7. 已知限制与后续
