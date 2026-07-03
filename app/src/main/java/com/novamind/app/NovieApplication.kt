@@ -1,8 +1,10 @@
 package com.novamind.app
 
 import android.app.Application
+import android.os.StatFs
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.disk.DiskCache
 import com.novamind.app.common.audio.RecordingCleaner
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.common.log.AppLog
@@ -51,9 +53,33 @@ class NovieApplication : Application(), ImageLoaderFactory {
         RecordingCleaner.scheduleOnIdle(this) // 空闲时回收录音，不阻塞启动
     }
 
-    /** 全局 Coil ImageLoader：不透明图用 RGB_565，内存减半。 */
+    /**
+     * 全局 Coil ImageLoader：
+     * - 不透明图用 RGB_565，内存减半。
+     * - 磁盘缓存目录沿用 Coil 默认的 cacheDir/image_cache。
+     * - 容量取「磁盘**可用**空间的 30%」，上限 1 GiB、下限 10 MiB。
+     *   注意：Coil 自带的 maxSizePercent 是按磁盘**总**容量算的，这里按可用空间自行计算，
+     *   故用 maxSizeBytes 传固定值（启动时快照一次）。
+     */
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)
             .allowRgb565(true)
+            .diskCache {
+                val dir = cacheDir.resolve("image_cache")
+                val availableBytes = StatFs(cacheDir.absolutePath).availableBytes
+                val maxSize = (availableBytes * 0.30).toLong()
+                    .coerceIn(MIN_DISK_CACHE_BYTES, MAX_DISK_CACHE_BYTES)
+                DiskCache.Builder()
+                    .directory(dir)
+                    .maxSizeBytes(maxSize)
+                    .build()
+            }
             .build()
+
+    private companion object {
+        /** 磁盘缓存下限 10 MiB：空间紧张时也保证缓存有效。 */
+        const val MIN_DISK_CACHE_BYTES = 10L * 1024 * 1024
+        /** 磁盘缓存上限 1 GiB。 */
+        const val MAX_DISK_CACHE_BYTES = 1024L * 1024 * 1024
+    }
 }
