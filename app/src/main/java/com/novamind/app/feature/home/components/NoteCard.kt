@@ -1,4 +1,4 @@
-package com.novamind.app.feature.home
+package com.novamind.app.feature.home.components
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,14 +12,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,28 +26,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.feature.note.NoteItem
-import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.Palette
-import com.novamind.app.ui.colors.TextColors
-import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
 
-// NoteCard 配色：对齐设计系统语义令牌，随主题深浅自动解析
-private val BgCard: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
-private val ColorTextTitle: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
-private val ColorTextSub: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
-private val ColorBorder: Color
-    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
-private val ColorSelectedBorder = Palette.forrest200   // 选中态：品牌浅绿（固定基础色）
-
 /**
- * 首页笔记卡片：固定 160×120，标题为空时用正文充当标题（1 行），剩余正文接到下方。
+ * 首页笔记卡片：固定 160×240，标题为空时用正文充当标题（1 行），剩余正文接到下方。
  */
 @Composable
 internal fun NoteCard(

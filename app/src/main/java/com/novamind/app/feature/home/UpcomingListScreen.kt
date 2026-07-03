@@ -2,43 +2,31 @@ package com.novamind.app.feature.home
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.feature.home.components.BgCard
+import com.novamind.app.feature.home.components.BgPage
+import com.novamind.app.feature.home.components.ColorTextTitle
+import com.novamind.app.feature.home.components.UpcomingRow
 import com.novamind.app.ui.components.BackButton
 
-private val BgPage = Color(0xFFF0EFEA)
-private val Card = Color(0xFFFFFFFF)
-private val TextTitle = Color(0xFF1A1A1A)
-private val TextSub = Color(0xFF6B6B6B)
+// 配色与列表行组件在 feature/home/components 包（HomeColors / UpcomingRow）。
 
 /** Upcoming 列表全屏页（示例填充）。 */
 @Composable
@@ -62,8 +50,8 @@ fun UpcomingListScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            BackButton(onClick = onBack, background = Card, tint = TextTitle)
-            Text("Upcoming", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+            BackButton(onClick = onBack, background = BgCard, tint = ColorTextTitle)
+            Text("Upcoming", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
         }
 
         LazyColumn(
@@ -72,36 +60,6 @@ fun UpcomingListScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(items, key = { it.id }) { item -> UpcomingRow(item) }
-        }
-    }
-}
-
-@Composable
-private fun UpcomingRow(item: UpcomingItem) {
-    Surface(shape = RoundedCornerShape(14.dp), color = Card, shadowElevation = 1.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFEDEAE2)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(id = item.iconResId),
-                    contentDescription = null,
-                    tint = TextTitle,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(item.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextTitle, maxLines = 1)
-                Text(item.subtitle, fontSize = 13.sp, color = TextSub, maxLines = 2)
-            }
         }
     }
 }
