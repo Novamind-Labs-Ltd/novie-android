@@ -28,10 +28,13 @@ import com.novamind.app.feature.home.components.SearchBar
 import com.novamind.app.feature.home.components.SectionHeader
 import com.novamind.app.feature.home.components.UpcomingCard
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.common.log.DebugLog
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.ui.theme.AppTheme
 
 // 配色与视觉组件在 feature/home/components 包（HomeColors 等），本文件只保留编排与菜单模型。
+
+private const val TAG = "Home"
 
 // ─── 顶部「更多」底部弹窗菜单 ──────────────────────────────────────────────────
 
@@ -191,7 +194,18 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(items = uiState.notes, key = { it.id }) { note ->
-                        NoteCard(note = note, onClick = { onNoteClick(note.id) })
+                        NoteCard(
+                            note = note,
+                            onClick = {
+                                DebugLog.d(
+                                    TAG,
+                                    "note clicked: id=${note.id} title=\"${note.title}\" " +
+                                        "tags=${note.tags} folder=${note.folderName} " +
+                                        "updatedAt=${note.updatedAt} hasImage=${note.imagePath != null}",
+                                )
+                                onNoteClick(note.id)
+                            },
+                        )
                     }
                 }
             }
