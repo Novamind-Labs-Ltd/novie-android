@@ -16,11 +16,9 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * 数据层依赖（自 NovieApplication 手工 DI 逐步迁移而来）。
- *
- * [AppDatabase.getInstance] 本身是进程级单例，与 NovieApplication 中遗留的
- * `database` 懒字段取到的是同一实例，迁移期间两边共存安全。
- * Recording 仓库仍在 NovieApplication，后续按需迁入。
+ * 数据层依赖（自 NovieApplication 手工 DI 迁移而来）。
+ * 数据库经 [AppDatabase.getInstance]（进程级单例）获取，各仓库均为无状态 DAO 包装，单例提供。
+ * RecordingRepository 目前无消费方，未提供；接入录音数据时在此补充。
  */
 @Module
 @InstallIn(SingletonComponent::class)

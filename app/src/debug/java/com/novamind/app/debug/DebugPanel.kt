@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
-import com.novamind.app.NovieApplication
 import com.novamind.app.common.device.DeviceIdentity
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.onboarding.OnboardingStore
@@ -61,6 +60,12 @@ import com.novamind.app.debug.markdown.MarkdownPreviewActivity
 import com.novamind.app.debug.notification.NotificationDebugger
 import com.novamind.app.common.pdf.PdfViewerActivity
 import com.novamind.app.debug.speech.SpeechToTextActivity
+import com.novamind.app.data.NoteRepository
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,6 +78,13 @@ private val TextSub = Color(0xFF6B6B6B)
 private val Accent = Color(0xFF3D7A5A)
 private val Danger = Color(0xFFD13C3C)
 
+/** Debug 面板取 Hilt 依赖的入口（Composable 非注入宿主，经 EntryPoint 桥接）。 */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface DebugPanelEntryPoint {
+    fun noteRepository(): NoteRepository
+}
+
 /**
  * Debug 工具箱面板（仅 Debug 包；摇一摇打开）。
  * 含：构建/设备信息、页面快速跳转、本地数据查看与清除、Feature Flag、应用内日志。
@@ -84,7 +96,11 @@ fun DebugPanel(
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val app = context.applicationContext as NovieApplication
+    val noteRepository = remember(context) {
+        EntryPointAccessors
+            .fromApplication(context.applicationContext, DebugPanelEntryPoint::class.java)
+            .noteRepository()
+    }
     val scope = rememberCoroutineScope()
 
     val fingerprint = remember { DeviceIdentity.fingerprint(context) }
@@ -102,7 +118,9 @@ fun DebugPanel(
     // 录音实际存放在 filesDir/note_audio（见 AudioRecorder）
     val audioDir = remember { File(context.filesDir, "note_audio") }
     LaunchedEffect(refresh) {
-        noteCount = runCatching { app.noteRepository.count() }.getOrDefault(-1)
+        noteCount = runCatching { noteRepository.count() }
+            .onFailure { if (it is CancellationException) throw it }
+            .getOrDefault(-1)
         recCount = audioDir.listFiles()?.count { it.isFile } ?: 0
         // 内部存储分区可用/总空间（与录音、附件同一分区）
         val stat = runCatching { StatFs(context.filesDir.absolutePath) }.getOrNull()
@@ -200,7 +218,7 @@ fun DebugPanel(
                         FileBrowserActivity.start(context, context.filesDir.absolutePath)
                     }
                     Chip("清空笔记", danger = true) {
-                        scope.launch { app.noteRepository.clearAll(); refresh++ }
+                        scope.launch { noteRepository.clearAll(); refresh++ }
                     }
                     Chip("清空录音", danger = true) {
                         scope.launch {
