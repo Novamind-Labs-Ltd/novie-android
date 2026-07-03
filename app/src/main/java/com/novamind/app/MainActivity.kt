@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.novamind.app.common.deeplink.DeepLinkTarget
 import com.novamind.app.common.deeplink.DeepLinks
 import com.novamind.app.common.onboarding.OnboardingScreen
 import com.novamind.app.common.onboarding.OnboardingStore
@@ -77,8 +78,8 @@ private val navOrder = listOf(
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
-    // App Link 目标页：onCreate/onNewIntent 写入，Compose 侧消费后清空
-    private var deepLinkRoute by mutableStateOf<String?>(null)
+    // App Link 目标：onCreate/onNewIntent 写入，Compose 侧消费后清空
+    private var deepLinkTarget by mutableStateOf<DeepLinkTarget?>(null)
 
     // Android 13+ 通知权限；结果不阻塞主流程
     private val requestNotificationPermission =
@@ -89,7 +90,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        deepLinkRoute = DeepLinks.resolve(intent)
+        deepLinkTarget = DeepLinks.resolve(intent)
         askNotificationPermission()
         logFcmToken()
         // adjustNothing：键盘弹出不重排布局，光标遮挡由编辑器自行滚动
@@ -146,13 +147,24 @@ class MainActivity : FragmentActivity() {
                 // 冷启动检查升级（Mock 策略，Debug 工具箱可模拟）
                 LaunchedEffect(Unit) { UpdateController.checkOnStartup(appContext, BuildConfig.VERSION_CODE) }
 
-                // App Link：切到目标页并退出覆盖层，消费后清空防重复触发
-                LaunchedEffect(deepLinkRoute) {
-                    deepLinkRoute?.let { target ->
-                        currentRoute = target
-                        editingNoteId = null
+                // App Link：切到目标页并退出全部覆盖层，消费后清空防重复触发
+                LaunchedEffect(deepLinkTarget) {
+                    deepLinkTarget?.let { target ->
+                        when (target) {
+                            is DeepLinkTarget.Tab -> {
+                                currentRoute = target.route
+                                editingNoteId = null
+                            }
+                            is DeepLinkTarget.Note -> {
+                                editingNoteId = target.noteId
+                                createReturnRoute = BottomNavDestination.Home.route
+                                currentRoute = BottomNavDestination.Create.route
+                            }
+                        }
                         showAskNovie = false
-                        deepLinkRoute = null
+                        showRecycleBin = false
+                        showTagManager = false
+                        deepLinkTarget = null
                     }
                 }
 
@@ -369,7 +381,7 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        DeepLinks.resolve(intent)?.let { deepLinkRoute = it }
+        DeepLinks.resolve(intent)?.let { deepLinkTarget = it }
     }
 
     /** Android 13+ 需运行时授予 POST_NOTIFICATIONS；未授权时直接请求。 */
