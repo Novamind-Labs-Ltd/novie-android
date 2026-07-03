@@ -7,12 +7,8 @@ import com.novamind.app.common.audio.RecordingCleaner
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
 import com.novamind.app.common.push.PushChannels
-import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.RecordingRepository
-import com.novamind.app.data.RoomFolderRepository
 import com.novamind.app.data.RoomRecordingRepository
-import com.novamind.app.data.RoomTagRepository
-import com.novamind.app.data.TagRepository
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.db.AppDatabase
@@ -26,14 +22,12 @@ import javax.inject.Provider
 /**
  * 组合根：Hilt（@HiltAndroidApp）为主，遗留的手工 DI 字段（Room 仓库等）待逐步迁移。
  * 日历依赖已迁至 [com.novamind.app.di.CalendarModule]；
- * NoteRepository 已迁至 [com.novamind.app.di.DataModule]。
+ * Note / Folder / Tag 仓库已迁至 [com.novamind.app.di.DataModule]。
  */
 @HiltAndroidApp
 class NovieApplication : Application(), ImageLoaderFactory {
 
     val database by lazy { AppDatabase.getInstance(this) }
-    val folderRepository: FolderRepository by lazy { RoomFolderRepository(database.folderDao()) }
-    val tagRepository: TagRepository by lazy { RoomTagRepository(database.tagDao()) }
     val recordingRepository: RecordingRepository by lazy {
         RoomRecordingRepository(database.recordingDao())
     }

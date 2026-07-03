@@ -1,9 +1,8 @@
 package com.novamind.app.feature.library
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.novamind.app.NovieApplication
+import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.Note
@@ -25,12 +24,9 @@ import kotlinx.coroutines.launch
  */
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    application: Application,
     private val noteRepository: NoteRepository,
-) : AndroidViewModel(application) {
-
-    // 遗留手工 DI：Folder 仓库尚未迁入 Hilt（见 NovieApplication）
-    private val folderRepository = (application as NovieApplication).folderRepository
+    private val folderRepository: FolderRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState = _uiState.asStateFlow()

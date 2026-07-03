@@ -1,10 +1,9 @@
 package com.novamind.app.feature.create.tag.tagmanager
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.novamind.app.NovieApplication
 import com.novamind.app.data.NoteRepository
+import com.novamind.app.data.TagRepository
 import com.novamind.app.feature.create.model.Note
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -25,12 +24,9 @@ private const val DEFAULT_TAG_COLOR = "#3D7A5A"
  */
 @HiltViewModel
 class TagManagerViewModel @Inject constructor(
-    application: Application,
     private val noteRepository: NoteRepository,
-) : AndroidViewModel(application) {
-
-    // 遗留手工 DI：Tag 仓库尚未迁入 Hilt（见 NovieApplication）
-    private val tagRepository = (application as NovieApplication).tagRepository
+    private val tagRepository: TagRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TagManagerUiState())
     val uiState = _uiState.asStateFlow()
