@@ -27,7 +27,7 @@ object NetworkModule {
     private val baseUrl: String get() = ApiConfig.apiBaseUrl
 
     /** 全局 JSON 解析配置：容忍未知字段、按需省略默认值，供后续接入类型化响应模型复用。 */
-    private val json = Json {
+    internal val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
         coerceInputValues = true
