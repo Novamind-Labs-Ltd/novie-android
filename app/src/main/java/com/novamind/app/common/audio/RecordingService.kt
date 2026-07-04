@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import com.novamind.app.R
+import com.novamind.app.common.log.DebugLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 录音前台服务：持有 [AudioRecorder]，在锁屏 / 切后台时保持麦克风采集不中断，
@@ -31,7 +33,10 @@ import kotlinx.coroutines.launch
  */
 class RecordingService : Service() {
 
-    private val recorder by lazy { AudioRecorder(this) }
+    // 达最大时长（30min）自动停止：回调在 MediaRecorder 线程触发，切回 service 主作用域收尾。
+    private val recorder by lazy {
+        AudioRecorder(this) { scope.launch { handleStop() } }
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var loop: Job? = null
 
@@ -56,21 +61,34 @@ class RecordingService : Service() {
     private fun handleStart() {
         if (RecordingController.state.value.active) return
 
+        // 先起前台（满足 startForegroundService 5s 内必须 startForeground 的约束），
+        // 再在 IO 线程做「空间预检 + 清理」，据结果决定真正开录或中止。
         createChannel()
         startInForeground()
 
-        if (!recorder.start()) {
-            // 启动失败（如权限被收回）：上报取消并退出。
-            RecordingController.update { it.copy(active = false, cancelled = true) }
-            finishService()
-            return
+        scope.launch {
+            val ready = withContext(Dispatchers.IO) {
+                RecordingCleaner.ensureSpaceForRecording(applicationContext)
+            }
+            if (!ready) {
+                DebugLog.w(TAG, "storage low, abort recording")
+                RecordingController.update { it.copy(active = false, cancelled = true) }
+                finishService()
+                return@launch
+            }
+            if (!recorder.start()) {
+                // 启动失败（如权限被收回）：上报取消并退出。
+                RecordingController.update { it.copy(active = false, cancelled = true) }
+                finishService()
+                return@launch
+            }
+            elapsed = 0
+            peak = 0
+            paused = false
+            RecordingController.update { RecordingSnapshot(active = true, paused = false) }
+            startLoop()
+            updateNotification()
         }
-        elapsed = 0
-        peak = 0
-        paused = false
-        RecordingController.update { RecordingSnapshot(active = true, paused = false) }
-        startLoop()
-        updateNotification()
     }
 
     private fun handlePause() {
@@ -90,6 +108,8 @@ class RecordingService : Service() {
     }
 
     private fun handleStop() {
+        // 重入保护：用户停止与 30min 自动停止可能并发，仅首次生效。
+        if (!RecordingController.state.value.active) return
         loop?.cancel()
         val path = recorder.stop()
         val result = path?.let { RecordingResult(it, elapsed, peak) }
@@ -223,6 +243,7 @@ class RecordingService : Service() {
 
     companion object {
         // 注：渠道创建后系统不允许再调高重要级，换新 ID 确保 IMPORTANCE_HIGH 生效
+        private const val TAG = "RecordingService"
         private const val CHANNEL_ID = "recording_v2"
         private const val NOTIF_ID = 1001
         private const val TICK_MS = 100L

@@ -90,20 +90,48 @@ object AppConfig {
         /** 笔记图片导入时的 JPEG 压缩质量（0~100）。 */
         const val IMAGE_JPEG_QUALITY = 85
 
-        /** 单个录音分片大小上限（字节）。默认 5MB。 */
-        const val AUDIO_SEGMENT_BYTES = 5L * 1024 * 1024
+        // ── 录音编码（AAC，不分片，单文件）──────────────────────────────
+        /** 录音最大时长（秒）。30 分钟。 */
+        const val MAX_RECORD_SECONDS = 30 * 60
 
+        /** 录音最大时长（毫秒），供 MediaRecorder.setMaxDuration。 */
+        const val MAX_RECORD_MS = MAX_RECORD_SECONDS * 1000L
+
+        /** AAC 编码码率（bps）。64k：兼顾音质与体积，30min≈14.4MB < 后端 16MiB 上限。 */
+        const val AUDIO_BITRATE = 64_000
+
+        /** 采样率（Hz）。用于 AI 语音分析，16k 单声道即 ASR 标准输入，且显著减小体积。 */
+        const val AUDIO_SAMPLE_RATE = 16_000
+
+        /** 声道数。语音/AI 分析用单声道。 */
+        const val AUDIO_CHANNELS = 1
+
+        /** 录音上传 MIME（须在后端 files 允许类型内）。ADTS 原始 AAC → audio/aac。 */
+        const val AUDIO_MIME = "audio/aac"
+
+        // ── 本地存储滚动删除 ────────────────────────────────────────────
         /** 可用空间低于此值（MB）时触发录音清理。 */
         const val STORAGE_MIN_FREE_MB = 30L
 
         /** 录音清理回收到此可用空间（MB）即停止。 */
         const val STORAGE_TARGET_FREE_MB = 200L
 
+        /** 开始录音前要求的最低可用空间（MB）：不足先清理，再不足则拦截录制。 */
+        const val RECORD_MIN_FREE_MB = 50L
+
+        // ── 产品判定 ────────────────────────────────────────────────────
         /** 录音可发送的最短时长（秒）。 */
         const val MIN_RECORD_SECONDS = 3
 
         /** 峰值振幅低于此值（0..32767）视为「没有声音」。 */
         const val NO_VOICE_THRESHOLD = 1800
+
+        init {
+            // 不变式：单次录音最大体积必须小于后端单文件上限，否则上传必失败。
+            require(AUDIO_BITRATE / 8L * MAX_RECORD_SECONDS < MAX_DOCUMENT_SIZE) {
+                "录音上限(码率×时长)可能超过后端文件大小限制 MAX_DOCUMENT_SIZE"
+            }
+        }
     }
 
     /** AI「Polishing」选区骨架扫光条配色（ARGB，使用处用 Color(...) 包装）。 */

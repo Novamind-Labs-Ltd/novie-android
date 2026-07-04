@@ -5,65 +5,85 @@ import android.os.Looper
 import android.os.StatFs
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.DebugLog
+import com.novamind.app.data.RoomRecordingRepository
+import com.novamind.app.data.db.AppDatabase
+import kotlinx.coroutines.runBlocking
 import java.io.File
 
 /**
- * 录音文件的空间回收：当内部存储可用空间偏低时，按「最久优先」删除应用内录音，
- * 直到可用空间回升到目标值。在 App 启动后的空闲时机触发一次，不阻塞启动。
+ * 录音文件的空间回收（DB 感知，安全删除）：可用空间偏低时，
+ * 先清孤儿文件，再按「最久优先」删**已上传/已校验**的录音，直到空间回升到目标值。
  *
- * 阈值集中在此，便于随时调整。
+ * **绝不**删除 LOCAL_ONLY / PENDING / UPLOADING 的录音（未上传即删会丢数据），
+ * 亦通过「文件年龄保护」避免误删正在录制的文件。
+ *
+ * 阈值集中在 [AppConfig.Media]。
  */
 object RecordingCleaner {
-
-    /** 可用空间低于此值（MB）时触发清理。集中配置见 [AppConfig.Media.STORAGE_MIN_FREE_MB]。 */
-    const val MIN_FREE_MB = AppConfig.Media.STORAGE_MIN_FREE_MB
-
-    /** 清理到可用空间达到此值（MB）即停止。集中配置见 [AppConfig.Media.STORAGE_TARGET_FREE_MB]。 */
-    const val TARGET_FREE_MB = AppConfig.Media.STORAGE_TARGET_FREE_MB
 
     /** 录音存放目录（相对 filesDir），与 [AudioRecorder] 保持一致。 */
     private const val AUDIO_DIR = "note_audio"
 
+    /** 孤儿文件年龄保护：新于此值的未登记文件视为「可能正在录制」，不删。 */
+    private const val ORPHAN_MIN_AGE_MS = 10 * 60 * 1000L
+
     private const val TAG = "RecCleaner"
 
-    /**
-     * 在主线程空闲时触发一次清理（实际 IO 在后台线程执行），适合 App 启动调用。
-     */
+    /** App 启动空闲时触发一次清理（后台线程执行），不阻塞启动。 */
     fun scheduleOnIdle(context: Context) {
         val appContext = context.applicationContext
         Looper.getMainLooper().queue.addIdleHandler {
-            Thread({ runCatching { cleanupIfNeeded(appContext) } }, "rec-cleaner").start()
+            Thread({ runCatching { runBlocking { cleanupIfNeeded(appContext) } } }, "rec-cleaner").start()
             false // 仅执行一次后移除
         }
     }
 
     /**
-     * 可用空间 < [MIN_FREE_MB] 时，按最后修改时间从旧到新删除录音，
-     * 每删一个就重新检查，达到 [TARGET_FREE_MB] 或无文件可删即停止。
+     * 录制前确保空间充足：不足则先清理，返回清理后是否达到 [AppConfig.Media.RECORD_MIN_FREE_MB]。
+     * 供 [RecordingService] 在开始录音前调用（须在 IO 线程）。
      */
-    fun cleanupIfNeeded(context: Context) {
-        val minFreeBytes = MIN_FREE_MB * 1024 * 1024
-        val targetBytes = TARGET_FREE_MB * 1024 * 1024
+    suspend fun ensureSpaceForRecording(context: Context): Boolean {
+        val minBytes = AppConfig.Media.RECORD_MIN_FREE_MB * 1024 * 1024
+        if (availableBytes(context) >= minBytes) return true
+        cleanupIfNeeded(context)
+        return availableBytes(context) >= minBytes
+    }
 
+    /**
+     * 可用空间 < [AppConfig.Media.STORAGE_MIN_FREE_MB] 时：先清孤儿文件，
+     * 再按最久优先删除可回收录音，达到 [AppConfig.Media.STORAGE_TARGET_FREE_MB] 或无可删即停止。
+     */
+    suspend fun cleanupIfNeeded(context: Context) {
+        val minFreeBytes = AppConfig.Media.STORAGE_MIN_FREE_MB * 1024 * 1024
+        val targetBytes = AppConfig.Media.STORAGE_TARGET_FREE_MB * 1024 * 1024
         if (availableBytes(context) >= minFreeBytes) return
 
-        val files = File(context.filesDir, AUDIO_DIR).listFiles()?.filter { it.isFile }.orEmpty()
-        if (files.isEmpty()) {
-            DebugLog.w(TAG, "low space but no recordings to delete")
-            return
+        val repo = RoomRecordingRepository(AppDatabase.getInstance(context).recordingDao())
+
+        // 1) 孤儿文件：不在库、且非新近（可能正在录制）的残留文件，直接删。
+        val known = repo.knownPaths()
+        val cutoff = System.currentTimeMillis() - ORPHAN_MIN_AGE_MS
+        var orphanDeleted = 0
+        File(context.filesDir, AUDIO_DIR).listFiles()?.forEach { f ->
+            if (f.isFile && f.absolutePath !in known && f.lastModified() < cutoff) {
+                if (f.delete()) orphanDeleted++
+            }
         }
 
-        // 最久的在前（lastModified 升序）→ 优先删除最久的
-        val oldestFirst = files.sortedBy { it.lastModified() }
-        var deleted = 0
-        for (f in oldestFirst) {
-            if (availableBytes(context) >= targetBytes) break
-            if (f.delete()) deleted++
+        // 2) 已上传/已校验的录音，最旧优先删（连库行 + 磁盘文件），直至达标。
+        var recDeleted = 0
+        if (availableBytes(context) < targetBytes) {
+            for (rec in repo.reclaimableOldestFirst()) {
+                if (availableBytes(context) >= targetBytes) break
+                repo.deleteRecording(rec.id)
+                recDeleted++
+            }
         }
+
         DebugLog.i(
             TAG,
-            "cleanup done: deleted=$deleted, free=${availableBytes(context) / (1024 * 1024)}MB " +
-                "(min=$MIN_FREE_MB target=$TARGET_FREE_MB)",
+            "cleanup done: orphans=$orphanDeleted recordings=$recDeleted " +
+                "free=${availableBytes(context) / (1024 * 1024)}MB",
         )
     }
 

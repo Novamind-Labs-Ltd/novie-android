@@ -9,32 +9,36 @@ import java.io.File
 import java.util.UUID
 
 /**
- * 基于 [MediaRecorder] 的录音器：录制为 m4a（AAC）写入应用内部存储。
- * 支持开始 / 暂停 / 继续 / 停止 / 取消（暂停继续需 API 24+，本应用 minSdk 26 满足）。
+ * 基于 [MediaRecorder] 的录音器：**单文件、不分片**，录制为原始 AAC（ADTS，`.aac`）
+ * 写入应用内部存储，MIME 对齐后端 `audio/aac`。支持开始/暂停/继续/停止/取消
+ * （暂停继续需 API 24+，本应用 minSdk 26 满足）。
  *
- * 分片：单个文件超过 [SEGMENT_BYTES] 时无缝滚动到下一片（[MediaRecorder.setNextOutputFile]），
- * 同一次录音产生 voice_<uuid>_seg1.m4a / _seg2.m4a … 多个文件。分片大小见 [SEGMENT_BYTES]。
+ * 编码参数集中在 [AppConfig.Media]：码率 [AppConfig.Media.AUDIO_BITRATE]、
+ * 采样率 [AppConfig.Media.AUDIO_SAMPLE_RATE]、声道 [AppConfig.Media.AUDIO_CHANNELS]。
+ * 达 [AppConfig.Media.MAX_RECORD_MS]（默认 30 分钟）自动停止，经 [onMaxDurationReached] 通知宿主收尾。
+ *
+ * 注：ADTS 原始流不含时长元数据，回放时长以录制侧记录的 durationMs 为准。
+ *
+ * @param onMaxDurationReached 达最大时长时回调（在 MediaRecorder 线程触发，宿主应切回自身线程收尾）。
  */
-class AudioRecorder(private val context: Context) {
+class AudioRecorder(
+    private val context: Context,
+    private val onMaxDurationReached: (() -> Unit)? = null,
+) {
 
     private var recorder: MediaRecorder? = null
     private var sessionId: String = ""
-    private val segments = mutableListOf<File>()
-    private var nextIndex = 1
+    private var outputFile: File? = null
 
-    /** 首个分片路径（停止后有效）；保持与单文件时代的兼容语义。 */
-    val outputPath: String? get() = segments.firstOrNull()?.absolutePath
-
-    /** 本次录音全部分片的绝对路径（按顺序）。 */
-    val segmentPaths: List<String> get() = segments.map { it.absolutePath }
+    /** 录音文件绝对路径（停止后有效）。 */
+    val outputPath: String? get() = outputFile?.absolutePath
 
     /** 开始录音。成功返回 true。 */
     fun start(): Boolean = try {
         File(context.filesDir, AUDIO_DIR).mkdirs()
         sessionId = UUID.randomUUID().toString()
-        segments.clear()
-        nextIndex = 1
-        val first = newSegmentFile()
+        val out = File(context.filesDir, "$AUDIO_DIR/voice_$sessionId.aac")
+        outputFile = out
 
         @Suppress("DEPRECATION")
         val rec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -44,20 +48,19 @@ class AudioRecorder(private val context: Context) {
         }
         rec.apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            // 原始 AAC(ADTS, .aac)，MIME=audio/aac，匹配后端 files 允许类型
+            setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setAudioEncodingBitRate(128_000)
-            setAudioSamplingRate(44_100)
-            setOutputFile(first.absolutePath)
-            // 达到/接近上限时滚动到下一片
-            setMaxFileSize(SEGMENT_BYTES)
-            setOnInfoListener { mr, what, _ ->
-                when (what) {
-                    MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_APPROACHING ->
-                        runCatching { mr.setNextOutputFile(newSegmentFile()) }
-                            .onFailure { DebugLog.w(TAG, "setNextOutputFile failed: ${it.message}") }
-                    MediaRecorder.MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED ->
-                        DebugLog.i(TAG, "segment rolled -> ${segments.lastOrNull()?.name}")
+            setAudioEncodingBitRate(AppConfig.Media.AUDIO_BITRATE)
+            setAudioSamplingRate(AppConfig.Media.AUDIO_SAMPLE_RATE)
+            setAudioChannels(AppConfig.Media.AUDIO_CHANNELS)
+            setOutputFile(out.absolutePath)
+            // 达最大时长自动停止（计的是实际录制时长，暂停不计）
+            setMaxDuration(AppConfig.Media.MAX_RECORD_MS.toInt())
+            setOnInfoListener { _, what, _ ->
+                if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+                    DebugLog.i(TAG, "max duration reached -> auto stop")
+                    onMaxDurationReached?.invoke()
                 }
             }
             prepare()
@@ -68,7 +71,7 @@ class AudioRecorder(private val context: Context) {
     } catch (e: Exception) {
         DebugLog.w(TAG, "start failed: ${e.message}")
         releaseQuietly()
-        deleteSegments()
+        deleteOutput()
         false
     }
 
@@ -83,7 +86,7 @@ class AudioRecorder(private val context: Context) {
         runCatching { recorder?.resume() }
     }
 
-    /** 停止并返回首个分片路径；失败返回 null。 */
+    /** 停止并返回录音文件路径；失败返回 null（并删除残file）。 */
     fun stop(): String? {
         return try {
             recorder?.stop()
@@ -91,28 +94,21 @@ class AudioRecorder(private val context: Context) {
             outputPath
         } catch (_: Exception) {
             releaseQuietly()
-            deleteSegments()
+            deleteOutput()
             null
         }
     }
 
-    /** 取消录音并删除全部分片。 */
+    /** 取消录音并删除文件。 */
     fun cancel() {
         runCatching { recorder?.stop() }
         releaseQuietly()
-        deleteSegments()
+        deleteOutput()
     }
 
-    /** 生成并登记下一个分片文件。 */
-    private fun newSegmentFile(): File {
-        val f = File(context.filesDir, "$AUDIO_DIR/voice_${sessionId}_seg${nextIndex++}.m4a")
-        segments.add(f)
-        return f
-    }
-
-    private fun deleteSegments() {
-        segments.forEach { runCatching { it.delete() } }
-        segments.clear()
+    private fun deleteOutput() {
+        outputFile?.let { f -> runCatching { f.delete() } }
+        outputFile = null
     }
 
     private fun releaseQuietly() {
@@ -123,8 +119,5 @@ class AudioRecorder(private val context: Context) {
     private companion object {
         const val AUDIO_DIR = "note_audio"
         const val TAG = "AudioRecorder"
-
-        /** 单个录音分片的大小上限（字节）。集中配置见 [AppConfig.Media.AUDIO_SEGMENT_BYTES]。 */
-        const val SEGMENT_BYTES = AppConfig.Media.AUDIO_SEGMENT_BYTES
     }
 }

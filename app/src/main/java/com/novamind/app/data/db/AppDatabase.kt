@@ -8,12 +8,11 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         NoteEntity::class,
-        RecordingEntity::class,
-        RecordingSegmentEntity::class,
+        RecordingEntity::class,   // 单文件（不分片）；原 recording_segments 表已移除
         FolderEntity::class,
         TagEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,   // 调试阶段：不导出 schema、不记录版本 JSON（上线前再开启并写迁移）
 )
 abstract class AppDatabase : RoomDatabase() {
