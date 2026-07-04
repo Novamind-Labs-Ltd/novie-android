@@ -15,6 +15,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.io.IOException
+import javax.inject.Inject
 
 /**
  * 文件上传仓库：封装后端 files 三段式（presign → 直传对象存储 → confirm），
@@ -23,7 +24,7 @@ import java.io.IOException
  * 鉴权由 [com.novamind.app.common.net.AuthInterceptor] 自动附加；游客（无 token）会在 presign
  * 阶段得到 401，调用方（上传器）应在此之前短路。
  */
-class FilesRepository {
+class FilesRepository @Inject constructor() {
 
     /**
      * 上传单个文件，成功返回后端 `fileId`（可用于挂载到笔记的 attachments）。

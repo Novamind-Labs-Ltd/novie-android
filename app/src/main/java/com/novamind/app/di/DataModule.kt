@@ -3,8 +3,10 @@ package com.novamind.app.di
 import android.content.Context
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.NoteRepository
+import com.novamind.app.data.RecordingRepository
 import com.novamind.app.data.RoomFolderRepository
 import com.novamind.app.data.RoomNoteRepository
+import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.RoomTagRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.data.db.AppDatabase
@@ -38,4 +40,9 @@ object DataModule {
     @Singleton
     fun provideTagRepository(@ApplicationContext context: Context): TagRepository =
         RoomTagRepository(AppDatabase.getInstance(context).tagDao())
+
+    @Provides
+    @Singleton
+    fun provideRecordingRepository(@ApplicationContext context: Context): RecordingRepository =
+        RoomRecordingRepository(AppDatabase.getInstance(context).recordingDao())
 }

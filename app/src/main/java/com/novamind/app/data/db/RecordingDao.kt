@@ -15,6 +15,10 @@ interface RecordingDao {
     @Query("SELECT * FROM recordings WHERE noteId = :noteId ORDER BY createdAt")
     fun recordingsOfNote(noteId: String): Flow<List<RecordingEntity>>
 
+    /** 按 id 取单条录音。 */
+    @Query("SELECT * FROM recordings WHERE id = :id")
+    suspend fun getById(id: String): RecordingEntity?
+
     /** 尚未整体校验通过（VERIFIED）的录音，用于（续）上传。 */
     @Query("SELECT * FROM recordings WHERE uploadStatus != 'VERIFIED'")
     suspend fun pendingUploads(): List<RecordingEntity>

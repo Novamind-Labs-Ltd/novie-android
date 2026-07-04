@@ -115,6 +115,10 @@ dependencies {
     // Hilt 依赖注入（组合根从 NovieApplication 手工 DI 逐步迁移到 Hilt）
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    // WorkManager + Hilt 集成（录音后台续传）
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
     // 图片加载
     implementation(libs.coil.compose)
     // 键值存储：MMKV（封装在 common/storage/KeyValueStore，逐步替换 SharedPreferences）

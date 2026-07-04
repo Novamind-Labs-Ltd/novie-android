@@ -42,6 +42,8 @@ class RoomRecordingRepository(private val dao: RecordingDao) : RecordingReposito
         dao.pathsOfNote(noteId).forEach { runCatching { File(it).delete() } }
     }
 
+    override suspend fun getRecording(id: String): RecordingEntity? = dao.getById(id)
+
     override suspend fun pendingUploads(): List<RecordingEntity> = dao.pendingUploads()
 
     override suspend fun reclaimableOldestFirst(): List<RecordingEntity> = dao.reclaimableOldestFirst()

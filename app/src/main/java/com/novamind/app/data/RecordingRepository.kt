@@ -30,6 +30,9 @@ interface RecordingRepository {
     /** 删除某笔记的全部录音磁盘文件（在删除笔记行之前调用，行由外键级联处理）。 */
     suspend fun deleteRecordingFilesOfNote(noteId: String)
 
+    /** 按 id 取单条录音（上传 Worker 用）。 */
+    suspend fun getRecording(id: String): RecordingEntity?
+
     /** 尚未整体校验通过的录音，用于（续）上传。 */
     suspend fun pendingUploads(): List<RecordingEntity>
 

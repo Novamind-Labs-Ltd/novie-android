@@ -131,6 +131,19 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 关闭 WorkManager 默认初始化：改由 NovieApplication(Configuration.Provider) on-demand 初始化，
+             以便注入 HiltWorkerFactory 支持 @HiltWorker。 -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     
     <!-- Required: set your sentry.io project identifier (DSN) -->
     <meta-data android:name="io.sentry.dsn" android:value="https://feee15a04a70152a416af4ed55791c07@o4510922460758016.ingest.us.sentry.io/4511651077488640" />

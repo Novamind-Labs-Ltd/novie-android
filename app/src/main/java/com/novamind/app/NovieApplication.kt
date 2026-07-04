@@ -2,10 +2,13 @@ package com.novamind.app
 
 import android.app.Application
 import android.os.StatFs
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import com.novamind.app.common.audio.RecordingCleaner
+import com.novamind.app.common.audio.RecordingUploadScheduler
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
@@ -24,7 +27,13 @@ import javax.inject.Provider
  * 业务依赖一律经 Hilt 提供（见 di/ 下各 Module），不在此手工构造。
  */
 @HiltAndroidApp
-class NovieApplication : Application(), ImageLoaderFactory {
+class NovieApplication : Application(), ImageLoaderFactory, Configuration.Provider {
+
+    // WorkManager 的 Hilt Worker 工厂：使 @HiltWorker 可被注入依赖（on-demand 初始化）。
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 
     // Provider 惰性取用：字段注入早于 MMKV.initialize，get() 推迟到调用时，规避初始化顺序问题
     @Inject lateinit var calendarBindingStore: Provider<CalendarBindingStore>
@@ -51,6 +60,7 @@ class NovieApplication : Application(), ImageLoaderFactory {
         CommonHeaders.init(this)           // 缓存 HTTPS 公用头部
         PushChannels.ensureDefault(this)   // 预创建 FCM 通知渠道
         RecordingCleaner.scheduleOnIdle(this) // 空闲时回收录音，不阻塞启动
+        RecordingUploadScheduler.resumeOnIdle(this) // 空闲时把未完成上传的录音重新入队（断点续传）
     }
 
     /**

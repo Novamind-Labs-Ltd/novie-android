@@ -218,11 +218,13 @@ suspend fun uploadToStorage(@Url url: String,
 - **数据模型合表（#7）**：删 `RecordingSegmentEntity`/`recording_segments`，字段（path/bytes/sha256/fileId/remoteUrl）并入 `RecordingEntity`；`RecordingDao`/`RecordingRepository`/`RoomRecordingRepository` 单文件化；`AppDatabase` 去 segment 实体、版本 7→8（`fallbackToDestructiveMigration` 销毁重建，无需迁移脚本）。
 - **`RecordingCleaner` 安全删除（#4）**：改 suspend + DB 感知——只回收 `UPLOADED/VERIFIED` 的最旧录音、孤儿文件带 10min 年龄保护；新增 `ensureSpaceForRecording`，`RecordingService` 起前台后于 IO 线程预检（满足 FGS 5s 约束）。
 
+- **WorkManager 续传（#6 增强）**：依赖 `work-runtime-ktx` + `androidx.hilt:hilt-work`(+KSP `hilt-compiler`)；`NovieApplication` 实现 `Configuration.Provider` 注入 `HiltWorkerFactory`、Manifest 移除默认 `WorkManagerInitializer`（on-demand 初始化）；`@HiltWorker UploadWorker` 走 `FilesRepository` 上传并回写 `RecordingRepository` 状态（网络约束 + 指数退避）；`RecordingUploadScheduler.enqueue/resumeOnIdle` 唯一入队与断点续传（启动空闲重排未完成上传）。DI：`DataModule` 提供 `RecordingRepository`、`FilesRepository` 加 `@Inject`、DAO 加 `getById`。
+
 **待落地（下一阶段）**：
-- WorkManager 续传（#6 增强）：需引入 `work-runtime` + `hilt-work` 依赖；状态机 `stopAndUpload` 后入库 `PENDING` 并入队 Worker，App 启动/网络恢复用 `pendingUploads()` 续传。
-- 状态机接线到录音 ViewModel/UI，用 `FileRecordingUploader` 替换 `RecordingUploader.None`；录音落库（`saveRecording`）与 confirm 后回写 `updateRecordingStatus(fileId,…)`。
+- 状态机接线到录音 ViewModel/UI：停止后 `saveRecording` 落库并 `RecordingUploadScheduler.enqueue(recordingId)`；前台即时反馈用状态机的 `Uploading/Uploaded`，持久真相以 Room `uploadStatus` 为准。可用 `FileRecordingUploader` 做前台即时上传，或统一走 Worker。
 - confirm 成功后调 `POST /notes/{noteId}/attachments {fileId}` 挂载到笔记。
 - **后端**：附件 `kind=AUDIO` + 放行 `audio/aac`（#8）。
+- 上线前：`AppDatabase` 关闭 `fallbackToDestructiveMigration`、`exportSchema=true` 并补写迁移。
 
 > 遗留：`FileUtils.recordingHash`（分片时代的 hash-of-hashes）已无调用方，可后续清理。
 
