@@ -55,9 +55,12 @@ fun AppTheme(
         else -> LightColorScheme
     }
 
-    // 字体：订阅 FontStore，切换立即生效（无需重启）
+    // 字体：订阅 FontStore，切换立即生效（无需重启）。默认 Google Sans Flex，缺文件时回退系统字体。
+    val fontContext = LocalContext.current
     val appFont by FontStore.font.collectAsState()
-    val typography = remember(appFont) { Typography.withFontFamily(appFont.family) }
+    val typography = remember(appFont, fontContext) {
+        Typography.withFontFamily(AppFonts.family(fontContext, appFont))
+    }
 
     CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
         MaterialTheme(

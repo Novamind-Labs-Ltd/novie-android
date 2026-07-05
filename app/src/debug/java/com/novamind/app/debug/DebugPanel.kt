@@ -50,6 +50,7 @@ import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
 import com.novamind.app.ui.theme.AppFont
+import com.novamind.app.ui.theme.AppFonts
 import com.novamind.app.ui.theme.FontStore
 import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
@@ -181,6 +182,10 @@ fun DebugPanel(
             val activeFont by FontStore.font.collectAsState()
             Section("字体（立即生效）") {
                 InfoRow("当前字体", activeFont.label)
+                InfoRow(
+                    "Google Sans Flex",
+                    if (AppFonts.isGoogleSansFlexAvailable(context)) "已内置" else "未内置(回退系统)",
+                )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppFont.entries.forEach { f ->
                         Chip(if (f == activeFont) "✓ ${f.label}" else f.label) {
