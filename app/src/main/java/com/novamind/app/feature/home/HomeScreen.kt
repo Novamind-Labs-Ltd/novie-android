@@ -1,5 +1,6 @@
 package com.novamind.app.feature.home
 
+import com.novamind.app.common.log.AppLog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -28,7 +29,6 @@ import com.novamind.app.feature.home.components.SearchBar
 import com.novamind.app.feature.home.components.SectionHeader
 import com.novamind.app.feature.home.components.UpcomingCard
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.log.DebugLog
 import com.novamind.app.feature.note.NoteItem
 import com.novamind.app.ui.theme.AppTheme
 
@@ -197,12 +197,9 @@ fun HomeScreen(
                         NoteCard(
                             note = note,
                             onClick = {
-                                DebugLog.d(
-                                    TAG,
-                                    "note clicked: id=${note.id} title=\"${note.title}\" " +
+                                AppLog.d(TAG) { "note clicked: id=${note.id} title=\"${note.title}\" " +
                                         "tags=${note.tags} folder=${note.folderName} " +
-                                        "updatedAt=${note.updatedAt} hasImage=${note.imagePath != null}",
-                                )
+                                        "updatedAt=${note.updatedAt} hasImage=${note.imagePath != null}" }
                                 onNoteClick(note.id)
                             },
                         )

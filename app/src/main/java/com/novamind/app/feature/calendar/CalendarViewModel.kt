@@ -1,5 +1,6 @@
 package com.novamind.app.feature.calendar
 
+import com.novamind.app.common.log.AppLog
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,7 +15,6 @@ import com.novamind.app.data.calendar.GoogleAuthRevokedException
 import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
-import com.novamind.app.util.LogUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -105,7 +105,7 @@ class CalendarViewModel @Inject constructor(
     private fun refreshAuthAndLoad() {
         // 游客（免登录）不可用日历：拦截为「登录后使用」，不触发任何授权/拉取。
         if (AppUserProvider.isGuest) {
-            LogUtils.d("refreshAuthAndLoad: guest -> LOGIN_REQUIRED", TAG)
+            AppLog.d(TAG) { "refreshAuthAndLoad: guest -> LOGIN_REQUIRED" }
             _uiState.update { CalendarUiState(connectionStatus = CalendarConnectionStatus.LOGIN_REQUIRED) }
             return
         }
@@ -116,7 +116,7 @@ class CalendarViewModel @Inject constructor(
             // currentUser 为 null 多是冷启动认证层尚未写回登录态的瞬态——此时不清绑定，
             // 否则会误删、导致已授权用户每次冷启动都要重连；等会话就绪会再次触发本方法。
             if (currentUser != null && bindingStore.appUserKey != currentUser) {
-                LogUtils.d("refreshAuthAndLoad: app user mismatch -> clear calendar", TAG)
+                AppLog.d(TAG) { "refreshAuthAndLoad: app user mismatch -> clear calendar" }
                 clearLocalSession()
                 _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
                 return
@@ -127,12 +127,12 @@ class CalendarViewModel @Inject constructor(
 
         // 无绑定：未登录（或登录态未就绪）→ 先显示连接卡片，待会话就绪再触发。
         if (currentUser.isNullOrBlank()) {
-            LogUtils.d("refreshAuthAndLoad: no binding & no login user -> NOT_CONNECTED", TAG)
+            AppLog.d(TAG) { "refreshAuthAndLoad: no binding & no login user -> NOT_CONNECTED" }
             _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED) }
             return
         }
         // 已登录但无绑定：静默探测是否已授权，已授权则自动连接。
-        LogUtils.d("refreshAuthAndLoad: no binding, probe login account $currentUser", TAG)
+        AppLog.d(TAG) { "refreshAuthAndLoad: no binding, probe login account $currentUser" }
         connectSilently(currentUser, isReconnect = false)
     }
 
@@ -157,7 +157,7 @@ class CalendarViewModel @Inject constructor(
                 if (!isReconnect) bindingStore.bind(accountName, AppUserProvider.currentUserKey)
                 fetchInto(date, accountName, allowSilentRetry = false)
             } else if (isReconnect) {
-                LogUtils.d("connectSilently: reconnect needs consent -> REVOKED", TAG)
+                AppLog.d(TAG) { "connectSilently: reconnect needs consent -> REVOKED" }
                 GoogleTokenProvider.clear()
                 _uiState.update {
                     it.copy(
@@ -166,7 +166,7 @@ class CalendarViewModel @Inject constructor(
                     )
                 }
             } else {
-                LogUtils.d("connectSilently: not yet authorized -> NOT_CONNECTED", TAG)
+                AppLog.d(TAG) { "connectSilently: not yet authorized -> NOT_CONNECTED" }
                 GoogleTokenProvider.clear()
                 _uiState.update {
                     it.copy(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED, events = emptyList())
@@ -182,7 +182,7 @@ class CalendarViewModel @Inject constructor(
     fun connectWithCurrentAccount() {
         val accountName = AppUserProvider.currentUserKey
         if (accountName.isNullOrBlank()) {
-            LogUtils.w("connect: no login account email", tag = TAG)
+            AppLog.w(TAG) { "connect: no login account email" }
             _uiState.update {
                 it.copy(
                     connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
@@ -191,7 +191,7 @@ class CalendarViewModel @Inject constructor(
             }
             return
         }
-        LogUtils.d("connect with login account: $accountName", TAG)
+        AppLog.d(TAG) { "connect with login account: $accountName" }
         _uiState.update {
             it.copy(
                 connectionStatus = CalendarConnectionStatus.SYNCING,
@@ -218,7 +218,7 @@ class CalendarViewModel @Inject constructor(
                 fetchInto(_uiState.value.selectedDate, accountName, allowSilentRetry = false)
             }
             is TokenOutcome.NeedsConsent -> {
-                LogUtils.d("connect needs consent -> request UI", TAG)
+                AppLog.d(TAG) { "connect needs consent -> request UI" }
                 _consentRequest.tryEmit(outcome.recoveryIntent)
             }
             is TokenOutcome.Failure -> _uiState.update {
@@ -256,7 +256,7 @@ class CalendarViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     if (e is CancellationException) throw e
-                    LogUtils.w("createTask failed: title=$title", e, TAG)
+                    AppLog.w(TAG, e) { "createTask failed: title=$title" }
                     _uiState.update {
                         it.copy(errorMessage = "Couldn't create the task. Please retry.")
                     }
@@ -282,7 +282,7 @@ class CalendarViewModel @Inject constructor(
             runCatching { tasksRepository.updateTask(task.listId, task.id, title, notes, due) }
                 .onFailure { e ->
                     if (e is CancellationException) throw e
-                    LogUtils.w("updateTask failed: id=${task.id}", e, TAG)
+                    AppLog.w(TAG, e) { "updateTask failed: id=${task.id}" }
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
                     }
@@ -302,7 +302,7 @@ class CalendarViewModel @Inject constructor(
             runCatching { tasksRepository.deleteTask(task.listId, task.id) }
                 .onFailure { e ->
                     if (e is CancellationException) throw e
-                    LogUtils.w("deleteTask failed: id=${task.id}", e, TAG)
+                    AppLog.w(TAG, e) { "deleteTask failed: id=${task.id}" }
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't delete the task. Please retry.")
                     }
@@ -329,7 +329,7 @@ class CalendarViewModel @Inject constructor(
             runCatching { tasksRepository.setCompleted(task.listId, task.id, completed) }
                 .onFailure { e ->
                     if (e is CancellationException) throw e
-                    LogUtils.w("setTaskCompleted failed: id=${task.id} completed=$completed", e, TAG)
+                    AppLog.w(TAG, e) { "setTaskCompleted failed: id=${task.id} completed=$completed" }
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
                     }
@@ -375,7 +375,7 @@ class CalendarViewModel @Inject constructor(
         val date = _uiState.value.selectedDate
         val accountId = _uiState.value.account?.email
         viewModelScope.launch {
-            LogUtils.d("loadEvents start: date=$date", TAG)
+            AppLog.d(TAG) { "loadEvents start: date=$date" }
             val cached = accountId?.let { eventCache.get(it, date) }
             _uiState.update {
                 it.copy(
@@ -403,7 +403,7 @@ class CalendarViewModel @Inject constructor(
                     }
                         .onFailure {
                             if (it is CancellationException) throw it
-                            LogUtils.w("loadTasks failed: date=$date", it, TAG)
+                            AppLog.w(TAG, it) { "loadTasks failed: date=$date" }
                         }
                         .getOrDefault(emptyList())
                 }
@@ -414,25 +414,19 @@ class CalendarViewModel @Inject constructor(
             .onSuccess { (events, tasks) ->
                 // 响应到达时用户可能已切走该日期（防抖只约束发起，不约束在途响应）：丢弃过期结果。
                 if (date != _uiState.value.selectedDate) {
-                    LogUtils.d("load success but date switched away, drop: date=$date", TAG)
+                    AppLog.d(TAG) { "load success but date switched away, drop: date=$date" }
                     if (accountId != null) eventCache.put(accountId, date, events)
                     return@onSuccess
                 }
-                LogUtils.d("load success: date=$date, events=${events.size}, tasks=${tasks.size}", TAG)
+                AppLog.d(TAG) { "load success: date=$date, events=${events.size}, tasks=${tasks.size}" }
                 events.forEachIndexed { i, e ->
-                    LogUtils.d(
-                        "  event[$i] id=${e.id} title=${e.title} allDay=${e.isAllDay} " +
+                    AppLog.d(TAG) { "  event[$i] id=${e.id} title=${e.title} allDay=${e.isAllDay} " +
                             "start=${e.start} end=${e.end} eventType=${e.eventType} " +
-                            "location=${e.location}",
-                        TAG,
-                    )
+                            "location=${e.location}" }
                 }
                 tasks.forEachIndexed { i, t ->
-                    LogUtils.d(
-                        "  task[$i] id=${t.id} title=${t.title} due=${t.due} " +
-                            "completed=${t.isCompleted} notes=${t.notes}",
-                        TAG,
-                    )
+                    AppLog.d(TAG) { "  task[$i] id=${t.id} title=${t.title} due=${t.due} " +
+                            "completed=${t.isCompleted} notes=${t.notes}" }
                 }
                 if (accountId != null) eventCache.put(accountId, date, events)
                 _uiState.update {
@@ -447,7 +441,7 @@ class CalendarViewModel @Inject constructor(
                 // 协程取消是正常控制流（防抖切换会取消上一次在途请求），不能当作加载失败：
                 // 重新抛出以正确终止协程，否则会误显示 "job was cancelled" 错误。
                 if (e is CancellationException) throw e
-                LogUtils.e("loadEvents failure: date=$date", e, TAG)
+                AppLog.e(TAG, e) { "loadEvents failure: date=$date" }
                 when (e) {
                     is GoogleAuthExpiredException -> {
                         _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.TOKEN_EXPIRED) }
@@ -496,14 +490,14 @@ class CalendarViewModel @Inject constructor(
             }
             is TokenOutcome.NeedsConsent -> false
             is TokenOutcome.Failure -> {
-                LogUtils.w("silent token failed", outcome.error, TAG)
+                AppLog.w(TAG, outcome.error) { "silent token failed" }
                 false
             }
         }
 
     /** 断开 Calendar：删 token + 删绑定 + 清缓存（不 revoke），回到未连接。 */
     private fun onDisconnect() {
-        LogUtils.d("disconnect calendar", TAG)
+        AppLog.d(TAG) { "disconnect calendar" }
         clearLocalSession()
         _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
     }
@@ -513,7 +507,7 @@ class CalendarViewModel @Inject constructor(
      * Route 在此之后立即用当前登录账户重连（[connectWithCurrentAccount]）。
      */
     suspend fun prepareAccountSwitch() {
-        LogUtils.d("prepare account switch (clearToken + revoke + clear)", TAG)
+        AppLog.d(TAG) { "prepare account switch (clearToken + revoke + clear)" }
         GoogleTokenProvider.accessToken?.let { token ->
             authSource.clearToken(token)
             authSource.revoke(token)

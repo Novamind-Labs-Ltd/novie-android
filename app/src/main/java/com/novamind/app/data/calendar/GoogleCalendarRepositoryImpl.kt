@@ -1,6 +1,6 @@
 package com.novamind.app.data.calendar
 
-import com.novamind.app.util.LogUtils
+import com.novamind.app.common.log.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -48,12 +48,9 @@ class GoogleCalendarRepositoryImpl(
 
     private fun EventDto.toDomain(): CalendarEvent? {
         // 打印 EventDto 原始字段，便于核对与 CalendarEvent 的映射对应关系。
-        LogUtils.d(
-            "EventDto raw: id=$id status=$status summary=$summary location=$location " +
+        AppLog.d(TAG) { "EventDto raw: id=$id status=$status summary=$summary location=$location " +
                     "eventType=$eventType hangoutLink=$hangoutLink start=$start end=$end " +
-                    "attendees=$attendees conferenceData=$conferenceData",
-            TAG,
-        )
+                    "attendees=$attendees conferenceData=$conferenceData" }
         val id = id ?: return null
         val startDt = start ?: return null
         val isAllDay = startDt.dateTime == null && startDt.date != null
@@ -80,12 +77,9 @@ class GoogleCalendarRepositoryImpl(
         // start<-start.(dateTime|date), end<-end.(dateTime|date)?:start,
         // location<-location, eventType<-eventType（仅信息展示，不再区分会议/任务），
         // isMeeting<-eventType==default&&(attendees 有他人||hangoutLink/conferenceId 非空)
-        LogUtils.d(
-            "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
+        AppLog.d(TAG) { "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
                     "start=${event.start} end=${event.end} location=${event.location} " +
-                    "eventType=${event.eventType} isMeeting=${event.isMeeting}",
-            TAG,
-        )
+                    "eventType=${event.eventType} isMeeting=${event.isMeeting}" }
         return event
     }
 

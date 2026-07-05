@@ -1,12 +1,12 @@
 package com.novamind.app.common.google
 
+import com.novamind.app.common.log.AppLog
 import android.accounts.Account
 import android.content.Context
 import android.content.Intent
 import com.google.android.gms.auth.GoogleAuthException
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.UserRecoverableAuthException
-import com.novamind.app.util.LogUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -67,38 +67,34 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
                 Account(accountName, GOOGLE_ACCOUNT_TYPE),
                 OAUTH2_SCOPE,
             )
-            LogUtils.d("fetchToken success for $accountName", TAG)
+            AppLog.d(TAG) { "fetchToken success for $accountName" }
             TokenOutcome.Success(token)
         } catch (e: UserRecoverableAuthException) {
             val intent = e.intent
             if (intent != null) {
                 TokenOutcome.NeedsConsent(intent)
             } else {
-                LogUtils.w("getToken recoverable but no intent for $accountName", e, TAG)
+                AppLog.w(TAG, e) { "getToken recoverable but no intent for $accountName" }
                 TokenOutcome.Failure(e)
             }
         } catch (e: GoogleAuthException) {
             // 不可恢复：多为 OAuth client(包名/SHA-1) / 同意屏幕 / scope 未配，
             // 或该账号是受管控的 Workspace 账号、未加入测试用户。
-            LogUtils.e(
-                "getToken non-recoverable for $accountName scope=$OAUTH2_SCOPE: " +
-                    "${e.javaClass.simpleName} ${e.message}",
-                e,
-                TAG,
-            )
+            AppLog.e(TAG, e) { "getToken non-recoverable for $accountName scope=$OAUTH2_SCOPE: " +
+                    "${e.javaClass.simpleName} ${e.message}" }
             TokenOutcome.Failure(e)
         } catch (e: IOException) {
-            LogUtils.w("getToken network error for $accountName", e, TAG)
+            AppLog.w(TAG, e) { "getToken network error for $accountName" }
             TokenOutcome.Failure(e)
         } catch (e: Exception) {
-            LogUtils.w("getToken failed for $accountName: ${e.javaClass.simpleName}", e, TAG)
+            AppLog.w(TAG, e) { "getToken failed for $accountName: ${e.javaClass.simpleName}" }
             TokenOutcome.Failure(e)
         }
     }
 
     override suspend fun clearToken(token: String): Unit = withContext(Dispatchers.IO) {
         runCatching { GoogleAuthUtil.clearToken(appContext, token) }
-            .onFailure { LogUtils.w("clearToken failed", it, TAG) }
+            .onFailure { AppLog.w(TAG, it) { "clearToken failed" } }
         Unit
     }
 
@@ -109,9 +105,9 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
                 .post(ByteArray(0).toRequestBody(null))
                 .build()
             revokeClient.newCall(request).execute().use { resp ->
-                LogUtils.d("revoke token http=${resp.code}", TAG)
+                AppLog.d(TAG) { "revoke token http=${resp.code}" }
             }
-        }.onFailure { LogUtils.w("revoke token failed", it, TAG) }
+        }.onFailure { AppLog.w(TAG, it) { "revoke token failed" } }
         Unit
     }
 

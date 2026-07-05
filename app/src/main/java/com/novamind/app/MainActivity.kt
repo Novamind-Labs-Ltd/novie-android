@@ -1,5 +1,6 @@
 package com.novamind.app
 
+import com.novamind.app.common.log.AppLog
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -62,7 +63,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
-import com.novamind.app.common.log.DebugLog
 import dagger.hilt.android.AndroidEntryPoint
 
 // 导航顺序，用于判断滑动方向
@@ -84,7 +84,7 @@ class MainActivity : FragmentActivity() {
     // Android 13+ 通知权限；结果不阻塞主流程
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            DebugLog.i("Fcm", "POST_NOTIFICATIONS granted=$granted")
+            AppLog.i("Fcm") { "POST_NOTIFICATIONS granted=$granted" }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -395,8 +395,8 @@ class MainActivity : FragmentActivity() {
     /** 获取当前 FCM 注册令牌（用于测试/上报服务端）。 */
     private fun logFcmToken() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) DebugLog.i("Fcm", "current token: ${task.result}")
-            else DebugLog.w("Fcm", "fetch token failed: ${task.exception?.message}")
+            if (task.isSuccessful) AppLog.i("Fcm") { "current token: ${task.result}" }
+            else AppLog.w("Fcm") { "fetch token failed: ${task.exception?.message}" }
         }
     }
 }

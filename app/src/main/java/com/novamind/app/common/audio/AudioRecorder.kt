@@ -1,10 +1,10 @@
 package com.novamind.app.common.audio
 
+import com.novamind.app.common.log.AppLog
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.log.DebugLog
 import java.io.File
 import java.util.UUID
 
@@ -59,7 +59,7 @@ class AudioRecorder(
             setMaxDuration(AppConfig.Media.MAX_RECORD_MS.toInt())
             setOnInfoListener { _, what, _ ->
                 if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
-                    DebugLog.i(TAG, "max duration reached -> auto stop")
+                    AppLog.i(TAG) { "max duration reached -> auto stop" }
                     onMaxDurationReached?.invoke()
                 }
             }
@@ -69,7 +69,7 @@ class AudioRecorder(
         recorder = rec
         true
     } catch (e: Exception) {
-        DebugLog.w(TAG, "start failed: ${e.message}")
+        AppLog.w(TAG) { "start failed: ${e.message}" }
         releaseQuietly()
         deleteOutput()
         false

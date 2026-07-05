@@ -1,10 +1,10 @@
 package com.novamind.app.common.audio
 
+import com.novamind.app.common.log.AppLog
 import android.content.Context
 import android.os.Looper
 import android.os.StatFs
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.log.DebugLog
 import com.novamind.app.data.RoomRecordingRepository
 import com.novamind.app.data.db.AppDatabase
 import kotlinx.coroutines.runBlocking
@@ -80,11 +80,8 @@ object RecordingCleaner {
             }
         }
 
-        DebugLog.i(
-            TAG,
-            "cleanup done: orphans=$orphanDeleted recordings=$recDeleted " +
-                "free=${availableBytes(context) / (1024 * 1024)}MB",
-        )
+        AppLog.i(TAG) { "cleanup done: orphans=$orphanDeleted recordings=$recDeleted " +
+                "free=${availableBytes(context) / (1024 * 1024)}MB" }
     }
 
     /** 内部存储分区当前可用字节；读取失败时返回最大值（视为充足，不触发清理）。 */

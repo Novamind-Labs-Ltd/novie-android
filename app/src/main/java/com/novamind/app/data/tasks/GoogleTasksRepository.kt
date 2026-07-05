@@ -1,6 +1,6 @@
 package com.novamind.app.data.tasks
 
-import com.novamind.app.util.LogUtils
+import com.novamind.app.common.log.AppLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.HttpException
@@ -34,11 +34,8 @@ class GoogleTasksRepositoryImpl(
     override suspend fun tasksOn(date: LocalDate): List<CalendarTask> = withContext(Dispatchers.IO) {
         try {
             val taskLists = api.taskLists().items
-            LogUtils.d(
-                "taskLists count=${taskLists.size} items=" +
-                    taskLists.joinToString { "[id=${it.id}, title=${it.title}]" },
-                TAG,
-            )
+            AppLog.d(TAG) { "taskLists count=${taskLists.size} items=" +
+                    taskLists.joinToString { "[id=${it.id}, title=${it.title}]" } }
             taskLists
                 .mapNotNull { it.id }
                 .flatMap { listId -> api.tasks(listId).items.mapNotNull { it.toDomain(listId) } }
@@ -48,7 +45,7 @@ class GoogleTasksRepositoryImpl(
         } catch (e: HttpException) {
             // 打印 Google 返回的真实原因，便于区分「Tasks API 未启用」vs「scope 不足」等。
             val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-            LogUtils.w("tasks fetch failed http=${e.code()} body=$body", e, TAG)
+            AppLog.w(TAG, e) { "tasks fetch failed http=${e.code()} body=$body" }
             throw e
         }
     }
@@ -71,10 +68,10 @@ class GoogleTasksRepositoryImpl(
                     due = due?.let { "${it}T00:00:00.000Z" },
                 ),
             )
-            LogUtils.d("updateTask ok: listId=$listId taskId=$taskId due=$due", TAG)
+            AppLog.d(TAG) { "updateTask ok: listId=$listId taskId=$taskId due=$due" }
         } catch (e: HttpException) {
             val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-            LogUtils.w("updateTask failed http=${e.code()} body=$body", e, TAG)
+            AppLog.w(TAG, e) { "updateTask failed http=${e.code()} body=$body" }
             throw e
         }
     }
@@ -82,10 +79,10 @@ class GoogleTasksRepositoryImpl(
     override suspend fun deleteTask(listId: String, taskId: String): Unit = withContext(Dispatchers.IO) {
         try {
             api.deleteTask(listId, taskId)
-            LogUtils.d("deleteTask ok: listId=$listId taskId=$taskId", TAG)
+            AppLog.d(TAG) { "deleteTask ok: listId=$listId taskId=$taskId" }
         } catch (e: HttpException) {
             val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-            LogUtils.w("deleteTask failed http=${e.code()} body=$body", e, TAG)
+            AppLog.w(TAG, e) { "deleteTask failed http=${e.code()} body=$body" }
             throw e
         }
     }
@@ -95,10 +92,10 @@ class GoogleTasksRepositoryImpl(
             try {
                 val status = if (completed) "completed" else "needsAction"
                 api.patchTask(listId, taskId, TaskPatchDto(status = status))
-                LogUtils.d("setCompleted ok: listId=$listId taskId=$taskId completed=$completed", TAG)
+                AppLog.d(TAG) { "setCompleted ok: listId=$listId taskId=$taskId completed=$completed" }
             } catch (e: HttpException) {
                 val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-                LogUtils.w("setCompleted failed http=${e.code()} body=$body", e, TAG)
+                AppLog.w(TAG, e) { "setCompleted failed http=${e.code()} body=$body" }
                 throw e
             }
         }
@@ -115,10 +112,10 @@ class GoogleTasksRepositoryImpl(
                         due = due?.let { "${it}T00:00:00.000Z" },
                     ),
                 )
-                LogUtils.d("createTask ok: id=${created.id} title=$title due=$due", TAG)
+                AppLog.d(TAG) { "createTask ok: id=${created.id} title=$title due=$due" }
             } catch (e: HttpException) {
                 val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
-                LogUtils.w("createTask failed http=${e.code()} body=$body", e, TAG)
+                AppLog.w(TAG, e) { "createTask failed http=${e.code()} body=$body" }
                 throw e
             }
         }

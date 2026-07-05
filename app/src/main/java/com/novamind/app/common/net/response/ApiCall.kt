@@ -1,6 +1,6 @@
 package com.novamind.app.common.net.response
 
-import com.novamind.app.common.log.DebugLog
+import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.NetworkModule
 import kotlinx.serialization.decodeFromString
 import retrofit2.Response
@@ -34,7 +34,7 @@ suspend fun <T> apiCall(
     try {
         block().toApiResult()
     } catch (t: Throwable) {
-        DebugLog.w(TAG, "请求异常: ${t.message}")
+        AppLog.w(TAG) { "请求异常: ${t.message}" }
         ApiResult.NetworkError(cause = t)
     }
 
@@ -69,7 +69,7 @@ fun <T> Response<ApiResponse<T>>.toApiResult(): ApiResult<T> {
  */
 fun parseErrorEnvelope(httpStatus: Int, rawBody: String?): ApiResult<Nothing> {
     if (rawBody.isNullOrBlank()) {
-        DebugLog.w(TAG, "非2xx 且错误体为空 http=$httpStatus")
+        AppLog.w(TAG) { "非2xx 且错误体为空 http=$httpStatus" }
         return ApiResult.NetworkError(httpStatus = httpStatus, message = "HTTP $httpStatus")
     }
     return try {
@@ -84,7 +84,7 @@ fun parseErrorEnvelope(httpStatus: Int, rawBody: String?): ApiResult<Nothing> {
             errorData = err,
         )
     } catch (t: Throwable) {
-        DebugLog.w(TAG, "错误信封解析失败 http=$httpStatus: ${t.message}")
+        AppLog.w(TAG) { "错误信封解析失败 http=$httpStatus: ${t.message}" }
         ApiResult.NetworkError(httpStatus = httpStatus, cause = t)
     }
 }

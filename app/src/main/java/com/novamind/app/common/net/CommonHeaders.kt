@@ -1,10 +1,10 @@
 package com.novamind.app.common.net
 
+import com.novamind.app.common.log.AppLog
 import android.content.Context
 import android.os.Build
 import com.novamind.app.BuildConfig
 import com.novamind.app.common.device.DeviceIdentity
-import com.novamind.app.common.log.DebugLog
 import java.net.HttpURLConnection
 import java.util.Locale
 import java.util.TimeZone
@@ -94,7 +94,7 @@ object CommonHeaders {
         headers["User-Agent"] = userAgent
         // 应用 / 设备静态头
         staticHeaders?.let { headers.putAll(it) }
-            ?: DebugLog.w(TAG, "CommonHeaders 未 init()，仅发送内容协商头")
+            ?: AppLog.w(TAG) { "CommonHeaders 未 init()，仅发送内容协商头" }
         // 链路追踪（每请求唯一）
         headers[H_REQUEST_ID] = UUID.randomUUID().toString()
         // 鉴权（按需）

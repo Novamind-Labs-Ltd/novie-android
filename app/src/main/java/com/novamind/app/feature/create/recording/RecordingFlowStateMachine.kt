@@ -1,10 +1,10 @@
 package com.novamind.app.feature.create.recording
 
+import com.novamind.app.common.log.AppLog
 import android.content.Context
 import com.novamind.app.common.audio.RecordingController
 import com.novamind.app.common.audio.RecordingService
 import com.novamind.app.common.audio.RecordingSnapshot
-import com.novamind.app.util.LogUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -114,7 +114,7 @@ class RecordingFlowStateMachine(
             is RecordingFlowState.Uploading -> deleteAndReset(s.file) // 上传结果回来后被忽略（已回 Idle）
             is RecordingFlowState.UploadFailed -> deleteAndReset(s.file)
             RecordingFlowState.Idle, is RecordingFlowState.Uploaded ->
-                LogUtils.w("discard ignored in ${s.stateName()}", tag = TAG)
+                AppLog.w(TAG) { "discard ignored in ${s.stateName()}" }
         }
     }
 
@@ -170,7 +170,7 @@ class RecordingFlowStateMachine(
             _state.value = outcome.fold(
                 onSuccess = { url -> RecordingFlowState.Uploaded(file, url) },
                 onFailure = { e ->
-                    LogUtils.w("upload failed: ${file.path}", e, TAG)
+                    AppLog.w(TAG, e) { "upload failed: ${file.path}" }
                     RecordingFlowState.UploadFailed(file, e)
                 },
             )
@@ -186,7 +186,7 @@ class RecordingFlowStateMachine(
     private inline fun <reified T : RecordingFlowState> transitionGuard(action: String): T? {
         val s = _state.value
         return (s as? T) ?: run {
-            LogUtils.w("$action ignored in ${s.stateName()}", tag = TAG)
+            AppLog.w(TAG) { "$action ignored in ${s.stateName()}" }
             null
         }
     }

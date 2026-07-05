@@ -1,11 +1,11 @@
 package com.novamind.app.common.audio
 
+import com.novamind.app.common.log.AppLog
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.log.DebugLog
 import com.novamind.app.data.FilesRepository
 import com.novamind.app.data.RecordingRepository
 import com.novamind.app.data.db.UploadStatus
@@ -41,11 +41,11 @@ class UploadWorker @AssistedInject constructor(
         return outcome.fold(
             onSuccess = { fileId ->
                 recordingRepository.updateRecordingStatus(id, UploadStatus.UPLOADED, fileId = fileId)
-                DebugLog.i(TAG, "upload ok id=$id fileId=$fileId")
+                AppLog.i(TAG) { "upload ok id=$id fileId=$fileId" }
                 Result.success()
             },
             onFailure = { e ->
-                DebugLog.w(TAG, "upload failed id=$id: ${e.message}")
+                AppLog.w(TAG) { "upload failed id=$id: ${e.message}" }
                 recordingRepository.updateRecordingStatus(id, UploadStatus.FAILED)
                 if (runAttemptCount + 1 < MAX_ATTEMPTS) Result.retry() else Result.failure()
             },

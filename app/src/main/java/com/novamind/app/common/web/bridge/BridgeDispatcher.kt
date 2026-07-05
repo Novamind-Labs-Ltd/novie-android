@@ -1,7 +1,7 @@
 package com.novamind.app.common.web.bridge
 
+import com.novamind.app.common.log.AppLog
 import android.webkit.WebView
-import com.novamind.app.common.log.DebugLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,13 +27,13 @@ class BridgeDispatcher(
     /** JS → Native：解析、鉴权、路由、回执。 */
     fun onMessage(raw: String) {
         val req = BridgeRequest.parse(raw) ?: run {
-            DebugLog.w(TAG, "drop invalid message: ${raw.take(120)}")
+            AppLog.w(TAG) { "drop invalid message: ${raw.take(120)}" }
             return
         }
         scope.launch {
             val result = dispatch(req)
             respond(req.callId, result)
-            DebugLog.d(TAG, "${req.fullName} -> ${result.code} (${context.sourceLevel})")
+            AppLog.d(TAG) { "${req.fullName} -> ${result.code} (${context.sourceLevel})" }
         }
     }
 

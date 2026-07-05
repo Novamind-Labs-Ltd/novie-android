@@ -1,10 +1,10 @@
 package com.novamind.app.feature.auth
 
+import com.novamind.app.common.log.AppLog
 import android.app.Activity
 import android.app.Application
 import android.os.SystemClock
 import androidx.fragment.app.FragmentActivity
-import com.novamind.app.common.log.DebugLog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.auth0.android.result.Credentials
@@ -124,14 +124,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val user = profileRepository.fetchAuthMe()
             if (user == null) {
-                DebugLog.w(TAG, "refreshUserFromServer: /me 返回 null，保留本地用户信息")
+                AppLog.w(TAG) { "refreshUserFromServer: /me 返回 null，保留本地用户信息" }
                 return@launch
             }
-            DebugLog.i(
-                TAG,
-                "refreshUserFromServer: 刷新成功 sub=${user.sub}, name=${user.name}, " +
-                    "email=${user.email}, hasPicture=${user.picture != null}",
-            )
+            AppLog.i(TAG) { "refreshUserFromServer: 刷新成功 sub=${user.sub}, name=${user.name}, " +
+                    "email=${user.email}, hasPicture=${user.picture != null}" }
             _uiState.update {
                 if (!it.isAuthenticated) it else it.copy(
                     userName = user.name ?: it.userName,

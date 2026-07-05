@@ -1,9 +1,9 @@
 package com.novamind.app.debug.apitest
 
+import com.novamind.app.common.log.AppLog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.net.NetworkModule
-import com.novamind.app.common.log.DebugLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +62,7 @@ class ApiTestViewModel : ViewModel() {
                         hasLoaded = true,
                     )
                 }
-                DebugLog.i(TAG, "fetched ${items.size} items")
+                AppLog.i(TAG) { "fetched ${items.size} items" }
             }.onFailure { e ->
                 _uiState.update {
                     it.copy(
@@ -71,7 +71,7 @@ class ApiTestViewModel : ViewModel() {
                         hasLoaded = true,
                     )
                 }
-                DebugLog.e(TAG, "fetch failed: ${e.message}")
+                AppLog.e(TAG) { "fetch failed: ${e.message}" }
             }
         }
     }

@@ -1,8 +1,8 @@
 package com.novamind.app.data.calendar
 
+import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.storage.KeyValueStore
 import com.novamind.app.common.storage.MmkvStore
-import com.novamind.app.util.LogUtils
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -26,7 +26,7 @@ class CalendarEventCache(
         val raw = store.getString(key(accountId, date), null) ?: return null
         return runCatching {
             json.decodeFromString<List<CachedEvent>>(raw).map { it.toDomain() }
-        }.onFailure { LogUtils.w("calendar cache decode failed", it, TAG) }
+        }.onFailure { AppLog.w(TAG, it) { "calendar cache decode failed" } }
             .getOrNull()
     }
 
@@ -34,7 +34,7 @@ class CalendarEventCache(
         runCatching {
             json.encodeToString(events.map { CachedEvent.fromDomain(it) })
         }.onSuccess { store.putString(key(accountId, date), it) }
-            .onFailure { LogUtils.w("calendar cache encode failed", it, TAG) }
+            .onFailure { AppLog.w(TAG, it) { "calendar cache encode failed" } }
     }
 
     /** 清空全部缓存（断开 / 换账号 / 退出登录）。 */

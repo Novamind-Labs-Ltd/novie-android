@@ -1,5 +1,6 @@
 package com.novamind.app.common.audio
 
+import com.novamind.app.common.log.AppLog
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,7 +15,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import com.novamind.app.R
-import com.novamind.app.common.log.DebugLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,7 +71,7 @@ class RecordingService : Service() {
                 RecordingCleaner.ensureSpaceForRecording(applicationContext)
             }
             if (!ready) {
-                DebugLog.w(TAG, "storage low, abort recording")
+                AppLog.w(TAG) { "storage low, abort recording" }
                 RecordingController.update { it.copy(active = false, cancelled = true) }
                 finishService()
                 return@launch

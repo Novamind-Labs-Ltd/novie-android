@@ -1,5 +1,6 @@
 package com.novamind.app.common.push
 
+import com.novamind.app.common.log.AppLog
 import android.app.PendingIntent
 import android.content.Intent
 import androidx.core.app.NotificationCompat
@@ -8,7 +9,6 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.novamind.app.MainActivity
 import com.novamind.app.R
-import com.novamind.app.common.log.DebugLog
 
 /**
  * Firebase Cloud Messaging 接收服务。
@@ -22,7 +22,7 @@ import com.novamind.app.common.log.DebugLog
 class FcmService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
-        DebugLog.i(TAG, "FCM token refreshed: ${token.take(12)}…")
+        AppLog.i(TAG) { "FCM token refreshed: ${token.take(12)}…" }
         // TODO: 上报 token 到服务端（绑定用户/设备），用于定向推送
     }
 
@@ -33,7 +33,7 @@ class FcmService : FirebaseMessagingService() {
         val body = message.notification?.body
             ?: message.data["body"]
             ?: return
-        DebugLog.i(TAG, "FCM message received: $title")
+        AppLog.i(TAG) { "FCM message received: $title" }
         showNotification(title, body)
     }
 

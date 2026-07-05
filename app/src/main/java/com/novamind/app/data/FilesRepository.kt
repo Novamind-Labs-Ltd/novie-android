@@ -1,6 +1,6 @@
 package com.novamind.app.data
 
-import com.novamind.app.common.log.DebugLog
+import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.FileView
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.PresignReq
@@ -64,7 +64,7 @@ class FilesRepository @Inject constructor() {
         }
         if (view.status != STATUS_READY) return@withContext fail("confirm 状态异常: ${view.status}")
 
-        DebugLog.i(TAG, "upload ok fileId=${presign.fileId} size=${file.length()}")
+        AppLog.i(TAG) { "upload ok fileId=${presign.fileId} size=${file.length()}" }
         Result.success(presign.fileId)
     }
 
@@ -77,7 +77,7 @@ class FilesRepository @Inject constructor() {
         val filePart = MultipartBody.Part.createFormData("file", file.name, file.asRequestBody(media))
         val resp = NetworkModule.filesApi.uploadToStorage(presign.upload.url, fields, filePart)
         if (!resp.isSuccessful) {
-            DebugLog.w(TAG, "storage upload http=${resp.code()}")
+            AppLog.w(TAG) { "storage upload http=${resp.code()}" }
         }
         resp.body()?.close()
         resp.errorBody()?.close()
@@ -85,7 +85,7 @@ class FilesRepository @Inject constructor() {
     }
 
     private fun fail(msg: String): Result<String> {
-        DebugLog.w(TAG, msg)
+        AppLog.w(TAG) { msg }
         return Result.failure(IOException(msg))
     }
 

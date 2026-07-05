@@ -1,9 +1,9 @@
 package com.novamind.app.debug.imageupload
 
+import com.novamind.app.common.log.AppLog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.net.NetworkModule
-import com.novamind.app.common.log.DebugLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -89,7 +89,7 @@ class ImageUploadViewModel : ViewModel() {
                         hasUploaded = true,
                     )
                 }
-                DebugLog.i(TAG, "upload done: HTTP $code, ${bytes.size} bytes, url=$parsedUrl")
+                AppLog.i(TAG) { "upload done: HTTP $code, ${bytes.size} bytes, url=$parsedUrl" }
             }.onFailure { e ->
                 _uiState.update {
                     it.copy(
@@ -98,7 +98,7 @@ class ImageUploadViewModel : ViewModel() {
                         hasUploaded = true,
                     )
                 }
-                DebugLog.e(TAG, "upload failed: ${e.message}")
+                AppLog.e(TAG) { "upload failed: ${e.message}" }
             }
         }
     }

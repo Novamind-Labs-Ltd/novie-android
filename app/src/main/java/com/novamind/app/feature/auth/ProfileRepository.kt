@@ -1,7 +1,7 @@
 package com.novamind.app.feature.auth
 
+import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.NetworkModule
-import com.novamind.app.common.log.DebugLog
 import java.util.UUID
 
 /**
@@ -20,20 +20,20 @@ class ProfileRepository {
         val resp = runCatching { NetworkModule.authApi.me(traceId = traceId) }
             .onFailure {
                 // 网络异常或反序列化失败（如缺 sub 的 schema mismatch）
-                DebugLog.w(TAG, "/api/auth/me 请求失败 trace-id=$traceId: ${it.message}")
+                AppLog.w(TAG) { "/api/auth/me 请求失败 trace-id=$traceId: ${it.message}" }
             }
             .getOrNull() ?: return null
 
         if (!resp.isSuccessful) {
-            DebugLog.w(TAG, "/api/auth/me 非2xx code=${resp.code()} trace-id=$traceId")
+            AppLog.w(TAG) { "/api/auth/me 非2xx code=${resp.code()} trace-id=$traceId" }
             return null
         }
         val dto = resp.body()
         if (dto == null) {
-            DebugLog.w(TAG, "/api/auth/me 响应体为空 trace-id=$traceId")
+            AppLog.w(TAG) { "/api/auth/me 响应体为空 trace-id=$traceId" }
             return null
         }
-        DebugLog.i(TAG, "/api/auth/me 成功 sub=${dto.sub} trace-id=$traceId")
+        AppLog.i(TAG) { "/api/auth/me 成功 sub=${dto.sub} trace-id=$traceId" }
         return AuthUser(
             sub = dto.sub,
             email = dto.email,
