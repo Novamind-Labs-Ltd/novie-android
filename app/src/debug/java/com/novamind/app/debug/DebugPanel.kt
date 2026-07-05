@@ -49,6 +49,8 @@ import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
+import com.novamind.app.ui.theme.AppFont
+import com.novamind.app.ui.theme.FontStore
 import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
 import com.novamind.app.util.SentryUtils
@@ -170,6 +172,19 @@ fun DebugPanel(
                         val selected = env == activeEnv
                         Chip(if (selected) "✓ ${env.label}" else env.label) {
                             ApiConfig.select(env)
+                        }
+                    }
+                }
+            }
+
+            // ── 字体（立即生效）──
+            val activeFont by FontStore.font.collectAsState()
+            Section("字体（立即生效）") {
+                InfoRow("当前字体", activeFont.label)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppFont.entries.forEach { f ->
+                        Chip(if (f == activeFont) "✓ ${f.label}" else f.label) {
+                            FontStore.select(f)
                         }
                     }
                 }
