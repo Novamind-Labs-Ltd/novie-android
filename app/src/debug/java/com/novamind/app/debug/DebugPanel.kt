@@ -162,12 +162,9 @@ fun DebugPanel(
 
             // ── 域名 / 环境 ──
             val activeEnv by ApiConfig.envFlow.collectAsState()
-            val endpoints = ApiConfig.endpoints
             Section("域名 / 环境（切换后冷启动生效）") {
                 InfoRow("环境", activeEnv.label)
-                InfoRow("auth", endpoints.auth)
-                InfoRow("chat", endpoints.chat)
-                InfoRow("api", endpoints.api)
+                InfoRow("api", ApiConfig.apiBaseUrl)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ApiConfig.Env.entries.forEach { env ->
                         val selected = env == activeEnv

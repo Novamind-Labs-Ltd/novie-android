@@ -8,7 +8,7 @@ import retrofit2.http.Header
 import retrofit2.http.Headers
 
 /**
- * 认证域（auth.novamind-labs.*）接口。baseUrl 取自 [ApiConfig.authBaseUrl]（以 "/" 结尾），
+ * 认证接口（现统一走 api 域）。baseUrl 取自 [ApiConfig.apiBaseUrl]（以 "/" 结尾），
  * 故路径用相对形式、不带前导斜杠。Authorization 头由 [AuthInterceptor] 统一附加。
  */
 interface AuthApi {

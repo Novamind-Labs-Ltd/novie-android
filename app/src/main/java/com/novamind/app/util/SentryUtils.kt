@@ -27,8 +27,8 @@ object SentryUtils {
     /** 当前环境名（用作 Sentry environment 标签）。 */
     fun environment(): String = when {
         BuildConfig.DEBUG -> "dev"
-        ApiConfig.env == ApiConfig.Env.CO -> "prod"
-        else -> "st" // CO_NZ
+        ApiConfig.env == ApiConfig.Env.PROD -> "prod"
+        else -> "st" // TEST
     }
 
     /**

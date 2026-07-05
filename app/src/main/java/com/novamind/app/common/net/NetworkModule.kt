@@ -20,9 +20,8 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
     /**
-     * baseUrl 取自 [ApiConfig] 的通用接口域名（可在 Debug 工具箱切换环境）。当前接口多用
+     * baseUrl 取自 [ApiConfig] 的唯一 api 域名（可在 Debug 工具箱切换 test/prod 环境）。当前接口多用
      * `@Url` 绝对地址，故此值主要供后续相对路径接口拼接；Retrofit 懒加载，切换下次冷启动生效。
-     * auth / chat 两类域名由各自的调用层读取 [ApiConfig.authBaseUrl] / [ApiConfig.chatBaseUrl]。
      */
     private val baseUrl: String get() = ApiConfig.apiBaseUrl
 
@@ -56,9 +55,9 @@ object NetworkModule {
     /** 通用接口（@Url 绝对地址；供调试工具与历史调用）。 */
     val apiService: ApiService by lazy { retrofit(baseUrl).create(ApiService::class.java) }
 
-    /** 认证域（auth.*）类型化接口。lazy → 切换环境下次冷启动生效。 */
-    val authApi: AuthApi by lazy { retrofit(ApiConfig.authBaseUrl).create(AuthApi::class.java) }
+    /** 认证类型化接口（现统一走 api 域）。lazy → 切换环境下次冷启动生效。 */
+    val authApi: AuthApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(AuthApi::class.java) }
 
-    /** 文件域（api.*，/api/v1.0/files）类型化接口，走统一响应信封。 */
+    /** 文件域（/api/v1.0/files）类型化接口，走统一响应信封。 */
     val filesApi: FilesApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(FilesApi::class.java) }
 }
