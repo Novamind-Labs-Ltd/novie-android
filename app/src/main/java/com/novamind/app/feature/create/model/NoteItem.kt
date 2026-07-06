@@ -1,4 +1,4 @@
-package com.novamind.app.feature.note
+package com.novamind.app.feature.create.model
 
 import androidx.compose.ui.graphics.Color
 

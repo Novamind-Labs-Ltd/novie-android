@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.TextColors

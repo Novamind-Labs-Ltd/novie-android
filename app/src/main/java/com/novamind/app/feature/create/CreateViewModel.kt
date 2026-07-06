@@ -8,6 +8,7 @@ import com.novamind.app.data.NoteRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
+import com.novamind.app.feature.create.model.CreateUiState
 import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.tag.Tag
 import com.novamind.app.util.ColorUtils
@@ -96,7 +97,8 @@ class CreateViewModel @Inject constructor(
         undoStack.clear()
         redoStack.clear()
         persistedNote = null
-        _uiState.value = CreateUiState(availableFolders = availableFolders, availableTags = availableTags)
+        _uiState.value =
+            CreateUiState(availableFolders = availableFolders, availableTags = availableTags)
     }
 
     fun loadNote(noteId: String) {

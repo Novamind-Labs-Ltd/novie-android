@@ -1,6 +1,6 @@
 package com.novamind.app.feature.home
 
-import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.feature.create.model.NoteItem
 
 data class UpcomingItem(
     val id: String,

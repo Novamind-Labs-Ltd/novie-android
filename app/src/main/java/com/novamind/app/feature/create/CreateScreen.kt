@@ -56,6 +56,7 @@ import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
+import com.novamind.app.feature.create.model.CreateUiState
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.FileUtils
 import com.novamind.app.util.TimeUtils

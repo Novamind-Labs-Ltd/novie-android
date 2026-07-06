@@ -1,7 +1,6 @@
-package com.novamind.app.data.db
+package com.novamind.app.feature.create.model
 
 import com.novamind.app.feature.create.folder.Folder
-import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.tag.Tag
 import org.json.JSONArray
 import org.json.JSONObject

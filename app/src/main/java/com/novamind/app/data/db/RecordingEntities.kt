@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.novamind.app.feature.create.model.NoteEntity
 
 /**
  * 上传 / 完整性状态（以字符串入库，避免枚举改动带来的迁移负担）。

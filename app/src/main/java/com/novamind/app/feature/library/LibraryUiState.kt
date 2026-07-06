@@ -1,6 +1,6 @@
 package com.novamind.app.feature.library
 
-import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.feature.create.model.NoteItem
 
 /** Library 文件夹分组（UI 模型）：按笔记所属文件夹聚合。 */
 data class LibraryFolder(

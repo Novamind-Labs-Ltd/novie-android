@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.novamind.app.feature.create.model.NoteEntity
 
 @Database(
     entities = [

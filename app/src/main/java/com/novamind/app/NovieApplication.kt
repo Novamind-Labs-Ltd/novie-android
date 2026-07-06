@@ -11,6 +11,7 @@ import com.novamind.app.common.audio.RecordingCleaner
 import com.novamind.app.common.audio.RecordingUploadScheduler
 import com.novamind.app.common.sync.NoteSyncScheduler
 import com.novamind.app.common.google.GoogleTokenProvider
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
@@ -84,19 +85,15 @@ class NovieApplication : Application(), ImageLoaderFactory, Configuration.Provid
             .diskCache {
                 val dir = cacheDir.resolve("image_cache")
                 val availableBytes = StatFs(cacheDir.absolutePath).availableBytes
-                val maxSize = (availableBytes * 0.30).toLong()
-                    .coerceIn(MIN_DISK_CACHE_BYTES, MAX_DISK_CACHE_BYTES)
+                val maxSize = (availableBytes * AppConfig.Media.IMAGE_DISK_CACHE_PERCENT).toLong()
+                    .coerceIn(
+                        AppConfig.Media.IMAGE_DISK_CACHE_MIN_BYTES,
+                        AppConfig.Media.IMAGE_DISK_CACHE_MAX_BYTES,
+                    )
                 DiskCache.Builder()
                     .directory(dir)
                     .maxSizeBytes(maxSize)
                     .build()
             }
             .build()
-
-    private companion object {
-        /** 磁盘缓存下限 10 MiB：空间紧张时也保证缓存有效。 */
-        const val MIN_DISK_CACHE_BYTES = 10L * 1024 * 1024
-        /** 磁盘缓存上限 1 GiB。 */
-        const val MAX_DISK_CACHE_BYTES = 1024L * 1024 * 1024
-    }
 }

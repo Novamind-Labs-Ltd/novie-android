@@ -6,7 +6,7 @@ import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.Note
-import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

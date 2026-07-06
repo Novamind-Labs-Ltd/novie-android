@@ -39,7 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
 import com.novamind.app.feature.create.CreateRoute
-import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.recyclebin.components.RecycleBinNoteCard
 import com.novamind.app.feature.recyclebin.components.TopIconButton
 import com.novamind.app.ui.colors.BackgroundColors

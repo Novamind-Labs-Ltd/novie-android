@@ -1,6 +1,6 @@
 package com.novamind.app.feature.recyclebin
 
-import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.feature.create.model.NoteItem
 
 /**
  * 回收站页面状态。[notes] 为空时展示空状态，非空时展示已软删笔记的网格。

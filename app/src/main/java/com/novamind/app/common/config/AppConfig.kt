@@ -90,6 +90,16 @@ object AppConfig {
         /** 笔记图片导入时的 JPEG 压缩质量（0~100）。 */
         const val IMAGE_JPEG_QUALITY = 85
 
+        // ── Coil 图片磁盘缓存 ───────────────────────────────────────────
+        /** 图片磁盘缓存占「可用空间」的比例。 */
+        const val IMAGE_DISK_CACHE_PERCENT = 0.30
+
+        /** 图片磁盘缓存下限（字节）：10 MiB，空间紧张时也保证缓存有效。 */
+        const val IMAGE_DISK_CACHE_MIN_BYTES = 10L * 1024 * 1024
+
+        /** 图片磁盘缓存上限（字节）：1 GiB。 */
+        const val IMAGE_DISK_CACHE_MAX_BYTES = 1024L * 1024 * 1024
+
         // ── 录音编码（AAC，不分片，单文件）──────────────────────────────
         /** 录音最大时长（秒）。30 分钟。 */
         const val MAX_RECORD_SECONDS = 30 * 60

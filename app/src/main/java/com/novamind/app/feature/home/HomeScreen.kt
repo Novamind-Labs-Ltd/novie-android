@@ -29,7 +29,7 @@ import com.novamind.app.feature.home.components.SearchBar
 import com.novamind.app.feature.home.components.SectionHeader
 import com.novamind.app.feature.home.components.UpcomingCard
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.feature.note.NoteItem
+import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.ui.theme.AppTheme
 
 // 配色与视觉组件在 feature/home/components 包（HomeColors 等），本文件只保留编排与菜单模型。
