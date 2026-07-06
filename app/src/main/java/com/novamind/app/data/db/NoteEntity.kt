@@ -1,4 +1,4 @@
-package com.novamind.app.feature.create.model
+package com.novamind.app.data.db
 
 import androidx.room.Entity
 import androidx.room.Index

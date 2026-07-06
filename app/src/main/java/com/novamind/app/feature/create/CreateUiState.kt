@@ -1,4 +1,4 @@
-package com.novamind.app.feature.create.model
+package com.novamind.app.feature.create
 
 import androidx.compose.ui.graphics.Color
 import com.novamind.app.feature.create.folder.Folder

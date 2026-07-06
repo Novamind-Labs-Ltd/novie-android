@@ -149,3 +149,37 @@ Screen onEvent → ViewModel 改 Domain → repo.addOrUpdate(note: Note)
    - 领域包内 `@Serializable|@Entity|androidx.compose|retrofit2|okhttp3` 应为空；
    - `feature/**/*ViewModel.kt`、`*Screen.kt` 内 `data.db.|common.net.（除工具）` 应为空；
    - 后缀守卫：`data/db/**` 的模型类名应以 `Entity` 结尾；网络 DTO 类名应以 `Dto` 结尾；`class .*UiState` 只应出现在 UI 层；Domain data class 类名不带 `Entity`/`Dto`/`UiState`。
+
+---
+
+## 十、目录结构规范（按 feature 竖切）
+
+采用「**按功能分包、包内再分层**」（package-by-feature, layered inside）。一个业务 `xxx` 自己拥有从 UI 到数据的竖切；**被多个 feature 复用的**才下沉到共享层。
+
+单个 feature 模板：
+
+```
+feature/xxx/
+├─ XxxRoute.kt / XxxScreen.kt        # UI：有状态 Route + 无状态 Screen(@Preview)
+├─ XxxViewModel.kt                    # @HiltViewModel，持 StateFlow<XxxUiState>
+├─ XxxUiState.kt / XxxEvent.kt        # 界面状态 + 事件
+├─ components/                        # 该页私有小组件
+├─ model/                             # 领域模型(纯 Kotlin)：Xxx、XxxItem(UI投影)、RemoteXxx
+└─ data/                             # 该 feature 私有的数据实现
+   ├─ XxxRepository.kt / RemoteXxxRepository.kt
+   ├─ XxxApi.kt / XxxDto.kt          # 网络
+   ├─ XxxEntity.kt / XxxDao.kt       # 存储(若该表仅此 feature 用)
+   └─ XxxMappers.kt                  # toDomain/toEntity/toItem
+```
+
+**feature 私有 vs 共享**（关键判断）：
+
+- 只被本业务用 → 放 feature 内。
+- **被多个 feature 复用 → 下沉共享层**：`common/*`（net/log/storage/sync…）、通用 UI `ui/`、跨 feature 的领域/仓库/Entity 放 `data/`、`data/db`。
+- 口诀：先放 feature，**出现第二个使用方时再上移**。
+
+**Room 的特殊性（重要）**：`@Database` 是全局单例，`entities=[…]` 必须集中登记所有表。因此 **`*Entity`/`*Dao`/`Converters`/`AppDatabase` 统一放共享的 `data/db`**，即使某表逻辑上属于某 feature——避免 feature 之间通过「借表」互相依赖。
+
+> 本项目实例：笔记被 home/library/recyclebin/create 多处共用，属**共享领域**。故 `NoteEntity`/`Converters` 放 `data/db`（与 AppDatabase/NoteDao 同处）；`Note`/`RemoteNote`/`NoteItem` 领域模型集中在 `feature/create/model`（后续若进一步共享，可下沉到独立的 notes 领域包）。DTO/Api 在 `common/net`，仓库在 `data/`。
+>
+> 遗留待整理：`CreateUiState` 目前在 `feature/create/model`，按规范应回到 `feature/create` 根（UI 状态不属 model）。

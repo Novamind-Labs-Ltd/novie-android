@@ -3,7 +3,6 @@ package com.novamind.app.data.db
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
-import com.novamind.app.feature.create.model.NoteEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
