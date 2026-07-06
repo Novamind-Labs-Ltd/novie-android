@@ -23,7 +23,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +48,7 @@ import androidx.core.content.FileProvider
 import com.novamind.app.BuildConfig
 import com.novamind.app.common.device.DeviceIdentity
 import com.novamind.app.common.net.ApiConfig
+import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
@@ -114,6 +117,10 @@ fun DebugPanel(
     var totalMb by remember { mutableStateOf(-1L) }
     var refresh by remember { mutableStateOf(0) }
 
+    // /api/v1.0/me 接口测试：结果以弹窗展示
+    var meResult by remember { mutableStateOf<String?>(null) }
+    var meLoading by remember { mutableStateOf(false) }
+
     // 组件/能力测试
     var urlInput by remember { mutableStateOf("https://m.bing.com") }
     // JSBridge 测试页强制来源等级（null = 按域名白名单）
@@ -176,6 +183,36 @@ fun DebugPanel(
                         }
                     }
                 }
+                // 测试 /api/v1.0/me：请求当前环境该接口，结果弹窗展示
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip(if (meLoading) "请求中…" else "测试 /api/v1.0/me") {
+                        if (!meLoading) {
+                            meLoading = true
+                            scope.launch {
+                                meResult = fetchMeRaw()
+                                meLoading = false
+                            }
+                        }
+                    }
+                }
+            }
+
+            // /api/v1.0/me 结果弹窗
+            meResult?.let { result ->
+                AlertDialog(
+                    onDismissRequest = { meResult = null },
+                    confirmButton = { TextButton(onClick = { meResult = null }) { Text("关闭") } },
+                    title = { Text("GET /api/v1.0/me") },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 420.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            Text(result, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    },
+                )
             }
 
             // ── 字体（立即生效）──
@@ -526,3 +563,23 @@ private fun Chip(label: String, danger: Boolean = false, onClick: () -> Unit) {
             .padding(horizontal = 14.dp, vertical = 8.dp),
     )
 }
+
+/** 请求当前环境的 GET /api/v1.0/me（Authorization 由拦截器自动附加），返回可读文本供弹窗展示。 */
+private suspend fun fetchMeRaw(): String = withContext(Dispatchers.IO) {
+    val url = ApiConfig.apiBaseUrl + "api/v1.0/me"
+    runCatching {
+        val resp = NetworkModule.apiService.get(url)
+        val raw = (if (resp.isSuccessful) resp.body()?.string() else resp.errorBody()?.string()).orEmpty()
+        "URL: $url\nHTTP ${resp.code()}\n\n${prettyJson(raw)}"
+    }.getOrElse { "URL: $url\n\n请求失败: ${it.message}" }
+}
+
+/** 尽力把 JSON 缩进美化；非 JSON 或解析失败则原样返回。 */
+private fun prettyJson(s: String): String = runCatching {
+    val t = s.trimStart()
+    when {
+        t.startsWith("{") -> org.json.JSONObject(s).toString(2)
+        t.startsWith("[") -> org.json.JSONArray(s).toString(2)
+        else -> s
+    }
+}.getOrDefault(s)
