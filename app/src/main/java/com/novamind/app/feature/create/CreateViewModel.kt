@@ -3,10 +3,8 @@ package com.novamind.app.feature.create
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.NoteRepository
-import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
@@ -39,7 +37,6 @@ class CreateViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
     private val folderRepository: FolderRepository,
     private val tagRepository: TagRepository,
-    private val notesRepository: NotesRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateUiState())
@@ -251,105 +248,6 @@ class CreateViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    // ── 云端同步（基础能力，对接 /api/v1.0/notes）──────────────────────────────
-
-    /** 创建到云端（POST）。成功后记录 remoteId/remoteRev，供后续更新。 */
-    fun createOnRemote() {
-        if (_uiState.value.remoteSyncing) return
-        _uiState.update { it.copy(remoteSyncing = true, remoteStatus = null) }
-        viewModelScope.launch {
-            val s = _uiState.value
-            when (val r = notesRepository.createNote(s.title.ifBlank { null }, s.body)) {
-                is ApiResult.Success -> {
-                    val n = r.data
-                    _uiState.update {
-                        it.copy(
-                            remoteSyncing = false,
-                            remoteId = n?.id ?: it.remoteId,
-                            remoteRev = n?.rev ?: it.remoteRev,
-                            remoteStatus = "创建成功 id=${n?.id} rev=${n?.rev}",
-                        )
-                    }
-                }
-                is ApiResult.BizError -> _uiState.update {
-                    it.copy(remoteSyncing = false, remoteStatus = "创建失败 code=${r.code} ${r.message ?: ""}")
-                }
-                is ApiResult.NetworkError -> _uiState.update {
-                    it.copy(remoteSyncing = false, remoteStatus = "网络异常，请重试")
-                }
-            }
-        }
-    }
-
-    /** 从云端拉取单条笔记（GET）。记录 remoteId/remoteRev；不覆盖当前编辑内容。 */
-    fun fetchFromRemote(id: String) {
-        if (_uiState.value.remoteSyncing) return
-        _uiState.update { it.copy(remoteSyncing = true, remoteStatus = null) }
-        viewModelScope.launch {
-            when (val r = notesRepository.getNote(id)) {
-                is ApiResult.Success -> {
-                    val n = r.data
-                    _uiState.update {
-                        it.copy(
-                            remoteSyncing = false,
-                            remoteId = n?.id ?: it.remoteId,
-                            remoteRev = n?.rev ?: it.remoteRev,
-                            remoteStatus = if (n != null) "拉取成功 rev=${n.rev} title=${n.title ?: "(空)"}" else "笔记为空",
-                        )
-                    }
-                }
-                is ApiResult.BizError -> _uiState.update {
-                    it.copy(remoteSyncing = false, remoteStatus = "拉取失败 code=${r.code} ${r.message ?: ""}")
-                }
-                is ApiResult.NetworkError -> _uiState.update {
-                    it.copy(remoteSyncing = false, remoteStatus = "网络异常，请重试")
-                }
-            }
-        }
-    }
-
-    /** 全量更新到云端（PUT，latest-wins）。需先 createOnRemote/fetchFromRemote 拿到 id+rev。 */
-    fun updateOnRemote() {
-        val s = _uiState.value
-        if (s.remoteSyncing) return
-        val id = s.remoteId
-        val rev = s.remoteRev
-        if (id == null || rev == null) {
-            _uiState.update { it.copy(remoteStatus = "请先创建或拉取云端笔记") }
-            return
-        }
-        _uiState.update { it.copy(remoteSyncing = true, remoteStatus = null) }
-        viewModelScope.launch {
-            when (val r = notesRepository.updateNote(id, rev, s.title.ifBlank { null }, s.body)) {
-                is ApiResult.Success -> {
-                    val o = r.data
-                    _uiState.update {
-                        it.copy(
-                            remoteSyncing = false,
-                            remoteRev = o?.note?.rev ?: it.remoteRev,
-                            remoteStatus = when {
-                                o == null -> "更新返回为空"
-                                o.applied -> "更新生效 rev=${o.note?.rev}"
-                                else -> "被更新版本抢先(applied=false) 当前 rev=${o.note?.rev}"
-                            },
-                        )
-                    }
-                }
-                is ApiResult.BizError -> _uiState.update {
-                    it.copy(remoteSyncing = false, remoteStatus = "更新失败 code=${r.code} ${r.message ?: ""}")
-                }
-                is ApiResult.NetworkError -> _uiState.update {
-                    it.copy(remoteSyncing = false, remoteStatus = "网络异常，请重试")
-                }
-            }
-        }
-    }
-
-    /** UI 消费云端提示后清除。 */
-    fun consumeRemoteStatus() {
-        _uiState.update { it.copy(remoteStatus = null) }
     }
 
     // ── 私有方法 ──────────────────────────────────────────────────────────────

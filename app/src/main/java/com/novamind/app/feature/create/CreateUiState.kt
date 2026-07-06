@@ -47,10 +47,4 @@ data class CreateUiState(
     // 撤销/重做可用状态
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
-
-    // ── 云端同步（基础能力）──
-    val remoteId: String? = null,       // 云端笔记 id（创建/拉取后有值）
-    val remoteRev: Long? = null,        // 云端乐观锁版本，PUT 更新时携带
-    val remoteSyncing: Boolean = false, // 是否有云端请求进行中
-    val remoteStatus: String? = null,   // 最近一次云端操作结果提示（一次性，UI 消费后可清）
 )
