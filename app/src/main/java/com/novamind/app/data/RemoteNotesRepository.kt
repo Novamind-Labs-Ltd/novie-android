@@ -1,5 +1,6 @@
 package com.novamind.app.data
 
+import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.CreateNoteRequestDto
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.NoteDto
@@ -14,24 +15,49 @@ import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * [NotesRepository] 的网络实现：走统一响应 [apiCall]，把 DTO 映射为领域模型，DTO 不外泄。
+ * 每个笔记能力都打日志（统一走 [AppLog]）：开始/成功/业务错误/网络错误，便于联调与线上排障。
  */
 class RemoteNotesRepository : NotesRepository {
 
-    override suspend fun createNote(title: String?, body: String): ApiResult<RemoteNote> =
-        when (val r = apiCall {
+    override suspend fun createNote(title: String?, body: String): ApiResult<RemoteNote> {
+        AppLog.i(TAG) { "createNote 开始 titleLen=${title?.length ?: 0} bodyLen=${body.length}" }
+        return when (val r = apiCall {
             NetworkModule.notesApi.create(CreateNoteRequestDto(title = title, content = contentOf(body)))
         }) {
-            is ApiResult.Success -> ApiResult.Success<RemoteNote>(r.data?.toDomain())
-            is ApiResult.BizError -> r
-            is ApiResult.NetworkError -> r
+            is ApiResult.Success -> {
+                val note = r.data?.toDomain()
+                AppLog.i(TAG) { "createNote 成功 id=${note?.id} rev=${note?.rev}" }
+                ApiResult.Success<RemoteNote>(note)
+            }
+            is ApiResult.BizError -> {
+                AppLog.w(TAG) { "createNote 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                r
+            }
+            is ApiResult.NetworkError -> {
+                AppLog.w(TAG) { "createNote 网络错误: ${r.message}" }
+                r
+            }
         }
+    }
 
-    override suspend fun getNote(id: String): ApiResult<RemoteNote> =
-        when (val r = apiCall { NetworkModule.notesApi.get(id) }) {
-            is ApiResult.Success -> ApiResult.Success<RemoteNote>(r.data?.toDomain())
-            is ApiResult.BizError -> r
-            is ApiResult.NetworkError -> r
+    override suspend fun getNote(id: String): ApiResult<RemoteNote> {
+        AppLog.i(TAG) { "getNote 开始 id=$id" }
+        return when (val r = apiCall { NetworkModule.notesApi.get(id) }) {
+            is ApiResult.Success -> {
+                val note = r.data?.toDomain()
+                AppLog.i(TAG) { "getNote 成功 id=$id rev=${note?.rev}" }
+                ApiResult.Success<RemoteNote>(note)
+            }
+            is ApiResult.BizError -> {
+                AppLog.w(TAG) { "getNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                r
+            }
+            is ApiResult.NetworkError -> {
+                AppLog.w(TAG) { "getNote 网络错误 id=$id: ${r.message}" }
+                r
+            }
         }
+    }
 
     override suspend fun updateNote(
         id: String,
@@ -39,19 +65,29 @@ class RemoteNotesRepository : NotesRepository {
         title: String?,
         body: String,
         schemaVersion: Int?,
-    ): ApiResult<UpdateNoteOutcome> =
-        when (val r = apiCall {
+    ): ApiResult<UpdateNoteOutcome> {
+        AppLog.i(TAG) { "updateNote 开始 id=$id baseRev=$rev bodyLen=${body.length}" }
+        return when (val r = apiCall {
             NetworkModule.notesApi.update(
                 id,
                 UpdateNoteRequestDto(rev = rev, title = title, content = contentOf(body), schemaVersion = schemaVersion),
             )
         }) {
-            is ApiResult.Success -> ApiResult.Success<UpdateNoteOutcome>(
-                r.data?.let { UpdateNoteOutcome(applied = it.applied, note = it.note?.toDomain()) },
-            )
-            is ApiResult.BizError -> r
-            is ApiResult.NetworkError -> r
+            is ApiResult.Success -> {
+                val outcome = r.data?.let { UpdateNoteOutcome(applied = it.applied, note = it.note?.toDomain()) }
+                AppLog.i(TAG) { "updateNote 成功 id=$id applied=${outcome?.applied} newRev=${outcome?.note?.rev}" }
+                ApiResult.Success<UpdateNoteOutcome>(outcome)
+            }
+            is ApiResult.BizError -> {
+                AppLog.w(TAG) { "updateNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                r
+            }
+            is ApiResult.NetworkError -> {
+                AppLog.w(TAG) { "updateNote 网络错误 id=$id: ${r.message}" }
+                r
+            }
         }
+    }
 
     // ── 映射 ──────────────────────────────────────────────────────────
     /** App 笔记内容约定：`{"body": <编辑器文档字符串>}`。 */
@@ -68,4 +104,8 @@ class RemoteNotesRepository : NotesRepository {
         createdAt = createdAt,
         updatedAt = updatedAt,
     )
+
+    private companion object {
+        const val TAG = "NotesRepo"
+    }
 }
