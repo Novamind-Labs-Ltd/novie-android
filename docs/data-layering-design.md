@@ -21,14 +21,21 @@
 
 ## 二、四类模型（对照现有代码）
 
-| 层 | 模型 | 归属包 | 现有例子 | 特征 / 允许的注解与类型 |
-|----|------|--------|----------|--------------------------|
-| **DTO** | 网络传输对象 | `common/net/*`、`data/*/*Dtos` | `MeDto`、`PresignResp`/`FileView`、`NoteView`(后端)、`TaskDto`、`EventDto`、信封 `ApiResponse<T>` | `@Serializable`/`@SerialName`；字段可空、命名对齐后端；**只做承载，不含业务逻辑** |
-| **Entity** | 本地存储对象 | `data/db/*` | `NoteEntity`、`RecordingEntity`、`TagEntity` | `@Entity`/`@PrimaryKey`/`@ForeignKey`；字段是列；状态以字符串入库（如 `uploadStatus`） |
-| **Domain** | 业务领域模型 | `feature/*/model`、`data/*`(纯 kotlin) | `Note`、`AuthUser`、`UserProfile`、`CalendarEvent`、`CalendarTask` | **纯 Kotlin data class**，无框架注解、无 Android/Compose 类型；表达业务概念（如 `borderColorHex: String?`、`tags: List<Tag>`） |
-| **UI** | 界面模型 | `feature/*`（Item + UiState） | `NoteItem`、`XxxUiState`（如 `HomeUiState`/`AuthUiState`） | 可含 Compose 类型（如 `Color`）、展示派生字段（`description` 摘要、`imagePath` 首图、`isSelected`）、一次性事件、loading/error |
+| 层 | 模型 | **命名后缀（强制）** | 归属包 | 现有例子 | 特征 / 允许的注解与类型 |
+|----|------|----------------------|--------|----------|--------------------------|
+| **DTO** | 网络传输对象 | `Dto`（如 `NoteDto`） | `common/net/*`、`data/*/*Dtos` | `MeDto`、`TaskDto`、`EventDto`、信封 `ApiResponse<T>` | `@Serializable`/`@SerialName`；字段可空、命名对齐后端；**只做承载，不含业务逻辑** |
+| **Entity** | 本地存储对象 | `Entity`（如 `NoteEntity`） | `data/db/*` | `NoteEntity`、`RecordingEntity`、`TagEntity` | `@Entity`/`@PrimaryKey`/`@ForeignKey`；字段是列；状态以字符串入库（如 `uploadStatus`） |
+| **Domain** | 业务领域模型 | **无后缀（正常命名）** | `feature/*/model`、`data/*`(纯 kotlin) | `Note`、`AuthUser`、`UserProfile`、`CalendarEvent`、`CalendarTask` | **纯 Kotlin data class**，无框架注解、无 Android/Compose 类型；表达业务概念（如 `borderColorHex: String?`、`tags: List<Tag>`） |
+| **UI** | 界面状态 | `UiState`（如 `NoteUiState`） | `feature/*` | `HomeUiState`、`AuthUiState` | 可含 Compose 类型（如 `Color`）、展示派生字段、一次性事件、loading/error |
 
-> 关键对照：同是「笔记」，四层是四个类——`NoteView`(DTO) / `NoteEntity`(存储) / `Note`(领域) / `NoteItem`(列表 UI)。各层字段按各自需要裁剪，互不牵连。
+**命名后缀规则（强制）**：
+
+- 数据库层 → `Entity` 后缀；网络传输对象 → `Dto` 后缀；UI 层状态 → `UiState` 后缀；Domain 层 → **不加后缀，正常业务命名**。
+- 这样从类名即可一眼判断其所属层与允许依赖，评审也能直接按后缀 grep 守卫（见 §九）。
+- **UI 子模型例外**：`UiState` 内承载的列表项/子结构（如 `NoteItem`）属于 UI 层，但它不是「状态容器」，可保留描述性命名（`*Item` 等），无需强套 `UiState`；真正的屏幕状态容器必须叫 `XxxUiState`。
+- **待迁移（现存不符命名）**：`NoteView`/`FileView`/`PresignResp`/`PresignReq`（后端契约类）应逐步改名为 `*Dto`（如 `FileDto`/`PresignRespDto` 或 `PresignResponseDto`）。属于渐进重构，新代码一律遵循新后缀。
+
+> 关键对照：同是「笔记」，四层四个类——`NoteDto`(网络) / `NoteEntity`(存储) / `Note`(领域) / `NoteUiState`(界面状态，其内可含 `NoteItem` 列表项)。各层字段按各自需要裁剪，互不牵连。
 
 ---
 
@@ -133,8 +140,12 @@ Screen onEvent → ViewModel 改 Domain → repo.addOrUpdate(note: Note)
 
 ## 九、落地规范（code review 检查点）
 
-1. 新增接口：先定 DTO（`@Serializable`，字段可空），再定/复用 Domain，Repository 里 `dto.toDomain()`，返回 `ApiResult<Domain>`。
-2. 新增页面：Domain → `UiState`/`Item` 的映射写在 ViewModel；Screen 只吃 UiState。
-3. 禁止：Domain 带框架注解；UI import net/room；Repository 返回 DTO/Entity。
-4. 映射函数单向命名、就近放置、最小可见性。
-5. 评审时 grep 关键词做守卫：领域包内 `@Serializable|@Entity|androidx.compose|retrofit2|okhttp3` 应为空；`feature/**/*ViewModel.kt`、`*Screen.kt` 内 `data.db.|common.net.（除工具）` 应为空。
+1. 新增接口：先定 `XxxDto`（`@Serializable`，字段可空），再定/复用 Domain，Repository 里 `dto.toDomain()`，返回 `ApiResult<Domain>`。
+2. 新增页面：Domain → `XxxUiState` 的映射写在 ViewModel；Screen 只吃 UiState。
+3. **命名后缀强制**：存储类 `*Entity`、网络类 `*Dto`、UI 状态 `*UiState`、Domain 不加后缀。反过来也成立——名字带 `Entity`/`Dto` 的类**不得**出现在 Domain/UI 层。
+4. 禁止：Domain 带框架注解；UI import net/room；Repository 返回 DTO/Entity。
+5. 映射函数单向命名、就近放置、最小可见性。
+6. 评审 grep 守卫：
+   - 领域包内 `@Serializable|@Entity|androidx.compose|retrofit2|okhttp3` 应为空；
+   - `feature/**/*ViewModel.kt`、`*Screen.kt` 内 `data.db.|common.net.（除工具）` 应为空；
+   - 后缀守卫：`data/db/**` 的模型类名应以 `Entity` 结尾；网络 DTO 类名应以 `Dto` 结尾；`class .*UiState` 只应出现在 UI 层；Domain data class 类名不带 `Entity`/`Dto`/`UiState`。
