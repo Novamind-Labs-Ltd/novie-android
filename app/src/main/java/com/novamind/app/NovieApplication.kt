@@ -9,6 +9,7 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import com.novamind.app.common.audio.RecordingCleaner
 import com.novamind.app.common.audio.RecordingUploadScheduler
+import com.novamind.app.common.sync.NoteSyncScheduler
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
@@ -63,6 +64,10 @@ class NovieApplication : Application(), ImageLoaderFactory, Configuration.Provid
         PushChannels.ensureDefault(this)   // 预创建 FCM 通知渠道
         RecordingCleaner.scheduleOnIdle(this) // 空闲时回收录音，不阻塞启动
         RecordingUploadScheduler.resumeOnIdle(this) // 空闲时把未完成上传的录音重新入队（断点续传）
+
+        NoteSyncScheduler.init(this)          // 存 app context，供仓库层无参触发同步
+        NoteSyncScheduler.schedulePeriodic(this) // 周期兜底同步（15min，带网络约束）
+        NoteSyncScheduler.requestSync(this)   // 启动时先推一次未同步笔记
     }
 
     /**

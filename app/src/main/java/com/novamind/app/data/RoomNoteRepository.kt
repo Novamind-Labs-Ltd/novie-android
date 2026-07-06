@@ -1,5 +1,6 @@
 package com.novamind.app.data
 
+import com.novamind.app.common.sync.NoteSyncScheduler
 import com.novamind.app.data.db.NoteDao
 import com.novamind.app.data.db.SyncStatus
 import com.novamind.app.data.db.toEntity
@@ -28,6 +29,7 @@ class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
                 syncStatus = SyncStatus.DIRTY.name,
             ),
         )
+        NoteSyncScheduler.requestSync()   // 本地已写，触发后台上行同步
     }
 
     override suspend fun delete(noteId: String) {
@@ -48,6 +50,7 @@ class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
 
     override suspend fun restore(noteId: String) {
         dao.restore(noteId, System.currentTimeMillis())
+        NoteSyncScheduler.requestSync()   // 恢复=重新变脏，触发同步
     }
 
     override suspend fun deleteForever(noteId: String) {

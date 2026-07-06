@@ -158,3 +158,19 @@ suspend fun markSynced(id: String, sid: String, rev: Long, ts: Long)
 - 纯文件型笔记（Markdown 文件即库，如 Obsidian）。
 
 笔记类（结构化、标签、搜索、离线）→ 用本地 DB，且按上面做同步层。
+
+---
+
+## 11. 落地进度（2026-07-04）
+
+**已实现**：
+- §2 `NoteEntity` 同步列（serverId/rev/syncStatus/deleted/lastSyncedAt）+ `SyncStatus` —— 已在。
+- §3 写入打 `DIRTY` 且保留 serverId/rev（`RoomNoteRepository.addOrUpdate`）；§6 删除走 tombstone/物理删（按是否同步过）——已在。
+- §8 DAO：`getAllNotes`(过滤 tombstone)/`dirtyNotes`/`markDeleted`/`markSynced`/`restore` 已在；本次补 `pendingPushNotes`(未删待推) 与 `markConflict`。
+- §4/§7 **`NoteSyncWorker`（@HiltWorker）+ `NoteSyncScheduler`**：push-only 上行同步（create/update 凭 rev，applied=false→CONFLICT），网络约束 + 指数退避；触发点：仓库写入/恢复后 `requestSync`、App 启动、周期(15min)。复用录音那套 WorkManager/Hilt 设施。
+
+**受后端限制未做（缺口）**：
+- **Pull 增量**（§4 `GET /notes?since=`）、**批量 push**（`POST /notes/batch`）、**删除同步**（后端无 DELETE /notes）：现后端只有 `POST /notes`、`GET /notes/{id}`、`PUT /notes/{id}`。故当前**只上行、不下行**，tombstone 不推送（本地软删仅用于回收站）。待后端补齐上述端点后，再加 pull 增量、批量与删除同步，并把 `CONFLICT` 用 pull 到的版本做 LWW/字段级合并。
+- content 约定当前为 `{"body": <编辑器文档字符串>}`（见 `RemoteNotesRepository`），后续可与 `NoteDocument` 结构对齐。
+
+> 上线前：`AppDatabase` 关闭 destructive fallback 并为同步列写正式迁移。

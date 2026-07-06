@@ -24,6 +24,14 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE syncStatus IN ('LOCAL', 'DIRTY')")
     suspend fun dirtyNotes(): List<NoteEntity>
 
+    /** 待推送到后端的笔记：有未同步改动且未软删（后端暂无删除接口，tombstone 不推）。 */
+    @Query("SELECT * FROM notes WHERE syncStatus IN ('LOCAL', 'DIRTY') AND deleted = 0")
+    suspend fun pendingPushNotes(): List<NoteEntity>
+
+    /** 标记冲突（服务端有更新版本抢先，本地待后续策略解决）。 */
+    @Query("UPDATE notes SET syncStatus = 'CONFLICT' WHERE id = :id")
+    suspend fun markConflict(id: String)
+
     /** 软删：打 tombstone 并标记待同步（保留行，待同步完成后再物理删除）。 */
     @Query("UPDATE notes SET deleted = 1, syncStatus = 'DIRTY', updatedAt = :timestamp WHERE id = :id")
     suspend fun markDeleted(id: String, timestamp: Long)
