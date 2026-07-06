@@ -21,7 +21,7 @@ object ApiConfig {
 
     /** 每套环境的 api 域名（以 "/" 结尾，便于与相对路径拼接）。 */
     private val TABLE: Map<Env, String> = mapOf(
-        Env.TEST to "https://api.novamind-labs.co.nz/",
+        Env.TEST to "https://api.mynovie.novamind-labs.co.nz/",
         Env.PROD to "https://api.novamind-labs.co/",
     )
 
