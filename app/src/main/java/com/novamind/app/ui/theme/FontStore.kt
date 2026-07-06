@@ -3,6 +3,7 @@ package com.novamind.app.ui.theme
 import android.content.Context
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.storage.MmkvStore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,13 +30,25 @@ enum class AppFont(val label: String) {
 /**
  * 字体族解析器：把 [AppFont] 解析为可用的 [FontFamily]。
  *
- * Google Sans Flex 为可变字体，从 `assets/fonts/google_sans_flex.ttf` 加载（OFL 开源，见文档），
- * 缺失时回退 [FontFamily.Default]（英文/中文均由系统字体渲染），保证无字体文件也能编译运行。
+ * Google Sans Flex 从 `assets/fonts/` 加载，**按字重多文件组装**（Fontsource 静态拆分版即每字重一个文件）：
+ * - `google_sans_flex_regular.ttf`(400)、`_medium.ttf`(500)、`_bold.ttf`(700) —— 有几个用几个；
+ * - 兼容单文件 `google_sans_flex.ttf`（可变字体或仅 Regular）。
+ * 全部缺失时回退 [FontFamily.Default]（英文/中文均由系统字体渲染），保证无字体文件也能编译运行。
  */
 object AppFonts {
 
-    private const val ASSET_PATH = "fonts/google_sans_flex.ttf"
     private const val TAG = "AppFonts"
+
+    /** 候选字体文件（按字重）。存在哪个用哪个；顺序不影响。 */
+    private val WEIGHTED_ASSETS = listOf(
+        "fonts/google_sans_flex_regular.ttf" to FontWeight.Normal,   // 400
+        "fonts/google_sans_flex_medium.ttf" to FontWeight.Medium,    // 500
+        "fonts/google_sans_flex_semibold.ttf" to FontWeight.SemiBold,// 600
+        "fonts/google_sans_flex_bold.ttf" to FontWeight.Bold,        // 700
+    )
+
+    /** 兼容：单文件（可变字体或仅 Regular）。 */
+    private const val SINGLE_ASSET = "fonts/google_sans_flex.ttf"
 
     @Volatile
     private var gsfFamily: FontFamily? = null
@@ -61,13 +74,22 @@ object AppFonts {
         synchronized(this) {
             if (gsfResolved) return gsfFamily
             gsfResolved = true
-            gsfFamily = runCatching {
-                val am = context.applicationContext.assets
-                am.open(ASSET_PATH).close() // 探测存在性；不存在则抛异常走回退
-                FontFamily(Font(path = ASSET_PATH, assetManager = am))
-            }.onFailure {
-                AppLog.w(TAG) { "Google Sans Flex 未内置($ASSET_PATH)，回退系统字体：${it.message}" }
-            }.getOrNull()
+            val am = context.applicationContext.assets
+            // 1) 优先按字重多文件组装（存在哪个用哪个）
+            val fonts = WEIGHTED_ASSETS.mapNotNull { (path, weight) ->
+                runCatching { am.open(path).close(); Font(path = path, assetManager = am, weight = weight) }
+                    .getOrNull()
+            }
+            gsfFamily = when {
+                fonts.isNotEmpty() -> FontFamily(fonts)
+                // 2) 回退单文件（可变字体 / 仅 Regular）
+                runCatching { am.open(SINGLE_ASSET).close() }.isSuccess ->
+                    FontFamily(Font(path = SINGLE_ASSET, assetManager = am))
+                else -> {
+                    AppLog.w(TAG) { "Google Sans Flex 未内置(assets/fonts/*)，回退系统字体" }
+                    null
+                }
+            }
             return gsfFamily
         }
     }
