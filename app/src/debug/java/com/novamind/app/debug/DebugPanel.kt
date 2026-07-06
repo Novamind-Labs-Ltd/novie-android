@@ -504,7 +504,7 @@ fun DebugPanel(
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (logs.isEmpty()) {
-                        Text("(暂无日志，用 DebugLog.d/i/w/e 写入)", fontSize = 12.sp, color = TextSub)
+                        Text("(暂无日志，用 AppLog.d/i/w/e 写入)", fontSize = 12.sp, color = TextSub)
                     } else {
                         logs.takeLast(200).forEach { e ->
                             Text(
