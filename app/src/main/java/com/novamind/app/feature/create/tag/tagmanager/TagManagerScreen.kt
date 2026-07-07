@@ -291,10 +291,18 @@ private val sampleTags = listOf(
     TagRowItem("5", "Quality Assurance", "#3D7A5A", 10),
 )
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true, showSystemUi = true, name = "Create · TagManagerScreen")
 @Composable
 private fun TagManagerScreenPreview() {
     AppTheme {
         TagManagerScreen(uiState = TagManagerUiState(tags = sampleTags))
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Create · TagManagerScreen · Empty")
+@Composable
+private fun TagManagerScreenEmptyPreview() {
+    AppTheme {
+        TagManagerScreen(uiState = TagManagerUiState(tags = emptyList()))
     }
 }

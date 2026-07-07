@@ -19,12 +19,18 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import com.novamind.app.R
+import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -239,6 +245,29 @@ fun FastScrollbar(
                     )
                 }
             }
+        }
+    }
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+// 拖杆平时隐藏（active 才淡入），故预览里叠一个可滚动长列表作为背景，拖杆命中区可见。
+
+@Preview(showBackground = true, name = "Create · 快速滚动条")
+@Composable
+private fun FastScrollbarPreview() {
+    AppTheme {
+        val listState = rememberLazyListState()
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                items(40) { i ->
+                    Text(
+                        "列表项 #${i + 1}",
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        fontSize = 16.sp,
+                    )
+                }
+            }
+            FastScrollbar(listState = listState, modifier = Modifier.align(Alignment.CenterEnd))
         }
     }
 }

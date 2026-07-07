@@ -1431,3 +1431,113 @@ private fun FolderDetailPreview() {
         )
     }
 }
+
+@Preview(showBackground = true, name = "Library · ViewModeToggle Grid")
+@Composable
+private fun ViewModeTogglePreview() {
+    AppTheme {
+        ViewModeToggle(viewMode = LibraryViewMode.GRID, onClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · ViewModeToggle List")
+@Composable
+private fun ViewModeToggleListPreview() {
+    AppTheme {
+        ViewModeToggle(viewMode = LibraryViewMode.LIST, onClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · LibraryNoteRow")
+@Composable
+private fun LibraryNoteRowPreview() {
+    AppTheme {
+        LibraryNoteRow(note = sampleNotes.first(), onClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · FoldersPage")
+@Composable
+private fun FoldersPagePreview() {
+    AppTheme {
+        FoldersPage(folders = sampleFolders, onOpenFolder = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · FolderRenameRow")
+@Composable
+private fun FolderRenameRowPreview() {
+    AppTheme {
+        FolderRenameRow(initialName = "Work", onConfirm = {}, onCancel = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · SegmentedTabBar")
+@Composable
+private fun SegmentedTabBarPreview() {
+    AppTheme {
+        SegmentedTabBar(selectedIndex = 0, indicatorFraction = 0f, onTabClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · SegmentTab")
+@Composable
+private fun SegmentTabPreview() {
+    AppTheme {
+        SegmentTab(iconRes = R.drawable.ic_history, label = "Recent", selected = true, onClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · FolderRow")
+@Composable
+private fun FolderRowPreview() {
+    AppTheme {
+        FolderRow(folder = sampleFolders.first(), onClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · FolderActionsMenu")
+@Composable
+private fun FolderActionsMenuPreview() {
+    AppTheme {
+        FolderActionsMenu(
+            expanded = true,
+            onDismiss = {},
+            onRename = {},
+            onChangeColor = {},
+            onDelete = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Library · FolderNoteRow")
+@Composable
+private fun FolderNoteRowPreview() {
+    AppTheme {
+        FolderNoteRow(note = sampleNotes.first(), onClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · TopIconButton")
+@Composable
+private fun TopIconButtonPreview() {
+    AppTheme {
+        TopIconButton(iconRes = R.drawable.ic_search, desc = "Search", shape = CircleShape)
+    }
+}
+
+@Preview(showBackground = true, name = "Library · EmptyState")
+@Composable
+private fun EmptyStatePreview() {
+    AppTheme {
+        EmptyState(onCreateNote = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · EmptyIllustration")
+@Composable
+private fun EmptyIllustrationPreview() {
+    AppTheme {
+        EmptyIllustration()
+    }
+}

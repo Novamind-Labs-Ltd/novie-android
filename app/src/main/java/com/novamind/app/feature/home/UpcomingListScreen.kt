@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
@@ -25,6 +26,7 @@ import com.novamind.app.feature.home.components.BgPage
 import com.novamind.app.feature.home.components.ColorTextTitle
 import com.novamind.app.feature.home.components.UpcomingRow
 import com.novamind.app.ui.components.BackButton
+import com.novamind.app.ui.theme.AppTheme
 
 // 配色与列表行组件在 feature/home/components 包（HomeColors / UpcomingRow）。
 
@@ -73,3 +75,21 @@ val sampleUpcoming: List<UpcomingItem> = listOf(
     UpcomingItem("u5", "Quarterly planning", "Finalize budget for product launch", R.drawable.ic_upcoming_report),
     UpcomingItem("u6", "Team offsite", "Mount Serenity logistics & agenda", R.drawable.ic_upcoming_meeting),
 )
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Upcoming 列表页")
+@Composable
+private fun UpcomingListScreenPreview() {
+    AppTheme {
+        UpcomingListScreen(items = sampleUpcoming, onBack = {})
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Upcoming 列表页（空）")
+@Composable
+private fun UpcomingListScreenEmptyPreview() {
+    AppTheme {
+        UpcomingListScreen(items = emptyList(), onBack = {})
+    }
+}

@@ -282,6 +282,8 @@ internal fun TypingIndicator() {
     }
 }
 
+// ─── Preview ───
+
 @Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · 消息气泡")
 @Composable
 private fun MessageBubblesPreview() {
@@ -299,6 +301,65 @@ private fun MessageBubblesPreview() {
             )
             AssistantText(text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。", onSpeak = {})
             UserBubble(ChatMessage(Role.User, "", listOf(Attachment(AttachType.Audio, "/tmp/a.m4a", "Voice 0:08"))))
+            TypingIndicator()
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · AudioBubble")
+@Composable
+private fun AudioBubblePreview() {
+    AppTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            AudioBubble(Attachment(AttachType.Audio, "/tmp/a.m4a", "Voice 0:08"))
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · UserBubble")
+@Composable
+private fun UserBubblePreview() {
+    AppTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            UserBubble(ChatMessage(Role.User, "帮我把这周的会议纪要整理成三条要点", emptyList()))
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · UserBubble · 带附件")
+@Composable
+private fun UserBubbleWithAttachmentPreview() {
+    AppTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            UserBubble(
+                ChatMessage(
+                    Role.User,
+                    "帮我总结一下这份文档",
+                    listOf(Attachment(AttachType.File, "/tmp/doc.pdf", "quarterly-report.pdf")),
+                ),
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · AssistantText")
+@Composable
+private fun AssistantTextPreview() {
+    AppTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            AssistantText(
+                text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。",
+                onSpeak = {},
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · TypingIndicator")
+@Composable
+private fun TypingIndicatorPreview() {
+    AppTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
             TypingIndicator()
         }
     }

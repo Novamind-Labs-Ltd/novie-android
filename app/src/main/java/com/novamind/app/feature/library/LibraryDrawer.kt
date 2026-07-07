@@ -154,3 +154,19 @@ private fun LibraryDrawerPreview() {
         )
     }
 }
+
+@Preview(showBackground = true, name = "Library · DrawerNoteItem")
+@Composable
+private fun DrawerNoteItemPreview() {
+    AppTheme {
+        DrawerNoteItem(title = "Q3 KPIs", onClick = {})
+    }
+}
+
+@Preview(showBackground = true, name = "Library · DrawerActionItem")
+@Composable
+private fun DrawerActionItemPreview() {
+    AppTheme {
+        DrawerActionItem(iconRes = R.drawable.ic_tag, label = "Tag manager", onClick = {})
+    }
+}

@@ -180,6 +180,8 @@ internal fun ScrollToBottomButton(onClick: () -> Unit) {
     }
 }
 
+// ─── Preview ───
+
 @Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · 图标按钮合集")
 @Composable
 private fun AskNovieButtonsPreview() {
@@ -197,5 +199,61 @@ private fun AskNovieButtonsPreview() {
             StopButton {}
             ScrollToBottomButton {}
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · CircleIconButton")
+@Composable
+private fun CircleIconButtonPreview() {
+    AppTheme {
+        Row(modifier = Modifier.padding(12.dp)) {
+            CircleIconButton(R.drawable.ic_arrow_back, "返回") {}
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · BareIconButton")
+@Composable
+private fun BareIconButtonPreview() {
+    AppTheme {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            BareIconButton(R.drawable.ic_history, "历史")
+            BareIconButton(R.drawable.ic_more, "更多", enabled = false)
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · SendButton")
+@Composable
+private fun SendButtonPreview() {
+    AppTheme {
+        Row(modifier = Modifier.padding(12.dp)) { SendButton {} }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · MicButton")
+@Composable
+private fun MicButtonPreview() {
+    AppTheme {
+        Row(modifier = Modifier.padding(12.dp)) { MicButton {} }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · StopButton")
+@Composable
+private fun StopButtonPreview() {
+    AppTheme {
+        Row(modifier = Modifier.padding(12.dp)) { StopButton {} }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · ScrollToBottomButton")
+@Composable
+private fun ScrollToBottomButtonPreview() {
+    AppTheme {
+        Row(modifier = Modifier.padding(12.dp)) { ScrollToBottomButton {} }
     }
 }

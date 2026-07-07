@@ -98,3 +98,11 @@ private fun MoreSheetContentPreview() {
         MoreSheetContent(onItemClick = {})
     }
 }
+
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "Home · More 菜单行")
+@Composable
+private fun MoreSheetRowPreview() {
+    AppTheme {
+        MoreSheetRow(item = HomeMenuItem.NotificationPreferences, onClick = {})
+    }
+}

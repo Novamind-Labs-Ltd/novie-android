@@ -163,3 +163,24 @@ private fun FolderPickerContentPreview() {
         }
     }
 }
+
+// FolderPickerSheet 本体依赖 ModalBottomSheet + sheetState，无法直接在 @Preview 中渲染，
+// 因此以其承载的内容（FolderPickerContent，含 sheet 圆角容器背景）进行整屏级预览。
+@Preview(showBackground = true, showSystemUi = true, name = "Create · FolderPickerSheet")
+@Composable
+private fun FolderPickerSheetPreview() {
+    var selected by remember { mutableStateOf<Folder?>(previewFolders.firstOrNull()) }
+    AppTheme {
+        Surface(color = SheetBg, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
+            FolderPickerContent(
+                folders = previewFolders,
+                selectedFolder = selected,
+                onFolderSelect = { selected = it },
+                onNewFolder = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.85f),
+            )
+        }
+    }
+}

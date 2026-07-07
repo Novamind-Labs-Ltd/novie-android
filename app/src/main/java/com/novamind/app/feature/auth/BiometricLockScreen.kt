@@ -19,12 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.theme.AppTheme
 
 // 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
 private val Bg: Color
@@ -90,5 +92,31 @@ fun BiometricLockScreen(
         TextButton(onClick = onUsePassword) {
             Text("改用账号登录", color = Accent)
         }
+    }
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, showSystemUi = true, name = "Auth · 指纹解锁（默认）")
+@Composable
+private fun BiometricLockScreenPreview() {
+    AppTheme {
+        BiometricLockScreen(isLoading = false, errorMessage = null, onUnlock = {}, onUsePassword = {})
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Auth · 指纹解锁（等待中）")
+@Composable
+private fun BiometricLockScreenLoadingPreview() {
+    AppTheme {
+        BiometricLockScreen(isLoading = true, errorMessage = null, onUnlock = {}, onUsePassword = {})
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Auth · 指纹解锁（失败）")
+@Composable
+private fun BiometricLockScreenErrorPreview() {
+    AppTheme {
+        BiometricLockScreen(isLoading = false, errorMessage = "指纹验证失败，请重试", onUnlock = {}, onUsePassword = {})
     }
 }

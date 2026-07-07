@@ -261,3 +261,14 @@ private fun CreateFolderContentPreview() {
         }
     }
 }
+
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Library · FolderColorSwatch")
+@Composable
+private fun FolderColorSwatchPreview() {
+    AppTheme {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FolderColorSwatch(color = AppConfig.Folder.COLORS.first(), selected = true, onClick = {})
+            FolderColorSwatch(color = AppConfig.Folder.COLORS.last(), selected = false, onClick = {})
+        }
+    }
+}
