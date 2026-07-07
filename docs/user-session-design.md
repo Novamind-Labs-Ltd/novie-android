@@ -122,10 +122,54 @@ AUTHENTICATED ──登出──▶ UNAUTHENTICATED（清缓存）
 
 - `registered=false`（`/me` 上游 204）：已登录但 Novie 侧未建档 → 引导完善资料（见 `user-center-design`）。
 - token 失效（`BizError.isAuthExpired`）：`refreshFromServer` 得 401 → 迁 `UNAUTHENTICATED` 并触发重登。
+- **登录/登出为两段式原子操作**（见 §六）：期间处于过渡态（`AUTHENTICATING` / `LOGGING_OUT`），只有两段都成功才最终迁 `AUTHENTICATED`；登出逆序执行后迁 `UNAUTHENTICATED`。
 
 ---
 
-## 六、读写路径
+## 六、登录 / 登出编排（两段式，原子）
+
+由 `UserSessionManager` **统一编排完整的登录与登出流程**（不再散落在 `AuthViewModel`）：
+
+- **登录 = Auth0 登录 + App 后端登录**，两段都成功才算登录成功；
+- **登出 = 先 App 后端登出，再 Auth0 登出**（逆序）。
+
+`AuthViewModel` 只调用 manager 的 `login()/logout()` 挂起函数并把结果映射到 `AuthUiState`（loading/error）。
+
+### 6.1 登录（顺序 + 原子）
+
+1. **第一段 · Auth0 登录**：Universal Login（PKCE）；成功拿到 `access_token/id_token` → 写入 `TokenProvider`（供 `AuthInterceptor` 附加 `Bearer`）。
+2. **第二段 · App 后端登录**：携 Auth0 token 调**后端登录接口**建立后端会话 / 确认建档（端点待定，如 `POST /api/v1.0/auth/login`；在专用端点就绪前可用 `/api/v1.0/me` 作为「换取后端会话」的登录探针）。
+3. **判定成功**：两段都成功 → `applyProfile()` 落档并迁 `AUTHENTICATED`；随后（或在第二段内）以 `/me` 校正 `registered/profile`。
+4. **原子回滚**（任一段失败即整体失败）：
+   - 第一段失败 → 停留 `UNAUTHENTICATED`，报 Auth0 错误。
+   - **第一段成功但第二段失败 → 回滚 Auth0**：清 `TokenProvider` + `authManager.logoutLocal()`，迁 `UNAUTHENTICATED` 并报后端错误。**杜绝「Auth0 已登录但 App 未登录」的半登录态。**
+
+```
+login():
+  Auth0 login ──fail──▶ UNAUTHENTICATED (Auth0 error)
+       │ ok（写 TokenProvider）
+       ▼
+  App backend login ──fail──▶ 回滚：清 token + Auth0 logoutLocal ──▶ UNAUTHENTICATED (backend error)
+       │ ok
+       ▼
+  applyProfile + AUTHENTICATED（/me 校正 registered/profile）
+```
+
+### 6.2 登出（逆序）
+
+1. **第一段 · App 后端登出**：先调后端登出接口作废后端会话（幂等；失败仅记录/上报，**不阻断**后续）。
+2. **第二段 · Auth0 登出**：再 `authManager.logoutLocal()`（默认）；需清 SSO 会话时用 `logoutFederated`。
+3. **清本地**：`reset()` 清 `UserSession` + MMKV + `TokenProvider`，迁 `UNAUTHENTICATED`。
+
+> 兜底原则：即便后端登出失败，也必须完成 Auth0 登出 + 本地清理，保证用户一定能退出；残留的后端会话由服务端 TTL / 黑名单回收。
+
+### 6.3 职责边界修订
+
+本节让 `UserSessionManager` 从「纯状态薄壳」扩展为「**会话生命周期编排者**」：具体 Auth0 交互仍委托 `AuthManager`、后端登录/登出/`/me` 仍走可注入的 `IdentityRepository`；manager 只负责**编排顺序 + 原子回滚 + 状态迁移 + 串行化**（重逻辑仍可测/可替身，见 §三）。并发登录/登出用互斥串行化并防重入。
+
+---
+
+## 七、读写路径
 
 **读**（展示）：
 ```
@@ -144,7 +188,7 @@ IdentityApi.me() : Response<ApiResponse<MeProfileDto>>
 
 ---
 
-## 七、与现有代码的整合
+## 八、与现有代码的整合
 
 1. **`AppUserProvider`**：**废弃并入** `UserSessionManager`（不留镜像，全局一份）。其 `currentUserKey/isGuest` 语义由 `UserSession` 派生：日历等消费方改为订阅 `UserSessionManager.session`（响应式）或读 `UserSessionManager.current`（同步）。迁移时逐个替换调用点后删除 `AppUserProvider`。
 2. **`AuthViewModel`/`AuthUiState`**：`userName/userEmail/userPicture` 不再各自持有，改从 `UserSessionManager.session` 读；认证动作回调 manager。
@@ -153,19 +197,20 @@ IdentityApi.me() : Response<ApiResponse<MeProfileDto>>
 
 ---
 
-## 八、边界情况
+## 九、边界情况
 
 游客（隐藏账号项）、`registered=false`（引导建档）、离线（用 MMKV 缓存兜底、标记 stale、可重试）、token 失效（转未登录）、多账号切换（登出必须 `reset()` 清缓存 + MMKV，避免串号）。头像统一以后端 `avatarUrl` 为准（缓存仅供离线显示）。
 
 ---
 
-## 九、落地清单
+## 十、落地清单
 
 - [x] `common/net`：`IdentityApi` + `MeProfileDto`；`NetworkModule.identityApi`。
 - [x] `common/session`：`UserProfile`/`UserSession`（含 `userKey`）/`AuthStatus` 领域模型；`IdentityRepository`（`apiCall` + 映射，可注入）；`UserSessionStore`（MMKV）；`UserSessionManager`（**`object` 薄壳 + `reset()` + 回前台节流刷新**）。
 - [x] `NovieApplication`/认证层：启动 `UserSessionManager.loadCached()`；`AuthViewModel` 接线 `onLoggedIn(email)/onGuest/onLoggedOut` + 登录后 `refreshFromServer(force=true)` 拉 `/me`；`onAppForegrounded` 节流刷新。
 - [x] 收敛：**废弃 `AppUserProvider`**（`CalendarViewModel`/`FileRecordingUploader` 改订阅/读 `UserSessionManager`，已删除 `AppUserProvider.kt`）；`AuthUiState` 移除 `userName/userEmail/userPicture`，`MainActivity` 改从 `UserSessionManager.session` 派生；`ProfileStore.setAvatar` → `setLocalAvatar`。
 - [ ] 守卫：领域模型无框架依赖；DTO 仅在网络层；UI 只见 `UserSession`/`XxxUiState`。（待编译/评审确认）
+- [ ] **两段式登录/登出编排（§六）**：`UserSessionManager` 增 `suspend login()/logout()` 统一编排 Auth0 + App 后端两段、原子回滚、逆序登出、互斥串行化；`AuthStatus` 增 `AUTHENTICATING`/`LOGGING_OUT` 过渡态；`AuthViewModel` 登录/登出改为委托 manager。**（设计目标，未实现）**
 
-> 落地状态（2026-07-07）：核心基建 + 收敛改造均已落地。`ProfileRepository`/`AuthUser`（Auth0 `/api/auth/me`）暂保留但不再被 `AuthViewModel` 调用——token 校验现由 `/api/v1.0/me`（401→`onLoggedOut`）承担；如确认不再需要可后续删除。未跑构建（沙箱无 Gradle 环境），需本地 `./gradlew compileDebugKotlin` 验证。
+> 落地状态（2026-07-07）：核心基建 + 收敛改造均已落地。当前登录实现为「Auth0 登录 → 拉 `/me`」，**尚未**做 §六 的显式 App 后端登录段、原子回滚与逆序登出——待后端登录/登出端点确定后按 §六 补齐。`ProfileRepository`/`AuthUser`（Auth0 `/api/auth/me`）暂保留但不再被 `AuthViewModel` 调用——token 校验现由 `/api/v1.0/me`（401→`onLoggedOut`）承担；如确认不再需要可后续删除。未跑构建（沙箱无 Gradle 环境），需本地 `./gradlew compileDebugKotlin` 验证。
 
