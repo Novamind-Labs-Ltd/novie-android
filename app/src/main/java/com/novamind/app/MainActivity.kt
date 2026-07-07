@@ -61,6 +61,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.novamind.app.common.session.UserSessionManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.AndroidEntryPoint
@@ -132,6 +133,8 @@ class MainActivity : FragmentActivity() {
                 // 认证状态（Auth0）：未登录时用登录页门控
                 val authViewModel: AuthViewModel = viewModel()
                 val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+                // 用户档案单一数据源：昵称/邮箱从全局会话派生（不再放在 AuthUiState）。
+                val userSession by UserSessionManager.session.collectAsStateWithLifecycle()
 
                 // 前后台监听：后台超时后回前台触发生物识别上锁
                 DisposableEffect(authViewModel) {
@@ -206,8 +209,8 @@ class MainActivity : FragmentActivity() {
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 onSwitchToLogin = { authViewModel.exitGuest() },
-                                userName = authState.userName,
-                                userEmail = authState.userEmail,
+                                userName = userSession.profile?.displayName,
+                                userEmail = userSession.profile?.email ?: userSession.userKey,
                                 isGuest = authState.isGuest,
                                 biometricAvailable = authState.biometricAvailable,
                                 biometricEnabled = authState.biometricEnabled,

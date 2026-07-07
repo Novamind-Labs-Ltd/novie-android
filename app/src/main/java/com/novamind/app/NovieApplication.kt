@@ -16,6 +16,7 @@ import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
 import com.novamind.app.common.push.PushChannels
+import com.novamind.app.common.session.UserSessionManager
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.feature.calendar.CalendarBindingStore
 import com.novamind.app.ui.theme.FontStore
@@ -58,6 +59,7 @@ class NovieApplication : Application(), ImageLoaderFactory, Configuration.Provid
         AppLog.init(this)                  // 日志管道最先起，后续初始化即可记日志
         MMKV.initialize(this)              // 键值存储
         FontStore.load()                   // 载入持久化的字体选择（须在 MMKV 之后）
+        UserSessionManager.loadCached()    // 冷启动即有：读缓存档案，UI 先渲染（须在 MMKV 之后）
 
         ApiConfig.init(this)               // API 环境选择，供 NetworkModule 读取
         SentryUtils.init(this)             // 须在 ApiConfig 之后（按环境上报）

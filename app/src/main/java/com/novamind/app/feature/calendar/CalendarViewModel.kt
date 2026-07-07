@@ -8,7 +8,7 @@ import com.novamind.app.common.google.GoogleAccount
 import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.common.google.TokenOutcome
-import com.novamind.app.common.session.AppUserProvider
+import com.novamind.app.common.session.UserSessionManager
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleAuthExpiredException
 import com.novamind.app.data.calendar.GoogleAuthRevokedException
@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -63,7 +65,12 @@ class CalendarViewModel @Inject constructor(
         // 响应式联动 App 会话：登录/登出/游客切换时重新评估，避免 VM 被保留后状态停滞
         // （如游客进过日历页后登录，仍显示「登录后使用」）。StateFlow 会立即发射当前值。
         viewModelScope.launch {
-            AppUserProvider.session.collect { refreshAuthAndLoad() }
+            // 仅对「登录身份」变化（userKey / 游客位）响应，忽略 /me 档案刷新引起的 session 变化，
+            // 保持与旧 AppSession 相同的触发语义，避免头像/昵称刷新时误触发日历重载。
+            UserSessionManager.session
+                .map { it.userKey to it.isGuest }
+                .distinctUntilChanged()
+                .collect { refreshAuthAndLoad() }
         }
     }
 
@@ -104,12 +111,12 @@ class CalendarViewModel @Inject constructor(
      */
     private fun refreshAuthAndLoad() {
         // 游客（免登录）不可用日历：拦截为「登录后使用」，不触发任何授权/拉取。
-        if (AppUserProvider.isGuest) {
+        if (UserSessionManager.current.isGuest) {
             AppLog.d(TAG) { "refreshAuthAndLoad: guest -> LOGIN_REQUIRED" }
             _uiState.update { CalendarUiState(connectionStatus = CalendarConnectionStatus.LOGIN_REQUIRED) }
             return
         }
-        val currentUser = AppUserProvider.currentUserKey
+        val currentUser = UserSessionManager.current.userKey
 
         if (bindingStore.isConnected) {
             // 软一致性：仅当**已知**当前登录用户、且与绑定不一致（确实换了账号）时才清日历。
@@ -154,7 +161,7 @@ class CalendarViewModel @Inject constructor(
                 )
             }
             if (accountName != null && acquireTokenSilently(accountName)) {
-                if (!isReconnect) bindingStore.bind(accountName, AppUserProvider.currentUserKey)
+                if (!isReconnect) bindingStore.bind(accountName, UserSessionManager.current.userKey)
                 fetchInto(date, accountName, allowSilentRetry = false)
             } else if (isReconnect) {
                 AppLog.d(TAG) { "connectSilently: reconnect needs consent -> REVOKED" }
@@ -180,7 +187,7 @@ class CalendarViewModel @Inject constructor(
      * 需要用户同意时，通过 [consentRequest] 让 Route 启动恢复意图，返回后调 [onConsentGranted] 重试。
      */
     fun connectWithCurrentAccount() {
-        val accountName = AppUserProvider.currentUserKey
+        val accountName = UserSessionManager.current.userKey
         if (accountName.isNullOrBlank()) {
             AppLog.w(TAG) { "connect: no login account email" }
             _uiState.update {
@@ -213,7 +220,7 @@ class CalendarViewModel @Inject constructor(
         when (val outcome = authSource.fetchToken(accountName)) {
             is TokenOutcome.Success -> {
                 GoogleTokenProvider.accessToken = outcome.token
-                bindingStore.bind(accountName, AppUserProvider.currentUserKey)
+                bindingStore.bind(accountName, UserSessionManager.current.userKey)
                 _uiState.update { it.copy(account = GoogleAccount(accountName)) }
                 fetchInto(_uiState.value.selectedDate, accountName, allowSilentRetry = false)
             }

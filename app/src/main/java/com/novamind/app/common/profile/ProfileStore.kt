@@ -7,7 +7,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * 个人资料存储（头像等）。头像路径持久化到 MMKV，应用重启仍在。
+ * 本地头像暂存（编辑 / 上传中转）。头像路径持久化到 MMKV，应用重启仍在。
+ *
+ * 注：全局展示的头像**以后端 `avatarUrl` 为准**（见 [com.novamind.app.common.session.UserSession]）；
+ * 本地路径仅用于换头像时的选图/裁剪中转，待后端头像写接口就绪后由服务端 URL 覆盖显示。
  */
 object ProfileStore {
 
@@ -24,7 +27,8 @@ object ProfileStore {
         _avatarPath.value = store.getString(KEY_AVATAR, null)
     }
 
-    fun setAvatar(@Suppress("UNUSED_PARAMETER") context: Context, path: String) {
+    /** 设置本地暂存头像（选图/裁剪后的中转路径），非最终展示源。 */
+    fun setLocalAvatar(@Suppress("UNUSED_PARAMETER") context: Context, path: String) {
         store.putString(KEY_AVATAR, path)
         _avatarPath.value = path
     }

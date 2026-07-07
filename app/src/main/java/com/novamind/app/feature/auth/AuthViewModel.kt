@@ -1,6 +1,5 @@
 package com.novamind.app.feature.auth
 
-import com.novamind.app.common.log.AppLog
 import android.app.Activity
 import android.app.Application
 import android.os.SystemClock
@@ -9,7 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.auth0.android.result.Credentials
 import com.novamind.app.NovieApplication
-import com.novamind.app.common.session.AppUserProvider
+import com.novamind.app.common.session.UserSessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +23,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authManager = AuthManager(app)
     private val biometricPrefs = BiometricPreferences()
-    private val profileRepository = ProfileRepository()
 
     private val _uiState = MutableStateFlow(
         AuthUiState(
@@ -48,7 +46,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val biometricGate = biometricPrefs.enabled && authManager.isBiometricAvailable()
         viewModelScope.launch {
             if (!authManager.hasValidCredentials()) {
-                setCurrentAppUser(null)
+                UserSessionManager.onLoggedOut()
                 _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false, needsBiometricUnlock = false) }
                 return@launch
             }
@@ -62,18 +60,15 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             // 无需指纹门控：静默取凭证直接登录。
             runCatching { authManager.getCredentials() }
                 .onSuccess { creds ->
-                    setCurrentAppUser(creds.emailOrNull())
                     _uiState.update {
                         it.copy(
                             isCheckingSession = false,
                             isAuthenticated = true,
                             isGuest = false,
                             needsBiometricUnlock = false,
-                            userName = creds.nameOrNull(),
-                            userEmail = creds.emailOrNull(),
                         )
                     }
-                    refreshUserFromServer()
+                    onSessionAuthenticated(creds.emailOrNull())
                 }
                 .onFailure {
                     _uiState.update { it.copy(isCheckingSession = false, isAuthenticated = false) }
@@ -88,18 +83,15 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             runCatching { authManager.getCredentials(activity, requireBiometric = true) }
                 .onSuccess { creds ->
-                    setCurrentAppUser(creds.emailOrNull())
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             isAuthenticated = true,
                             isGuest = false,
                             needsBiometricUnlock = false,
-                            userName = creds.nameOrNull(),
-                            userEmail = creds.emailOrNull(),
                         )
                     }
-                    refreshUserFromServer()
+                    onSessionAuthenticated(creds.emailOrNull())
                 }
                 .onFailure { e ->
                     // 用户取消或验证失败：留在解锁页，可重试或改用账号登录。
@@ -112,33 +104,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     fun cancelBiometricUnlock() {
         _uiState.update {
             it.copy(needsBiometricUnlock = false, isAuthenticated = false, errorMessage = null)
-        }
-    }
-
-    /**
-     * 已认证后用 /api/auth/me 校验 token 并刷新用户信息（异步、不阻塞进入应用）。
-     * 成功则用服务端 claims 覆盖本地 id_token 解析值；返回 null（非 2xx / schema mismatch /
-     * 离线）则保留本地值，不强制登出——保证离线可用。
-     */
-    private fun refreshUserFromServer() {
-        viewModelScope.launch {
-            val user = profileRepository.fetchAuthMe()
-            if (user == null) {
-                AppLog.w(TAG) { "refreshUserFromServer: /me 返回 null，保留本地用户信息" }
-                return@launch
-            }
-            AppLog.i(TAG) { "refreshUserFromServer: 刷新成功 sub=${user.sub}, name=${user.name}, " +
-                    "email=${user.email}, hasPicture=${user.picture != null}" }
-            _uiState.update {
-                if (!it.isAuthenticated) it else it.copy(
-                    userName = user.name ?: it.userName,
-                    userEmail = user.email ?: it.userEmail,
-                    userPicture = user.picture ?: it.userPicture,
-                )
-            }
-            if (_uiState.value.isAuthenticated && !_uiState.value.isGuest) {
-                setCurrentAppUser(_uiState.value.userEmail)
-            }
         }
     }
 
@@ -167,6 +132,10 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
         val state = _uiState.value
         if (!state.isAuthenticated || state.isGuest) return
+
+        // 回前台节流刷新档案：登录态下距上次成功刷新 ≥ 阈值才实际拉 /me（节流在 manager 内判定）。
+        viewModelScope.launch { UserSessionManager.refreshFromServer(force = false) }
+
         if (!(biometricPrefs.enabled && authManager.isBiometricAvailable())) return
 
         val elapsed = SystemClock.elapsedRealtime() - enteredBackgroundAt
@@ -182,28 +151,27 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         // 临时口子：不走 Auth0，点「登录/注册」直接进入应用
         if (DEV_BYPASS_AUTH) {
             _uiState.update { it.copy(isLoading = false, isAuthenticated = true, errorMessage = null) }
+            onSessionAuthenticated(email = null)
             return
         }
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
             runCatching { authManager.login(activity) }
                 .onSuccess { creds ->
+                    val email = creds.emailOrNull()
                     // 账户切换检测：本次登录用户与上次不同 → 清掉旧用户的日历绑定/缓存。
-                    if (AppUserProvider.currentUserKey != creds.emailOrNull()) {
+                    if (UserSessionManager.current.userKey != email) {
                         clearCalendarSession()
                     }
-                    setCurrentAppUser(creds.emailOrNull())
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             isAuthenticated = true,
                             isGuest = false,
                             needsBiometricUnlock = false,
-                            userName = creds.nameOrNull(),
-                            userEmail = creds.emailOrNull(),
                         )
                     }
-                    refreshUserFromServer()
+                    onSessionAuthenticated(email)
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "登录失败") }
@@ -216,15 +184,13 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         if (_uiState.value.isLoading) return
         // 先清掉可能残留的日历会话，再标记为游客（日历页将拦截显示「登录后使用」）。
         (getApplication() as NovieApplication).clearCalendarLocalSession()
-        AppUserProvider.setGuest()
+        UserSessionManager.onGuest()
         _uiState.update {
             it.copy(
                 isLoading = false,
                 isAuthenticated = true,
                 isGuest = true,
                 errorMessage = null,
-                userName = null,
-                userEmail = null,
             )
         }
     }
@@ -269,17 +235,22 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.update { it.copy(errorMessage = null) }
     }
 
-    /** 记录当前登录用户（真实账户，非游客）。供日历做账户一致性校验。 */
-    private fun setCurrentAppUser(email: String?) {
-        AppUserProvider.setUser(email)
+    /**
+     * 登录 / 续期成功统一驱动全局会话：记录登录账户 [email] 并迁 AUTHENTICATED，
+     * 随后强制拉一次 /me 校正档案（registered/profile）。
+     */
+    private fun onSessionAuthenticated(email: String?) {
+        UserSessionManager.onLoggedIn(email)
+        viewModelScope.launch { UserSessionManager.refreshFromServer(force = true) }
     }
 
     /**
-     * 清除日历本地会话并清空当前用户标记。所有登出 / 退出游客路径调用：
+     * 清除日历本地会话并清空全局用户会话。所有登出 / 退出游客路径调用：
      * 退出登录 → 清日历；不 revoke Google grant（重新登录同账号可静默恢复）。
      */
     private fun clearCalendarSession() {
-        AppUserProvider.clear()
+        // 全局会话同步登出：清缓存 + MMKV 并迁未登录（账户切换时亦清旧号缓存，随后由登录流重建）。
+        UserSessionManager.onLoggedOut()
         (getApplication() as NovieApplication).clearCalendarLocalSession()
     }
 
@@ -306,9 +277,8 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-// 从 id_token（JWT）中解析用户信息，缺失时安全降级为 null。
+// 从 id_token（JWT）中解析登录邮箱，缺失时安全降级为 null。
 // 直接解 JWT payload，避免依赖特定 SDK 版本的 Credentials.user。
-private fun Credentials.nameOrNull(): String? = idTokenClaim("name")
 private fun Credentials.emailOrNull(): String? = idTokenClaim("email")
 
 private fun Credentials.idTokenClaim(key: String): String? = runCatching {

@@ -1,7 +1,7 @@
 package com.novamind.app.feature.create.recording
 
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.session.AppUserProvider
+import com.novamind.app.common.session.UserSessionManager
 import com.novamind.app.data.FilesRepository
 import java.io.File
 
@@ -20,7 +20,7 @@ class FileRecordingUploader(
 ) : RecordingUploader {
 
     override suspend fun upload(file: RecordedFile): Result<String?> {
-        if (AppUserProvider.isGuest) {
+        if (UserSessionManager.current.isGuest) {
             return Result.failure(IllegalStateException("游客未登录，录音已暂存本地，登录后可同步"))
         }
         return filesRepository

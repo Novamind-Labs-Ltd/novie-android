@@ -45,8 +45,8 @@ fun HomeRoute(
     onFullscreenChange: (Boolean) -> Unit = {},   // 子页/抽屉打开 → 宿主隐藏底部导航
     onLogout: () -> Unit = {},                     // 退出登录（由宿主交给 AuthViewModel 处理）
     onSwitchToLogin: () -> Unit = {},              // 游客切换到登录页
-    userName: String? = null,                      // 登录用户名（来自 Auth0 id_token，游客为空）
-    userEmail: String? = null,                     // 登录邮箱（来自 Auth0 id_token，游客为空）
+    userName: String? = null,                      // 显示昵称（来自全局 UserSession.profile，游客为空）
+    userEmail: String? = null,                     // 登录邮箱（来自 UserSession.profile/userKey，游客为空）
     isGuest: Boolean = false,                      // 游客模式（无 Auth0 会话，隐藏退出登录）
     biometricAvailable: Boolean = false,           // 设备是否支持生物识别（已录入）
     biometricEnabled: Boolean = false,             // 是否已开启指纹登录
@@ -170,7 +170,7 @@ fun HomeRoute(
                 HomeOverlay.Avatar -> AvatarViewerScreen(
                     avatarPath = avatarPath,
                     onBack = { overlay = HomeOverlay.None },
-                    onAvatarPicked = { path -> ProfileStore.setAvatar(context, path) },
+                    onAvatarPicked = { path -> ProfileStore.setLocalAvatar(context, path) },
                 )
             }
         }

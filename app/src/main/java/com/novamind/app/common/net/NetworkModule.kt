@@ -58,6 +58,9 @@ object NetworkModule {
     /** 认证类型化接口（现统一走 api 域）。lazy → 切换环境下次冷启动生效。 */
     val authApi: AuthApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(AuthApi::class.java) }
 
+    /** 身份档案接口（/api/v1.0/me），走统一响应信封，供全局用户会话的档案源。 */
+    val identityApi: IdentityApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(IdentityApi::class.java) }
+
     /** 文件域（/api/v1.0/files）类型化接口，走统一响应信封。 */
     val filesApi: FilesApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(FilesApi::class.java) }
 
