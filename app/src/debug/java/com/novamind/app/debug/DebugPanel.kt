@@ -55,6 +55,8 @@ import com.novamind.app.common.update.UpdateType
 import com.novamind.app.ui.theme.AppFont
 import com.novamind.app.ui.theme.AppFonts
 import com.novamind.app.ui.theme.FontStore
+import com.novamind.app.ui.theme.ThemeMode
+import com.novamind.app.ui.theme.ThemeStore
 import com.novamind.app.common.web.WebViewActivity
 import com.novamind.app.common.web.bridge.SourceLevel
 import com.novamind.app.util.SentryUtils
@@ -213,6 +215,19 @@ fun DebugPanel(
                         }
                     },
                 )
+            }
+
+            // ── 主题（立即生效）──
+            val activeTheme by ThemeStore.mode.collectAsState()
+            Section("主题（立即生效）") {
+                InfoRow("当前主题", activeTheme.label)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeMode.entries.forEach { m ->
+                        Chip(if (m == activeTheme) "✓ ${m.label}" else m.label) {
+                            ThemeStore.select(m)
+                        }
+                    }
+                }
             }
 
             // ── 字体（立即生效）──

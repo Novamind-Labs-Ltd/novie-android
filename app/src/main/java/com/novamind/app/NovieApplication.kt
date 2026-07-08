@@ -20,6 +20,7 @@ import com.novamind.app.common.session.UserSessionManager
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.feature.calendar.CalendarBindingStore
 import com.novamind.app.ui.theme.FontStore
+import com.novamind.app.ui.theme.ThemeStore
 import com.novamind.app.util.SentryUtils
 import com.tencent.mmkv.MMKV
 import dagger.hilt.android.HiltAndroidApp
@@ -59,6 +60,7 @@ class NovieApplication : Application(), ImageLoaderFactory, Configuration.Provid
         AppLog.init(this)                  // 日志管道最先起，后续初始化即可记日志
         MMKV.initialize(this)              // 键值存储
         FontStore.load()                   // 载入持久化的字体选择（须在 MMKV 之后）
+        ThemeStore.load()                  // 载入持久化的主题模式（须在 MMKV 之后）
         UserSessionManager.loadCached()    // 冷启动即有：读缓存档案，UI 先渲染（须在 MMKV 之后）
 
         ApiConfig.init(this)               // API 环境选择，供 NetworkModule 读取

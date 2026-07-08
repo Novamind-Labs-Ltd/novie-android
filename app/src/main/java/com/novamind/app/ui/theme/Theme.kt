@@ -38,9 +38,21 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
+/** 按 [ThemeStore] 的模式解析当前是否深色：跟随系统 / 强制浅色 / 强制深色。 */
+@Composable
+fun rememberIsDarkTheme(): Boolean {
+    val mode by ThemeStore.mode.collectAsState()
+    return when (mode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+}
+
 @Composable
 fun AppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // 默认按 ThemeStore（跟随系统/浅/深）解析；预览等可显式传 darkTheme 覆盖
+    darkTheme: Boolean = rememberIsDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
