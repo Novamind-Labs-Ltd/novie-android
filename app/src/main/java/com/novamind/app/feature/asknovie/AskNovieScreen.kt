@@ -140,6 +140,7 @@ private fun mockReply(prompt: String): String {
  * @param userName 问候语显示的名字
  * @param onBack 返回上一页
  * @param onSend 发送消息回调
+ * @param initial* 仅供 @Preview 注入初始状态；生产调用用默认值（空），不影响行为
  */
 @Composable
 fun AskNovieScreen(
@@ -151,13 +152,17 @@ fun AskNovieScreen(
     onExportToNotes: () -> Unit = {},
     onDelete: () -> Unit = {},
     modifier: Modifier = Modifier,
+    initialMessages: List<ChatMessage> = emptyList(),
+    initialInput: String = "",
+    initialAttachments: List<Attachment> = emptyList(),
+    initialResponding: Boolean = false,
 ) {
-    var input by remember { mutableStateOf("") }
+    var input by remember { mutableStateOf(initialInput) }
     var isRecording by remember { mutableStateOf(false) }        // 麦克风录音状态
     var showMoreMenu by remember { mutableStateOf(false) }       // 右上角「更多」菜单
     var showHistory by remember { mutableStateOf(false) }        // 聊天历史弹窗
-    var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
-    var isResponding by remember { mutableStateOf(false) }       // 助手正在回复
+    var messages by remember { mutableStateOf(initialMessages) }
+    var isResponding by remember { mutableStateOf(initialResponding) }  // 助手正在回复
     // 当前会话 id（用于保存到会话历史）
     var sessionId by rememberSaveable {
         mutableStateOf(UUID.randomUUID().toString())
@@ -168,7 +173,7 @@ fun AskNovieScreen(
     }
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var attachments by remember { mutableStateOf(listOf<Attachment>()) }  // 待发送附件
+    var attachments by remember { mutableStateOf(initialAttachments) }   // 待发送附件
     var showAttachMenu by remember { mutableStateOf(false) }             // 「+」选择菜单
     // 全屏图片预览：当前图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
@@ -816,6 +821,18 @@ private suspend fun LazyListState.smoothScrollToBottom() {
     }
 }
 
+// ─── Preview ───
+
+/** 预览用示例对话。 */
+private val previewMessages = listOf(
+    ChatMessage(Role.User, "帮我把这次季报的要点梳理一下"),
+    ChatMessage(
+        Role.Assistant,
+        "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。要不要我拆成下一步行动项？",
+    ),
+    ChatMessage(Role.User, "顺便列个待办"),
+)
+
 @Preview(showBackground = true, heightDp = 720, name = "AskNovie · 空状态问候")
 @Composable
 private fun AskNovieScreenPreview() {
@@ -829,5 +846,46 @@ private fun AskNovieScreenPreview() {
 private fun AskNovieScreenDarkPreview() {
     AppTheme(darkTheme = true, dynamicColor = false) {
         AskNovieScreen()
+    }
+}
+
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 对话")
+@Composable
+private fun AskNovieScreenConversationPreview() {
+    AppTheme {
+        AskNovieScreen(initialMessages = previewMessages)
+    }
+}
+
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 对话 · 深色")
+@Composable
+private fun AskNovieScreenConversationDarkPreview() {
+    AppTheme(darkTheme = true, dynamicColor = false) {
+        AskNovieScreen(initialMessages = previewMessages)
+    }
+}
+
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 助手回复中")
+@Composable
+private fun AskNovieScreenRespondingPreview() {
+    AppTheme {
+        AskNovieScreen(
+            initialMessages = listOf(ChatMessage(Role.User, "帮我总结一下今天的会议")),
+            initialResponding = true,
+        )
+    }
+}
+
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 输入含文字+附件")
+@Composable
+private fun AskNovieScreenComposingPreview() {
+    AppTheme {
+        AskNovieScreen(
+            initialInput = "把这张图里的重点提取出来",
+            initialAttachments = listOf(
+                Attachment(AttachType.Image, "/preview/photo.jpg", "photo.jpg"),
+                Attachment(AttachType.File, "/preview/report.pdf", "report.pdf"),
+            ),
+        )
     }
 }
