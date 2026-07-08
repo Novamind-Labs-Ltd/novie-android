@@ -76,7 +76,6 @@ import com.novamind.app.feature.asknovie.components.AttachmentChip
 import com.novamind.app.feature.asknovie.components.BareIconButton
 import com.novamind.app.feature.asknovie.components.Bg
 import com.novamind.app.feature.asknovie.components.Card
-import com.novamind.app.feature.asknovie.components.CircleIconButton
 import com.novamind.app.feature.asknovie.components.Dark
 import com.novamind.app.feature.asknovie.components.MicButton
 import com.novamind.app.feature.asknovie.components.MoreMenu
@@ -90,6 +89,7 @@ import com.novamind.app.feature.asknovie.components.TypingIndicator
 import com.novamind.app.feature.asknovie.components.UserBubble
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
+import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.ui.components.VoiceRecordingBar
@@ -405,7 +405,7 @@ fun AskNovieScreen(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CircleIconButton(R.drawable.ic_arrow_back, "返回", onClick = onBack)
+                BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "返回")
                 Spacer(Modifier.weight(1f))
                 // 历史 + 更多 合并胶囊
                 Surface(color = Card, shape = RoundedCornerShape(50), shadowElevation = 1.dp) {

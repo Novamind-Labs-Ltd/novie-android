@@ -24,30 +24,6 @@ import androidx.compose.ui.unit.dp
 import com.novamind.app.R
 import com.novamind.app.ui.theme.AppTheme
 
-/** 圆形白底带阴影的图标按钮（顶栏返回等）。 */
-@Composable
-internal fun CircleIconButton(iconRes: Int, desc: String, onClick: () -> Unit) {
-    Surface(color = Card, shape = CircleShape, shadowElevation = 1.dp) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = desc,
-                tint = TextTitle,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-    }
-}
-
 /** 无底色圆形图标按钮（胶囊内的历史/更多/添加等）。 */
 @Composable
 internal fun BareIconButton(
@@ -191,23 +167,12 @@ private fun AskNovieButtonsPreview() {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CircleIconButton(R.drawable.ic_arrow_back, "返回") {}
             BareIconButton(R.drawable.ic_history, "历史")
             BareIconButton(R.drawable.ic_more, "更多", enabled = false)
             SendButton {}
             MicButton {}
             StopButton {}
             ScrollToBottomButton {}
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · CircleIconButton")
-@Composable
-private fun CircleIconButtonPreview() {
-    AppTheme {
-        Row(modifier = Modifier.padding(12.dp)) {
-            CircleIconButton(R.drawable.ic_arrow_back, "返回") {}
         }
     }
 }
