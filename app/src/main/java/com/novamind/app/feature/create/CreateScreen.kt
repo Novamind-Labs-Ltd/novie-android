@@ -450,7 +450,7 @@ fun CreateScreen(
                     showRecordingBar = false
                     editor.insertFile(
                         path,
-                        "Recording ${TimeUtils.formatRecordingDuration(durationSeconds)}"
+                        "Recording ${TimeUtils.formatDuration(durationSeconds)}"
                     )
                     emitContent()
                 },

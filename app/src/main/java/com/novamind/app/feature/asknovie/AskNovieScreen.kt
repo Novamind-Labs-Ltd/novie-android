@@ -52,6 +52,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.util.PermissionUtils
+import com.novamind.app.util.TimeUtils
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.ImagePreviewScreen
@@ -86,15 +88,6 @@ private val suggestions = listOf(
     "Who have I promised to follow up",
     "Summarize my notes",
 )
-
-/** 录音是否已授权。 */
-private fun hasAudioPermission(context: android.content.Context): Boolean =
-    androidx.core.content.ContextCompat.checkSelfPermission(
-        context, android.Manifest.permission.RECORD_AUDIO,
-    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-/** 秒 → m:ss。 */
-private fun formatDuration(sec: Int): String = "${sec / 60}:${(sec % 60).toString().padStart(2, '0')}"
 
 
 /** 查询 content uri 的展示文件名。 */
@@ -283,11 +276,7 @@ fun AskNovieScreen(
 
     // 确保通知权限（不阻塞录音）
     val ensureNotifPermission = {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                context, android.Manifest.permission.POST_NOTIFICATIONS,
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
+        if (PermissionUtils.needsNotificationPermission(context)) {
             notifPermission?.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -529,7 +518,7 @@ fun AskNovieScreen(
                 onConfirm = { path, dur ->
                     isRecording = false
                     // 录音作为语音消息发送
-                    sendMessage("", listOf(Attachment(AttachType.Audio, path, "Voice ${formatDuration(dur)}")))
+                    sendMessage("", listOf(Attachment(AttachType.Audio, path, "Voice ${TimeUtils.formatDuration(dur)}")))
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -645,7 +634,7 @@ fun AskNovieScreen(
                         MicButton(
                             onClick = {
                                 // 点麦克风：已授权直接录音，否则先申请权限
-                                if (hasAudioPermission(context)) {
+                                if (PermissionUtils.hasAudioPermission(context)) {
                                     keyboardController?.hide()
                                     ensureNotifPermission()
                                     isRecording = true

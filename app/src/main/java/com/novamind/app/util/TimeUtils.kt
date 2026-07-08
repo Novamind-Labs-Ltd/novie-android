@@ -95,8 +95,8 @@ object TimeUtils {
     }
 
 
-    /** 把录音秒数格式化为 m:ss，用作附件块展示名。 */
-    fun formatRecordingDuration(totalSeconds: Int): String {
+    /** 把秒数格式化为 m:ss（如 3:07），用于录音/语音时长展示。 */
+    fun formatDuration(totalSeconds: Int): String {
         val m = totalSeconds / 60
         val s = totalSeconds % 60
         return "$m:${s.toString().padStart(2, '0')}"
