@@ -191,9 +191,9 @@ internal fun UserBubble(msg: ChatMessage) {
     }
 }
 
-/** 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/翻译/语音播报）。 */
+/** 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/翻译）。 */
 @Composable
-internal fun AssistantText(text: String, onSpeak: (String) -> Unit) {
+internal fun AssistantText(text: String) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SelectionContainer {
             Text(
@@ -205,13 +205,13 @@ internal fun AssistantText(text: String, onSpeak: (String) -> Unit) {
             )
         }
         Spacer(Modifier.height(10.dp))
-        AssistantActions(text = text, onSpeak = onSpeak)
+        AssistantActions(text = text)
     }
 }
 
-/** 助手回复下方的操作行：复制 / 分享 / 翻译 / 语音播报。 */
+/** 助手回复下方的操作行：复制 / 分享 / 翻译。 */
 @Composable
-private fun AssistantActions(text: String, onSpeak: (String) -> Unit) {
+private fun AssistantActions(text: String) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -230,7 +230,6 @@ private fun AssistantActions(text: String, onSpeak: (String) -> Unit) {
             // TODO: 接入翻译服务（如 ML Kit / 翻译 API）
             Toast.makeText(context, "翻译功能即将上线", Toast.LENGTH_SHORT).show()
         }
-        ActionIcon(R.drawable.ic_volume, "语音播报") { onSpeak(text) }
     }
 }
 
@@ -299,7 +298,7 @@ private fun MessageBubblesPreview() {
                     listOf(Attachment(AttachType.File, "/tmp/doc.pdf", "quarterly-report.pdf")),
                 ),
             )
-            AssistantText(text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。", onSpeak = {})
+            AssistantText(text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。")
             UserBubble(ChatMessage(Role.User, "", listOf(Attachment(AttachType.Audio, "/tmp/a.m4a", "Voice 0:08"))))
             TypingIndicator()
         }
@@ -349,7 +348,6 @@ private fun AssistantTextPreview() {
         Column(modifier = Modifier.padding(16.dp)) {
             AssistantText(
                 text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。",
-                onSpeak = {},
             )
         }
     }
