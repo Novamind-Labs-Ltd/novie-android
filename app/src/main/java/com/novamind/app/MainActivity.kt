@@ -52,6 +52,7 @@ import com.novamind.app.feature.auth.LoginRoute
 import com.novamind.app.ui.components.AppBottomNavBar
 import com.novamind.app.ui.components.BottomNavDestination
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.ui.theme.rememberIsDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
@@ -97,7 +98,7 @@ class MainActivity : FragmentActivity() {
         // adjustNothing：键盘弹出不重排布局，光标遮挡由编辑器自行滚动
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         setContent {
-            AppTheme {
+            AppTheme(darkTheme = rememberIsDarkTheme()) {
                 var currentRoute by rememberSaveable {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }

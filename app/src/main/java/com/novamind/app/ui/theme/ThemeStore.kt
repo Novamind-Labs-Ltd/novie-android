@@ -1,5 +1,9 @@
 package com.novamind.app.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.novamind.app.common.storage.MmkvStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,5 +42,19 @@ object ThemeStore {
     fun select(mode: ThemeMode) {
         _mode.value = mode
         store.putString(KEY_THEME, mode.name)
+    }
+}
+
+/**
+ * 按 [ThemeStore] 的模式解析当前是否深色：跟随系统 / 强制浅色 / 强制深色。
+ * 供应用入口（MainActivity）传给 `AppTheme(darkTheme = ...)`；预览不用它（走 AppTheme 默认跟随系统）。
+ */
+@Composable
+fun rememberIsDarkTheme(): Boolean {
+    val mode by ThemeStore.mode.collectAsState()
+    return when (mode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 }
