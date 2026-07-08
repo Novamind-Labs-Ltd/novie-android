@@ -6,11 +6,18 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import com.mohamedrejeb.richeditor.model.RichTextState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
+
+/** 支持的内联文字样式（映射到库 [RichTextState] 的 span 切换）。 */
+enum class RichSpan { Bold, Italic }
 
 /** 编辑器内容块：文本块 or 图片块 */
 sealed interface EditorBlock {
@@ -20,12 +27,21 @@ sealed interface EditorBlock {
 /** AI「Polishing」骨架占位目标：[blockId] 文本块内 [start, end) 字符区间。 */
 data class PolishTarget(val blockId: String, val start: Int, val end: Int)
 
-/** 文本块，内含富文本状态（加粗/斜体） */
+/**
+ * 文本块，内含库 [RichTextState]（加粗/斜体/列表）。
+ * [initialHtml] 优先（保留格式），否则用 [initialText] 纯文本初始化。
+ */
 class TextBlock(
     initialText: String = "",
+    initialHtml: String? = null,
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock {
-    val rich = RichTextState(initialText)
+    val rich = RichTextState().apply {
+        when {
+            !initialHtml.isNullOrBlank() -> setHtml(initialHtml)
+            initialText.isNotEmpty() -> setText(initialText)
+        }
+    }
     val focusRequester = FocusRequester()
 }
 
@@ -94,7 +110,7 @@ class NoteEditorState {
 
     /** 正文纯文本字数（所有文本块长度合计，不含连接换行），用于字数统计与限制。 */
     val textLength: Int
-        get() = _blocks.filterIsInstance<TextBlock>().sumOf { it.rich.plainText.length }
+        get() = _blocks.filterIsInstance<TextBlock>().sumOf { it.rich.annotatedString.text.length }
 
     init {
         _blocks.add(TextBlock())
@@ -115,14 +131,14 @@ class NoteEditorState {
      */
     fun startPolish(): Boolean {
         val block = focusedBlock()
-        val sel = block?.rich?.value?.selection
+        val sel = block?.rich?.selection
         if (block != null && sel != null && !sel.collapsed) {
             polishTarget = PolishTarget(block.id, sel.min, sel.max)
             polishAll = false
             return true
         }
         // 无选区：对所有文字做骨架（前提是确有文字）
-        val hasText = _blocks.any { it is TextBlock && it.rich.plainText.isNotEmpty() }
+        val hasText = _blocks.any { it is TextBlock && it.rich.annotatedString.text.isNotEmpty() }
         if (!hasText) return false
         polishAll = true
         polishTarget = null
@@ -155,11 +171,20 @@ class NoteEditorState {
             ?: _blocks.lastOrNull { it is TextBlock } as? TextBlock
 
     fun toggle(span: RichSpan) {
-        focusedBlock()?.rich?.toggle(span)
+        val rich = focusedBlock()?.rich ?: return
+        when (span) {
+            RichSpan.Bold -> rich.toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold))
+            RichSpan.Italic -> rich.toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic))
+        }
     }
 
-    fun isActive(span: RichSpan): Boolean =
-        focusedBlock()?.rich?.isActive(span) ?: false
+    fun isActive(span: RichSpan): Boolean {
+        val style = focusedBlock()?.rich?.currentSpanStyle ?: return false
+        return when (span) {
+            RichSpan.Bold -> style.fontWeight == FontWeight.Bold
+            RichSpan.Italic -> style.fontStyle == FontStyle.Italic
+        }
+    }
 
     // ── 插入 / 删除非文本块（图片 / 文档） ──────────────────────────────────
 
@@ -188,7 +213,8 @@ class NoteEditorState {
      * [numbered] = false → 圆点「• 」；true → 数字「N. 」（按上一行数字自动递增，否则从 1 开始）。
      */
     fun insertListMarker(numbered: Boolean) {
-        focusedBlock()?.rich?.toggleLineMarker(bullet = !numbered)
+        val rich = focusedBlock()?.rich ?: return
+        if (numbered) rich.toggleOrderedList() else rich.toggleUnorderedList()
     }
 
     /** 在聚焦文本块光标处插入任意非文本块：按光标把文本拆成前后两段，中间夹入该块 */
@@ -205,16 +231,15 @@ class NoteEditorState {
             return
         }
         val index = _blocks.indexOfFirst { it.id == target.id }
-        val caret = target.rich.value.selection.start.coerceIn(0, target.rich.plainText.length)
-        val text = target.rich.plainText
+        val text = target.rich.annotatedString.text
+        val caret = target.rich.selection.start.coerceIn(0, text.length)
         val before = text.substring(0, caret)
         val after = text.substring(caret)
 
-        // 原块只保留光标前文本
-        target.rich.setPlainText(before)
-        // 光标后文本另起一个新文本块；setPlainText 把光标置于其末尾
+        // 原块只保留光标前文本（拆分按纯文本，尾段格式会重置——简化实现）
+        target.rich.setText(before)
+        // 光标后文本另起一个新文本块
         val afterBlock = TextBlock(after)
-        afterBlock.rich.setPlainText(after)
         _blocks.add(index + 1, block)
         _blocks.add(index + 2, afterBlock)
         focusedTextId = afterBlock.id
@@ -247,7 +272,7 @@ class NoteEditorState {
     /** 纯文本投影：拼接所有文本块（图片忽略），用于预览与搜索 */
     val plainText: String
         get() = _blocks.filterIsInstance<TextBlock>()
-            .map { it.rich.plainText }
+            .map { it.rich.annotatedString.text }
             .filter { it.isNotEmpty() }
             .joinToString("\n")
 
@@ -258,7 +283,9 @@ class NoteEditorState {
             _blocks.forEach { block ->
                 when (block) {
                     is TextBlock -> arr.put(
-                        JSONObject().put("type", "text").put("text", block.rich.plainText)
+                        JSONObject().put("type", "text")
+                            .put("text", block.rich.annotatedString.text)   // 纯文本：供预览/搜索/旧兼容
+                            .put("html", block.rich.toHtml())               // 富文本：保留加粗/斜体/列表
                     )
                     is ImageBlock -> arr.put(
                         JSONObject().put("type", "image").put("path", block.path)
@@ -301,8 +328,10 @@ class NoteEditorState {
         if (canReuse(parsed)) {
             parsed.forEachIndexed { i, p ->
                 val cur = _blocks[i]
-                if (p is TextBlock && cur is TextBlock && cur.rich.plainText != p.rich.plainText) {
-                    cur.rich.setPlainText(p.rich.plainText)
+                if (p is TextBlock && cur is TextBlock &&
+                    cur.rich.annotatedString.text != p.rich.annotatedString.text
+                ) {
+                    cur.rich.setHtml(p.rich.toHtml())   // 原地更新保留格式，避免撤销/重做收键盘
                 }
             }
             return
@@ -336,7 +365,10 @@ class NoteEditorState {
             (0 until arr.length()).mapNotNull { i ->
                 val obj = arr.getJSONObject(i)
                 when (obj.optString("type")) {
-                    "text" -> TextBlock(obj.optString("text"))
+                    "text" -> TextBlock(
+                        initialText = obj.optString("text"),
+                        initialHtml = obj.optString("html").ifBlank { null },
+                    )
                     "image" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
                         ImageBlock(it, obj.optInt("width", 0), obj.optInt("height", 0))
                     }
@@ -374,7 +406,7 @@ class NoteEditorState {
             val b = _blocks[i + 1]
             if (a is TextBlock && b is TextBlock) {
                 val merged = TextBlock(
-                    initialText = listOf(a.rich.plainText, b.rich.plainText)
+                    initialText = listOf(a.rich.annotatedString.text, b.rich.annotatedString.text)
                         .filter { it.isNotEmpty() }
                         .joinToString("\n")
                 )

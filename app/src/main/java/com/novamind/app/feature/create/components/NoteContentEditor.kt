@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
+import com.mohamedrejeb.richeditor.ui.BasicRichTextEditor
 import com.mikepenz.markdown.m3.Markdown
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.pdf.PdfRenderSession
@@ -119,7 +121,7 @@ fun NoteContentEditor(
     }
 
     val singleEmpty = state.blocks.size == 1 &&
-        (state.blocks.first() as? TextBlock)?.rich?.plainText?.isEmpty() == true
+        (state.blocks.first() as? TextBlock)?.rich?.annotatedString?.text?.isEmpty() == true
 
     // 懒加载正文：只渲染可见(及邻近)块，离屏块不渲染/不解码图片/不渲 PDF/MD。
     Box(modifier = modifier.fillMaxSize()) {
@@ -148,11 +150,11 @@ fun NoteContentEditor(
                     revealMarginPx = revealMarginPx,
                     onRegisterReveal = { revealFocused = it },
                     // 本块可输入上限 = 正文上限 − 其他文本块已用字数
-                    maxBlockLen = (bodyCharLimit - (state.textLength - block.rich.plainText.length))
+                    maxBlockLen = (bodyCharLimit - (state.textLength - block.rich.annotatedString.text.length))
                         .coerceAtLeast(0),
                     polishRange = when {
                         // 全部文字模式：每个文本块都整段做骨架
-                        state.polishAll -> 0 until block.rich.value.text.length
+                        state.polishAll -> 0 until block.rich.annotatedString.text.length
                         // 选区模式：仅命中的文本块按选区做骨架
                         state.polishTarget?.blockId == block.id ->
                             state.polishTarget!!.start until state.polishTarget!!.end
@@ -271,11 +273,11 @@ private fun TextBlockField(
         val field = fieldCoords ?: return
         val layout = latestLayout ?: return
         if (!content.isAttached || !field.isAttached) return
-        val value = block.rich.value
-        // 用 layout 自身的字符数兜底：拒绝超限输入后 value 可能比已测量的 layout 长，
-        // 直接用 value 长度会让 getCursorRect/getLineForOffset 越界崩溃。
-        val maxOffset = minOf(value.text.length, layout.layoutInput.text.length)
-        val offset = value.selection.end.coerceIn(0, maxOffset)
+        val textLen = block.rich.annotatedString.text.length
+        // 用 layout 自身的字符数兜底：value 可能比已测量的 layout 长，
+        // 直接用文本长度会让 getCursorRect/getLineForOffset 越界崩溃。
+        val maxOffset = minOf(textLen, layout.layoutInput.text.length)
+        val offset = block.rich.selection.end.coerceIn(0, maxOffset)
         val line = layout.getLineForOffset(offset)
         if (respectLineGate && line == lastCursorLine) return
         lastCursorLine = line
@@ -307,16 +309,19 @@ private fun TextBlockField(
         }
     }
 
-    BasicTextField(
-        value = block.rich.value,
-        onValueChange = {
-            // 超过本块可输入上限的「增长型」变更直接拒绝（减少长度的编辑仍允许）
-            if (it.text.length <= maxBlockLen || it.text.length <= block.rich.value.text.length) {
-                block.rich.onValueChange(it)
-                onChanged()
+    // 库 RichTextState 自行管理输入，用 snapshotFlow 观察文本变化以触发保存（跳过首帧）
+    LaunchedEffect(block) {
+        var first = true
+        snapshotFlow { block.rich.annotatedString }
+            .collect {
+                if (first) first = false else onChanged()
             }
-        },
+    }
+
+    BasicRichTextEditor(
+        state = block.rich,
         readOnly = readOnly,   // 录音期间只读：不可输入、点击不弹软键盘
+        maxLength = maxBlockLen,   // 超过本块上限的输入被库忽略
         modifier = Modifier
             .fillMaxWidth()
             .onGloballyPositioned { fieldCoords = it }
@@ -365,7 +370,7 @@ private fun TextBlockField(
             if (isFocused) revealCursor(respectLineGate = true)
         },
         decorationBox = { inner ->
-            if (showPlaceholder && block.rich.value.text.isEmpty()) {
+            if (showPlaceholder && block.rich.annotatedString.text.isEmpty()) {
                 Text("Type here...", fontSize = 16.sp, color = TextColors.Primary.tertiary.current())
             }
             inner()
