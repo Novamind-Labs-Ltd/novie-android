@@ -40,12 +40,17 @@ import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import androidx.compose.material3.Text
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
-// 选区骨架扫光条配色（不透明，盖住原文字）；取值集中在 AppConfig.Polish
+// 选区骨架扫光条配色（不透明，盖住原文字）
 private val PolishBarBase = Color(AppConfig.Polish.BAR_BASE)
 private val PolishBarHighlight = Color(AppConfig.Polish.BAR_HIGHLIGHT)
 
+/**
+ * 单个文本块的可编辑富文本框（库 [BasicRichTextEditor]）。除编辑外还负责：
+ * 光标随键盘/工具栏遮挡自动滚入可见区、AI 骨架扫光占位、空块占位符、字数上限。
+ */
 @Composable
 internal fun TextBlockField(
     block: TextBlock,
@@ -74,20 +79,19 @@ internal fun TextBlockField(
         animationSpec = infiniteRepeatable(animation = tween(1300, easing = LinearEasing)),
         label = "polishProgress",
     )
-    // 上一次光标所在的视觉行号；仅当行号变化（换行/折行/上移）时才考虑滚动，
-    // 同一行内连续打字行号不变 → 不滚动。
+    // 上次光标视觉行号；同一行连续打字不滚动，仅行号变化时才评估
     var lastCursorLine by remember { mutableStateOf(-1) }
 
-    // 把光标滚到可见区。respectLineGate=true 时仅在「光标视觉行变化」才滚（打字/换行场景）；
-    // false 时无条件评估（键盘弹出场景，行号没变但被键盘盖住，也要滚）。
+    // 把光标滚到可见区。respectLineGate=true 仅在行号变化时滚（打字/换行）；
+    // false 无条件评估（键盘弹出：行号没变但被键盘盖住也要滚）。
     fun revealCursor(respectLineGate: Boolean) {
         val content = contentCoordsProvider() ?: return
         val field = fieldCoords ?: return
         val layout = latestLayout ?: return
         if (!content.isAttached || !field.isAttached) return
-        val textLen = block.rich.annotatedString.text.length
-        // 用 layout 自身的字符数兜底：value 可能比已测量的 layout 长，
+        // 以已测量 layout 的字符数兜底：文本可能比 layout 更长，
         // 直接用文本长度会让 getCursorRect/getLineForOffset 越界崩溃。
+        val textLen = block.rich.annotatedString.text.length
         val maxOffset = minOf(textLen, layout.layoutInput.text.length)
         val offset = block.rich.selection.end.coerceIn(0, maxOffset)
         val line = layout.getLineForOffset(offset)
@@ -105,10 +109,8 @@ internal fun TextBlockField(
             if (cover == Float.MAX_VALUE) viewport.toFloat()
             else content.windowToLocal(Offset(0f, cover)).y
         val visibleBottom = coverTopLocal.coerceAtMost(viewport.toFloat()) - revealMarginPx
-        // 注意：revealCursor 可能在 onTextLayout（测量/布局阶段）被调用，
-        // 此时不能同步触发滚动——LazyListState 的滚动会强制重新测量，导致
-        // "performMeasureAndLayout called during measure layout" 崩溃。
-        // 因此用协程把滚动推迟到当前布局帧之外执行（scrollBy 为即时非动画滚动）。
+        // 滚动放协程里推迟到布局帧之外：revealCursor 可能在 onTextLayout（测量阶段）
+        // 被调用，同步 scrollBy 会触发重测量而崩溃（performMeasureAndLayout during layout）。
         val delta = when {
             // 光标底被键盘/工具栏遮住 → 上滚恰好露出
             cursorBottomViewportY > visibleBottom -> cursorBottomViewportY - visibleBottom
@@ -121,13 +123,11 @@ internal fun TextBlockField(
         }
     }
 
-    // 库 RichTextState 自行管理输入，用 snapshotFlow 观察文本变化以触发保存（跳过首帧）
+    // 库 RichTextState 自行管理输入，用 snapshotFlow 观察文本变化触发保存（drop(1) 跳过首帧初值）
     LaunchedEffect(block) {
-        var first = true
         snapshotFlow { block.rich.annotatedString }
-            .collect {
-                if (first) first = false else onChanged()
-            }
+            .drop(1)
+            .collect { onChanged() }
     }
 
     BasicRichTextEditor(
@@ -147,13 +147,13 @@ internal fun TextBlockField(
                 }
             }
             .padding(horizontal = 20.dp, vertical = 6.dp)
-            // 选区骨架占位：drawWithContent 在 padding 之后，坐标系与文本布局一致
+            // 骨架扫光叠在 padding 之后，坐标系与文本布局一致
             .drawWithContent {
                 drawContent()
                 val layout = latestLayout
                 val range = polishRange
                 if (layout != null && range != null && !range.isEmpty()) {
-                    // 以已测量的 layout 字符数为界，避免与（可能更新更快的）value 不同步导致越界
+                    // 以已测量 layout 的字符数为界，防止与更新更快的文本不同步而越界
                     val textLen = layout.layoutInput.text.length
                     val start = range.first.coerceIn(0, textLen)
                     val end = (range.last + 1).coerceIn(0, textLen)
@@ -192,13 +192,32 @@ internal fun TextBlockField(
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, name = "Create · TextBlockField")
+@Preview(showBackground = true, name = "Create · TextBlockField（有内容）")
 @Composable
 private fun TextBlockFieldPreview() {
     AppTheme {
         TextBlockField(
-            block = TextBlock(initialText = "示例正文"),
+            block = TextBlock(initialText = "示例正文：随手记一笔。"),
             showPlaceholder = false,
+            readOnly = false,
+            onFocused = {},
+            onChanged = {},
+            lazyListState = rememberLazyListState(),
+            contentCoordsProvider = { null },
+            coverTopProvider = { Float.MAX_VALUE },
+            revealMarginPx = 0f,
+            onRegisterReveal = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Create · TextBlockField（空 + 占位符）")
+@Composable
+private fun TextBlockFieldEmptyPreview() {
+    AppTheme {
+        TextBlockField(
+            block = TextBlock(),
+            showPlaceholder = true,
             readOnly = false,
             onFocused = {},
             onChanged = {},
