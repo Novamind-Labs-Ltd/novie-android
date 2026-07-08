@@ -34,11 +34,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.feature.create.components.BorderColorSheet
 import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
@@ -63,61 +58,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-
-// ─── Route ────────────────────────────────────────────────────────────────────
-
-@Composable
-fun CreateRoute(
-    onBack: () -> Unit = {},
-    noteId: String? = null,           // 非 null 时加载已有笔记
-    onFullscreenChange: (Boolean) -> Unit = {},  // 全屏页（图片预览）显隐 → 宿主隐藏底部导航
-    maxImages: Int = AppConfig.Media.MAX_IMAGE_PICK,  // 一次最多可选图片数
-    readOnly: Boolean = false,        // 回收站只读态：仅查看，不可编辑；顶栏显示 Restore / Delete
-    onRestore: () -> Unit = {},       // 只读态「Restore」：由回收站宿主处理（恢复笔记）
-    onDeleteForever: () -> Unit = {}, // 只读态「Delete」：由回收站宿主处理（彻底删除）
-    modifier: Modifier = Modifier,
-    viewModel: CreateViewModel = viewModel(),
-) {
-    // 进入页面时：有 noteId 则加载已有笔记，否则新建
-    LaunchedEffect(noteId) {
-        if (noteId != null) viewModel.loadNote(noteId)
-        else viewModel.reset()
-    }
-    // 收一次性导航事件
-    LaunchedEffect(Unit) {
-        viewModel.navigateBack.collect { onBack() }
-    }
-
-    // 生命周期兜底：退后台(ON_STOP)或离开本页(onDispose)时立即落盘，
-    // 让自动保存的防抖/封顶可以放心拉长而不丢数据。
-    // 只读态（回收站查看）不落盘——不应改动已删除的笔记。
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, readOnly) {
-        if (readOnly) return@DisposableEffect onDispose { }
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) viewModel.flush()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            viewModel.flush()
-        }
-    }
-
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    CreateScreen(
-        uiState = uiState,
-        onEvent = viewModel::onEvent,
-        onBack = onBack,
-        autoFocusBody = noteId == null && !readOnly,   // 新建笔记自动聚焦正文并弹出键盘；只读态不聚焦
-        onFullscreenChange = onFullscreenChange,
-        maxImages = maxImages,
-        readOnly = readOnly,
-        onRestore = onRestore,
-        onDeleteForever = onDeleteForever,
-        modifier = modifier,
-    )
-}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
