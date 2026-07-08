@@ -1,4 +1,5 @@
 package com.novamind.app.feature.create
+
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
@@ -422,10 +423,15 @@ fun CreateScreen(
         }
 
         // ── 字数计数：右下角「当前/上限」，达上限标红；只读态不展示 ──
+        // 低于展示阈值显示实际字数；达到/超过阈值则统一显示为上限（避免临近上限时数字频繁跳动）。
         if (!showRecordingBar && !readOnly) {
             val toolbarShown = (imeVisible || forceToolbarVisible)
+            val displayCount =
+                if (totalChars < AppConfig.Editor.COUNT_DISPLAY_THRESHOLD) "$totalChars" else {
+                    "剩余可输入 $maxInputChars-$totalChars "
+                }
             Text(
-                text = "$totalChars / $maxInputChars",
+                text = displayCount,
                 fontSize = 11.sp,
                 color = if (totalChars >= maxInputChars) IconColors.Error.default.current() else TextColors.Primary.tertiary.current(),
                 modifier = Modifier
@@ -442,7 +448,10 @@ fun CreateScreen(
                 onCancel = { showRecordingBar = false },
                 onConfirm = { path, durationSeconds ->
                     showRecordingBar = false
-                    editor.insertFile(path, "Recording ${TimeUtils.formatRecordingDuration(durationSeconds)}")
+                    editor.insertFile(
+                        path,
+                        "Recording ${TimeUtils.formatRecordingDuration(durationSeconds)}"
+                    )
                     emitContent()
                 },
                 modifier = Modifier.align(Alignment.BottomCenter),

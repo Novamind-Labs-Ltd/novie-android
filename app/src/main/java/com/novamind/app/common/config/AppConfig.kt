@@ -49,6 +49,9 @@ object AppConfig {
 
         /** 单条笔记最大可输入字数（标题 + 正文合计）。 */
         const val MAX_INPUT_CHARS = 50000
+
+        /** 字数计数展示阈值：低于此值显示实际字数，达到/超过则统一显示为上限 [MAX_INPUT_CHARS]。 */
+        const val COUNT_DISPLAY_THRESHOLD = 40000
     }
 
     /** 网络超时（秒）。 */
