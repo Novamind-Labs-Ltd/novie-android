@@ -627,8 +627,8 @@ fun LibraryRoute(
                 gesturesEnabled = onBack == null,
                 drawerContent = {
                     LibraryDrawer(
-                        notes = uiState.notes,
-                        onOpenNote = { id -> closeDrawerThen { onOpenNote(id) } },
+                        folders = uiState.folders,
+                        onOpenFolder = { name -> closeDrawerThen { selectedFolder = name } },
                         onOpenTagManager = { closeDrawerThen(onOpenTagManager) },
                         onOpenSharedWithMe = { closeDrawerThen(onOpenSharedWithMe) },
                         onOpenRecycleBin = { closeDrawerThen(onOpenRecycleBin) },
