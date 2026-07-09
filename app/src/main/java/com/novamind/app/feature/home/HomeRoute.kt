@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.novamind.app.BuildConfig
 import com.novamind.app.common.notifications.NotificationListScreen
 import com.novamind.app.common.notifications.sampleNotifications
 import com.novamind.app.common.notifications.unreadCount
@@ -35,7 +36,7 @@ import com.novamind.app.ui.components.DeleteConfirmSheet
 import kotlinx.coroutines.launch
 
 /** Home 下的子页面 */
-private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Avatar }
+private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Avatar, About }
 
 @Composable
 fun HomeRoute(
@@ -140,9 +141,10 @@ fun HomeRoute(
                     onNoteClick = onNoteClick,
                     onNotificationsClick = { overlay = HomeOverlay.Notifications },
                     onMenuAction = { item ->
-                        // 「更多」底部菜单动作：目前仅 Permissions 有对应页面，其余暂为占位
+                        // 「更多」底部菜单动作：Permissions / About 有对应页面，其余暂为占位
                         when (item) {
                             HomeMenuItem.Permissions -> overlay = HomeOverlay.Permissions
+                            HomeMenuItem.AboutMyNovie -> overlay = HomeOverlay.About
                             else -> Unit
                         }
                     },
@@ -171,6 +173,12 @@ fun HomeRoute(
                     avatarPath = avatarPath,
                     onBack = { overlay = HomeOverlay.None },
                     onAvatarPicked = { path -> ProfileStore.setLocalAvatar(context, path) },
+                )
+
+                HomeOverlay.About -> AboutMyNovieScreen(
+                    versionName = BuildConfig.VERSION_NAME,
+                    versionCode = BuildConfig.VERSION_CODE,
+                    onBack = { overlay = HomeOverlay.None },
                 )
             }
         }
