@@ -58,7 +58,7 @@ class ApiTestViewModel : ViewModel() {
                         isLoading = false,
                         items = items,
                         rawPreview = body.take(800),
-                        errorMessage = if (items.isEmpty()) "解析到 0 条数据（可查看原始响应）" else null,
+                        errorMessage = if (items.isEmpty()) "Parsed 0 items (see raw response)" else null,
                         hasLoaded = true,
                     )
                 }

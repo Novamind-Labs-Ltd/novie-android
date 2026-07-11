@@ -20,11 +20,11 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 enum class AppFont(val label: String) {
     GOOGLE_SANS_FLEX("Google Sans Flex"),
-    SYSTEM("系统默认"),
+    SYSTEM("System default"),
     SANS("Sans"),
     SERIF("Serif"),
-    MONO("等宽"),
-    CURSIVE("手写"),
+    MONO("Monospace"),
+    CURSIVE("Handwriting"),
 }
 
 /**

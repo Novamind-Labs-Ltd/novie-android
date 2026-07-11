@@ -105,7 +105,7 @@ internal fun TagEditRow(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · 行内编辑")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · Inline Edit")
 @Composable
 private fun TagEditRowPreview() {
     AppTheme {

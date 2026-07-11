@@ -38,7 +38,7 @@ internal fun ChatRow(title: String, onClick: () -> Unit) {
     )
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · 会话行")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · Chat row")
 @Composable
 private fun ChatRowPreview() {
     AppTheme {

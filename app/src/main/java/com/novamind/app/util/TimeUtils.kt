@@ -66,10 +66,10 @@ object TimeUtils {
         val hour = TimeUnit.MILLISECONDS.toHours(diff)
         val day = TimeUnit.MILLISECONDS.toDays(diff)
         return when {
-            min < 1 -> "刚刚"
-            min < 60 -> "${min}分钟前"
-            hour < 24 -> "${hour}小时前"
-            day < 30 -> "${day}天前"
+            min < 1 -> "Just now"
+            min < 60 -> "${min} min ago"
+            hour < 24 -> "${hour} h ago"
+            day < 30 -> "${day} d ago"
             else -> format(ms, "yyyy-MM-dd")
         }
     }

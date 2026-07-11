@@ -42,7 +42,7 @@ internal fun TopIconButton(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · 顶栏按钮")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · Top Bar Button")
 @Composable
 private fun TopIconButtonPreview() {
     AppTheme {

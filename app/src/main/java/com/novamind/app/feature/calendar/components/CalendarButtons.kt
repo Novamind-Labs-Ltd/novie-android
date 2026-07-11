@@ -46,7 +46,7 @@ internal fun NavArrow(left: Boolean, onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, name = "Calendar · 图标按钮")
+@Preview(showBackground = true, name = "Calendar · Icon button")
 @Composable
 private fun CalendarButtonsPreview() {
     AppTheme {

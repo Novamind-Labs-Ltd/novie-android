@@ -60,12 +60,12 @@ class ImageUploadViewModel : ViewModel() {
         if (state.isUploading) return
         val bytes = pendingBytes
         if (bytes == null || state.pickedName.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "请先选择一张图片") }
+            _uiState.update { it.copy(errorMessage = "Please select an image first") }
             return
         }
         val url = state.url.trim()
         if (url.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "请填写上传地址") }
+            _uiState.update { it.copy(errorMessage = "Please enter an upload URL") }
             return
         }
         val field = state.fieldName.ifBlank { ImageUploadUiState.DEFAULT_FIELD }

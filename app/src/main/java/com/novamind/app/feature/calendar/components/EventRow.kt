@@ -68,7 +68,7 @@ internal fun EventRow(event: CalendarEvent) {
     }
 }
 
-@Preview(showBackground = true, name = "Calendar · 活动行")
+@Preview(showBackground = true, name = "Calendar · Event row")
 @Composable
 private fun EventRowPreview() {
     val day = LocalDate.now()

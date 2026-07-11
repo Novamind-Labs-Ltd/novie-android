@@ -133,8 +133,8 @@ internal fun PdfBlockView(
 
                 val s = session
                 when {
-                    loading -> Text("正在渲染 PDF…", fontSize = 13.sp, color = TextColors.Primary.tertiary.current())
-                    s == null -> Text("无法渲染该 PDF", fontSize = 13.sp, color = TextColors.Primary.tertiary.current())
+                    loading -> Text("Rendering PDF…", fontSize = 13.sp, color = TextColors.Primary.tertiary.current())
+                    s == null -> Text("Unable to render this PDF", fontSize = 13.sp, color = TextColors.Primary.tertiary.current())
                     else -> {
                         // 内联阅读器：宽度撑满，高度按首页宽高比，封顶屏幕 70%
                         val maxH = (LocalConfiguration.current.screenHeightDp * 0.7f).dp
@@ -170,7 +170,7 @@ internal fun PdfBlockView(
                                 ) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_fullscreen),
-                                        contentDescription = "全屏阅读",
+                                        contentDescription = "Fullscreen reading",
                                         tint = Color.White,
                                         modifier = Modifier.size(18.dp),
                                     )
@@ -179,7 +179,7 @@ internal fun PdfBlockView(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "共 $pageCount 页 · 左右翻页 · 捏合/双击缩放 · 右上角全屏",
+                            "$pageCount pages total · swipe to turn pages · pinch/double-tap to zoom · top-right for fullscreen",
                             fontSize = 11.sp,
                             color = TextColors.Primary.tertiary.current(),
                         )

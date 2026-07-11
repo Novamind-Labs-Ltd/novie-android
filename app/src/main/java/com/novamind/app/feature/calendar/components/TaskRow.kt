@@ -119,7 +119,7 @@ private fun TaskRowContent(task: CalendarTask, onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, name = "Calendar · 任务行")
+@Preview(showBackground = true, name = "Calendar · Task row")
 @Composable
 private fun TaskRowPreview() {
     val day = LocalDate.now()

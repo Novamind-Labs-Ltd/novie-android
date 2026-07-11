@@ -78,7 +78,7 @@ val sampleUpcoming: List<UpcomingItem> = listOf(
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, showSystemUi = true, name = "Home · Upcoming 列表页")
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Upcoming List Screen")
 @Composable
 private fun UpcomingListScreenPreview() {
     AppTheme {
@@ -86,7 +86,7 @@ private fun UpcomingListScreenPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Home · Upcoming 列表页（空）")
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Upcoming List Screen (Empty)")
 @Composable
 private fun UpcomingListScreenEmptyPreview() {
     AppTheme {

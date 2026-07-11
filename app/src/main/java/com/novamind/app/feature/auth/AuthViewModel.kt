@@ -95,7 +95,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 .onFailure { e ->
                     // 用户取消或验证失败：留在解锁页，可重试或改用账号登录。
-                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "指纹验证失败") }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "Biometric verification failed") }
                 }
         }
     }
@@ -174,7 +174,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     onSessionAuthenticated(email)
                 }
                 .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "登录失败") }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "Sign-in failed") }
                 }
         }
     }
@@ -220,7 +220,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "登出失败") }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "Sign-out failed") }
                 }
         }
     }

@@ -91,7 +91,7 @@ private fun MoreSheetRow(item: HomeMenuItem, onClick: () -> Unit) {
 }
 
 // ModalBottomSheet 为窗口层，静态预览不渲染；预览内容层。
-@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "Home · More 菜单内容")
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "Home · More Menu Content")
 @Composable
 private fun MoreSheetContentPreview() {
     AppTheme {
@@ -99,7 +99,7 @@ private fun MoreSheetContentPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "Home · More 菜单行")
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "Home · More Menu Row")
 @Composable
 private fun MoreSheetRowPreview() {
     AppTheme {

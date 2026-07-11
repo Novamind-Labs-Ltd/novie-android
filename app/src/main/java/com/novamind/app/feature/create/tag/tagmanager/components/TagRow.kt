@@ -120,7 +120,7 @@ internal fun TagRow(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · 标签行")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · Tag Row")
 @Composable
 private fun TagRowPreview() {
     AppTheme {

@@ -99,7 +99,7 @@ private fun ChangeFolderColorContent(currentHex: String?, onPick: (String?) -> U
     }
 }
 
-@Preview(showBackground = true, name = "Library · ChangeFolderColor 内容")
+@Preview(showBackground = true, name = "Library · ChangeFolderColor Content")
 @Composable
 private fun ChangeFolderColorContentPreview() {
     AppTheme {

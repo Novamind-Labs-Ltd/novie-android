@@ -192,12 +192,12 @@ internal fun TextBlockField(
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, name = "Create · TextBlockField（有内容）")
+@Preview(showBackground = true, name = "Create · TextBlockField (With Content)")
 @Composable
 private fun TextBlockFieldPreview() {
     AppTheme {
         TextBlockField(
-            block = TextBlock(initialText = "示例正文：随手记一笔。"),
+            block = TextBlock(initialText = "Sample text: jot down a quick note."),
             showPlaceholder = false,
             readOnly = false,
             onFocused = {},
@@ -211,7 +211,7 @@ private fun TextBlockFieldPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Create · TextBlockField（空 + 占位符）")
+@Preview(showBackground = true, name = "Create · TextBlockField (Empty + Placeholder)")
 @Composable
 private fun TextBlockFieldEmptyPreview() {
     AppTheme {

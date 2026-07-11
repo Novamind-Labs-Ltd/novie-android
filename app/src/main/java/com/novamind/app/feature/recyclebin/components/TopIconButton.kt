@@ -45,7 +45,7 @@ internal fun TopIconButton(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF4F2EC, name = "RecycleBin · 顶栏按钮")
+@Preview(showBackground = true, backgroundColor = 0xFFF4F2EC, name = "RecycleBin · Top Bar Button")
 @Composable
 private fun TopIconButtonPreview() {
     AppTheme {

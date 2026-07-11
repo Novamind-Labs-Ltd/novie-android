@@ -62,7 +62,7 @@ internal fun UpcomingCard(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · Upcoming 卡片")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · Upcoming Card")
 @Composable
 private fun UpcomingCardPreview() {
     AppTheme {

@@ -70,7 +70,7 @@ internal fun SendButton(onClick: () -> Unit) {
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_arrow_up),
-            contentDescription = "发送",
+            contentDescription = "Send",
             tint = OnSendGreen,
             modifier = Modifier.size(22.dp),
         )
@@ -94,7 +94,7 @@ internal fun MicButton(onClick: () -> Unit) {
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_mic),
-            contentDescription = "语音",
+            contentDescription = "Voice",
             tint = OnDark,
             modifier = Modifier.size(20.dp),
         )
@@ -148,7 +148,7 @@ internal fun ScrollToBottomButton(onClick: () -> Unit) {
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_down),
-                contentDescription = "滚到最新",
+                contentDescription = "Scroll to latest",
                 tint = TextTitle,
                 modifier = Modifier.size(20.dp),
             )
@@ -158,7 +158,7 @@ internal fun ScrollToBottomButton(onClick: () -> Unit) {
 
 // ─── Preview ───
 
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · 图标按钮合集")
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · Icon Button Collection")
 @Composable
 private fun AskNovieButtonsPreview() {
     AppTheme {
@@ -167,8 +167,8 @@ private fun AskNovieButtonsPreview() {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BareIconButton(R.drawable.ic_history, "历史")
-            BareIconButton(R.drawable.ic_more, "更多", enabled = false)
+            BareIconButton(R.drawable.ic_history, "History")
+            BareIconButton(R.drawable.ic_more, "More", enabled = false)
             SendButton {}
             MicButton {}
             StopButton {}
@@ -185,8 +185,8 @@ private fun BareIconButtonPreview() {
             modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            BareIconButton(R.drawable.ic_history, "历史")
-            BareIconButton(R.drawable.ic_more, "更多", enabled = false)
+            BareIconButton(R.drawable.ic_history, "History")
+            BareIconButton(R.drawable.ic_more, "More", enabled = false)
         }
     }
 }

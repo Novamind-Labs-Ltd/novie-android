@@ -57,7 +57,7 @@ internal fun UpcomingRow(item: UpcomingItem) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · Upcoming 列表行")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · Upcoming List Row")
 @Composable
 private fun UpcomingRowPreview() {
     AppTheme {

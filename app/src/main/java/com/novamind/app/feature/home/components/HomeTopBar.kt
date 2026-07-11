@@ -137,7 +137,7 @@ internal fun HomeTopBar(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · 顶栏（带角标）")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · Top Bar (With Badge)")
 @Composable
 private fun HomeTopBarPreview() {
     AppTheme {

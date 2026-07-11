@@ -192,7 +192,7 @@ fun WebViewScreen(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title.ifEmpty { "加载中…" },
+                    text = title.ifEmpty { "Loading…" },
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextTitle,
@@ -226,8 +226,8 @@ fun WebViewScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("网页已崩溃", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextTitle)
-                Text("渲染进程异常退出", fontSize = 13.sp, color = TextSub)
+                Text("Page crashed", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+                Text("The renderer process exited unexpectedly", fontSize = 13.sp, color = TextSub)
                 BarButton(R.drawable.ic_refresh, "Reload") {
                     renderGone = false
                     reloadKey++

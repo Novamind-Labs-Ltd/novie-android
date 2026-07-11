@@ -89,7 +89,7 @@ fun ImageUploadRoute(
                     if (idx >= 0 && c.moveToFirst()) name = c.getString(idx) ?: name
                 }
                 val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: error("无法读取图片内容")
+                    ?: error("Unable to read image content")
                 Triple(name, mime, bytes)
             }
         }.onSuccess { (name, mime, bytes) ->
@@ -129,7 +129,7 @@ fun ImageUploadScreen(
         containerColor = Bg,
         topBar = {
             TopAppBar(
-                title = { Text("图片上传测试", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Image Upload Test", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Text("←", fontSize = 22.sp, color = TextMain)
@@ -149,7 +149,7 @@ fun ImageUploadScreen(
             OutlinedTextField(
                 value = uiState.url,
                 onValueChange = { onEvent(ImageUploadEvent.UpdateUrl(it)) },
-                label = { Text("上传地址") },
+                label = { Text("Upload URL") },
                 singleLine = true,
                 enabled = !uiState.isUploading,
                 modifier = Modifier.fillMaxWidth(),
@@ -157,7 +157,7 @@ fun ImageUploadScreen(
             OutlinedTextField(
                 value = uiState.fieldName,
                 onValueChange = { onEvent(ImageUploadEvent.UpdateFieldName(it)) },
-                label = { Text("表单字段名") },
+                label = { Text("Form Field Name") },
                 singleLine = true,
                 enabled = !uiState.isUploading,
                 modifier = Modifier.fillMaxWidth(),
@@ -167,7 +167,7 @@ fun ImageUploadScreen(
             if (previewUri != null && uiState.hasImage) {
                 AsyncImage(
                     model = previewUri,
-                    contentDescription = "已选图片预览",
+                    contentDescription = "Selected image preview",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -182,8 +182,8 @@ fun ImageUploadScreen(
                     fontFamily = FontFamily.Monospace,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("重新选择", enabled = !uiState.isUploading, onClick = onPick)
-                    Chip("移除", danger = true, enabled = !uiState.isUploading, onClick = onClear)
+                    Chip("Reselect", enabled = !uiState.isUploading, onClick = onPick)
+                    Chip("Remove", danger = true, enabled = !uiState.isUploading, onClick = onClear)
                 }
             } else {
                 Box(
@@ -195,12 +195,12 @@ fun ImageUploadScreen(
                         .clickable(enabled = !uiState.isUploading, onClick = onPick),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("＋ 点击选择图片", color = TextSub, fontSize = 14.sp)
+                    Text("+ Tap to select image", color = TextSub, fontSize = 14.sp)
                 }
             }
 
             PrimaryButton(
-                text = if (uiState.isUploading) "上传中…" else "上传图片",
+                text = if (uiState.isUploading) "Uploading…" else "Upload Image",
                 enabled = !uiState.isUploading && uiState.hasImage,
                 onClick = { onEvent(ImageUploadEvent.Upload) },
             )
@@ -231,13 +231,13 @@ fun ImageUploadScreen(
 
             if (uiState.hasUploaded && uiState.responseCode != 0) {
                 Text(
-                    "响应状态：HTTP ${uiState.responseCode}",
+                    "Response status: HTTP ${uiState.responseCode}",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (uiState.responseCode in 200..299) Accent else Danger,
                 )
                 if (uiState.responsePreview.isNotEmpty()) {
-                    Text("响应体（前 800 字）", fontSize = 12.sp, color = TextSub)
+                    Text("Response body (first 800 characters)", fontSize = 12.sp, color = TextSub)
                     Text(
                         uiState.responsePreview,
                         fontSize = 11.sp,
@@ -284,7 +284,7 @@ private fun UploadedUrlCard(url: String) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("图片链接", fontSize = 12.sp, color = TextSub, fontWeight = FontWeight.SemiBold)
+        Text("Image Link", fontSize = 12.sp, color = TextSub, fontWeight = FontWeight.SemiBold)
         Text(
             url,
             fontSize = 13.sp,
@@ -301,7 +301,7 @@ private fun UploadedUrlCard(url: String) {
             horizontalArrangement = Arrangement.End,
         ) {
             Chip(
-                label = if (copied) "✓ 已复制" else "复制链接",
+                label = if (copied) "✓ Copied" else "Copy Link",
                 onClick = {
                     clipboard.setText(AnnotatedString(url))
                     copied = true

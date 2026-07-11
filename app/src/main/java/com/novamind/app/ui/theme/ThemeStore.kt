@@ -11,9 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** 可切换的主题深浅模式。 */
 enum class ThemeMode(val label: String) {
-    SYSTEM("跟随系统"),
-    LIGHT("浅色"),
-    DARK("深色"),
+    SYSTEM("Follow system"),
+    LIGHT("Light"),
+    DARK("Dark"),
 }
 
 /**

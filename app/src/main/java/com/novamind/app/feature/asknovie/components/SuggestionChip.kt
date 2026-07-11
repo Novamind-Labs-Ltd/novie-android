@@ -37,7 +37,7 @@ internal fun SuggestionChip(text: String, onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · 建议 chip")
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · Suggestion chip")
 @Composable
 private fun SuggestionChipPreview() {
     AppTheme {

@@ -154,28 +154,28 @@ fun DebugPanel(
                 .padding(bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("🛠 Debug 工具箱", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextMain)
+            Text("🛠 Debug Toolbox", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextMain)
 
             // ── 信息 ──
-            Section("信息") {
-                InfoRow("应用", "${BuildConfig.APPLICATION_ID}")
-                InfoRow("版本", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
-                InfoRow("构建类型", BuildConfig.BUILD_TYPE + if (BuildConfig.DEBUG) " · DEBUG" else "")
+            Section("Info") {
+                InfoRow("App", "${BuildConfig.APPLICATION_ID}")
+                InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                InfoRow("Build Type", BuildConfig.BUILD_TYPE + if (BuildConfig.DEBUG) " · DEBUG" else "")
                 InfoRow("Git", BuildConfig.GIT_SHA)
-                InfoRow("打包时间", BuildConfig.BUILD_TIME)
-                InfoRow("设备", "${Build.MANUFACTURER} ${Build.MODEL}")
-                InfoRow("系统", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+                InfoRow("Build Time", BuildConfig.BUILD_TIME)
+                InfoRow("Device", "${Build.MANUFACTURER} ${Build.MODEL}")
+                InfoRow("System", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
                 InfoRow("deviceId", fingerprint.androidId)
                 InfoRow("UUID", fingerprint.installUuid)
-                InfoRow("分辨率", fingerprint.screen)
-                InfoRow("时区", fingerprint.timezone)
-                InfoRow("语言", fingerprint.language)
+                InfoRow("Resolution", fingerprint.screen)
+                InfoRow("Timezone", fingerprint.timezone)
+                InfoRow("Language", fingerprint.language)
             }
 
             // ── 域名 / 环境 ──
             val activeEnv by ApiConfig.envFlow.collectAsState()
-            Section("域名 / 环境（切换后冷启动生效）") {
-                InfoRow("环境", activeEnv.label)
+            Section("Domain / Environment (applies after cold restart)") {
+                InfoRow("Environment", activeEnv.label)
                 InfoRow("api", ApiConfig.apiBaseUrl)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ApiConfig.Env.entries.forEach { env ->
@@ -187,7 +187,7 @@ fun DebugPanel(
                 }
                 // 测试 /api/v1.0/me：请求当前环境该接口，结果弹窗展示
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(if (meLoading) "请求中…" else "测试 /api/v1.0/me") {
+                    Chip(if (meLoading) "Loading…" else "Test /api/v1.0/me") {
                         if (!meLoading) {
                             meLoading = true
                             scope.launch {
@@ -203,7 +203,7 @@ fun DebugPanel(
             meResult?.let { result ->
                 AlertDialog(
                     onDismissRequest = { meResult = null },
-                    confirmButton = { TextButton(onClick = { meResult = null }) { Text("关闭") } },
+                    confirmButton = { TextButton(onClick = { meResult = null }) { Text("Close") } },
                     title = { Text("GET /api/v1.0/me") },
                     text = {
                         Column(
@@ -219,8 +219,8 @@ fun DebugPanel(
 
             // ── 主题（立即生效）──
             val activeTheme by ThemeStore.mode.collectAsState()
-            Section("主题（立即生效）") {
-                InfoRow("当前主题", activeTheme.label)
+            Section("Theme (applies immediately)") {
+                InfoRow("Current Theme", activeTheme.label)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ThemeMode.entries.forEach { m ->
                         Chip(if (m == activeTheme) "✓ ${m.label}" else m.label) {
@@ -232,11 +232,11 @@ fun DebugPanel(
 
             // ── 字体（立即生效）──
             val activeFont by FontStore.font.collectAsState()
-            Section("字体（立即生效）") {
-                InfoRow("当前字体", activeFont.label)
+            Section("Font (applies immediately)") {
+                InfoRow("Current Font", activeFont.label)
                 InfoRow(
                     "Google Sans Flex",
-                    if (AppFonts.isGoogleSansFlexAvailable(context)) "已内置" else "未内置(回退系统)",
+                    if (AppFonts.isGoogleSansFlexAvailable(context)) "Bundled" else "Not Bundled (falls back to system)",
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppFont.entries.forEach { f ->
@@ -248,7 +248,7 @@ fun DebugPanel(
             }
 
             // ── 页面快速跳转 ──
-            Section("页面快速跳转") {
+            Section("Quick Navigation") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("home" to "Home", "create" to "Create", "library" to "Library",
                         "calendar" to "Calendar", "brand" to "Brand").forEach { (r, label) ->
@@ -258,44 +258,44 @@ fun DebugPanel(
             }
 
             // ── 接口测试 ──
-            Section("接口测试") {
+            Section("API Testing") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("接口测试页 Python") { ApiTestActivity.start(context, ApiTarget.ITEMS) }
-                    Chip("接口测试页 Java") { ApiTestActivity.start(context, ApiTarget.USERS) }
-                    Chip("图片上传测试") { ImageUploadActivity.start(context) }
-                    Chip("语音转文字 Demo") { SpeechToTextActivity.start(context) }
-                    Chip("Markdown 阅读器") { MarkdownPreviewActivity.start(context) }
-                    Chip("PDF 预览") { PdfViewerActivity.start(context) }
+                    Chip("API Test Page (Python)") { ApiTestActivity.start(context, ApiTarget.ITEMS) }
+                    Chip("API Test Page (Java)") { ApiTestActivity.start(context, ApiTarget.USERS) }
+                    Chip("Image Upload Test") { ImageUploadActivity.start(context) }
+                    Chip("Speech-to-Text Demo") { SpeechToTextActivity.start(context) }
+                    Chip("Markdown Reader") { MarkdownPreviewActivity.start(context) }
+                    Chip("PDF Preview") { PdfViewerActivity.start(context) }
                 }
             }
 
             // ── 本地数据 ──
-            Section("本地数据") {
-                InfoRow("笔记数", if (noteCount < 0) "…" else "$noteCount")
-                InfoRow("录音数", if (recCount < 0) "…" else "$recCount")
+            Section("Local Data") {
+                InfoRow("Note Count", if (noteCount < 0) "…" else "$noteCount")
+                InfoRow("Recording Count", if (recCount < 0) "…" else "$recCount")
                 // 内部存储空间（MB）
-                InfoRow("可用空间", if (availMb < 0) "…" else "$availMb MB")
-                InfoRow("总空间", if (totalMb < 0) "…" else "$totalMb MB")
+                InfoRow("Available Space", if (availMb < 0) "…" else "$availMb MB")
+                InfoRow("Total Space", if (totalMb < 0) "…" else "$totalMb MB")
                 // 录音存放目录绝对路径（应用私有内部存储，文件管理器不可见）
-                InfoRow("录音目录", audioDir.absolutePath)
+                InfoRow("Recording Directory", audioDir.absolutePath)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("打开录音目录") {
+                    Chip("Open Recording Directory") {
                         audioDir.mkdirs()
                         FileBrowserActivity.start(context, audioDir.absolutePath)
                     }
-                    Chip("打开 filesDir") {
+                    Chip("Open filesDir") {
                         FileBrowserActivity.start(context, context.filesDir.absolutePath)
                     }
-                    Chip("清空笔记", danger = true) {
+                    Chip("Clear Notes", danger = true) {
                         scope.launch { noteRepository.clearAll(); refresh++ }
                     }
-                    Chip("清空录音", danger = true) {
+                    Chip("Clear Recordings", danger = true) {
                         scope.launch {
                             withContext(Dispatchers.IO) { audioDir.deleteRecursively() }
                             refresh++
                         }
                     }
-                    Chip("清空图片/文件", danger = true) {
+                    Chip("Clear Images/Files", danger = true) {
                         scope.launch {
                             withContext(Dispatchers.IO) {
                                 File(context.filesDir, "note_images").deleteRecursively()
@@ -308,7 +308,7 @@ fun DebugPanel(
             }
 
             // ── 组件 / 能力测试 ──
-            Section("组件 / 能力测试") {
+            Section("Component / Capability Testing") {
                 OutlinedTextField(
                     value = urlInput,
                     onValueChange = { urlInput = it },
@@ -317,92 +317,92 @@ fun DebugPanel(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("打开 WebView") {
+                    Chip("Open WebView") {
                         urlInput.trim().takeIf { it.isNotEmpty() }
                             ?.let { WebViewActivity.start(context, normalizeUrl(it)) }
                     }
                     Chip("example.com") { WebViewActivity.start(context, "https://example.com") }
                     Chip("Bing") { WebViewActivity.start(context, "https://m.bing.com") }
-                    Chip("重置引导页") {
+                    Chip("Reset Onboarding") {
                         OnboardingStore.setCompleted(context, false)
                     }
                 }
                 // JSBridge：选来源等级 + 打开测试页（直观验证权限拦截 1003）
                 Text(
-                    "JSBridge 来源等级：" + (bridgeLevel?.name ?: "按域名白名单"),
+                    "JSBridge Source Level: " + (bridgeLevel?.name ?: "By Domain Whitelist"),
                     fontSize = 12.sp, color = TextSub,
                 )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("按域名") { bridgeLevel = null }
+                    Chip("By Domain") { bridgeLevel = null }
                     Chip("TRUSTED") { bridgeLevel = SourceLevel.TRUSTED }
                     Chip("PARTNER") { bridgeLevel = SourceLevel.PARTNER }
                     Chip("UNKNOWN") { bridgeLevel = SourceLevel.UNKNOWN }
-                    Chip("打开 JSBridge 测试页") {
+                    Chip("Open JSBridge Test Page") {
                         WebViewActivity.start(context, "file:///android_asset/bridge_test.html", bridgeLevel)
                     }
                 }
             }
 
             // ── 通知调试 ──
-            Section("通知调试（熄屏/锁屏/悬浮/角标）") {
+            Section("Notification Debugging (Screen Off/Lock Screen/Heads-up/Badge)") {
                 // 每次进面板重建调试渠道，保证渠道参数改动生效
                 LaunchedEffect(Unit) { NotificationDebugger.ensureChannels(context) }
                 var badgeCount by remember { mutableStateOf(0) }
                 var notifyHint by remember { mutableStateOf("") }
-                InfoRow("通知权限", if (NotificationDebugger.areEnabled(context)) "已开启" else "已关闭")
+                InfoRow("Notification Permission", if (NotificationDebugger.areEnabled(context)) "Enabled" else "Disabled")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("通知设置") { NotificationDebugger.openSettings(context) }
-                    Chip("悬浮通知") {
+                    Chip("Notification Settings") { NotificationDebugger.openSettings(context) }
+                    Chip("Heads-up Notification") {
                         NotificationDebugger.postHeadsUp(context)
-                        notifyHint = "已发送：亮屏时应弹出横幅"
+                        notifyHint = "Sent: banner should appear when screen is on"
                     }
-                    Chip("锁屏·公开") {
+                    Chip("Lock Screen · Public") {
                         NotificationDebugger.postLockScreenDelayed(
                             context, androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC,
                         )
-                        notifyHint = "5s 后发送，请先锁屏：应完整显示"
+                        notifyHint = "Will send in 5s, please lock screen first: should display fully"
                     }
-                    Chip("锁屏·隐藏内容") {
+                    Chip("Lock Screen · Hide Content") {
                         NotificationDebugger.postLockScreenDelayed(
                             context, androidx.core.app.NotificationCompat.VISIBILITY_PRIVATE,
                         )
-                        notifyHint = "5s 后发送，请先锁屏：只显示应用名、隐藏内容"
+                        notifyHint = "Will send in 5s, please lock screen first: only app name shown, content hidden"
                     }
-                    Chip("锁屏·不显示") {
+                    Chip("Lock Screen · Do Not Show") {
                         NotificationDebugger.postLockScreenDelayed(
                             context, androidx.core.app.NotificationCompat.VISIBILITY_SECRET,
                         )
-                        notifyHint = "5s 后发送，请先锁屏：锁屏上不应出现"
+                        notifyHint = "Will send in 5s, please lock screen first: should not appear on lock screen"
                     }
-                    Chip("熄屏通知") {
+                    Chip("Screen Off Notification") {
                         NotificationDebugger.postScreenOffDelayed(context, fullScreen = false)
-                        notifyHint = "5s 后发送，请先熄屏：观察是否点亮/出现在锁屏"
+                        notifyHint = "Will send in 5s, please turn screen off first: observe whether it wakes the screen/appears on lock screen"
                     }
-                    Chip("熄屏·全屏意图") {
+                    Chip("Screen Off · Full-Screen Intent") {
                         NotificationDebugger.postScreenOffDelayed(context, fullScreen = true)
-                        notifyHint = "5s 后发送，请先熄屏：应点亮并拉起页面（API 34+ 需在系统设置授予全屏通知权限）"
+                        notifyHint = "Will send in 5s, please turn screen off first: should wake screen and launch the page (API 34+ requires granting full-screen notification permission in system settings)"
                     }
-                    Chip("常驻通知") {
+                    Chip("Ongoing Notification") {
                         NotificationDebugger.postOngoing(context)
-                        notifyHint = "已发送 ongoing 常驻通知（锁屏公开可见，带计时器；Android 14+ 用户仍可滑除）"
+                        notifyHint = "Sent ongoing notification (visible on lock screen, with timer; Android 14+ users can still swipe it away)"
                     }
-                    Chip("熄屏·常驻悬浮") {
+                    Chip("Screen Off · Ongoing Heads-up") {
                         NotificationDebugger.postOngoingHeadsUpDelayed(context)
-                        notifyHint = "5s 后发送，请先熄屏：HIGH+ongoing，亮屏弹横幅并常驻（能否点亮屏幕看厂商）"
+                        notifyHint = "Will send in 5s, please turn screen off first: HIGH+ongoing, shows banner and stays when screen is on (whether it wakes the screen depends on the manufacturer)"
                     }
-                    Chip("取消常驻") {
+                    Chip("Cancel Ongoing") {
                         NotificationDebugger.cancelOngoing(context)
-                        notifyHint = "已取消常驻通知"
+                        notifyHint = "Ongoing notification cancelled"
                     }
-                    Chip("角标 +1") {
+                    Chip("Badge +1") {
                         badgeCount++
                         NotificationDebugger.postBadge(context, badgeCount)
-                        notifyHint = "已发送 setNumber($badgeCount)：回桌面看角标（依赖启动器支持）"
+                        notifyHint = "Sent setNumber($badgeCount): check badge on home screen (depends on launcher support)"
                     }
-                    Chip("清除通知/角标", danger = true) {
+                    Chip("Clear Notifications/Badge", danger = true) {
                         NotificationDebugger.clearAll(context)
                         badgeCount = 0
-                        notifyHint = "已清除本工具全部通知"
+                        notifyHint = "Cleared all notifications from this tool"
                     }
                 }
                 if (notifyHint.isNotEmpty()) {
@@ -411,11 +411,11 @@ fun DebugPanel(
             }
 
             // ── 模拟升级（下次冷启动生效，不立即弹）──
-            Section("模拟升级（下次启动生效）") {
+            Section("Simulate Update (applies on next launch)") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("可选升级") { UpdateController.setSimulateForNextLaunch(context, UpdateType.Optional) }
-                    Chip("强制升级", danger = true) { UpdateController.setSimulateForNextLaunch(context, UpdateType.Force) }
-                    Chip("无更新") { UpdateController.setSimulateForNextLaunch(context, UpdateType.None) }
+                    Chip("Optional Update") { UpdateController.setSimulateForNextLaunch(context, UpdateType.Optional) }
+                    Chip("Force Update", danger = true) { UpdateController.setSimulateForNextLaunch(context, UpdateType.Force) }
+                    Chip("No Update") { UpdateController.setSimulateForNextLaunch(context, UpdateType.None) }
                 }
             }
 
@@ -435,15 +435,15 @@ fun DebugPanel(
             }
 
             // ── Sentry 上报（按当前环境，dev 也会上传） ──
-            Section("Sentry 上报（environment=${SentryUtils.environment()}）") {
+            Section("Sentry Reporting (environment=${SentryUtils.environment()})") {
                 var lastAction by remember { mutableStateOf("") }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("上报测试日志") {
+                    Chip("Send Test Log") {
                         // Structured Logs：进入 Sentry「Logs」视图
                         SentryUtils.logInfo("Debug panel test log @ ${SentryUtils.environment()}")
-                        lastAction = "已发送结构化日志（Logs 视图）"
+                        lastAction = "Sent structured log (Logs view)"
                     }
-                    Chip("上报宽事件日志") {
+                    Chip("Send Wide Event Log") {
                         // 携带自定义属性的宽事件日志，可在 Logs UI 按属性检索
                         SentryUtils.logEvent(
                             "Debug panel wide event",
@@ -453,54 +453,54 @@ fun DebugPanel(
                                 "item_count" to 3,
                             ),
                         )
-                        lastAction = "已发送宽事件日志（含属性）"
+                        lastAction = "Sent wide event log (with attributes)"
                     }
-                    Chip("上报测试异常") {
+                    Chip("Send Test Exception") {
                         SentryUtils.capture(
                             RuntimeException("Debug panel test exception"),
-                            message = "来自 Debug 面板的手动上报",
+                            message = "Manual report from Debug Panel",
                         )
-                        lastAction = "已发送测试异常"
+                        lastAction = "Sent test exception"
                     }
-                    Chip("添加面包屑") {
-                        SentryUtils.breadcrumb("Debug 面包屑：用户在调试面板操作", category = "debug")
-                        lastAction = "已添加面包屑"
+                    Chip("Add Breadcrumb") {
+                        SentryUtils.breadcrumb("Debug breadcrumb: user action in debug panel", category = "debug")
+                        lastAction = "Breadcrumb added"
                     }
-                    Chip("上报指标 count") {
+                    Chip("Send Metric: count") {
                         SentryUtils.metricCount("debug_panel_click")
-                        lastAction = "已上报指标 count（Metrics 视图）"
+                        lastAction = "Sent metric count (Metrics view)"
                     }
-                    Chip("上报指标 distribution") {
+                    Chip("Send Metric: distribution") {
                         SentryUtils.metricDistribution("debug_panel_value", 187.5)
-                        lastAction = "已上报指标 distribution（Metrics 视图）"
+                        lastAction = "Sent metric distribution (Metrics view)"
                     }
-                    Chip("上报指标 gauge") {
+                    Chip("Send Metric: gauge") {
                         SentryUtils.metricGauge("debug_panel_gauge", 42.0)
-                        lastAction = "已上报指标 gauge（Metrics 视图）"
+                        lastAction = "Sent metric gauge (Metrics view)"
                     }
-                    Chip("设置作用域属性") {
+                    Chip("Set Scope Attribute") {
                         // 之后的所有日志都会带上该属性，便于在 Logs UI 过滤
                         SentryUtils.setLogAttribute("debug_session", "panel-${System.currentTimeMillis()}")
-                        SentryUtils.logInfo("作用域属性已设置后的日志")
-                        lastAction = "已设置作用域属性并发送一条日志"
+                        SentryUtils.logInfo("Log after scope attribute is set")
+                        lastAction = "Scope attribute set and log sent"
                     }
-                    Chip("移除作用域属性") {
+                    Chip("Remove Scope Attribute") {
                         SentryUtils.removeLogAttribute("debug_session")
-                        lastAction = "已移除作用域属性 debug_session"
+                        lastAction = "Removed scope attribute debug_session"
                     }
                 }
                 if (lastAction.isNotEmpty()) {
-                    Text("✓ $lastAction（Sentry 后台按 environment=${SentryUtils.environment()} 查看）",
+                    Text("✓ $lastAction (view in Sentry backend by environment=${SentryUtils.environment()})",
                         fontSize = 12.sp, color = TextSub)
                 }
             }
 
             // ── 日志 ──
             val logs by DebugLog.logs.collectAsState()
-            Section("应用内日志 (${logs.size})") {
+            Section("In-App Logs (${logs.size})") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("分享") {
-                        val dump = DebugLog.dump().ifEmpty { "(空)" }
+                    Chip("Share") {
+                        val dump = DebugLog.dump().ifEmpty { "(empty)" }
                         val file = File(context.cacheDir, "debug_log.txt").apply { writeText(dump) }
                         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                         val send = Intent(Intent.ACTION_SEND).apply {
@@ -508,9 +508,9 @@ fun DebugPanel(
                             putExtra(Intent.EXTRA_STREAM, uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        context.startActivity(Intent.createChooser(send, "分享日志").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        context.startActivity(Intent.createChooser(send, "Share Log").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }
-                    Chip("清空") { DebugLog.clear() }
+                    Chip("Clear") { DebugLog.clear() }
                 }
                 Column(
                     modifier = Modifier
@@ -519,7 +519,7 @@ fun DebugPanel(
                         .verticalScroll(rememberScrollState()),
                 ) {
                     if (logs.isEmpty()) {
-                        Text("(暂无日志，用 AppLog.d/i/w/e 写入)", fontSize = 12.sp, color = TextSub)
+                        Text("(No logs yet, use AppLog.d/i/w/e to write)", fontSize = 12.sp, color = TextSub)
                     } else {
                         logs.takeLast(200).forEach { e ->
                             Text(
@@ -586,7 +586,7 @@ private suspend fun fetchMeRaw(): String = withContext(Dispatchers.IO) {
         val resp = NetworkModule.apiService.get(url)
         val raw = (if (resp.isSuccessful) resp.body()?.string() else resp.errorBody()?.string()).orEmpty()
         "URL: $url\nHTTP ${resp.code()}\n\n${prettyJson(raw)}"
-    }.getOrElse { "URL: $url\n\n请求失败: ${it.message}" }
+    }.getOrElse { "URL: $url\n\nRequest failed: ${it.message}" }
 }
 
 /** 尽力把 JSON 缩进美化；非 JSON 或解析失败则原样返回。 */

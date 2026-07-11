@@ -133,7 +133,7 @@ private fun MetaChip(
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "未选择")
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "Not Selected")
 @Composable
 private fun CreateMetaRowEmptyPreview() {
     AppTheme {
@@ -147,7 +147,7 @@ private fun CreateMetaRowEmptyPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "已选文件夹+标签")
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "Folder + Tag Selected")
 @Composable
 private fun CreateMetaRowFilledPreview() {
     AppTheme {

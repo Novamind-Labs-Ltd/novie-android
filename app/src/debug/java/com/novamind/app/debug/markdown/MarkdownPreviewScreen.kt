@@ -74,7 +74,7 @@ fun MarkdownPreviewRoute(onBack: () -> Unit) {
                     content = text
                     error = null
                 }.onFailure {
-                    error = it.message ?: "读取文件失败"
+                    error = it.message ?: "Failed to read file"
                     content = null
                 }
             }
@@ -89,15 +89,15 @@ fun MarkdownPreviewRoute(onBack: () -> Unit) {
         containerColor = Bg,
         topBar = {
             TopAppBar(
-                title = { Text(fileName ?: "Markdown 阅读器", fontWeight = FontWeight.SemiBold, maxLines = 1) },
+                title = { Text(fileName ?: "Markdown Reader", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(painterResource(R.drawable.ic_close), contentDescription = "返回", tint = TextMain)
+                        Icon(painterResource(R.drawable.ic_close), contentDescription = "Back", tint = TextMain)
                     }
                 },
                 actions = {
                     Text(
-                        "选择文件",
+                        "Choose File",
                         color = Accent,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
@@ -120,7 +120,7 @@ fun MarkdownPreviewRoute(onBack: () -> Unit) {
         ) {
             when {
                 error != null -> Text(
-                    "读取失败：$error",
+                    "Failed to read: $error",
                     color = Danger,
                     modifier = Modifier.padding(20.dp),
                 )
@@ -149,9 +149,9 @@ private fun EmptyState(onPick: () -> Unit) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("选择一个 .md 文件，使用 Markdown 渲染器预览。", color = TextSub, fontSize = 14.sp)
+        Text("Select a .md file to preview with the Markdown renderer.", color = TextSub, fontSize = 14.sp)
         Text(
-            "选择 Markdown 文件",
+            "Select Markdown File",
             color = Color.White,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
@@ -189,23 +189,23 @@ private fun MarkdownPreview() {
         Column(Modifier.padding(16.dp)) {
             Markdown(
                 content = """
-                # 标题一
-                ## 标题二
-                带 **加粗**、*斜体* 和 `行内代码` 的文字，还有 [链接](https://example.com)。
+                # Heading One
+                ## Heading Two
+                Text with **bold**, *italic*, and `inline code`, plus a [link](https://example.com).
 
-                > 引用块
+                > Blockquote
 
-                - 无序项 A
-                - 无序项 B
+                - Unordered item A
+                - Unordered item B
 
-                1. 有序项一
-                2. 有序项二
+                1. Ordered item one
+                2. Ordered item two
 
                 ```kotlin
                 fun hello() = println("hi")
                 ```
 
-                | 列 A | 列 B |
+                | Column A | Column B |
                 | --- | --- |
                 | 1 | 2 |
                 """.trimIndent()

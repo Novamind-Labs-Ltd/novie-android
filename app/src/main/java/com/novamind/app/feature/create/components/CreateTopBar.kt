@@ -235,7 +235,7 @@ private fun CreateTopBarPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "只读（回收站）")
+@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "Read-only (recycle bin)")
 @Composable
 private fun CreateTopBarReadOnlyPreview() {
     AppTheme {

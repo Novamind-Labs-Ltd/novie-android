@@ -59,9 +59,9 @@ private val DotIdle: Color
 private data class Page(val emoji: String, val title: String, val subtitle: String)
 
 private val pages = listOf(
-    Page("📝", "记录想法", "图文混排、富文本与列表，随手记下灵感。"),
-    Page("🖼️", "图片与文档", "插入图片、拍照、附件，浏览与缩放更顺手。"),
-    Page("🎙️", "随时录音", "锁屏也能继续录音，历史随时回放。"),
+    Page("📝", "Capture Ideas", "Mix text and images, rich text, and lists—jot down inspiration anytime."),
+    Page("🖼️", "Images & Documents", "Insert images, take photos, and add attachments—browse and zoom with ease."),
+    Page("🎙️", "Record Anytime", "Keep recording even with the screen locked, and replay history anytime."),
 )
 
 /** 首启引导页：左右滑动浏览，最后一页「开始使用」；任意页可「跳过」。 */
@@ -80,7 +80,7 @@ fun OnboardingScreen(
             // 跳过
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                 Text(
-                    text = "跳过",
+                    text = "Skip",
                     fontSize = 14.sp,
                     color = TextSub,
                     modifier = Modifier
@@ -162,7 +162,7 @@ fun OnboardingScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = if (isLast) "开始使用" else "下一步",
+                        text = if (isLast) "Get Started" else "Next",
                         color = OnAccent,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,

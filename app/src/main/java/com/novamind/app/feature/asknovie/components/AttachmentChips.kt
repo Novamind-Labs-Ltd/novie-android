@@ -83,7 +83,7 @@ private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClic
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_close),
-                contentDescription = "移除",
+                contentDescription = "Remove",
                 tint = TextTitle,
                 modifier = Modifier.size(11.dp),
             )
@@ -136,7 +136,7 @@ private fun FileAttachmentChip(att: Attachment, onRemove: () -> Unit) {
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_close),
-                    contentDescription = "移除",
+                    contentDescription = "Remove",
                     tint = TextSub,
                     modifier = Modifier.size(14.dp),
                 )
@@ -145,7 +145,7 @@ private fun FileAttachmentChip(att: Attachment, onRemove: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · 附件 chip")
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · Attachment Chip")
 @Composable
 private fun AttachmentChipPreview() {
     AppTheme {

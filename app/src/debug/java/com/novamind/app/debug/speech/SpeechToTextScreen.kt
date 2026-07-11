@@ -126,7 +126,7 @@ class SpeechToTextController(private val context: Context) {
 
     /** 开始监听。调用前需已获得 RECORD_AUDIO 权限。 */
     fun start() {
-        if (!available) { error = "设备无可用的语音识别服务"; return }
+        if (!available) { error = "No speech recognition service available on this device"; return }
         error = null
         active = true
         listening = true
@@ -145,7 +145,7 @@ class SpeechToTextController(private val context: Context) {
 
     fun clear() { transcript = ""; partial = "" }
 
-    fun notifyPermissionDenied() { error = "需要麦克风权限才能识别" }
+    fun notifyPermissionDenied() { error = "Microphone permission is required for recognition" }
 
     /** 释放底层识别器（在页面销毁时调用）。 */
     fun destroy() {
@@ -196,16 +196,16 @@ class SpeechToTextController(private val context: Context) {
         bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
 
     private fun errorText(code: Int): String = when (code) {
-        SpeechRecognizer.ERROR_AUDIO -> "音频录制出错"
-        SpeechRecognizer.ERROR_CLIENT -> "客户端错误"
-        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "缺少录音权限"
-        SpeechRecognizer.ERROR_NETWORK -> "网络错误"
-        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络超时"
-        SpeechRecognizer.ERROR_NO_MATCH -> "未识别到内容"
-        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "识别器忙，请稍后再试"
-        SpeechRecognizer.ERROR_SERVER -> "服务端错误"
-        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "未检测到说话"
-        else -> "识别失败（错误码 $code）"
+        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+        SpeechRecognizer.ERROR_CLIENT -> "Client error"
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Missing recording permission"
+        SpeechRecognizer.ERROR_NETWORK -> "Network error"
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+        SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized"
+        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy, please try again later"
+        SpeechRecognizer.ERROR_SERVER -> "Server error"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected"
+        else -> "Recognition failed (error code $code)"
     }
 }
 
@@ -273,10 +273,10 @@ fun SpeechToTextScreen(
         containerColor = Bg,
         topBar = {
             TopAppBar(
-                title = { Text("语音转文字 Demo", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Speech-to-Text Demo", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(painterResource(R.drawable.ic_close), contentDescription = "返回", tint = TextMain)
+                        Icon(painterResource(R.drawable.ic_close), contentDescription = "Back", tint = TextMain)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Bg, titleContentColor = TextMain),
@@ -292,8 +292,8 @@ fun SpeechToTextScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                if (available) "基于 Android SpeechRecognizer（优先本地离线，缺包时回退在线）"
-                else "⚠️ 本设备无可用的语音识别服务",
+                if (available) "Based on Android SpeechRecognizer (prefers local offline, falls back to online if language pack missing)"
+                else "⚠️ No speech recognition service available on this device",
                 fontSize = 12.sp,
                 color = if (available) TextSub else Danger,
             )
@@ -303,12 +303,12 @@ fun SpeechToTextScreen(
                 modifier = Modifier.fillMaxWidth().background(Card, RoundedCornerShape(12.dp)).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("识别语言", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Accent)
+                Text("Recognition Language", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Accent)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LangChip("设备默认", language == "device") { onLanguage("device") }
-                    LangChip("中文", language == "zh-CN") { onLanguage("zh-CN") }
+                    LangChip("Device Default", language == "device") { onLanguage("device") }
+                    LangChip("Chinese", language == "zh-CN") { onLanguage("zh-CN") }
                     LangChip("English", language == "en-US") { onLanguage("en-US") }
-                    LangChip(if (continuous) "连续听写 ✓" else "连续听写", continuous, onClick = onToggleContinuous)
+                    LangChip(if (continuous) "Continuous Dictation ✓" else "Continuous Dictation", continuous, onClick = onToggleContinuous)
                 }
             }
 
@@ -317,7 +317,7 @@ fun SpeechToTextScreen(
                 modifier = Modifier.fillMaxWidth().background(Card, RoundedCornerShape(12.dp)).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("识别结果", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Accent)
+                Text("Recognition Result", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Accent)
                 val shown = buildString {
                     append(transcript)
                     if (partial.isNotBlank()) {
@@ -326,13 +326,13 @@ fun SpeechToTextScreen(
                     }
                 }
                 Text(
-                    text = shown.ifBlank { "点击下方麦克风开始说话…" },
+                    text = shown.ifBlank { "Tap the microphone below to start speaking…" },
                     fontSize = 16.sp,
                     color = if (shown.isBlank()) TextSub else TextMain,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (partial.isNotBlank()) {
-                    Text("（实时识别中…）", fontSize = 11.sp, color = TextSub)
+                    Text("(Recognizing in real time…)", fontSize = 11.sp, color = TextSub)
                 }
             }
 
@@ -351,12 +351,12 @@ fun SpeechToTextScreen(
             ) {
                 MicButton(listening = listening, enabled = available, onClick = onToggleListen)
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ActionChip(if (listening) "停止" else "开始", primary = true, onClick = onToggleListen)
+                    ActionChip(if (listening) "Stop" else "Start", primary = true, onClick = onToggleListen)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionChip("复制") {
+                        ActionChip("Copy") {
                             if (transcript.isNotBlank()) clipboard.setText(AnnotatedString(transcript))
                         }
-                        ActionChip("清空", danger = true, onClick = onClear)
+                        ActionChip("Clear", danger = true, onClick = onClear)
                     }
                 }
             }
@@ -397,7 +397,7 @@ private fun MicButton(listening: Boolean, enabled: Boolean, onClick: () -> Unit)
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_mic),
-            contentDescription = if (listening) "停止" else "开始",
+            contentDescription = if (listening) "Stop" else "Start",
             tint = Color.White,
             modifier = Modifier.size(28.dp),
         )
@@ -445,8 +445,8 @@ private fun SpeechToTextScreenPreview() {
             listening = true,
             continuous = true,
             language = "zh-CN",
-            partial = "今天天气",
-            transcript = "这是一段已经识别完成的文字。",
+            partial = "today's weather",
+            transcript = "This is a piece of text that has already been recognized.",
             rms = 6f,
             error = null,
             onToggleListen = {},

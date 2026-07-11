@@ -682,7 +682,7 @@ private fun LibraryListModePreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Folders 页")
+@Preview(showBackground = true, showSystemUi = true, name = "Folders Page")
 @Composable
 private fun LibraryFoldersPreview() {
     AppTheme {
@@ -714,7 +714,7 @@ private fun FoldersPagePreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Library · RecentPage 网格")
+@Preview(showBackground = true, name = "Library · RecentPage Grid")
 @Composable
 private fun RecentPageGridPreview() {
     AppTheme {
@@ -726,7 +726,7 @@ private fun RecentPageGridPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Library · RecentPage 列表")
+@Preview(showBackground = true, name = "Library · RecentPage List")
 @Composable
 private fun RecentPageListPreview() {
     AppTheme {

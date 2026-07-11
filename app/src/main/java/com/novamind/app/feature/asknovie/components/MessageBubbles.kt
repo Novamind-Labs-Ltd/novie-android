@@ -104,7 +104,7 @@ internal fun AudioBubble(att: Attachment) {
                     painter = painterResource(
                         if (playing) R.drawable.ic_pause else R.drawable.ic_play,
                     ),
-                    contentDescription = if (playing) "暂停" else "播放",
+                    contentDescription = if (playing) "Pause" else "Play",
                     tint = OnSendGreen,
                     modifier = Modifier.size(15.dp),
                 )
@@ -215,20 +215,20 @@ private fun AssistantActions(text: String) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        ActionIcon(R.drawable.ic_copy, "复制") {
+        ActionIcon(R.drawable.ic_copy, "Copy") {
             clipboard.setText(AnnotatedString(text))
-            Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
         }
-        ActionIcon(R.drawable.ic_share, "分享") {
+        ActionIcon(R.drawable.ic_share, "Share") {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, text)
             }
-            context.startActivity(Intent.createChooser(intent, "分享"))
+            context.startActivity(Intent.createChooser(intent, "Share"))
         }
-        ActionIcon(R.drawable.ic_translate, "翻译") {
+        ActionIcon(R.drawable.ic_translate, "Translate") {
             // TODO: 接入翻译服务（如 ML Kit / 翻译 API）
-            Toast.makeText(context, "翻译功能即将上线", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Translation coming soon", Toast.LENGTH_SHORT).show()
         }
     }
 }
@@ -283,7 +283,7 @@ internal fun TypingIndicator() {
 
 // ─── Preview ───
 
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · 消息气泡")
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · Message Bubbles")
 @Composable
 private fun MessageBubblesPreview() {
     AppTheme {
@@ -294,11 +294,11 @@ private fun MessageBubblesPreview() {
             UserBubble(
                 ChatMessage(
                     Role.User,
-                    "帮我总结一下这份文档",
+                    "Help me summarize this document",
                     listOf(Attachment(AttachType.File, "/tmp/doc.pdf", "quarterly-report.pdf")),
                 ),
             )
-            AssistantText(text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。")
+            AssistantText(text = "Sure, here are the three key points of this quarterly report: revenue grew 12% year-over-year, gross margin stabilized, and cash flow turned positive.")
             UserBubble(ChatMessage(Role.User, "", listOf(Attachment(AttachType.Audio, "/tmp/a.m4a", "Voice 0:08"))))
             TypingIndicator()
         }
@@ -320,12 +320,12 @@ private fun AudioBubblePreview() {
 private fun UserBubblePreview() {
     AppTheme {
         Column(modifier = Modifier.padding(16.dp)) {
-            UserBubble(ChatMessage(Role.User, "帮我把这周的会议纪要整理成三条要点", emptyList()))
+            UserBubble(ChatMessage(Role.User, "Help me organize this week's meeting notes into three key points", emptyList()))
         }
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · UserBubble · 带附件")
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · UserBubble · With Attachment")
 @Composable
 private fun UserBubbleWithAttachmentPreview() {
     AppTheme {
@@ -333,7 +333,7 @@ private fun UserBubbleWithAttachmentPreview() {
             UserBubble(
                 ChatMessage(
                     Role.User,
-                    "帮我总结一下这份文档",
+                    "Help me summarize this document",
                     listOf(Attachment(AttachType.File, "/tmp/doc.pdf", "quarterly-report.pdf")),
                 ),
             )
@@ -347,7 +347,7 @@ private fun AssistantTextPreview() {
     AppTheme {
         Column(modifier = Modifier.padding(16.dp)) {
             AssistantText(
-                text = "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。",
+                text = "Sure, here are the three key points of this quarterly report: revenue grew 12% year-over-year, gross margin stabilized, and cash flow turned positive.",
             )
         }
     }

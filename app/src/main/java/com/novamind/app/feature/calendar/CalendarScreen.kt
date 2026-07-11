@@ -368,7 +368,7 @@ private fun previewTasks(day: LocalDate) = listOf(
 
 // ── 正常状态 ──
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 已连接")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Connected")
 @Composable
 private fun CalendarScreenConnectedPreview() {
     val day = LocalDate.now()
@@ -384,7 +384,7 @@ private fun CalendarScreenConnectedPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 已连接 · 空日程")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Connected · Empty agenda")
 @Composable
 private fun CalendarScreenEmptyAgendaPreview() {
     AppTheme {
@@ -395,7 +395,7 @@ private fun CalendarScreenEmptyAgendaPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 仅任务过滤")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Tasks filter only")
 @Composable
 private fun CalendarScreenTasksFilterPreview() {
     val day = LocalDate.now()
@@ -412,7 +412,7 @@ private fun CalendarScreenTasksFilterPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 同步中（有缓存）")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Syncing (cached)")
 @Composable
 private fun CalendarScreenSyncingPreview() {
     val day = LocalDate.now()
@@ -429,7 +429,7 @@ private fun CalendarScreenSyncingPreview() {
 
 // ── 未连接 / 拦截状态 ──
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 未连接")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Not connected")
 @Composable
 private fun CalendarScreenDisconnectedPreview() {
     AppTheme {
@@ -440,7 +440,7 @@ private fun CalendarScreenDisconnectedPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 游客拦截")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Guest blocked")
 @Composable
 private fun CalendarScreenLoginRequiredPreview() {
     AppTheme {
@@ -453,7 +453,7 @@ private fun CalendarScreenLoginRequiredPreview() {
 
 // ── 异常状态 ──
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 同步失败（可重试）")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Sync failed (retryable)")
 @Composable
 private fun CalendarScreenSyncFailedPreview() {
     val day = LocalDate.now()
@@ -469,7 +469,7 @@ private fun CalendarScreenSyncFailedPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 授权已撤销")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Authorization revoked")
 @Composable
 private fun CalendarScreenRevokedPreview() {
     AppTheme {
@@ -483,7 +483,7 @@ private fun CalendarScreenRevokedPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · token 过期（静默续期中）")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Token expired (silently refreshing)")
 @Composable
 private fun CalendarScreenTokenExpiredPreview() {
     val day = LocalDate.now()
@@ -499,7 +499,7 @@ private fun CalendarScreenTokenExpiredPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · 操作失败提示（已连接）")
+@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Action failed message (connected)")
 @Composable
 private fun CalendarScreenActionErrorPreview() {
     val day = LocalDate.now()

@@ -67,20 +67,20 @@ fun UpdateDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "发现新版本 ${info.latestVersionName}",
+                    text = "New version available ${info.latestVersionName}",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextTitle,
                 )
                 if (force) {
-                    Text("当前版本过低，需升级后才能继续使用。", fontSize = 13.sp, color = Accent)
+                    Text("Your current version is too old. Please update to continue.", fontSize = 13.sp, color = Accent)
                 }
                 Text(info.releaseNotes, fontSize = 14.sp, color = TextSub, lineHeight = 20.sp)
 
                 // 立即升级（实心）
-                PrimaryButton("立即升级", onClick = onUpdate)
+                PrimaryButton("Update now", onClick = onUpdate)
                 // 次要：可选→稍后；强制→退出
-                SecondaryButton(if (force) "退出应用" else "稍后再说") {
+                SecondaryButton(if (force) "Exit app" else "Later") {
                     if (force) onExit() else onLater()
                 }
             }

@@ -41,7 +41,7 @@ internal fun CalendarIllustration() {
     }
 }
 
-@Preview(showBackground = true, name = "Calendar · 空状态插图")
+@Preview(showBackground = true, name = "Calendar · Empty state illustration")
 @Composable
 private fun CalendarIllustrationPreview() {
     AppTheme { CalendarIllustration() }

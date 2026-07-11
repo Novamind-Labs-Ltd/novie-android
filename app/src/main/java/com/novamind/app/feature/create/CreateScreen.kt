@@ -204,7 +204,7 @@ fun CreateScreen(
             // 先校验大小：超过 16MB 忽略并提示（SAF 无法预先按大小过滤）
             val size = FileUtils.documentSize(context, uri)
             if (size > AppConfig.Media.MAX_DOCUMENT_SIZE) {
-                Toast.makeText(context, "文件超过 16MB，已忽略", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "File exceeds 16MB, skipped", Toast.LENGTH_SHORT).show()
                 return@rememberLauncherForActivityResult
             }
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
@@ -401,7 +401,7 @@ fun CreateScreen(
                     if (remainingSlots <= 0) {
                         Toast.makeText(
                             context,
-                            "最多只能添加 ${AppConfig.Media.MAX_ATTACHMENTS} 个附件",
+                            "You can add up to ${AppConfig.Media.MAX_ATTACHMENTS} attachments",
                             Toast.LENGTH_SHORT,
                         ).show()
                     } else {
@@ -428,7 +428,7 @@ fun CreateScreen(
             val toolbarShown = (imeVisible || forceToolbarVisible)
             val displayCount =
                 if (totalChars < AppConfig.Editor.COUNT_DISPLAY_THRESHOLD) "$totalChars" else {
-                    "剩余可输入 $maxInputChars-$totalChars "
+                    "Remaining $maxInputChars-$totalChars "
                 }
             Text(
                 text = displayCount,
@@ -578,7 +578,7 @@ private fun CreateScreenPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "只读（回收站）")
+@Preview(showBackground = true, showSystemUi = true, name = "Read-only (Trash)")
 @Composable
 private fun CreateScreenReadOnlyPreview() {
     AppTheme {

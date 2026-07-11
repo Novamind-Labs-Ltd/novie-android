@@ -189,7 +189,7 @@ private fun NoteContentEditorPreview() {
         NoteEditorState().apply {
             loadDocument(
                 json = null,
-                fallbackPlain = "买菜清单\n\n· 西红柿\n· 鸡蛋\n· 一袋米\n\n晚上记得回个电话。",
+                fallbackPlain = "Grocery list\n\n· Tomatoes\n· Eggs\n· A bag of rice\n\nRemember to call back tonight.",
             )
         }
     }

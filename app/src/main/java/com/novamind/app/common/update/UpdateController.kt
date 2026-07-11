@@ -64,7 +64,7 @@ object UpdateController {
         type = type,
         latestVersionName = "9.9.9",
         latestVersionCode = 999,
-        releaseNotes = "• 全新个人中心与抽屉\n• 图片预览体验优化\n• 修复若干已知问题",
+        releaseNotes = "• Brand-new profile and drawer\n• Improved image preview experience\n• Fixed several known issues",
         url = STORE_URL,
     )
 }

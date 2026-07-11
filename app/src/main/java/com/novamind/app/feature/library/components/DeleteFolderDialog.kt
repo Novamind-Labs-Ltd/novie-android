@@ -104,7 +104,7 @@ private fun DeleteFolderContent(
     }
 }
 
-@Preview(showBackground = true, name = "Library · DeleteFolder 内容")
+@Preview(showBackground = true, name = "Library · DeleteFolder Content")
 @Composable
 private fun DeleteFolderContentPreview() {
     AppTheme {

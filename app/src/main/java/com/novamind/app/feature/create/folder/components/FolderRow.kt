@@ -57,7 +57,7 @@ internal fun FolderRow(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Folder · 单选行")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Folder · Single-select row")
 @Composable
 private fun FolderRowPreview() {
     AppTheme {

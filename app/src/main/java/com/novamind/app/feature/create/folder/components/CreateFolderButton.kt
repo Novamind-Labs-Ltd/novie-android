@@ -56,7 +56,7 @@ internal fun CreateFolderButton(name: String, onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Folder · 创建按钮")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Folder · Create button")
 @Composable
 private fun CreateFolderButtonPreview() {
     AppTheme {

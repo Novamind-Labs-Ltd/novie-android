@@ -89,7 +89,7 @@ fun NotificationListScreen(
             // 一键清除未读（全部标记已读）
             if (hasUnread) {
                 Text(
-                    text = "全部已读",
+                    text = "Mark all read",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = Accent,
@@ -107,7 +107,7 @@ fun NotificationListScreen(
 
         if (notifications.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("暂无通知", fontSize = 14.sp, color = TextSub)
+                Text("No notifications yet", fontSize = 14.sp, color = TextSub)
             }
         } else {
             LazyColumn(

@@ -116,7 +116,7 @@ fun ProfileDrawerContent(
 
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "更换头像",
+                text = "Change avatar",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = Accent,
@@ -135,19 +135,19 @@ fun ProfileDrawerContent(
             Spacer(Modifier.height(8.dp))
 
             // 菜单项（示例）
-            ProfileMenuItem(R.drawable.ic_nav_library, "我的收藏")
-            ProfileMenuItem(R.drawable.ic_nav_calendar, "日程")
-            ProfileMenuItem(R.drawable.ic_notification, "通知设置")
-            ProfileMenuItem(R.drawable.ic_shield_check, "权限管理", onClick = onOpenPermissions)
+            ProfileMenuItem(R.drawable.ic_nav_library, "My Favorites")
+            ProfileMenuItem(R.drawable.ic_nav_calendar, "Schedule")
+            ProfileMenuItem(R.drawable.ic_notification, "Notification Settings")
+            ProfileMenuItem(R.drawable.ic_shield_check, "Permission Management", onClick = onOpenPermissions)
             if (showBiometricToggle) {
                 ProfileSwitchItem(
                     iconRes = R.drawable.ic_shield_check,
-                    label = "指纹 / 人脸登录",
+                    label = "Fingerprint / Face Login",
                     checked = biometricEnabled,
                     onCheckedChange = onToggleBiometric,
                 )
             }
-            ProfileMenuItem(R.drawable.ic_more, "设置")
+            ProfileMenuItem(R.drawable.ic_more, "Settings")
 
             // 账户出口：真实登录显示「退出登录」，游客显示「登录 / 注册」
             if (showLogout || showLogin) {
@@ -155,10 +155,10 @@ fun ProfileDrawerContent(
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
                 Spacer(Modifier.height(8.dp))
                 if (showLogout) {
-                    ProfileMenuItem(R.drawable.ic_arrow_back, "退出登录", onClick = onLogout)
+                    ProfileMenuItem(R.drawable.ic_arrow_back, "Log Out", onClick = onLogout)
                 }
                 if (showLogin) {
-                    ProfileMenuItem(R.drawable.ic_arrow_back, "登录 / 注册", onClick = onLogin)
+                    ProfileMenuItem(R.drawable.ic_arrow_back, "Log In / Sign Up", onClick = onLogin)
                 }
             }
         }

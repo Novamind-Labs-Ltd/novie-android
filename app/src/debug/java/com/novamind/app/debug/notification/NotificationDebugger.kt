@@ -53,41 +53,41 @@ object NotificationDebugger {
         ).forEach { nm.deleteNotificationChannel(it) }
 
         nm.createNotificationChannel(
-            NotificationChannel(CH_HEADS_UP, "Debug·悬浮通知", NotificationManager.IMPORTANCE_HIGH)
-                .apply { description = "IMPORTANCE_HIGH，亮屏时应弹横幅" },
+            NotificationChannel(CH_HEADS_UP, "Debug · Heads-up", NotificationManager.IMPORTANCE_HIGH)
+                .apply { description = "IMPORTANCE_HIGH: should show a banner when the screen is on" },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_LOCK_PUBLIC, "Debug·锁屏公开", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CH_LOCK_PUBLIC, "Debug · Lock Screen Public", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_LOCK_PRIVATE, "Debug·锁屏隐藏内容", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CH_LOCK_PRIVATE, "Debug · Lock Screen Hide Content", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_LOCK_SECRET, "Debug·锁屏不显示", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CH_LOCK_SECRET, "Debug · Lock Screen Hidden", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { lockscreenVisibility = NotificationCompat.VISIBILITY_SECRET },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_BADGE, "Debug·角标", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CH_BADGE, "Debug · Badge", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply { setShowBadge(true) },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_FULLSCREEN, "Debug·熄屏全屏", NotificationManager.IMPORTANCE_HIGH)
-                .apply { description = "带 fullScreenIntent，熄屏时应点亮并全屏拉起" },
+            NotificationChannel(CH_FULLSCREEN, "Debug · Screen-off Full Screen", NotificationManager.IMPORTANCE_HIGH)
+                .apply { description = "With fullScreenIntent: should wake the screen and launch full-screen when the screen is off" },
         )
         nm.createNotificationChannel(
-            NotificationChannel(CH_ONGOING, "Debug·常驻通知", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CH_ONGOING, "Debug · Ongoing Notification", NotificationManager.IMPORTANCE_DEFAULT)
                 .apply {
-                    description = "ongoing 常驻，锁屏公开可见"
+                    description = "Ongoing, visible on the lock screen"
                     lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
                 },
         )
         nm.createNotificationChannel(
             NotificationChannel(
-                CH_ONGOING_HEADS_UP, "Debug·常驻悬浮", NotificationManager.IMPORTANCE_HIGH,
+                CH_ONGOING_HEADS_UP, "Debug · Ongoing Heads-up", NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "ongoing + HIGH：亮屏弹横幅并常驻，锁屏公开可见"
+                description = "ongoing + HIGH: shows a banner when the screen is on and stays persistent, visible on the lock screen"
                 lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             },
         )
@@ -108,7 +108,7 @@ object NotificationDebugger {
     fun postHeadsUp(context: Context) {
         notify(
             context, ID_HEADS_UP,
-            builder(context, CH_HEADS_UP, "悬浮通知", "IMPORTANCE_HIGH：亮屏时应弹出横幅")
+            builder(context, CH_HEADS_UP, "Heads-up Notification", "IMPORTANCE_HIGH: should show a banner when the screen is on")
                 .setPriority(NotificationCompat.PRIORITY_HIGH),
         )
     }
@@ -120,15 +120,15 @@ object NotificationDebugger {
      */
     fun postLockScreenDelayed(context: Context, visibility: Int) {
         val (channel, label) = when (visibility) {
-            NotificationCompat.VISIBILITY_PUBLIC -> CH_LOCK_PUBLIC to "公开（完整显示）"
-            NotificationCompat.VISIBILITY_PRIVATE -> CH_LOCK_PRIVATE to "隐藏内容"
-            else -> CH_LOCK_SECRET to "不显示"
+            NotificationCompat.VISIBILITY_PUBLIC -> CH_LOCK_PUBLIC to "Public (fully visible)"
+            NotificationCompat.VISIBILITY_PRIVATE -> CH_LOCK_PRIVATE to "Hide content"
+            else -> CH_LOCK_SECRET to "Not shown"
         }
         val appContext = context.applicationContext
         handler.postDelayed({
             notify(
                 appContext, ID_LOCK,
-                builder(appContext, channel, "锁屏通知 · $label", "lockscreenVisibility=$visibility")
+                builder(appContext, channel, "Lock Screen Notification · $label", "lockscreenVisibility=$visibility")
                     .setVisibility(visibility),
             )
         }, DELAY_MS)
@@ -145,8 +145,8 @@ object NotificationDebugger {
             val b = builder(
                 appContext,
                 if (fullScreen) CH_FULLSCREEN else CH_HEADS_UP,
-                if (fullScreen) "熄屏全屏通知" else "熄屏通知",
-                if (fullScreen) "fullScreenIntent：熄屏应点亮并拉起页面" else "熄屏后发送：观察是否点亮屏幕/出现在锁屏",
+                if (fullScreen) "Screen-off Full-screen Notification" else "Screen-off Notification",
+                if (fullScreen) "fullScreenIntent: should wake the screen and launch the page when the screen is off" else "Sent after the screen turns off: check whether it wakes the screen / appears on the lock screen",
             ).setPriority(NotificationCompat.PRIORITY_HIGH)
             if (fullScreen) {
                 b.setFullScreenIntent(mainActivityPi(appContext), true)
@@ -159,7 +159,7 @@ object NotificationDebugger {
     fun postBadge(context: Context, count: Int) {
         notify(
             context, ID_BADGE,
-            builder(context, CH_BADGE, "角标通知", "setNumber($count)，长按桌面图标或看角标数字")
+            builder(context, CH_BADGE, "Badge Notification", "setNumber($count); long-press the home screen icon or check the badge number")
                 .setNumber(count),
         )
     }
@@ -171,7 +171,7 @@ object NotificationDebugger {
     fun postOngoing(context: Context) {
         notify(
             context, ID_ONGOING,
-            builder(context, CH_ONGOING, "常驻通知", "ongoing=true：常驻通知栏与锁屏，点「取消常驻」移除")
+            builder(context, CH_ONGOING, "Ongoing Notification", "ongoing=true: persists in the notification shade and lock screen; tap \"Cancel Ongoing\" to remove")
                 .setOngoing(true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 // 显示计时器便于确认通知存活时长。
@@ -192,8 +192,8 @@ object NotificationDebugger {
                 appContext, ID_ONGOING,
                 builder(
                     appContext, CH_ONGOING_HEADS_UP,
-                    "熄屏常驻悬浮通知",
-                    "HIGH + ongoing：亮屏弹横幅、常驻通知栏与锁屏，点「取消常驻」移除",
+                    "Screen-off Ongoing Heads-up Notification",
+                    "HIGH + ongoing: shows a banner when the screen is on, persists in the notification shade and lock screen; tap \"Cancel Ongoing\" to remove",
                 )
                     .setOngoing(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)

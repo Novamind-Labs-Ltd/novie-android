@@ -143,7 +143,7 @@ private fun Spacer(dp: Int) {
 
 // ── Preview（预览内容层；ModalBottomSheet 为窗口层，静态预览不渲染） ──
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Rename · 有标题")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Rename · With Title")
 @Composable
 private fun RenameContentPreview() {
     AppTheme {
@@ -156,7 +156,7 @@ private fun RenameContentPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Rename · 空标题（Save 置灰）")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Rename · Empty Title (Save Disabled)")
 @Composable
 private fun RenameContentEmptyPreview() {
     AppTheme {

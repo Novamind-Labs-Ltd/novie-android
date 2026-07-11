@@ -19,8 +19,8 @@ object PushChannels {
         val mgr = context.getSystemService(NotificationManager::class.java)
         if (mgr.getNotificationChannel(DEFAULT_ID) != null) return
         val channel = NotificationChannel(
-            DEFAULT_ID, "推送通知", NotificationManager.IMPORTANCE_HIGH,
-        ).apply { description = "应用消息推送" }
+            DEFAULT_ID, "Push Notifications", NotificationManager.IMPORTANCE_HIGH,
+        ).apply { description = "App message push notifications" }
         mgr.createNotificationChannel(channel)
     }
 }

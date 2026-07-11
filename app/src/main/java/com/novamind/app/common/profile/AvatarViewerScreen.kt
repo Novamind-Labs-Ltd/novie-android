@@ -225,7 +225,7 @@ fun AvatarViewerScreen(
             ) {
                 AsyncImage(
                     model = File(avatarPath),
-                    contentDescription = "头像",
+                    contentDescription = "Avatar",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxWidth(0.78f)
@@ -258,8 +258,8 @@ fun AvatarViewerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    CircleIconButton(R.drawable.ic_arrow_back, "返回", onClick = onBack)
-                    Text("头像", color = OnScrim, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    CircleIconButton(R.drawable.ic_arrow_back, "Back", onClick = onBack)
+                    Text("Avatar", color = OnScrim, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     Box(modifier = Modifier.size(44.dp)) // 占位保持标题居中
                 }
 
@@ -334,7 +334,7 @@ private fun ChangeAvatarButton(onClick: () -> Unit) {
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(8.dp))
-        Text("更换头像", color = BtnText, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        Text("Change avatar", color = BtnText, fontSize = 15.sp, fontWeight = FontWeight.Medium)
     }
 }
 

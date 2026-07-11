@@ -58,7 +58,7 @@ internal fun SearchField(query: String, onQueryChange: (String) -> Unit) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · 搜索框")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · Search Field")
 @Composable
 private fun SearchFieldPreview() {
     AppTheme {
@@ -66,7 +66,7 @@ private fun SearchFieldPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · 搜索框（有输入）")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · Search Field (With Input)")
 @Composable
 private fun SearchFieldFilledPreview() {
     AppTheme {

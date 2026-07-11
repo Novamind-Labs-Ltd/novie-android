@@ -51,7 +51,7 @@ internal fun TagColorSwatch(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · 颜色圆点")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · Color Swatch")
 @Composable
 private fun TagColorSwatchPreview() {
     AppTheme {

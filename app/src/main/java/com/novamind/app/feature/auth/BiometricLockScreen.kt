@@ -68,10 +68,10 @@ fun BiometricLockScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("指纹 / 人脸登录", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+        Text("Fingerprint / Face Login", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
         Spacer(Modifier.height(8.dp))
         Text(
-            text = errorMessage ?: "请验证身份以继续",
+            text = errorMessage ?: "Please verify your identity to continue",
             fontSize = 14.sp,
             color = if (errorMessage != null) ErrorText else TextSub,
         )
@@ -84,20 +84,20 @@ fun BiometricLockScreen(
                 onClick = onUnlock,
                 colors = ButtonDefaults.buttonColors(containerColor = Accent),
             ) {
-                Text("使用指纹 / 人脸解锁")
+                Text("Use Fingerprint / Face Unlock")
             }
         }
 
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = onUsePassword) {
-            Text("改用账号登录", color = Accent)
+            Text("Use account login instead", color = Accent)
         }
     }
 }
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, showSystemUi = true, name = "Auth · 指纹解锁（默认）")
+@Preview(showBackground = true, showSystemUi = true, name = "Auth · Fingerprint Unlock (Default)")
 @Composable
 private fun BiometricLockScreenPreview() {
     AppTheme {
@@ -105,7 +105,7 @@ private fun BiometricLockScreenPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Auth · 指纹解锁（等待中）")
+@Preview(showBackground = true, showSystemUi = true, name = "Auth · Fingerprint Unlock (Loading)")
 @Composable
 private fun BiometricLockScreenLoadingPreview() {
     AppTheme {
@@ -113,10 +113,10 @@ private fun BiometricLockScreenLoadingPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Auth · 指纹解锁（失败）")
+@Preview(showBackground = true, showSystemUi = true, name = "Auth · Fingerprint Unlock (Failed)")
 @Composable
 private fun BiometricLockScreenErrorPreview() {
     AppTheme {
-        BiometricLockScreen(isLoading = false, errorMessage = "指纹验证失败，请重试", onUnlock = {}, onUsePassword = {})
+        BiometricLockScreen(isLoading = false, errorMessage = "Fingerprint verification failed, please retry", onUnlock = {}, onUsePassword = {})
     }
 }

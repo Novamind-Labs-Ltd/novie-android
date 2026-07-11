@@ -21,7 +21,7 @@ class FileRecordingUploader(
 
     override suspend fun upload(file: RecordedFile): Result<String?> {
         if (UserSessionManager.current.isGuest) {
-            return Result.failure(IllegalStateException("游客未登录，录音已暂存本地，登录后可同步"))
+            return Result.failure(IllegalStateException("Guest not signed in; recording saved locally and will sync after sign-in"))
         }
         return filesRepository
             .uploadFile(File(file.path), AppConfig.Media.AUDIO_MIME)

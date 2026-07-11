@@ -119,7 +119,7 @@ fun ApiTestScreen(
             )
 
             PrimaryButton(
-                text = if (uiState.isLoading) "请求中…" else "请求接口",
+                text = if (uiState.isLoading) "Requesting…" else "Request API",
                 enabled = !uiState.isLoading,
                 onClick = { onEvent(ApiTestEvent.Fetch) },
             )
@@ -147,7 +147,7 @@ fun ApiTestScreen(
                     }
                     !uiState.hasLoaded -> {
                         Text(
-                            "点击上方按钮发起请求",
+                            "Tap the button above to make a request",
                             color = TextSub,
                             fontSize = 14.sp,
                             modifier = Modifier.align(Alignment.Center),
@@ -157,7 +157,7 @@ fun ApiTestScreen(
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             item {
                                 Text(
-                                    "共 ${uiState.items.size} 条",
+                                    "${uiState.items.size} items total",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Accent,
@@ -166,7 +166,7 @@ fun ApiTestScreen(
                             items(uiState.items) { item -> ItemCard(item) }
                             if (uiState.rawPreview.isNotEmpty()) {
                                 item {
-                                    Text("原始响应（前 800 字）", fontSize = 12.sp, color = TextSub)
+                                    Text("Raw response (first 800 chars)", fontSize = 12.sp, color = TextSub)
                                     Text(
                                         uiState.rawPreview,
                                         fontSize = 11.sp,
@@ -252,8 +252,8 @@ private fun PreviewLoaded() {
             ApiTestUiState(
                 hasLoaded = true,
                 items = listOf(
-                    ApiItem("1", "第一条", "这是描述", "{}"),
-                    ApiItem("2", "第二条", "另一条描述", "{}"),
+                    ApiItem("1", "Item 1", "This is a description", "{}"),
+                    ApiItem("2", "Item 2", "Another description", "{}"),
                 ),
                 rawPreview = "{\"items\":[...]}",
             ),

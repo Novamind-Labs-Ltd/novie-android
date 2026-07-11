@@ -51,7 +51,7 @@ internal fun NewChatButton(onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · New chat 按钮")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · New chat button")
 @Composable
 private fun NewChatButtonPreview() {
     AppTheme { NewChatButton {} }

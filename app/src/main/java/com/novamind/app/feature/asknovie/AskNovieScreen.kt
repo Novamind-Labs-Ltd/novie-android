@@ -123,7 +123,7 @@ private fun queryDisplayName(context: android.content.Context, uri: android.net.
 private fun mockReply(prompt: String): String {
     val p = prompt.lowercase()
     val offTopic =
-        listOf("movie", "cinema", "weather", "news", "stock", "score", "lottery", "电影", "天气")
+        listOf("movie", "cinema", "weather", "news", "stock", "score", "lottery")
     if (offTopic.any { p.contains(it) }) {
         return "That’s a bit outside my current scope. I’m best at helping with " +
                 "project management, strategic planning, brainstorming, and creative tasks. " +
@@ -292,7 +292,7 @@ fun AskNovieScreen(
             ensureNotifPermission()
             isRecording = true
         } else {
-            Toast.makeText(context, "需要麦克风权限才能录音", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Microphone permission is required to record audio", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -410,7 +410,7 @@ fun AskNovieScreen(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "返回")
+                BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "Back")
                 Spacer(Modifier.weight(1f))
                 // 历史 + 更多 合并胶囊
                 Surface(color = Card, shape = RoundedCornerShape(50), shadowElevation = 1.dp) {
@@ -420,12 +420,12 @@ fun AskNovieScreen(
                     ) {
                         BareIconButton(
                             R.drawable.ic_history,
-                            "历史",
+                            "History",
                             onClick = { showHistory = true })
                         Box {
                             BareIconButton(
                                 R.drawable.ic_more,
-                                "更多",
+                                "More",
                                 enabled = messages.isNotEmpty(),
                                 onClick = { showMoreMenu = true },
                             )
@@ -612,7 +612,7 @@ fun AskNovieScreen(
                             ) {
                                 BareIconButton(
                                     R.drawable.ic_add,
-                                    "添加",
+                                    "Add",
                                     onClick = {
                                         // 打开底部弹窗前先收起键盘，与笔记编辑页一致
                                         keyboardController?.hide()
@@ -825,15 +825,15 @@ private suspend fun LazyListState.smoothScrollToBottom() {
 
 /** 预览用示例对话。 */
 private val previewMessages = listOf(
-    ChatMessage(Role.User, "帮我把这次季报的要点梳理一下"),
+    ChatMessage(Role.User, "Help me organize the key points of this quarterly report"),
     ChatMessage(
         Role.Assistant,
-        "好的，这份季报的三个要点：营收同比增长 12%、毛利率企稳、现金流转正。要不要我拆成下一步行动项？",
+        "Sure, here are the three key points of this quarterly report: revenue grew 12% year-over-year, gross margin stabilized, and cash flow turned positive. Want me to break it into next steps?",
     ),
-    ChatMessage(Role.User, "顺便列个待办"),
+    ChatMessage(Role.User, "Also list a to-do"),
 )
 
-@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 空状态问候")
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · Empty State Greeting")
 @Composable
 private fun AskNovieScreenPreview() {
     AppTheme {
@@ -841,7 +841,7 @@ private fun AskNovieScreenPreview() {
     }
 }
 
-@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 空状态 · 深色")
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · Empty State · Dark")
 @Composable
 private fun AskNovieScreenDarkPreview() {
     AppTheme(darkTheme = true, dynamicColor = false) {
@@ -849,7 +849,7 @@ private fun AskNovieScreenDarkPreview() {
     }
 }
 
-@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 对话")
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · Conversation")
 @Composable
 private fun AskNovieScreenConversationPreview() {
     AppTheme {
@@ -857,7 +857,7 @@ private fun AskNovieScreenConversationPreview() {
     }
 }
 
-@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 对话 · 深色")
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · Conversation · Dark")
 @Composable
 private fun AskNovieScreenConversationDarkPreview() {
     AppTheme(darkTheme = true, dynamicColor = false) {
@@ -865,23 +865,23 @@ private fun AskNovieScreenConversationDarkPreview() {
     }
 }
 
-@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 助手回复中")
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · Assistant Responding")
 @Composable
 private fun AskNovieScreenRespondingPreview() {
     AppTheme {
         AskNovieScreen(
-            initialMessages = listOf(ChatMessage(Role.User, "帮我总结一下今天的会议")),
+            initialMessages = listOf(ChatMessage(Role.User, "Help me summarize today's meeting")),
             initialResponding = true,
         )
     }
 }
 
-@Preview(showBackground = true, heightDp = 720, name = "AskNovie · 输入含文字+附件")
+@Preview(showBackground = true, heightDp = 720, name = "AskNovie · Text + Attachment Input")
 @Composable
 private fun AskNovieScreenComposingPreview() {
     AppTheme {
         AskNovieScreen(
-            initialInput = "把这张图里的重点提取出来",
+            initialInput = "Extract the key points from this image",
             initialAttachments = listOf(
                 Attachment(AttachType.Image, "/preview/photo.jpg", "photo.jpg"),
                 Attachment(AttachType.File, "/preview/report.pdf", "report.pdf"),

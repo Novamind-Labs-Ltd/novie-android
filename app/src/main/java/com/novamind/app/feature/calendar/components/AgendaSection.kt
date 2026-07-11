@@ -51,7 +51,7 @@ internal fun AgendaSection(
     }
 }
 
-@Preview(showBackground = true, name = "Calendar · 议程区块（空）")
+@Preview(showBackground = true, name = "Calendar · Agenda section (empty)")
 @Composable
 private fun AgendaSectionEmptyPreview() {
     AppTheme {

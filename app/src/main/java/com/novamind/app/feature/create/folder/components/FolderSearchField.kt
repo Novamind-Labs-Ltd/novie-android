@@ -42,7 +42,7 @@ internal fun FolderSearchField(query: String, onQueryChange: (String) -> Unit) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Folder · 搜索框")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Folder · Search field")
 @Composable
 private fun FolderSearchFieldPreview() {
     AppTheme {

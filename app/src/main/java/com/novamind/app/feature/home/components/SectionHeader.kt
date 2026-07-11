@@ -47,7 +47,7 @@ internal fun SectionHeader(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · 区块标题")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · Section Header")
 @Composable
 private fun SectionHeaderPreview() {
     AppTheme {

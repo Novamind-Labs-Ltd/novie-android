@@ -88,7 +88,7 @@ fun ShimmerBlock(
     )
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Shimmer · 占位块组合")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Shimmer · Placeholder Block Combo")
 @Composable
 private fun ShimmerPreview() {
     AppTheme {

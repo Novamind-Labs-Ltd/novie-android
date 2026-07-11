@@ -103,7 +103,7 @@ private fun DeleteTagContent(
 }
 
 // ModalBottomSheet 为窗口层，静态预览不渲染；预览内容层。
-@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "Tag · 删除确认")
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, name = "Tag · Delete confirmation")
 @Composable
 private fun DeleteTagContentPreview() {
     AppTheme {

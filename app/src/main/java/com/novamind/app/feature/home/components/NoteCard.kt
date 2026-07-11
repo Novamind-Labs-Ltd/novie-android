@@ -145,7 +145,7 @@ private fun NoteCardPreview() {
                 NoteItem(
                     "2",
                     "",
-                    "无标题：这条用正文充当标题，剩余内容会接到分割线下方继续展示。",
+                    "Untitled: this note uses the body text as the title, with remaining content shown below the divider.",
                     isSelected = true,
                     updatedAt = System.currentTimeMillis(),
                 )

@@ -71,7 +71,7 @@ internal fun SearchBar(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · 搜索框")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Home · Search Bar")
 @Composable
 private fun SearchBarPreview() {
     AppTheme {

@@ -252,7 +252,7 @@ fun FastScrollbar(
 // ─── Preview ──────────────────────────────────────────────────────────────────
 // 拖杆平时隐藏（active 才淡入），故预览里叠一个可滚动长列表作为背景，拖杆命中区可见。
 
-@Preview(showBackground = true, name = "Create · 快速滚动条")
+@Preview(showBackground = true, name = "Create · Fast Scrollbar")
 @Composable
 private fun FastScrollbarPreview() {
     AppTheme {
@@ -261,7 +261,7 @@ private fun FastScrollbarPreview() {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(40) { i ->
                     Text(
-                        "列表项 #${i + 1}",
+                        "List item #${i + 1}",
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         fontSize = 16.sp,
                     )

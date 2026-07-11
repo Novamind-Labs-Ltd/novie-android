@@ -110,7 +110,7 @@ internal fun SwipeToDeleteRow(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · 左滑删除容器")
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA, name = "Tag · Swipe-to-delete container")
 @Composable
 private fun SwipeToDeleteRowPreview() {
     AppTheme {

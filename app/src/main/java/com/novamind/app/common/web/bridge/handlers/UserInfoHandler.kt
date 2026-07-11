@@ -19,7 +19,7 @@ class UserInfoHandler : BridgeHandler {
     override suspend fun handle(params: JSONObject, ctx: BridgeContext): BridgeResult {
         val data = JSONObject().apply {
             put("userId", "u_10086")
-            put("nickname", "Novie 用户")
+            put("nickname", "Novie User")
             put("avatar", "")
         }
         return BridgeResult.ok(data)

@@ -122,8 +122,8 @@ private fun appPermissions(): List<AppPermission> = buildList {
         AppPermission(
             key = "notifications",
             iconRes = R.drawable.ic_notification,
-            title = "通知",
-            description = "用于发送日程提醒、笔记与录音相关的状态通知",
+            title = "Notifications",
+            description = "Used to send schedule reminders and status notifications for notes and recordings",
             manifestPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 listOf(Manifest.permission.POST_NOTIFICATIONS)
             } else {
@@ -135,8 +135,8 @@ private fun appPermissions(): List<AppPermission> = buildList {
         AppPermission(
             key = "microphone",
             iconRes = R.drawable.ic_mic,
-            title = "麦克风",
-            description = "用于语音速记、录音转写等功能",
+            title = "Microphone",
+            description = "Used for voice notes, recording transcription, and related features",
             manifestPermissions = listOf(Manifest.permission.RECORD_AUDIO),
         )
     )
@@ -144,8 +144,8 @@ private fun appPermissions(): List<AppPermission> = buildList {
         AppPermission(
             key = "camera",
             iconRes = R.drawable.ic_camera,
-            title = "相机",
-            description = "用于在笔记中拍照插图",
+            title = "Camera",
+            description = "Used to take photos to insert into notes",
             manifestPermissions = listOf(Manifest.permission.CAMERA),
         )
     )
@@ -153,8 +153,8 @@ private fun appPermissions(): List<AppPermission> = buildList {
         AppPermission(
             key = "photos",
             iconRes = R.drawable.ic_image,
-            title = "照片和媒体",
-            description = "用于从相册选择图片插入笔记",
+            title = "Photos and Media",
+            description = "Used to select images from the gallery to insert into notes",
             manifestPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 listOf(Manifest.permission.READ_MEDIA_IMAGES)
             } else {
@@ -295,9 +295,9 @@ fun PermissionManagerContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "返回")
+            BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "Back")
             Text(
-                "权限管理",
+                "Permission Management",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextTitle,
@@ -314,7 +314,7 @@ fun PermissionManagerContent(
             item {
                 SummaryCard(grantedCount = grantedCount, total = items.size)
                 Spacer(Modifier.height(8.dp))
-                SectionLabel("应用权限")
+                SectionLabel("App Permissions")
             }
 
             items(items, key = { it.permission.key }) { item ->
@@ -327,8 +327,8 @@ fun PermissionManagerContent(
                 SystemSettingsEntry(onClick = onOpenSystemSettings)
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "权限由系统统一管理。出于安全考虑，应用无法直接开启或关闭权限，" +
-                        "你可随时在系统设置中修改。",
+                    text = "Permissions are managed by the system. For security reasons, the app cannot " +
+                        "directly enable or disable permissions — you can change them anytime in system settings.",
                     fontSize = 12.sp,
                     color = TextSub,
                     lineHeight = 18.sp,
@@ -365,14 +365,14 @@ private fun SummaryCard(grantedCount: Int, total: Int) {
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "已开启 $grantedCount / $total 项权限",
+                    "$grantedCount / $total permissions enabled",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextTitle,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "管理本应用使用的系统权限",
+                    "Manage the system permissions used by this app",
                     fontSize = 12.sp,
                     color = TextSub,
                 )
@@ -448,7 +448,7 @@ private fun PermissionRow(item: PermissionUiItem, onClick: () -> Unit) {
 private fun StatusPill(granted: Boolean) {
     val bg = if (granted) AccentSoft else PillOffBg
     val fg = if (granted) Accent else PillOffText
-    val label = if (granted) "已开启" else "去开启"
+    val label = if (granted) "Enabled" else "Enable"
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
@@ -477,7 +477,7 @@ private fun SystemSettingsEntry(onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "在系统设置中管理",
+                "Manage in System Settings",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
                 color = TextTitle,
@@ -501,19 +501,19 @@ private fun SystemSettingsEntry(onClick: () -> Unit) {
 private fun PermissionManagerPreview() {
     val sample = listOf(
         PermissionUiItem(
-            AppPermission("notifications", R.drawable.ic_notification, "通知", "用于发送日程提醒、笔记与录音相关的状态通知", listOf("x")),
+            AppPermission("notifications", R.drawable.ic_notification, "Notifications", "Used to send schedule reminders and status notifications for notes and recordings", listOf("x")),
             PermissionStatus.GRANTED,
         ),
         PermissionUiItem(
-            AppPermission("microphone", R.drawable.ic_mic, "麦克风", "用于语音速记、录音转写等功能", listOf("x")),
+            AppPermission("microphone", R.drawable.ic_mic, "Microphone", "Used for voice notes, recording transcription, and related features", listOf("x")),
             PermissionStatus.GRANTED,
         ),
         PermissionUiItem(
-            AppPermission("camera", R.drawable.ic_camera, "相机", "用于在笔记中拍照插图", listOf("x")),
+            AppPermission("camera", R.drawable.ic_camera, "Camera", "Used to take photos to insert into notes", listOf("x")),
             PermissionStatus.DENIED,
         ),
         PermissionUiItem(
-            AppPermission("photos", R.drawable.ic_image, "照片和媒体", "用于从相册选择图片插入笔记", listOf("x")),
+            AppPermission("photos", R.drawable.ic_image, "Photos and Media", "Used to select images from the gallery to insert into notes", listOf("x")),
             PermissionStatus.DENIED,
         ),
     )

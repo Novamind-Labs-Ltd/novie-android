@@ -54,7 +54,7 @@ internal fun DayCell(
     }
 }
 
-@Preview(showBackground = true, name = "Calendar · 周条日格")
+@Preview(showBackground = true, name = "Calendar · Week bar day cell")
 @Composable
 private fun DayCellPreview() {
     AppTheme {

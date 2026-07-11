@@ -118,9 +118,9 @@ fun AvatarCropScreen(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(R.drawable.ic_arrow_back, "取消", onClick = onCancel)
+            IconButton(R.drawable.ic_arrow_back, "Cancel", onClick = onCancel)
             Spacer(Modifier.weight(1f))
-            Text("编辑头像", color = OnScrim, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("Edit Avatar", color = OnScrim, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.size(44.dp)) // 占位，保持标题居中
         }
@@ -146,7 +146,7 @@ fun AvatarCropScreen(
                         offset += panChange
                     },
                 )
-                loadFailed -> Text("无法加载该图片", color = OnScrim, fontSize = 14.sp)
+                loadFailed -> Text("Failed to load image", color = OnScrim, fontSize = 14.sp)
                 else -> CircularProgressIndicator(color = OnScrim)
             }
         }
@@ -163,9 +163,9 @@ fun AvatarCropScreen(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextChip(R.drawable.ic_refresh, "重置", onClick = { reset() })
+                TextChip(R.drawable.ic_refresh, "Reset", onClick = { reset() })
                 Spacer(Modifier.width(16.dp))
-                TextChip(R.drawable.ic_redo, "旋转 90°", onClick = { rotation += 90f })
+                TextChip(R.drawable.ic_redo, "Rotate 90°", onClick = { rotation += 90f })
             }
 
             Spacer(Modifier.height(16.dp))
@@ -175,14 +175,14 @@ fun AvatarCropScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 ActionButton(
-                    text = "取消",
+                    text = "Cancel",
                     filled = false,
                     enabled = !saving,
                     modifier = Modifier.weight(1f),
                     onClick = onCancel,
                 )
                 ActionButton(
-                    text = if (saving) "保存中…" else "完成",
+                    text = if (saving) "Saving…" else "Done",
                     filled = true,
                     enabled = bitmap != null && viewportDiameterPx > 0f && !saving,
                     modifier = Modifier.weight(1f),

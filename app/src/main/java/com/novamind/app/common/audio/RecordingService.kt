@@ -173,15 +173,15 @@ class RecordingService : Service() {
         }
 
         val toggle = if (paused) {
-            NotificationCompat.Action(R.drawable.ic_play, "继续", servicePi(ACTION_RESUME, REQ_RESUME))
+            NotificationCompat.Action(R.drawable.ic_play, "Resume", servicePi(ACTION_RESUME, REQ_RESUME))
         } else {
-            NotificationCompat.Action(R.drawable.ic_pause, "暂停", servicePi(ACTION_PAUSE, REQ_PAUSE))
+            NotificationCompat.Action(R.drawable.ic_pause, "Pause", servicePi(ACTION_PAUSE, REQ_PAUSE))
         }
-        val stop = NotificationCompat.Action(R.drawable.ic_close, "停止", servicePi(ACTION_STOP, REQ_STOP))
+        val stop = NotificationCompat.Action(R.drawable.ic_close, "Stop", servicePi(ACTION_STOP, REQ_STOP))
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_mic)
-            .setContentTitle(if (paused) "录音已暂停" else "正在录音")
+            .setContentTitle(if (paused) "Recording paused" else "Recording")
             .setContentText(formatTime(elapsed))
             .setOngoing(true)
             // 只在首次弹出 heads-up 悬浮横幅，逐秒刷新不再重复弹出
@@ -213,9 +213,9 @@ class RecordingService : Service() {
         // IMPORTANCE_HIGH 才会弹出 heads-up 悬浮横幅；但关掉声音与振动，
         // 避免提示音被麦克风录入、也不打扰用户。
         val channel = NotificationChannel(
-            CHANNEL_ID, "录音", NotificationManager.IMPORTANCE_HIGH,
+            CHANNEL_ID, "Recording", NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "录音进行时的悬浮通知"
+            description = "Heads-up notification shown while recording"
             setShowBadge(false)
             setSound(null, null)
             enableVibration(false)

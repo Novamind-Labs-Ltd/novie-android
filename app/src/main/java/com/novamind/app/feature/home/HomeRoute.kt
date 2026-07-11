@@ -91,7 +91,7 @@ fun HomeRoute(
         drawerContent = {
             ProfileDrawerContent(
                 avatarPath = avatarPath,
-                name = userName?.takeIf { it.isNotBlank() } ?: "游客",
+                name = userName?.takeIf { it.isNotBlank() } ?: "Guest",
                 email = userEmail.orEmpty(),
                 onChangeAvatar = { openAvatar() },
                 onViewAvatar = { openAvatar() },
@@ -193,9 +193,9 @@ fun HomeRoute(
                 onLogout()
             },
             onDismiss = { showLogoutConfirm = false },
-            title = "退出登录?",
-            message = "退出后需重新登录才能继续同步你的笔记与设置。",
-            confirmLabel = "退出登录",
+            title = "Sign out?",
+            message = "You'll need to sign in again to keep syncing your notes and settings.",
+            confirmLabel = "Sign out",
         )
     }
   }

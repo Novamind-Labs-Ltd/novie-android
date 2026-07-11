@@ -34,7 +34,7 @@ class FilesRepository @Inject constructor() {
      */
     suspend fun uploadFile(file: File, contentType: String): Result<String> = withContext(Dispatchers.IO) {
         if (!file.exists() || file.length() <= 0L) {
-            return@withContext Result.failure(IOException("文件不存在或为空: ${file.name}"))
+            return@withContext Result.failure(IOException("File does not exist or is empty: ${file.name}"))
         }
         // 1) 申请预签名
         val presign = when (val r = apiCall {
@@ -46,23 +46,23 @@ class FilesRepository @Inject constructor() {
                 ),
             )
         }) {
-            is ApiResult.Success -> r.data ?: return@withContext fail("presign 响应为空")
-            is ApiResult.BizError -> return@withContext fail("presign 失败 code=${r.code} ${r.message}")
-            is ApiResult.NetworkError -> return@withContext Result.failure(r.cause ?: IOException("presign 网络异常"))
+            is ApiResult.Success -> r.data ?: return@withContext fail("presign response is empty")
+            is ApiResult.BizError -> return@withContext fail("presign failed code=${r.code} ${r.message}")
+            is ApiResult.NetworkError -> return@withContext Result.failure(r.cause ?: IOException("presign network error"))
         }
 
         // 2) 直传对象存储（表单字段在前、文件名为 "file"；不走信封）
         val uploaded = runCatching { putToStorage(presign, file, contentType) }
             .getOrElse { return@withContext Result.failure(it) }
-        if (!uploaded) return@withContext fail("直传对象存储失败")
+        if (!uploaded) return@withContext fail("Direct upload to object storage failed")
 
         // 3) 确认落库，校验 READY
         val view: FileView = when (val r = apiCall { NetworkModule.filesApi.confirm(presign.fileId) }) {
-            is ApiResult.Success -> r.data ?: return@withContext fail("confirm 响应为空")
-            is ApiResult.BizError -> return@withContext fail("confirm 失败 code=${r.code} ${r.message}")
-            is ApiResult.NetworkError -> return@withContext Result.failure(r.cause ?: IOException("confirm 网络异常"))
+            is ApiResult.Success -> r.data ?: return@withContext fail("confirm response is empty")
+            is ApiResult.BizError -> return@withContext fail("confirm failed code=${r.code} ${r.message}")
+            is ApiResult.NetworkError -> return@withContext Result.failure(r.cause ?: IOException("confirm network error"))
         }
-        if (view.status != STATUS_READY) return@withContext fail("confirm 状态异常: ${view.status}")
+        if (view.status != STATUS_READY) return@withContext fail("confirm status abnormal: ${view.status}")
 
         AppLog.i(TAG) { "upload ok fileId=${presign.fileId} size=${file.length()}" }
         Result.success(presign.fileId)

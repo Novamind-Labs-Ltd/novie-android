@@ -15,7 +15,7 @@ enum class ApiTarget(
 ) {
     /** 原有接口：page / size。 */
     ITEMS(
-        title = "接口测试",
+        title = "API Test",
         baseUrl = "https://121.41.207.114/items",
         pageParam = "page",
         sizeParam = "size",
@@ -25,7 +25,7 @@ enum class ApiTarget(
 
     /** 用户接口：pageNum / pageSize。 */
     USERS(
-        title = "用户接口测试",
+        title = "User API Test",
         baseUrl = "http://121.41.207.114:8080/api/users",
         pageParam = "pageNum",
         sizeParam = "pageSize",

@@ -336,7 +336,7 @@ private fun RecordingBarContent(
             ) {
                 RoundButton(
                     iconRes = R.drawable.ic_close,
-                    desc = "取消",
+                    desc = "Cancel",
                     bg = ControlBg,
                     tint = ControlIcon,
                     enabled = phase != RecordingBarPhase.Sending,
@@ -346,7 +346,7 @@ private fun RecordingBarContent(
                     // 失败态：录音已结束，中间显示麦克风占位（不可点）
                     RoundButton(
                         iconRes = R.drawable.ic_mic,
-                        desc = "录音已结束",
+                        desc = "Recording ended",
                         bg = ControlBg,
                         tint = ControlIcon,
                         enabled = false,
@@ -355,7 +355,7 @@ private fun RecordingBarContent(
                     // 右侧：绿色重试（重传同一段录音）
                     RoundButton(
                         iconRes = R.drawable.ic_refresh,
-                        desc = "重试上传",
+                        desc = "Retry upload",
                         bg = SendBg,
                         tint = SendIcon,
                         onClick = onRetry,
@@ -364,7 +364,7 @@ private fun RecordingBarContent(
                     val sending = phase == RecordingBarPhase.Sending
                     RoundButton(
                         iconRes = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                        desc = if (paused) "继续" else "暂停",
+                        desc = if (paused) "Resume" else "Pause",
                         bg = ControlBg,
                         tint = ControlIcon,
                         enabled = !sending,
@@ -372,7 +372,7 @@ private fun RecordingBarContent(
                     )
                     RoundButton(
                         iconRes = R.drawable.ic_arrow_up,
-                        desc = if (sending) "上传中" else "完成",
+                        desc = if (sending) "Uploading" else "Done",
                         bg = SendBg,
                         tint = SendIcon,
                         enabled = sendEnabled && !sending,
@@ -528,7 +528,7 @@ private fun previewLevels(): List<Float> =
         (WAVE_BASELINE + 0.75f * kotlin.math.abs(kotlin.math.sin(i / 3.5f))).coerceAtMost(1f)
     }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 录制中")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Recording")
 @Composable
 private fun RecordingBarRecordingPreview() {
     AppTheme {
@@ -544,7 +544,7 @@ private fun RecordingBarRecordingPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 已暂停")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Paused")
 @Composable
 private fun RecordingBarPausedPreview() {
     AppTheme {
@@ -560,7 +560,7 @@ private fun RecordingBarPausedPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 上传中")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Uploading")
 @Composable
 private fun RecordingBarSendingPreview() {
     AppTheme {
@@ -577,7 +577,7 @@ private fun RecordingBarSendingPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 上传失败（可重试）")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Upload failed (retryable)")
 @Composable
 private fun RecordingBarUploadFailedPreview() {
     AppTheme {
@@ -595,7 +595,7 @@ private fun RecordingBarUploadFailedPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "录音条 · 刚开始（不足3s禁止发送）")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Just started (send disabled under 3s)")
 @Composable
 private fun RecordingBarJustStartedPreview() {
     AppTheme {

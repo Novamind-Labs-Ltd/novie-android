@@ -142,7 +142,7 @@ object AppConfig {
         init {
             // 不变式：单次录音最大体积必须小于后端单文件上限，否则上传必失败。
             require(AUDIO_BITRATE / 8L * MAX_RECORD_SECONDS < MAX_DOCUMENT_SIZE) {
-                "录音上限(码率×时长)可能超过后端文件大小限制 MAX_DOCUMENT_SIZE"
+                "Recording size limit (bitrate × duration) may exceed backend file size limit MAX_DOCUMENT_SIZE"
             }
         }
     }

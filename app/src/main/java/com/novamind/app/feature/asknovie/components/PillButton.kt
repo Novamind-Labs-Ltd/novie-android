@@ -58,7 +58,7 @@ internal fun PillButton(text: String, filled: Boolean, enabled: Boolean, onClick
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · 胶囊按钮")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "AskNovie · Pill button")
 @Composable
 private fun PillButtonPreview() {
     AppTheme {

@@ -171,11 +171,11 @@ class AuthManager(context: Context) {
      */
     private fun buildLocalAuthOptions(): LocalAuthenticationOptions =
         LocalAuthenticationOptions.Builder()
-            .setTitle("指纹 / 人脸登录")
-            .setDescription("验证身份以继续")
+            .setTitle("Fingerprint / Face sign-in")
+            .setDescription("Verify your identity to continue")
             .setAuthenticationLevel(AuthenticationLevel.WEAK)
             .setDeviceCredentialFallback(true)
-            .setNegativeButtonText("取消")
+            .setNegativeButtonText("Cancel")
             .build()
 
     /**

@@ -50,7 +50,7 @@ private fun MoreMenuItem(label: String, onClick: () -> Unit) {
 }
 
 // DropdownMenu 是弹窗层，静态预览不渲染；预览菜单项本体验证样式。
-@Preview(showBackground = true, backgroundColor = 0xFFF4F2EA, name = "AskNovie · 更多菜单项")
+@Preview(showBackground = true, backgroundColor = 0xFFF4F2EA, name = "AskNovie · More menu item")
 @Composable
 private fun MoreMenuItemPreview() {
     AppTheme {

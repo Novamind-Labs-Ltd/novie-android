@@ -151,7 +151,7 @@ private fun FileBrowserRoute(rootPath: String, onFinish: () -> Unit) {
                 },
                 navigationIcon = {
                     IconButton(onClick = { goBackOrUp() }) {
-                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "返回")
+                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Card),
@@ -178,7 +178,7 @@ private fun FileBrowserRoute(rootPath: String, onFinish: () -> Unit) {
                     fontFamily = FontFamily.Monospace,
                 )
                 Text(
-                    "${entries.count { !it.isDir }} 个文件 · ${entries.count { it.isDir }} 个目录 · 合计 ${formatSize(totalSize)}",
+                    "${entries.count { !it.isDir }} files · ${entries.count { it.isDir }} folders · Total ${formatSize(totalSize)}",
                     fontSize = 12.sp,
                     color = Accent,
                 )
@@ -187,7 +187,7 @@ private fun FileBrowserRoute(rootPath: String, onFinish: () -> Unit) {
 
             if (entries.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("(空目录)", fontSize = 14.sp, color = TextSub)
+                    Text("(Empty folder)", fontSize = 14.sp, color = TextSub)
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -233,14 +233,14 @@ private fun EntryRow(entry: Entry, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             val sub = if (entry.isDir) {
-                "${entry.childCount} 项"
+                "${entry.childCount} items"
             } else {
                 "${formatSize(entry.size)} · ${formatTime(entry.lastModified)}"
             }
             Text(sub, fontSize = 11.sp, color = TextSub)
         }
         if (!entry.isDir) {
-            Text("分享", fontSize = 12.sp, color = Accent)
+            Text("Share", fontSize = 12.sp, color = Accent)
         }
     }
 }
@@ -264,7 +264,7 @@ private fun shareFile(context: Context, file: File) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(
-            Intent.createChooser(send, "分享 ${file.name}").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent.createChooser(send, "Share ${file.name}").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     }
 }

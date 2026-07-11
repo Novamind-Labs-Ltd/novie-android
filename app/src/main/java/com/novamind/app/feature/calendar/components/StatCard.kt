@@ -63,7 +63,7 @@ internal fun StatCard(
     }
 }
 
-@Preview(showBackground = true, name = "Calendar · 统计卡片")
+@Preview(showBackground = true, name = "Calendar · Stat card")
 @Composable
 private fun StatCardPreview() {
     AppTheme {

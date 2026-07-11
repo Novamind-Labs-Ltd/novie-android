@@ -108,17 +108,17 @@ fun AboutMyNovieScreen(
             Spacer(Modifier.height(28.dp))
 
             // ── 版本信息 ────────────────────────────────────────────────────
-            SectionLabel("版本信息")
+            SectionLabel("Version info")
             AboutCard {
                 AboutRow(
                     iconRes = R.drawable.ic_info,
-                    title = "当前版本",
-                    trailing = "v$versionName（build $versionCode）",
+                    title = "Current version",
+                    trailing = "v$versionName (build $versionCode)",
                 )
                 RowDivider()
                 AboutRow(
                     iconRes = R.drawable.ic_refresh,
-                    title = "检查更新",
+                    title = "Check for updates",
                     showChevron = true,
                     onClick = onCheckUpdate,
                 )
@@ -127,32 +127,32 @@ fun AboutMyNovieScreen(
             Spacer(Modifier.height(24.dp))
 
             // ── 法律与链接 ──────────────────────────────────────────────────
-            SectionLabel("法律与链接")
+            SectionLabel("Legal & links")
             AboutCard {
                 AboutRow(
                     iconRes = R.drawable.ic_shield_check,
-                    title = "隐私政策",
+                    title = "Privacy Policy",
                     showChevron = true,
                     onClick = { uriHandler.openUri(AboutLinks.PRIVACY) },
                 )
                 RowDivider()
                 AboutRow(
                     iconRes = R.drawable.ic_document,
-                    title = "用户协议",
+                    title = "Terms of Service",
                     showChevron = true,
                     onClick = { uriHandler.openUri(AboutLinks.TERMS) },
                 )
                 RowDivider()
                 AboutRow(
                     iconRes = R.drawable.ic_link,
-                    title = "官方网站",
+                    title = "Official website",
                     showChevron = true,
                     onClick = { uriHandler.openUri(AboutLinks.WEBSITE) },
                 )
                 RowDivider()
                 AboutRow(
                     iconRes = R.drawable.ic_chat,
-                    title = "联系我们",
+                    title = "Contact us",
                     showChevron = true,
                     onClick = { uriHandler.openUri(AboutLinks.CONTACT_MAILTO) },
                 )
@@ -161,7 +161,7 @@ fun AboutMyNovieScreen(
             Spacer(Modifier.height(24.dp))
 
             // ── 团队 / 公司 ─────────────────────────────────────────────────
-            SectionLabel("团队")
+            SectionLabel("Team")
             AboutCard {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -172,7 +172,7 @@ fun AboutMyNovieScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "MyNovie 由 Novamind Labs 打造——一支专注于用 AI 让记录与思考更自然的团队。",
+                        "MyNovie is built by Novamind Labs — a team dedicated to making note-taking and thinking more natural with AI.",
                         fontSize = 13.sp,
                         color = ColorTextSub,
                         lineHeight = 20.sp,
@@ -227,15 +227,15 @@ private fun BrandHero() {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "让每一次记录都值得回味",
+            "Make every note worth revisiting",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = Palette.forrest500,
         )
         Spacer(Modifier.height(14.dp))
         Text(
-            "MyNovie 是一款 AI 驱动的笔记与录音助手，帮你把灵感、会议与日常" +
-                "轻松转成可搜索、可回顾的知识。记录更省心，回看更清晰。",
+            "MyNovie is an AI-powered note and voice assistant that helps you turn ideas, meetings, and " +
+                "daily moments into searchable, reviewable knowledge. Capture with less effort, review with more clarity.",
             fontSize = 13.sp,
             color = ColorTextSub,
             lineHeight = 21.sp,

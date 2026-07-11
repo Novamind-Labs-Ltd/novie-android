@@ -124,7 +124,7 @@ private fun ChatHistoryContent(
 
         if (filtered.isEmpty()) {
             Text(
-                if (sessions.isEmpty()) "暂无历史会话" else "没有匹配的会话",
+                if (sessions.isEmpty()) "No chat history yet" else "No matching chats",
                 fontSize = 14.sp,
                 color = SubColor,
                 modifier = Modifier.padding(vertical = 16.dp),
@@ -154,7 +154,7 @@ private fun previewSessions() = listOf(
     ChatSession("3", "Brainstorm app names", 0L, emptyList()),
 )
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 560, name = "ChatHistory · 有会话")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 560, name = "ChatHistory · With Sessions")
 @Composable
 private fun ChatHistoryContentPreview() {
     val sessions = previewSessions()
@@ -170,7 +170,7 @@ private fun ChatHistoryContentPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · 空历史")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · Empty History")
 @Composable
 private fun ChatHistoryContentEmptyPreview() {
     AppTheme {
@@ -185,7 +185,7 @@ private fun ChatHistoryContentEmptyPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · 搜索无结果")
+@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · No Search Results")
 @Composable
 private fun ChatHistoryContentNoMatchPreview() {
     AppTheme {

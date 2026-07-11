@@ -420,7 +420,7 @@ fun AddTaskScreen(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "AddTask · 空表单")
+@Preview(showBackground = true, showSystemUi = true, name = "AddTask · Empty Form")
 @Composable
 private fun AddTaskScreenPreview() {
     AppTheme {
@@ -432,7 +432,7 @@ private fun AddTaskScreenPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "AddTask · 编辑未完成")
+@Preview(showBackground = true, showSystemUi = true, name = "AddTask · Editing (Incomplete)")
 @Composable
 private fun AddTaskScreenEditPreview() {
     AppTheme {
@@ -448,7 +448,7 @@ private fun AddTaskScreenEditPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "AddTask · 编辑已完成")
+@Preview(showBackground = true, showSystemUi = true, name = "AddTask · Editing (Completed)")
 @Composable
 private fun AddTaskScreenEditCompletedPreview() {
     AppTheme {

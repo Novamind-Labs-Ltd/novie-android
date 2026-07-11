@@ -182,7 +182,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "还没有笔记，去 Create 写一篇吧 ✍️",
+                        text = "No notes yet, head to Create to write one ✍️",
                         fontSize = 13.sp,
                         color = ColorTextHint,
                     )

@@ -137,7 +137,7 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
             val f = File(initialPath)
             fileName = f.name
             val s = withContext(Dispatchers.IO) { PdfRenderSession.open(f, targetWidth) }
-            if (s == null) error = "无法渲染该 PDF"
+            if (s == null) error = "Unable to render this PDF"
             else { session = s; pageCount = s.pageCount }
             loading = false
         }
@@ -153,9 +153,9 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
                     fileName = withContext(Dispatchers.IO) { queryName(context, uri) }
                     withContext(Dispatchers.IO) { openSession(context, uri, targetWidth) }
                 }.onSuccess { s ->
-                    if (s == null) error = "无法渲染该 PDF（空文档或格式不支持）"
+                    if (s == null) error = "Unable to render this PDF (empty document or unsupported format)"
                     else { session = s; pageCount = s.pageCount }
-                }.onFailure { error = it.message ?: "打开 PDF 失败" }
+                }.onFailure { error = it.message ?: "Failed to open PDF" }
                 loading = false
             }
         }
@@ -166,15 +166,15 @@ fun PdfViewerRoute(onBack: () -> Unit, initialPath: String? = null) {
         containerColor = Bg,
         topBar = {
             TopAppBar(
-                title = { Text(fileName ?: "PDF 阅读器", fontWeight = FontWeight.SemiBold, maxLines = 1) },
+                title = { Text(fileName ?: "PDF Reader", fontWeight = FontWeight.SemiBold, maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(painterResource(R.drawable.ic_close), contentDescription = "返回", tint = OnDark)
+                        Icon(painterResource(R.drawable.ic_close), contentDescription = "Back", tint = OnDark)
                     }
                 },
                 actions = {
                     Text(
-                        "选择文件",
+                        "Choose file",
                         color = OnDark,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
@@ -287,7 +287,7 @@ internal fun PdfReader(
 
                 Image(
                     bitmap = pageBmp.asImageBitmap(),
-                    contentDescription = "第 ${pageIndex + 1} 页",
+                    contentDescription = "Page ${pageIndex + 1}",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
@@ -424,13 +424,13 @@ internal fun PdfReader(
             var input by remember { mutableStateOf("") }
             AlertDialog(
                 onDismissRequest = { showJump = false },
-                title = { Text("跳转到页") },
+                title = { Text("Jump to page") },
                 text = {
                     OutlinedTextField(
                         value = input,
                         onValueChange = { v -> input = v.filter { it.isDigit() }.take(6) },
                         singleLine = true,
-                        label = { Text("页码 (1 - $pageCount)") },
+                        label = { Text("Page number (1 - $pageCount)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     )
                 },
@@ -441,10 +441,10 @@ internal fun PdfReader(
                             scope.launch { pagerState.animateScrollToPage(target) }
                         }
                         showJump = false
-                    }) { Text("跳转") }
+                    }) { Text("Jump") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showJump = false }) { Text("取消") }
+                    TextButton(onClick = { showJump = false }) { Text("Cancel") }
                 },
             )
         }
@@ -498,9 +498,9 @@ private fun EmptyState(onPick: () -> Unit) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("选择一个 PDF 文件，逐页阅读（支持翻页、捏合/双击缩放）。", color = OnDark, fontSize = 14.sp)
+        Text("Choose a PDF file to read page by page (supports paging and pinch / double-tap zoom).", color = OnDark, fontSize = 14.sp)
         Text(
-            "选择 PDF 文件",
+            "Choose PDF file",
             color = OnDark,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,

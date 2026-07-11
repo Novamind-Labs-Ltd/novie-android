@@ -78,7 +78,7 @@ internal fun MarkdownBlockView(
                         // 录音等只读场景下隐藏「编辑」入口
                         if (!readOnly) {
                             Text(
-                                text = if (editing) "完成" else "编辑",
+                                text = if (editing) "Done" else "Edit",
                                 fontSize = 13.sp,
                                 color = IconColors.Brand.default.current(),
                                 fontWeight = FontWeight.Medium,
@@ -148,7 +148,7 @@ internal fun MarkdownBlockView(
 private fun MarkdownBlockViewPreview() {
     AppTheme {
         MarkdownBlockView(
-            block = MarkdownBlock(content = "# 标题\n\n正文 **加粗**"),
+            block = MarkdownBlock(content = "# Title\n\nBody text **bold**"),
             readOnly = false,
             onContentChange = {},
             onDelete = {},

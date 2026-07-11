@@ -211,7 +211,7 @@ private fun RecycleBinScreenPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "空回收站")
+@Preview(showBackground = true, showSystemUi = true, name = "Empty Recycle Bin")
 @Composable
 private fun RecycleBinEmptyPreview() {
     AppTheme {

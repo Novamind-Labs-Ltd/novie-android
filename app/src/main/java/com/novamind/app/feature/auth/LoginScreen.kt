@@ -85,10 +85,10 @@ fun LoginScreen(
             }
 
             Spacer(20)
-            Text("欢迎使用 Novamind", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
+            Text("Welcome to Novamind", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
             Spacer(8)
             Text(
-                "登录以同步你的笔记与设置",
+                "Sign in to sync your notes and settings",
                 fontSize = 14.sp,
                 color = TextSub,
             )
@@ -111,7 +111,7 @@ fun LoginScreen(
                         modifier = Modifier.size(22.dp),
                     )
                 } else {
-                    Text("登录 / 注册", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = OnAccent)
+                    Text("Sign in / Sign up", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = OnAccent)
                 }
             }
 
@@ -123,7 +123,7 @@ fun LoginScreen(
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth().height(48.dp),
             ) {
-                Text("免登录，先逛逛", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextSub)
+                Text("Continue without signing in", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextSub)
             }
 
             if (uiState.errorMessage != null) {
@@ -167,7 +167,7 @@ private fun LoginScreenLoadingPreview() {
 @Composable
 private fun LoginScreenErrorPreview() {
     LoginScreen(
-        uiState = AuthUiState(isCheckingSession = false, errorMessage = "登录被取消"),
+        uiState = AuthUiState(isCheckingSession = false, errorMessage = "Sign-in cancelled"),
         onLogin = {},
         onDismissError = {},
     )
