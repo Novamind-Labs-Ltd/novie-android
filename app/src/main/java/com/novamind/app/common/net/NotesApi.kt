@@ -9,12 +9,32 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /**
  * 笔记域接口（对齐后端 `doc/api-reference.md` §3 Notes）。baseUrl 取 [ApiConfig.apiBaseUrl]（"/" 结尾），
  * 相对路径不带前导斜杠。Authorization 由 [AuthInterceptor] 自动附加，均走统一响应信封。
  */
 interface NotesApi {
+
+    /**
+     * 笔记列表（keyset 游标分页）。同一接口经参数切换「活跃列表 / 回收站 / 某文件夹内」三视图。
+     *
+     * - [trashed] `false`=活跃笔记（默认）；`true`=回收站；不传走后端默认（false）。
+     * - [folderId] 仅活跃视图有效：`<uuid>`=该文件夹内；`none`=未归档；不传=不按文件夹过滤。
+     *   与 `trashed=true` 同用 → 40001。
+     * - [limit] 每页条数，缺省 50，后端硬上限 100。
+     * - [cursor] 上一页返回的 `nextCursor`；不传=第一页。
+     *
+     * 返回轻量 [NoteListItemDto]（不含 `content`/`rev`/`schemaVersion`），要正文用 [get]。
+     */
+    @GET("api/v1.0/notes")
+    suspend fun list(
+        @Query("trashed") trashed: Boolean? = null,
+        @Query("folderId") folderId: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("cursor") cursor: String? = null,
+    ): Response<ApiResponse<NotePageViewDto>>
 
     /** 创建笔记（HTTP 201）。`content` 必填。 */
     @POST("api/v1.0/notes")
@@ -43,6 +63,30 @@ data class NoteDto(
     val createdAt: String? = null,
     val updatedAt: String? = null,
     val borderColorHex: String? = null,
+)
+
+/** 笔记列表分页视图（NotePageView）：轻量条目 + 下一页游标。 */
+@Serializable
+data class NotePageViewDto(
+    val items: List<NoteListItemDto> = emptyList(),
+    /** 下一页游标：null=已到底；否则作为下一页 `cursor` 传回。 */
+    val nextCursor: String? = null,
+)
+
+/** 笔记列表轻量项（NoteListItem）：字段同 NoteView 但不含 `content`/`rev`/`schemaVersion`。 */
+@Serializable
+data class NoteListItemDto(
+    val id: String,
+    val title: String? = null,
+    val borderColorHex: String? = null,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+    /** 所属文件夹 id；null=未归档。 */
+    val folderId: String? = null,
+    /** 是否在回收站（deletedAt != null 时为 true）。 */
+    val trashed: Boolean = false,
+    /** 移入回收站时间；null=活跃。 */
+    val deletedAt: String? = null,
 )
 
 /** 创建笔记请求体：`title` 可选(≤255)，`content` 必填。 */
