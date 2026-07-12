@@ -42,4 +42,16 @@ interface NotesRepository {
         body: String,
         schemaVersion: Int? = null,
     ): ApiResult<UpdateNoteOutcome>
+
+    /**
+     * 移入/移出回收站（PATCH `{trashed}`）。[trashed]=true 移入、false 恢复。
+     * 返回变更后的 [RemoteNote]。
+     */
+    suspend fun setTrashed(id: String, trashed: Boolean): ApiResult<RemoteNote>
+
+    /**
+     * 永久删除（DELETE，两步制：须**已在回收站**）。成功无数据（HTTP 204）。
+     * 仍是活跃笔记 → 业务错误 40906；转写进行中 → 40907（可重试）。
+     */
+    suspend fun deleteNote(id: String): ApiResult<Unit>
 }

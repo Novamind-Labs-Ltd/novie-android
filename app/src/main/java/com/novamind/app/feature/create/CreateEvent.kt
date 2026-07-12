@@ -14,7 +14,10 @@ sealed class CreateEvent {
     data class FolderSelected(val folder: Folder?) : CreateEvent()
     data class NewFolderCreated(val name: String) : CreateEvent()
     object SaveNote : CreateEvent()
+    /** 移入回收站（软删，可恢复）：PATCH /notes/{id} {trashed:true} */
     object DeleteNote : CreateEvent()
+    /** 永久删除（回收站只读态）：DELETE /notes/{id} */
+    object PermanentDeleteNote : CreateEvent()
     object UndoEdit : CreateEvent()
     object RedoEdit : CreateEvent()
     object DismissTagPicker : CreateEvent()

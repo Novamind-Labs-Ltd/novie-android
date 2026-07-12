@@ -5,7 +5,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -50,6 +52,24 @@ interface NotesApi {
         @Path("id") id: String,
         @Body body: UpdateNoteRequestDto,
     ): Response<ApiResponse<UpdateNoteResultDto>>
+
+    /**
+     * 移入/移出回收站（多路 PATCH，body 恰好含一个识别字段；此处用 `trashed`）。
+     * `true`=移入回收站，`false`=恢复。返回变更后的 NoteView。
+     * 恢复时若笔记已进入永久删除不可逆阶段 → 409/40908。
+     */
+    @PATCH("api/v1.0/notes/{id}")
+    suspend fun setTrashed(
+        @Path("id") id: String,
+        @Body body: TrashNoteRequestDto,
+    ): Response<ApiResponse<NoteDto>>
+
+    /**
+     * 永久删除（两步制：笔记须**已在回收站**）。成功 HTTP 204（无响应体，绕过信封）。
+     * 仍是活跃笔记 → 409/40906（需先移入回收站）；转写进行中 → 409/40907（可重试）。
+     */
+    @DELETE("api/v1.0/notes/{id}")
+    suspend fun delete(@Path("id") id: String): Response<ApiResponse<Unit>>
 }
 
 /** 笔记视图（NoteView）。`content` 为任意 JSON（jsonb）。 */
@@ -94,6 +114,12 @@ data class NoteListItemDto(
 data class CreateNoteRequestDto(
     val title: String? = null,
     val content: JsonElement,
+)
+
+/** 回收站开关请求体（PATCH 多路之一）：`true`=移入回收站，`false`=恢复。 */
+@Serializable
+data class TrashNoteRequestDto(
+    val trashed: Boolean,
 )
 
 /** 全量更新请求体：`rev` 必填(客户端持有的基准版本)，`content` 必填，`title` null 表示清空。 */

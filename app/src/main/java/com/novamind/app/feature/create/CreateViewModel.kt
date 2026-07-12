@@ -272,8 +272,29 @@ class CreateViewModel @Inject constructor(
             is CreateEvent.DeleteNote -> {
                 val noteId = _uiState.value.editingNoteId
                 viewModelScope.launch {
-                    // 已保存过的笔记移入回收站（软删，可在回收站恢复）；未保存的新笔记直接返回
-                    if (noteId != null) noteRepository.moveToTrash(noteId)
+                    // 已保存过的笔记移入回收站（PATCH {trashed:true}，软删可恢复）；未保存的新笔记直接返回
+                    if (noteId != null) {
+                        when (val r = notesRepository.setTrashed(noteId, trashed = true)) {
+                            is ApiResult.Success -> AppLog.i(TAG) { "moveToTrash 成功 id=$noteId" }
+                            is ApiResult.BizError -> AppLog.w(TAG) { "moveToTrash 业务错误 id=$noteId code=${r.code} traceId=${r.traceId}" }
+                            is ApiResult.NetworkError -> AppLog.w(TAG) { "moveToTrash 网络错误 id=$noteId: ${r.message}" }
+                        }
+                    }
+                    _navigateBack.tryEmit(Unit)
+                }
+            }
+
+            is CreateEvent.PermanentDeleteNote -> {
+                val noteId = _uiState.value.editingNoteId
+                viewModelScope.launch {
+                    // 永久删除（DELETE，两步制：须已在回收站）；未保存的新笔记直接返回
+                    if (noteId != null) {
+                        when (val r = notesRepository.deleteNote(noteId)) {
+                            is ApiResult.Success -> AppLog.i(TAG) { "permanentDelete 成功 id=$noteId" }
+                            is ApiResult.BizError -> AppLog.w(TAG) { "permanentDelete 业务错误 id=$noteId code=${r.code} traceId=${r.traceId}" }
+                            is ApiResult.NetworkError -> AppLog.w(TAG) { "permanentDelete 网络错误 id=$noteId: ${r.message}" }
+                        }
+                    }
                     _navigateBack.tryEmit(Unit)
                 }
             }

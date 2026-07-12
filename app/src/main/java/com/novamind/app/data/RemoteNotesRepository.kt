@@ -6,6 +6,7 @@ import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.NoteDto
 import com.novamind.app.common.net.NoteListItemDto
 import com.novamind.app.common.net.NotePageViewDto
+import com.novamind.app.common.net.TrashNoteRequestDto
 import com.novamind.app.common.net.UpdateNoteRequestDto
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.apiCall
@@ -114,6 +115,45 @@ class RemoteNotesRepository : NotesRepository {
             }
             is ApiResult.NetworkError -> {
                 AppLog.w(TAG) { "updateNote 网络错误 id=$id: ${r.message}" }
+                r
+            }
+        }
+    }
+
+    override suspend fun setTrashed(id: String, trashed: Boolean): ApiResult<RemoteNote> {
+        AppLog.i(TAG) { "setTrashed 开始 id=$id trashed=$trashed" }
+        return when (val r = apiCall {
+            NetworkModule.notesApi.setTrashed(id, TrashNoteRequestDto(trashed = trashed))
+        }) {
+            is ApiResult.Success -> {
+                val note = r.data?.toDomain()
+                AppLog.i(TAG) { "setTrashed 成功 id=$id trashed=$trashed rev=${note?.rev}" }
+                ApiResult.Success<RemoteNote>(note)
+            }
+            is ApiResult.BizError -> {
+                AppLog.w(TAG) { "setTrashed 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                r
+            }
+            is ApiResult.NetworkError -> {
+                AppLog.w(TAG) { "setTrashed 网络错误 id=$id: ${r.message}" }
+                r
+            }
+        }
+    }
+
+    override suspend fun deleteNote(id: String): ApiResult<Unit> {
+        AppLog.i(TAG) { "deleteNote 开始 id=$id" }
+        return when (val r = apiCall { NetworkModule.notesApi.delete(id) }) {
+            is ApiResult.Success -> {
+                AppLog.i(TAG) { "deleteNote 成功 id=$id" }
+                ApiResult.Success<Unit>(Unit)
+            }
+            is ApiResult.BizError -> {
+                AppLog.w(TAG) { "deleteNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                r
+            }
+            is ApiResult.NetworkError -> {
+                AppLog.w(TAG) { "deleteNote 网络错误 id=$id: ${r.message}" }
                 r
             }
         }
