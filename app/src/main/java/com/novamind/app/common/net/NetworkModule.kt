@@ -66,4 +66,7 @@ object NetworkModule {
 
     /** 笔记域（/api/v1.0/notes）类型化接口，走统一响应信封。 */
     val notesApi: NotesApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(NotesApi::class.java) }
+
+    /** 文件夹域（/api/v1.0/folders）类型化接口，走统一响应信封。 */
+    val foldersApi: FoldersApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(FoldersApi::class.java) }
 }

@@ -2,9 +2,11 @@ package com.novamind.app.di
 
 import android.content.Context
 import com.novamind.app.data.FolderRepository
+import com.novamind.app.data.FoldersRepository
 import com.novamind.app.data.NoteRepository
 import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.RecordingRepository
+import com.novamind.app.data.RemoteFoldersRepository
 import com.novamind.app.data.RemoteNotesRepository
 import com.novamind.app.data.RoomFolderRepository
 import com.novamind.app.data.RoomNoteRepository
@@ -52,4 +54,9 @@ object DataModule {
     @Provides
     @Singleton
     fun provideNotesRepository(): NotesRepository = RemoteNotesRepository()
+
+    /** 云端文件夹仓库（无状态，包装 NetworkModule）。 */
+    @Provides
+    @Singleton
+    fun provideFoldersRepository(): FoldersRepository = RemoteFoldersRepository()
 }

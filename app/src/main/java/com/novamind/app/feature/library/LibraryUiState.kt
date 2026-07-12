@@ -2,12 +2,14 @@ package com.novamind.app.feature.library
 
 import com.novamind.app.feature.create.model.NoteItem
 
-/** Library 文件夹分组（UI 模型）：按笔记所属文件夹聚合。 */
+/** Library 文件夹分组（UI 模型）：按文件夹聚合。 */
 data class LibraryFolder(
     val name: String,
     val noteCount: Int,
-    /** 文件夹颜色 #RRGGBB；null = 默认（品牌绿）。 */
+    /** 文件夹颜色 #RRGGBB；null = 默认（品牌绿）。颜色为本地概念，服务端不带。 */
     val colorHex: String? = null,
+    /** 服务端文件夹 id；null = 虚拟分组（如 Unfiled）或尚未在服务端建档。 */
+    val id: String? = null,
 )
 
 /** Recent 页的视图模式：双列网格 / 单列列表。 */
