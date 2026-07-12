@@ -59,6 +59,9 @@ fun HomeRoute(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // 每次回到首页（HomeRoute 重新进入组合，如底栏切换 / 从编辑器返回）都静默重拉笔记列表
+    LaunchedEffect(Unit) { viewModel.reload() }
+
     // 个人资料（头像）
     LaunchedEffect(Unit) { ProfileStore.load(context) }
     val avatarPath by ProfileStore.avatarPath.collectAsState()

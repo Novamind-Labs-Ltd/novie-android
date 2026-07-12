@@ -41,12 +41,17 @@ class HomeViewModel @Inject constructor(
     )
     val uiState = _uiState.asStateFlow()
 
-    init {
-        loadNotes(isRefresh = false)
-    }
-
     fun onSearchQueryChange(query: String) {
         // TODO: filter
+    }
+
+    /**
+     * 静默重拉列表：每次回到首页（HomeRoute 重新进入组合）时调用。
+     * 不显示下拉刷新指示；已有列表在成功前保留，避免闪空。进行中则跳过，避免并发重复请求。
+     */
+    fun reload() {
+        if (_uiState.value.isLoading) return
+        loadNotes(isRefresh = false)
     }
 
     /** 下拉刷新：重新拉取云端笔记列表。 */
