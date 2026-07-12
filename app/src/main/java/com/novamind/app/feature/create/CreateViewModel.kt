@@ -3,8 +3,11 @@ package com.novamind.app.feature.create
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.common.log.AppLog
+import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.NoteRepository
+import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
@@ -27,6 +30,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.json.JSONObject
+import java.time.Instant
 import java.util.UUID
 
 private data class TextSnapshot(val title: String, val body: String)
@@ -35,6 +40,7 @@ private data class TextSnapshot(val title: String, val body: String)
 @HiltViewModel
 class CreateViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
+    private val notesRepository: NotesRepository,
     private val folderRepository: FolderRepository,
     private val tagRepository: TagRepository,
 ) : ViewModel() {
@@ -100,25 +106,48 @@ class CreateViewModel @Inject constructor(
             CreateUiState(availableFolders = availableFolders, availableTags = availableTags)
     }
 
+    /**
+     * 按 id 从**服务端**加载笔记（GET /notes/{id}）填充编辑器。
+     *
+     * 服务端 NoteView 不含本地的标签/文件夹（这些目前只在本地库），故 selectedTags/selectedFolder 留空；
+     * 正文按 App content 约定 `{"body": <文档字符串>}` 从 [RemoteNote.content] 抽取。
+     * [persistedNote] 置空（服务端笔记不映射为本地 [Note] 快照），失败时保持编辑器不变并打日志。
+     */
     fun loadNote(noteId: String) {
         undoStack.clear()
         redoStack.clear()
         viewModelScope.launch {
-            val note = noteRepository.getNoteById(noteId) ?: return@launch
-            persistedNote = note
-            _uiState.value = CreateUiState(
-                editingNoteId = note.id,
-                updatedAt = note.updatedAt,
-                title = note.title,
-                body = note.body,
-                selectedTags = note.tags,
-                selectedFolder = note.folder,
-                borderColor = ColorUtils.parseHexColor(note.borderColorHex),
-                availableFolders = availableFolders,
-                availableTags = availableTags,
-            )
+            when (val result = notesRepository.getNote(noteId)) {
+                is ApiResult.Success -> {
+                    val note = result.data ?: return@launch
+                    persistedNote = null
+                    _uiState.value = CreateUiState(
+                        editingNoteId = note.id,
+                        updatedAt = note.updatedAt.toEpochMillisOrNull(),
+                        title = note.title.orEmpty(),
+                        body = bodyOf(note.content),
+                        selectedTags = emptyList(),
+                        selectedFolder = null,
+                        borderColor = ColorUtils.parseHexColor(note.borderColorHex),
+                        availableFolders = availableFolders,
+                        availableTags = availableTags,
+                    )
+                }
+                is ApiResult.BizError ->
+                    AppLog.w(TAG) { "loadNote 业务错误 id=$noteId code=${result.code} traceId=${result.traceId}" }
+                is ApiResult.NetworkError ->
+                    AppLog.w(TAG) { "loadNote 网络错误 id=$noteId: ${result.message}" }
+            }
         }
     }
+
+    /** 从 App content JSON（约定 `{"body": <文档字符串>}`）抽取正文；非该结构或解析失败回退空串。 */
+    private fun bodyOf(content: String): String =
+        runCatching { JSONObject(content).optString("body", "") }.getOrDefault("")
+
+    /** ISO-8601 → epoch 毫秒；空或解析失败回退 null。 */
+    private fun String?.toEpochMillisOrNull(): Long? =
+        this?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
 
     // ── 事件处理 ──────────────────────────────────────────────────────────────
 
@@ -306,5 +335,9 @@ class CreateViewModel @Inject constructor(
         _uiState.update {
             it.copy(title = newTitle, body = newBody, canUndo = true, canRedo = false)
         }
+    }
+
+    private companion object {
+        const val TAG = "CreateVM"
     }
 }
