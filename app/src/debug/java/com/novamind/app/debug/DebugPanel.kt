@@ -49,6 +49,8 @@ import com.novamind.app.BuildConfig
 import com.novamind.app.common.device.DeviceIdentity
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.NetworkModule
+import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.common.net.response.apiCall
 import com.novamind.app.common.onboarding.OnboardingStore
 import com.novamind.app.common.update.UpdateController
 import com.novamind.app.common.update.UpdateType
@@ -123,6 +125,10 @@ fun DebugPanel(
     var meResult by remember { mutableStateOf<String?>(null) }
     var meLoading by remember { mutableStateOf(false) }
 
+    // /api/v1.0/notes 列表接口测试：结果以弹窗展示
+    var notesResult by remember { mutableStateOf<String?>(null) }
+    var notesLoading by remember { mutableStateOf(false) }
+
     // 组件/能力测试
     var urlInput by remember { mutableStateOf("https://m.bing.com") }
     // JSBridge 测试页强制来源等级（null = 按域名白名单）
@@ -185,7 +191,7 @@ fun DebugPanel(
                         }
                     }
                 }
-                // 测试 /api/v1.0/me：请求当前环境该接口，结果弹窗展示
+                // 测试 /api/v1.0/me、/api/v1.0/notes：请求当前环境该接口，结果弹窗展示
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip(if (meLoading) "Loading…" else "Test /api/v1.0/me") {
                         if (!meLoading) {
@@ -193,6 +199,15 @@ fun DebugPanel(
                             scope.launch {
                                 meResult = fetchMeRaw()
                                 meLoading = false
+                            }
+                        }
+                    }
+                    Chip(if (notesLoading) "Loading…" else "Test GET /notes") {
+                        if (!notesLoading) {
+                            notesLoading = true
+                            scope.launch {
+                                notesResult = fetchNotesRaw()
+                                notesLoading = false
                             }
                         }
                     }
@@ -205,6 +220,24 @@ fun DebugPanel(
                     onDismissRequest = { meResult = null },
                     confirmButton = { TextButton(onClick = { meResult = null }) { Text("Close") } },
                     title = { Text("GET /api/v1.0/me") },
+                    text = {
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = 420.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            Text(result, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    },
+                )
+            }
+
+            // GET /api/v1.0/notes 结果弹窗
+            notesResult?.let { result ->
+                AlertDialog(
+                    onDismissRequest = { notesResult = null },
+                    confirmButton = { TextButton(onClick = { notesResult = null }) { Text("Close") } },
+                    title = { Text("GET /api/v1.0/notes") },
                     text = {
                         Column(
                             modifier = Modifier
@@ -587,6 +620,36 @@ private suspend fun fetchMeRaw(): String = withContext(Dispatchers.IO) {
         val raw = (if (resp.isSuccessful) resp.body()?.string() else resp.errorBody()?.string()).orEmpty()
         "URL: $url\nHTTP ${resp.code()}\n\n${prettyJson(raw)}"
     }.getOrElse { "URL: $url\n\nRequest failed: ${it.message}" }
+}
+
+/**
+ * 请求当前环境的 GET /api/v1.0/notes（活跃列表，limit=20；Authorization 由拦截器附加）。
+ * 走类型化 [NetworkModule.notesApi] + 统一 [apiCall]，按 [ApiResult] 三态格式化供弹窗展示。
+ */
+private suspend fun fetchNotesRaw(): String = withContext(Dispatchers.IO) {
+    val header = "URL: ${ApiConfig.apiBaseUrl}api/v1.0/notes?limit=20\n\n"
+    when (val result = apiCall { NetworkModule.notesApi.list(limit = 20) }) {
+        is ApiResult.Success -> {
+            val page = result.data
+            val items = page?.items.orEmpty()
+            buildString {
+                append(header)
+                append("✅ Success · ${items.size} items · nextCursor=${page?.nextCursor ?: "null"}\n\n")
+                if (items.isEmpty()) {
+                    append("(no notes)")
+                } else {
+                    items.forEachIndexed { i, it ->
+                        append("${i + 1}. [${it.id.take(8)}] ${it.title ?: "(untitled)"}\n")
+                        append("   folderId=${it.folderId ?: "-"}  trashed=${it.trashed}\n")
+                    }
+                }
+            }
+        }
+        is ApiResult.BizError ->
+            "${header}⚠ BizError\ncode=${result.code}  http=${result.httpStatus}\nmessage=${result.message}\ntraceId=${result.traceId ?: "-"}"
+        is ApiResult.NetworkError ->
+            "${header}⚠ NetworkError  http=${result.httpStatus ?: "-"}\n${result.message ?: result.cause?.message ?: "unknown"}"
+    }
 }
 
 /** 尽力把 JSON 缩进美化；非 JSON 或解析失败则原样返回。 */
