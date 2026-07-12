@@ -3,28 +3,25 @@ package com.novamind.app.feature.create.tag.tagmanager
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,11 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -45,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.novamind.app.R
 import com.novamind.app.feature.create.tag.tagmanager.components.BgCard
 import com.novamind.app.feature.create.tag.tagmanager.components.BgPage
 import com.novamind.app.feature.create.tag.tagmanager.components.ChangeTagColorSheet
@@ -54,7 +50,6 @@ import com.novamind.app.feature.create.tag.tagmanager.components.SwipeToDeleteRo
 import com.novamind.app.feature.create.tag.tagmanager.components.TagEditRow
 import com.novamind.app.feature.create.tag.tagmanager.components.TagRow
 import com.novamind.app.feature.create.tag.tagmanager.components.TopIconButton
-import com.novamind.app.R
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 
@@ -112,9 +107,11 @@ fun TagManagerScreen(
     // 拖拽排序：本地稳定副本（非拖拽时从 uiState 同步），及拖拽状态
     var draggingIndex by remember { mutableStateOf<Int?>(null) }
     var draggedDistance by remember { mutableFloatStateOf(0f) }
-    var initialItemOffset by remember { mutableStateOf(0) }
-    var initialItemSize by remember { mutableStateOf(0) }
-    val tagItems = remember { mutableStateListOf<TagRowItem>() }
+    var initialItemOffset by remember { mutableIntStateOf(0) }
+    var initialItemSize by remember { mutableIntStateOf(0) }
+    // 首帧即用 uiState.tags 播种，保证静态 @Preview（不跑 LaunchedEffect）也能渲染列表；
+    // 运行时下面的 LaunchedEffect 继续负责同步（非拖拽时从 uiState 刷新）。
+    val tagItems = remember { mutableStateListOf<TagRowItem>().apply { addAll(uiState.tags) } }
     LaunchedEffect(uiState.tags, draggingIndex) {
         if (draggingIndex == null) {
             tagItems.clear()
@@ -219,7 +216,10 @@ fun TagManagerScreen(
                             draggingIndex = null
                             draggedDistance = 0f
                         },
-                        onReorderCancel = { draggingIndex = null; draggedDistance = 0f },
+                        onReorderCancel = {
+                            draggingIndex = null
+                            draggedDistance = 0f
+                        },
                     ) {
                         TagRow(
                             tag = tag,
@@ -275,7 +275,10 @@ fun TagManagerScreen(
     deleteTarget?.let { target ->
         DeleteTagSheet(
             tagName = target,
-            onConfirm = { onDeleteTag(target); deleteTarget = null },
+            onConfirm = {
+                onDeleteTag(target)
+                deleteTarget = null
+            },
             onDismiss = { deleteTarget = null },
         )
     }
@@ -283,12 +286,16 @@ fun TagManagerScreen(
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
+// 预览数据：颜色取自 AppConfig.Folder.COLORS（Palette 各色系代表色），
+// 覆盖多色系 + 长短名称 + 不同关联笔记数（含 0），以检验色板、换行与计数渲染。
 private val sampleTags = listOf(
-    TagRowItem("1", "Brand Identity", "#3D7A5A", 10),
-    TagRowItem("2", "Competitive Intelligence", "#3D7A5A", 10),
-    TagRowItem("3", "Financial Reporting", "#3D7A5A", 10),
-    TagRowItem("4", "Human Resources", "#3D7A5A", 0),
-    TagRowItem("5", "Quality Assurance", "#3D7A5A", 10),
+    TagRowItem("1", "Brand Identity", "#1B6B45", 12), // forrest600
+    TagRowItem("2", "Competitive Intelligence", "#567828", 128), // green600
+    TagRowItem("3", "Finance", "#FF8C00", 3), // orange600
+    TagRowItem("4", "Human Resources", "#C8391A", 0), // red500
+    TagRowItem("5", "Quality Assurance", "#4A8292", 47), // teal600
+    TagRowItem("6", "Roadmap & Planning", "#708090", 9), // slate600
+    TagRowItem("7", "Miscellaneous", "#656565", 1), // neutral700
 )
 
 @Preview(showBackground = true, showSystemUi = true, name = "Create · TagManagerScreen")
@@ -296,6 +303,14 @@ private val sampleTags = listOf(
 private fun TagManagerScreenPreview() {
     AppTheme {
         TagManagerScreen(uiState = TagManagerUiState(tags = sampleTags))
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Create · TagManagerScreen · Single")
+@Composable
+private fun TagManagerScreenSinglePreview() {
+    AppTheme {
+        TagManagerScreen(uiState = TagManagerUiState(tags = sampleTags.take(1)))
     }
 }
 
