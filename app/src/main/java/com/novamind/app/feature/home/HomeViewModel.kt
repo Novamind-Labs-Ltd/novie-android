@@ -3,23 +3,22 @@ package com.novamind.app.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.R
-import com.novamind.app.data.NoteRepository
-import com.novamind.app.feature.create.editor.NoteDocument
+import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.data.NotesRepository
 import com.novamind.app.feature.create.model.NoteItem
+import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
 import javax.inject.Inject
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val noteRepository: NoteRepository,
+    private val notesRepository: NotesRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -43,39 +42,76 @@ class HomeViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     init {
-        noteRepository.notes
-            .onEach { notes ->
-                _uiState.update { state ->
-                    state.copy(
-                        notes = notes.map { note ->
-                            NoteItem(
-                                id = note.id,
-                                title = note.title,
-                                description = NoteDocument.previewText(note.body),
-                                tags = note.tags.map { it.name },
-                                borderColor = ColorUtils.parseHexColor(note.borderColorHex),
-                                imagePath = NoteDocument.firstImagePath(note.body),
-                                createdAt = note.createdAt,
-                                updatedAt = note.updatedAt,
-                            )
-                        }
-                    )
-                }
-            }
-            .launchIn(viewModelScope)
+        loadNotes(isRefresh = false)
     }
 
     fun onSearchQueryChange(query: String) {
         // TODO: filter
     }
 
-    /** 下拉刷新：笔记由 Room Flow 实时驱动，这里仅做刷新态展示（后续可接服务端拉取） */
+    /** 下拉刷新：重新拉取云端笔记列表。 */
     fun onRefresh() {
         if (_uiState.value.isRefreshing) return
-        _uiState.update { it.copy(isRefreshing = true) }
-        viewModelScope.launch {
-            delay(600)
-            _uiState.update { it.copy(isRefreshing = false) }
+        loadNotes(isRefresh = true)
+    }
+
+    /**
+     * 拉取云端笔记列表（活跃视图）：GET /api/v1.0/notes。
+     * 经 [NotesRepository.listNotes] 走统一 [ApiResult] 三态：成功映射为 UI 列表；
+     * 业务错误 / 网络错误落到 [HomeUiState.errorMessage]，并保留已有列表不清空。
+     */
+    private fun loadNotes(isRefresh: Boolean) {
+        _uiState.update {
+            if (isRefresh) it.copy(isRefreshing = true, errorMessage = null)
+            else it.copy(isLoading = true, errorMessage = null)
         }
+        viewModelScope.launch {
+            when (val result = notesRepository.listNotes(trashed = false, limit = PAGE_SIZE)) {
+                is ApiResult.Success -> {
+                    val items = result.data?.items.orEmpty().map { it.toNoteItem() }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            notes = items,
+                            errorMessage = null,
+                        )
+                    }
+                }
+                is ApiResult.BizError -> _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        errorMessage = result.message ?: "Failed to load notes (${result.code})",
+                    )
+                }
+                is ApiResult.NetworkError -> _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        errorMessage = "网络异常，请重试",
+                    )
+                }
+            }
+        }
+    }
+
+    /** 列表项领域模型 → UI 模型。列表接口不含正文，故 description/tags 留空；正文在打开详情时另拉。 */
+    private fun RemoteNoteSummary.toNoteItem(): NoteItem = NoteItem(
+        id = id,
+        title = title.orEmpty(),
+        description = "",
+        tags = emptyList(),
+        borderColor = ColorUtils.parseHexColor(borderColorHex),
+        createdAt = createdAt.toEpochMillisOrZero(),
+        updatedAt = updatedAt.toEpochMillisOrZero(),
+    )
+
+    /** ISO-8601 → epoch 毫秒；空或解析失败回退 0。 */
+    private fun String?.toEpochMillisOrZero(): Long =
+        this?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() } ?: 0L
+
+    private companion object {
+        const val PAGE_SIZE = 50
     }
 }
