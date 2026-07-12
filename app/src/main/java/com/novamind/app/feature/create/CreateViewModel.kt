@@ -6,12 +6,10 @@ import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.FolderRepository
-import com.novamind.app.data.NoteRepository
 import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
-import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.tag.Tag
 import com.novamind.app.util.ColorUtils
 import com.novamind.app.util.ColorUtils.toHex
@@ -32,14 +30,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.time.Instant
-import java.util.UUID
 
 private data class TextSnapshot(val title: String, val body: String)
 
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class CreateViewModel @Inject constructor(
-    private val noteRepository: NoteRepository,
     private val notesRepository: NotesRepository,
     private val folderRepository: FolderRepository,
     private val tagRepository: TagRepository,
@@ -55,6 +51,10 @@ class CreateViewModel @Inject constructor(
     private val _navigateBack = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val navigateBack = _navigateBack.asSharedFlow()
 
+    // 保存失败的一次性事件（供 UI 弹 Toast）；用 SharedFlow 避免重组时重复提示。
+    private val _saveError = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val saveError = _saveError.asSharedFlow()
+
     private val undoStack = ArrayDeque<TextSnapshot>()
     private val redoStack = ArrayDeque<TextSnapshot>()
 
@@ -63,9 +63,12 @@ class CreateViewModel @Inject constructor(
     // 串行化保存，避免防抖保存与封顶保存并发写、乱序。
     private val saveMutex = Mutex()
 
-    // 已落库的笔记快照：用于判断内容是否真的变化（未变则不写库、不更新 updatedAt），
-    // 并保留原始 createdAt。
-    private var persistedNote: Note? = null
+    // 服务端笔记的乐观锁版本号：POST 成功后为 1，PUT 成功后累加；新建未保存时为 null。
+    // PUT /notes/{id} 需带上手上的 rev 做 latest-wins 判断。
+    private var remoteRev: Long? = null
+
+    // 上次成功保存到服务端的标题/正文快照：内容未变则跳过重复 POST/PUT。
+    private var savedSnapshot: TextSnapshot? = null
 
     init {
         // 防抖：停顿超过 AUTO_SAVE_DELAY_MS 才落盘（大多数保存走这条）
@@ -101,7 +104,8 @@ class CreateViewModel @Inject constructor(
     fun reset() {
         undoStack.clear()
         redoStack.clear()
-        persistedNote = null
+        remoteRev = null
+        savedSnapshot = null
         _uiState.value =
             CreateUiState(availableFolders = availableFolders, availableTags = availableTags)
     }
@@ -111,7 +115,7 @@ class CreateViewModel @Inject constructor(
      *
      * 服务端 NoteView 不含本地的标签/文件夹（这些目前只在本地库），故 selectedTags/selectedFolder 留空；
      * 正文按 App content 约定 `{"body": <文档字符串>}` 从 [RemoteNote.content] 抽取。
-     * [persistedNote] 置空（服务端笔记不映射为本地 [Note] 快照），失败时保持编辑器不变并打日志。
+     * 同时记录 [remoteRev]（供后续 PUT 乐观锁）与 [savedSnapshot]（供无变化跳过）；失败时保持编辑器不变并打日志。
      */
     fun loadNote(noteId: String) {
         undoStack.clear()
@@ -120,12 +124,15 @@ class CreateViewModel @Inject constructor(
             when (val result = notesRepository.getNote(noteId)) {
                 is ApiResult.Success -> {
                     val note = result.data ?: return@launch
-                    persistedNote = null
+                    val title = note.title.orEmpty()
+                    val body = bodyOf(note.content)
+                    remoteRev = note.rev
+                    savedSnapshot = TextSnapshot(title, body)
                     _uiState.value = CreateUiState(
                         editingNoteId = note.id,
                         updatedAt = note.updatedAt.toEpochMillisOrNull(),
-                        title = note.title.orEmpty(),
-                        body = bodyOf(note.content),
+                        title = title,
+                        body = body,
                         selectedTags = emptyList(),
                         selectedFolder = null,
                         borderColor = ColorUtils.parseHexColor(note.borderColorHex),
@@ -259,7 +266,7 @@ class CreateViewModel @Inject constructor(
 
             is CreateEvent.BorderColorSelected -> {
                 _uiState.update { it.copy(borderColor = event.color, showColorPicker = false) }
-                requestSave()
+                viewModelScope.launch { applyBorderColor(event.color?.toHex()) }
             }
 
             is CreateEvent.SaveNote -> {
@@ -313,38 +320,109 @@ class CreateViewModel @Inject constructor(
         viewModelScope.launch { saveNow() }
     }
 
+    /**
+     * 落盘到服务端：无 id → `POST /notes` 新建；有 id → `PUT /notes/{id}` 全量更新（latest-wins 乐观锁）。
+     *
+     * 由 [saveMutex] 串行化，避免防抖/封顶两条流并发写、乱序，也保证「新建的首个请求先拿到服务端 id」
+     * 后，后续请求走更新而非重复新建。仅同步 title + 正文（服务端 content 约定 `{"body": …}`）；
+     * 边框色（另有 border-color 端点）、标签/文件夹（本地概念）不经此路径。
+     */
     private suspend fun saveNow() = saveMutex.withLock {
         val state = _uiState.value
         // 标题为空、且正文文档无文字也无图片时，视为空笔记不保存
-        if (state.title.isBlank() && NoteDocument.previewText(state.body).isBlank()) return
-
-        // 内容相对已落库快照没有任何变化 → 不写库、不更新 updatedAt（仅查看后返回不应刷新时间）
-        val saved = persistedNote
-        if (saved != null &&
-            saved.title == state.title &&
-            saved.body == state.body &&
-            saved.tags == state.selectedTags &&
-            saved.folder == state.selectedFolder &&
-            ColorUtils.parseHexColor(saved.borderColorHex) == state.borderColor
-        ) {
-            return
+        if (state.title.isBlank() && NoteDocument.previewText(state.body).isBlank()) {
+            return@withLock
         }
 
-        val noteId = state.editingNoteId ?: UUID.randomUUID().toString().also { newId ->
-            _uiState.update { it.copy(editingNoteId = newId) }
+        val current = TextSnapshot(state.title, state.body)
+        // 已保存过且内容无变化 → 跳过，避免重复 POST/PUT
+        if (state.editingNoteId != null && savedSnapshot == current) {
+            return@withLock
         }
-        val note = Note(
-            id = noteId,
-            title = state.title,   // 允许为空：列表卡片会用正文内容兜底显示
-            body = state.body,
-            tags = state.selectedTags,
-            folder = state.selectedFolder,
-            borderColorHex = state.borderColor?.toHex(),
-            createdAt = saved?.createdAt ?: System.currentTimeMillis(), // 保留原始创建时间
-            updatedAt = System.currentTimeMillis(),                     // 仅在内容确有变化时刷新
-        )
-        noteRepository.addOrUpdate(note)
-        persistedNote = note
+
+        val id = state.editingNoteId
+        _uiState.update { it.copy(isSaving = true) }
+        try {
+            if (id == null) {
+                // 新建：POST /notes
+                when (val r = notesRepository.createNote(title = state.title, body = state.body)) {
+                    is ApiResult.Success -> r.data?.let { note ->
+                        remoteRev = note.rev
+                        savedSnapshot = current
+                        _uiState.update {
+                            it.copy(editingNoteId = note.id, updatedAt = note.updatedAt.toEpochMillisOrNull())
+                        }
+                        AppLog.i(TAG) { "createNote 成功 id=${note.id} rev=${note.rev}" }
+                    }
+                    is ApiResult.BizError -> {
+                        AppLog.w(TAG) { "createNote 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                        _saveError.tryEmit(r.message ?: "Save failed (${r.code})")
+                    }
+                    is ApiResult.NetworkError -> {
+                        AppLog.w(TAG) { "createNote 网络错误: ${r.message}" }
+                        _saveError.tryEmit("Network error, note not saved")
+                    }
+                }
+            } else {
+                // 更新：PUT /notes/{id}（latest-wins 乐观锁，带上手上的 rev）
+                when (val r = notesRepository.updateNote(
+                    id = id, rev = remoteRev ?: 0L, title = state.title, body = state.body,
+                )) {
+                    is ApiResult.Success -> {
+                        val outcome = r.data
+                        outcome?.note?.rev?.let { remoteRev = it }
+                        savedSnapshot = current
+                        outcome?.note?.updatedAt?.toEpochMillisOrNull()?.let { ua ->
+                            _uiState.update { it.copy(updatedAt = ua) }
+                        }
+                        if (outcome?.applied == false) {
+                            AppLog.w(TAG) { "updateNote 落后未生效 id=$id serverRev=${outcome.note?.rev}（latest-wins，已同步服务端 rev）" }
+                        } else {
+                            AppLog.i(TAG) { "updateNote 成功 id=$id newRev=${outcome?.note?.rev}" }
+                        }
+                    }
+                    is ApiResult.BizError -> {
+                        AppLog.w(TAG) { "updateNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                        _saveError.tryEmit(r.message ?: "Save failed (${r.code})")
+                    }
+                    is ApiResult.NetworkError -> {
+                        AppLog.w(TAG) { "updateNote 网络错误 id=$id: ${r.message}" }
+                        _saveError.tryEmit("Network error, note not saved")
+                    }
+                }
+            }
+        } finally {
+            _uiState.update { it.copy(isSaving = false) }
+        }
+        Unit
+    }
+
+    /**
+     * 设置/清除边框色到服务端（`PATCH /notes/{id}/border-color`）。边框色不走 title/body 的 PUT，
+     * 是独立端点。新笔记（尚无服务端 id）先 [saveNow] 创建拿到 id 再改色；改色会返回新 rev，
+     * 同步到 [remoteRev] 以免后续 PUT 因版本落后被判过期。
+     */
+    private suspend fun applyBorderColor(hex: String?) {
+        // 先确保有服务端 id（saveNow 自身加锁，故在获取 saveMutex 前调用，避免 Mutex 非重入死锁）
+        if (_uiState.value.editingNoteId == null) saveNow()
+        val id = _uiState.value.editingNoteId ?: return
+        saveMutex.withLock {
+            when (val r = notesRepository.setBorderColor(id, hex)) {
+                is ApiResult.Success -> {
+                    r.data?.rev?.let { remoteRev = it }
+                    AppLog.i(TAG) { "setBorderColor 成功 id=$id hex=$hex rev=${r.data?.rev}" }
+                }
+                is ApiResult.BizError -> {
+                    AppLog.w(TAG) { "setBorderColor 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                    _saveError.tryEmit(r.message ?: "Failed to set colour (${r.code})")
+                }
+                is ApiResult.NetworkError -> {
+                    AppLog.w(TAG) { "setBorderColor 网络错误 id=$id: ${r.message}" }
+                    _saveError.tryEmit("Network error, colour not saved")
+                }
+            }
+            Unit
+        }
     }
 
     private fun updateText(newTitle: String, newBody: String) {

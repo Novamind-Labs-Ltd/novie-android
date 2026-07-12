@@ -54,4 +54,10 @@ interface NotesRepository {
      * 仍是活跃笔记 → 业务错误 40906；转写进行中 → 40907（可重试）。
      */
     suspend fun deleteNote(id: String): ApiResult<Unit>
+
+    /**
+     * 设置/清除笔记边框色（PATCH /notes/{id}/border-color）。
+     * [borderColorHex] 需为 `#RRGGBB`，null=清除。返回变更后的 [RemoteNote]（含新 rev）。
+     */
+    suspend fun setBorderColor(id: String, borderColorHex: String?): ApiResult<RemoteNote>
 }

@@ -25,4 +25,7 @@ data class CreateUiState(
     // 撤销/重做可用状态
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
+
+    // 保存中（正在 POST/PUT 落盘服务端）：用于顶部「Saving…」提示
+    val isSaving: Boolean = false,
 )

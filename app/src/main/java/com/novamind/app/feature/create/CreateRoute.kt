@@ -1,10 +1,12 @@
 package com.novamind.app.feature.create
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -34,6 +36,13 @@ fun CreateRoute(
     // 收一次性导航事件
     LaunchedEffect(Unit) {
         viewModel.navigateBack.collect { onBack() }
+    }
+    // 保存失败一次性提示（POST/PUT 业务或网络错误）
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        viewModel.saveError.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
     }
 
     // 生命周期兜底：退后台(ON_STOP)或离开本页(onDispose)时立即落盘，

@@ -78,10 +78,11 @@ fun CreateScreen(
 ) {
     val imeVisible =
         WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
-    // 编辑已有笔记：展示其更新时间；新建：展示当前时间
-    val timeLabel = remember(uiState.updatedAt) {
+    // 编辑已有笔记：展示其更新时间；新建：展示当前时间。保存中则临时显示「Saving…」。
+    val savedTimeLabel = remember(uiState.updatedAt) {
         TimeUtils.smart(uiState.updatedAt ?: System.currentTimeMillis())
     }
+    val timeLabel = if (uiState.isSaving) "Saving…" else savedTimeLabel
 
     // 工具栏顶边（窗口 px），作为光标遮挡线
     var toolbarTopWindowY by remember { mutableStateOf(Float.MAX_VALUE) }

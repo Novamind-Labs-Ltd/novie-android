@@ -6,6 +6,7 @@ import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.NoteDto
 import com.novamind.app.common.net.NoteListItemDto
 import com.novamind.app.common.net.NotePageViewDto
+import com.novamind.app.common.net.SetBorderColorRequestDto
 import com.novamind.app.common.net.TrashNoteRequestDto
 import com.novamind.app.common.net.UpdateNoteRequestDto
 import com.novamind.app.common.net.response.ApiResult
@@ -154,6 +155,27 @@ class RemoteNotesRepository : NotesRepository {
             }
             is ApiResult.NetworkError -> {
                 AppLog.w(TAG) { "deleteNote 网络错误 id=$id: ${r.message}" }
+                r
+            }
+        }
+    }
+
+    override suspend fun setBorderColor(id: String, borderColorHex: String?): ApiResult<RemoteNote> {
+        AppLog.i(TAG) { "setBorderColor 开始 id=$id hex=$borderColorHex" }
+        return when (val r = apiCall {
+            NetworkModule.notesApi.setBorderColor(id, SetBorderColorRequestDto(borderColorHex = borderColorHex))
+        }) {
+            is ApiResult.Success -> {
+                val note = r.data?.toDomain()
+                AppLog.i(TAG) { "setBorderColor 成功 id=$id rev=${note?.rev}" }
+                ApiResult.Success<RemoteNote>(note)
+            }
+            is ApiResult.BizError -> {
+                AppLog.w(TAG) { "setBorderColor 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                r
+            }
+            is ApiResult.NetworkError -> {
+                AppLog.w(TAG) { "setBorderColor 网络错误 id=$id: ${r.message}" }
                 r
             }
         }

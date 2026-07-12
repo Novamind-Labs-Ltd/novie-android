@@ -70,6 +70,17 @@ interface NotesApi {
      */
     @DELETE("api/v1.0/notes/{id}")
     suspend fun delete(@Path("id") id: String): Response<ApiResponse<Unit>>
+
+    /**
+     * 设置/清除笔记边框色。`borderColorHex` 需匹配 `^#[0-9A-Fa-f]{6}$`；
+     * 传 null（信封省略字段）表示清除颜色。返回变更后的 NoteView。
+     * 格式非法 → 400/40001；笔记不存在 → 404/40401。
+     */
+    @PATCH("api/v1.0/notes/{id}/border-color")
+    suspend fun setBorderColor(
+        @Path("id") id: String,
+        @Body body: SetBorderColorRequestDto,
+    ): Response<ApiResponse<NoteDto>>
 }
 
 /** 笔记视图（NoteView）。`content` 为任意 JSON（jsonb）。 */
@@ -120,6 +131,12 @@ data class CreateNoteRequestDto(
 @Serializable
 data class TrashNoteRequestDto(
     val trashed: Boolean,
+)
+
+/** 边框色请求体：`borderColorHex` 需匹配 `^#[0-9A-Fa-f]{6}$`；null（序列化时省略）=清除。 */
+@Serializable
+data class SetBorderColorRequestDto(
+    val borderColorHex: String? = null,
 )
 
 /** 全量更新请求体：`rev` 必填(客户端持有的基准版本)，`content` 必填，`title` null 表示清空。 */
