@@ -72,6 +72,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.R
 import com.novamind.app.feature.create.model.NoteItem
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.novamind.app.feature.library.components.BgPage
 import com.novamind.app.feature.library.components.ChangeFolderColorSheet
 import com.novamind.app.feature.library.components.ColorAccent
@@ -301,95 +303,33 @@ private fun FoldersPage(
         return
     }
 
-    val listState = rememberLazyListState()
+    // 拖拽换序：sh.calvin.reorderable（长按整行拖动）。ordered 为本地顺序副本：拖动中由 onMove 改写、
+    // 非拖拽时从服务端 folders 同步；抬起（onDragStopped）时把顺序（文件夹名序列）提交给 onReorder。
     val haptics = LocalHapticFeedback.current
-
-    // 拖拽状态：拖起项在列表中的索引、拖起时的布局信息、累计拖动距离
-    var draggingIndex by remember { mutableStateOf<Int?>(null) }
-    var draggedDistance by remember { mutableFloatStateOf(0f) }
-    var initialItemOffset by remember { mutableStateOf(0) }
-    var initialItemSize by remember { mutableStateOf(0) }
-
-    // 本地可变副本：单一稳定对象（pointerInput 闭包始终引用它）；非拖拽时从 folders 同步，
-    // 拖拽中保持本地换序不被外部刷新打断。
-    val items = remember { mutableStateListOf<LibraryFolder>() }
-    LaunchedEffect(folders, draggingIndex) {
-        if (draggingIndex == null) {
-            items.clear()
-            items.addAll(folders)
-        }
+    val lazyListState = rememberLazyListState()
+    var ordered by remember { mutableStateOf(folders) }
+    val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        ordered = ordered.toMutableList().apply { add(to.index, removeAt(from.index)) }
     }
-
-    fun reset() {
-        draggingIndex = null
-        draggedDistance = 0f
+    LaunchedEffect(folders, reorderState.isAnyItemDragging) {
+        if (!reorderState.isAnyItemDragging) ordered = folders
     }
 
     LazyColumn(
-        state = listState,
+        state = lazyListState,
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
-            .pointerInput(Unit) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { offset ->
-                        listState.layoutInfo.visibleItemsInfo
-                            .firstOrNull { offset.y.toInt() in it.offset..(it.offset + it.size) }
-                            ?.let { info ->
-                                draggingIndex = info.index
-                                initialItemOffset = info.offset
-                                initialItemSize = info.size
-                                draggedDistance = 0f
-                                // 抬起时震动反馈（主流拖拽体验）
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            }
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val from = draggingIndex
-                        if (from != null) {
-                            draggedDistance += dragAmount.y
-                            // 拖拽项当前中心（相对列表视口）
-                            val draggedCenter = initialItemOffset + draggedDistance + initialItemSize / 2f
-                            // 找到被中心覆盖、且不是自身的目标行 → 与之换序
-                            val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
-                                info.index != from &&
-                                    draggedCenter.toInt() in info.offset..(info.offset + info.size)
-                            }
-                            if (target != null) {
-                                items.add(target.index, items.removeAt(from))
-                                draggingIndex = target.index
-                            }
-                        }
-                    },
-                    onDragEnd = {
-                        if (draggingIndex != null) onReorder(items.map { it.name })
-                        reset()
-                    },
-                    onDragCancel = { reset() },
-                )
-            },
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
     ) {
-        itemsIndexed(items, key = { _, it -> it.name }) { index, folder ->
-            val isDragging = index == draggingIndex
-            // 拖拽项：用 graphicsLayer 纯跟手（仅 translationY），不缩放、不改外观；不挂 animateItem，
-            // 松手时移除 translation 直接定格、不触发布局动画。
-            // 其余项始终挂 animateItem：拖拽中被挤开/交换时平滑过渡，避免突兀。
-            val rowModifier = if (isDragging) {
-                Modifier
-                    .zIndex(1f)
-                    .graphicsLayer {
-                        // 用 key（文件夹名）定位拖拽项自身的实时偏移，避免换序那帧 index 错位导致跟手抖动
-                        val current = listState.layoutInfo.visibleItemsInfo
-                            .firstOrNull { it.key == folder.name }?.offset ?: initialItemOffset
-                        translationY = initialItemOffset + draggedDistance - current
-                    }
-            } else {
-                Modifier.animateItem()
-            }
-            if (folder.name == renameTarget) {
+        items(ordered, key = { it.name }) { folder ->
+            ReorderableItem(reorderState, key = folder.name) { _ ->
+                val rowModifier = Modifier.longPressDraggableHandle(
+                    onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+                    onDragStopped = { onReorder(ordered.map { it.name }) },
+                )
+                if (folder.name == renameTarget) {
                 // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认
                 FolderRenameRow(
                     initialName = folder.name,
@@ -421,6 +361,7 @@ private fun FoldersPage(
                     onChangeColor = { colorTarget = folder.name },
                     onDelete = { deleteTarget = folder.name },
                 )
+                }
             }
         }
     }

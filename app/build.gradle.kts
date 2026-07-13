@@ -123,6 +123,8 @@ dependencies {
     implementation(libs.coil.compose)
     // 富文本编辑器（文本块内的加粗/斜体/列表引擎）
     implementation(libs.richeditor.compose)
+    // 列表拖拽排序（sh.calvin.reorderable）
+    implementation(libs.reorderable)
     // 键值存储：MMKV（封装在 common/storage/KeyValueStore，逐步替换 SharedPreferences）
     implementation(libs.mmkv)
     // Markdown 渲染（Debug Markdown 阅读器）

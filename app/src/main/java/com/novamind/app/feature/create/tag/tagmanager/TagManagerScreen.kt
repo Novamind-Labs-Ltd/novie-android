@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -51,6 +51,8 @@ import com.novamind.app.feature.create.tag.tagmanager.components.TagEditRow
 import com.novamind.app.feature.create.tag.tagmanager.components.TagRow
 import com.novamind.app.feature.create.tag.tagmanager.components.TopIconButton
 import com.novamind.app.ui.components.BackButton
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.novamind.app.ui.theme.AppTheme
 
 // 配色与视觉组件在 feature/create/tag/tagmanager/components 包（TagManagerColors 等），本文件只保留编排。
@@ -104,19 +106,14 @@ fun TagManagerScreen(
 
     val existingNames = uiState.tags.map { it.name }
 
-    // 拖拽排序：本地稳定副本（非拖拽时从 uiState 同步），及拖拽状态
-    var draggingIndex by remember { mutableStateOf<Int?>(null) }
-    var draggedDistance by remember { mutableFloatStateOf(0f) }
-    var initialItemOffset by remember { mutableIntStateOf(0) }
-    var initialItemSize by remember { mutableIntStateOf(0) }
-    // 首帧即用 uiState.tags 播种，保证静态 @Preview（不跑 LaunchedEffect）也能渲染列表；
-    // 运行时下面的 LaunchedEffect 继续负责同步（非拖拽时从 uiState 刷新）。
-    val tagItems = remember { mutableStateListOf<TagRowItem>().apply { addAll(uiState.tags) } }
-    LaunchedEffect(uiState.tags, draggingIndex) {
-        if (draggingIndex == null) {
-            tagItems.clear()
-            tagItems.addAll(uiState.tags)
-        }
+    // 拖拽排序：sh.calvin.reorderable（长按整行拖动）。ordered 本地顺序副本：拖动中由 onMove 改写、
+    // 非拖拽时从 uiState.tags 同步；抬起（onDragStopped）提交标签名序列给 onReorderTags。
+    var ordered by remember { mutableStateOf(uiState.tags) }
+    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
+        ordered = ordered.toMutableList().apply { add(to.index, removeAt(from.index)) }
+    }
+    LaunchedEffect(uiState.tags, reorderState.isAnyItemDragging) {
+        if (!reorderState.isAnyItemDragging) ordered = uiState.tags
     }
 
     Column(
@@ -157,76 +154,37 @@ fun TagManagerScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp + imeBottomDp),
         ) {
-            itemsIndexed(tagItems, key = { _, it -> it.id }) { index, tag ->
-                val isDragging = index == draggingIndex
-                if (tag.name == renameTarget) {
-                    TagEditRow(
-                        initialName = tag.name,
-                        onConfirm = { newName ->
-                            if (existingNames.any { it != tag.name && it.equals(newName, ignoreCase = true) }) {
-                                Toast.makeText(context, "Tag \"$newName\" already exists", Toast.LENGTH_SHORT).show()
-                            } else {
-                                onRenameTag(tag.name, newName)
-                                renameTarget = null
-                            }
-                        },
-                        onCancel = { renameTarget = null },
-                    )
-                } else {
-                    // 拖拽项：translationY 跟手；其余项 animateItem 平滑让位
-                    val rowModifier = if (isDragging) {
-                        Modifier
-                            .zIndex(1f)
-                            .graphicsLayer {
-                                val current = listState.layoutInfo.visibleItemsInfo
-                                    .firstOrNull { it.key == tag.id }?.offset ?: initialItemOffset
-                                translationY = initialItemOffset + draggedDistance - current
-                            }
-                    } else {
-                        Modifier.animateItem()
-                    }
-                    SwipeToDeleteRow(
-                        modifier = rowModifier,
-                        onDelete = { deleteTarget = tag.name },
-                        onReorderStart = {
-                            draggingIndex = tagItems.indexOfFirst { it.id == tag.id }
-                            val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == tag.id }
-                            initialItemOffset = info?.offset ?: 0
-                            initialItemSize = info?.size ?: 0
-                            draggedDistance = 0f
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        },
-                        onReorderDrag = { dy ->
-                            val from = draggingIndex
-                            if (from != null) {
-                                draggedDistance += dy
-                                val draggedCenter = initialItemOffset + draggedDistance + initialItemSize / 2f
-                                val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
-                                    info.index != from &&
-                                        draggedCenter.toInt() in info.offset..(info.offset + info.size)
+            items(ordered, key = { it.id }) { tag ->
+                ReorderableItem(reorderState, key = tag.id) { _ ->
+                    if (tag.name == renameTarget) {
+                        TagEditRow(
+                            initialName = tag.name,
+                            onConfirm = { newName ->
+                                if (existingNames.any { it != tag.name && it.equals(newName, ignoreCase = true) }) {
+                                    Toast.makeText(context, "Tag \"$newName\" already exists", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    onRenameTag(tag.name, newName)
+                                    renameTarget = null
                                 }
-                                if (target != null && target.index < tagItems.size) {
-                                    tagItems.add(target.index, tagItems.removeAt(from))
-                                    draggingIndex = target.index
-                                }
-                            }
-                        },
-                        onReorderEnd = {
-                            if (draggingIndex != null) onReorderTags(tagItems.map { it.name })
-                            draggingIndex = null
-                            draggedDistance = 0f
-                        },
-                        onReorderCancel = {
-                            draggingIndex = null
-                            draggedDistance = 0f
-                        },
-                    ) {
-                        TagRow(
-                            tag = tag,
-                            onRename = { renameTarget = tag.name },
-                            onDelete = { deleteTarget = tag.name },
-                            onChangeColor = { colorTarget = tag.name },
+                            },
+                            onCancel = { renameTarget = null },
                         )
+                    } else {
+                        // 左滑删除保留；纵向拖拽换序由库的长按把手（作用于整行）提供
+                        SwipeToDeleteRow(
+                            modifier = Modifier.longPressDraggableHandle(
+                                onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                onDragStopped = { onReorderTags(ordered.map { it.name }) },
+                            ),
+                            onDelete = { deleteTarget = tag.name },
+                        ) {
+                            TagRow(
+                                tag = tag,
+                                onRename = { renameTarget = tag.name },
+                                onDelete = { deleteTarget = tag.name },
+                                onChangeColor = { colorTarget = tag.name },
+                            )
+                        }
                     }
                 }
             }

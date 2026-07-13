@@ -3,7 +3,6 @@ package com.novamind.app.feature.create.tag.tagmanager.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,17 +33,13 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * 左滑露出删除按钮（点击触发 [onDelete]）；长按可拖拽排序（[onReorderStart]/[onReorderDrag]/[onReorderEnd]）。
- * 两个手势同处前景元素：水平滑动→删除，长按后纵向拖动→排序，互不冲突。
+ * 左滑露出删除按钮（点击触发 [onDelete]）。纵向拖拽换序由外部通过 [modifier] 传入
+ * （sh.calvin.reorderable 的 `longPressDraggableHandle`），本组件只负责水平滑动删除。
  */
 @Composable
 internal fun SwipeToDeleteRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
-    onReorderStart: () -> Unit = {},
-    onReorderDrag: (Float) -> Unit = {},
-    onReorderEnd: () -> Unit = {},
-    onReorderCancel: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -93,17 +88,6 @@ internal fun SwipeToDeleteRow(
                             val target = if (offsetX.value < -revealPx / 2) -revealPx else 0f
                             scope.launch { offsetX.animateTo(target) }
                         },
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { onReorderStart() },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            onReorderDrag(dragAmount.y)
-                        },
-                        onDragEnd = { onReorderEnd() },
-                        onDragCancel = { onReorderCancel() },
                     )
                 },
         ) { content() }

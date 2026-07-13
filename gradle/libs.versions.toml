@@ -8,6 +8,9 @@ lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.13.0"
 kotlin = "2.2.10"
 composeBom = "2026.02.01"
+# 拖拽排序（sh.calvin.reorderable，Compose Multiplatform）。若与当前 Kotlin 2.2 工具链的
+# metadata 不兼容（同 markdown/richeditor 的取舍），回退到用较低 Kotlin 编译的 2.x 版本。
+reorderable = "3.1.0"
 room = "2.7.1"
 ksp = "2.3.9"
 roomKtx = "2.8.4"
@@ -71,6 +74,7 @@ androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref 
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "androidxHilt" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 richeditor-compose = { group = "com.mohamedrejeb.richeditor", name = "richeditor-compose", version.ref = "richeditor" }
+reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 auth0 = { group = "com.auth0.android", name = "auth0", version.ref = "auth0" }
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment" }
