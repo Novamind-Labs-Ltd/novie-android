@@ -529,14 +529,9 @@ fun CreateScreen(
             DeleteConfirmSheet(
                 onConfirm = {
                     showDeleteConfirm = false
-                    // 只读态（回收站）：走服务端 DELETE（VM 事件），并回调宿主刷新列表/关闭详情；
+                    // 只读态（回收站）：彻底删除交宿主 RecycleBinViewModel 走服务端 DELETE + 重拉（单一来源，避免重复删）；
                     // 编辑态：软删除，移入回收站（PATCH {trashed:true}）
-                    if (readOnly) {
-                        onEvent(CreateEvent.PermanentDeleteNote)
-                        onDeleteForever()
-                    } else {
-                        onEvent(CreateEvent.DeleteNote)
-                    }
+                    if (readOnly) onDeleteForever() else onEvent(CreateEvent.DeleteNote)
                 },
                 onDismiss = { showDeleteConfirm = false },
             )

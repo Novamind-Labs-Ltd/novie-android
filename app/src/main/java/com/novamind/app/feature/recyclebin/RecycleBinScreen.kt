@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +62,8 @@ fun RecycleBinRoute(
     viewModel: RecycleBinViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // 每次进入回收站都重拉一次（trashed=true），与首页/Library 一致
+    LaunchedEffect(Unit) { viewModel.reload() }
     // 当前查看的已删除笔记 id；null = 显示回收站列表
     var selectedNoteId by rememberSaveable { mutableStateOf<String?>(null) }
 
