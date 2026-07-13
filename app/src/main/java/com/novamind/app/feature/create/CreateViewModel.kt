@@ -6,6 +6,7 @@ import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.AttachmentsRepository
+import com.novamind.app.data.AudioUploadRepository
 import com.novamind.app.data.FilesRepository
 import com.novamind.app.data.FoldersRepository
 import com.novamind.app.data.NotesRepository
@@ -18,6 +19,7 @@ import com.novamind.app.util.ColorUtils.toHex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,6 +49,7 @@ class CreateViewModel @Inject constructor(
     private val tagRepository: TagRepository,
     private val filesRepository: FilesRepository,
     private val attachmentsRepository: AttachmentsRepository,
+    private val audioUploadRepository: AudioUploadRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateUiState())
@@ -87,6 +90,9 @@ class CreateViewModel @Inject constructor(
 
     // 上次成功保存到服务端的标题/正文快照：内容未变则跳过重复 POST/PUT。
     private var savedSnapshot: TextSnapshot? = null
+
+    // 进行中的源录音上传协程：再次录音或用户取消时中断上一次。
+    private var audioUploadJob: Job? = null
 
     init {
         // 防抖：停顿超过 AUTO_SAVE_DELAY_MS 才落盘（大多数保存走这条）
@@ -460,6 +466,75 @@ class CreateViewModel @Inject constructor(
             }
             Unit
         }
+    }
+
+    /**
+     * 录音发送后上传为笔记源录音（§7 断点续传：initiate→分片直传→complete）。
+     * 先确保有服务端 note id（源录音须挂到笔记；空笔记也强制创建以承载），再走 [AudioUploadRepository]。
+     * 结果三态：成功记 jobId（转写票据）；失败经 [saveError] 提示。
+     */
+    fun uploadRecording(path: String, durationMs: Long) {
+        audioUploadJob?.cancel()
+        audioUploadJob = viewModelScope.launch {
+            if (_uiState.value.editingNoteId == null) saveNow()
+            var noteId = _uiState.value.editingNoteId
+            if (noteId == null) {
+                // 仅录音的空笔记：强制创建一条以承载源录音
+                val s = _uiState.value
+                when (val r = notesRepository.createNote(s.title, s.body)) {
+                    is ApiResult.Success -> r.data?.let { note ->
+                        remoteRev = note.rev
+                        savedSnapshot = TextSnapshot(s.title, s.body)
+                        _uiState.update { it.copy(editingNoteId = note.id) }
+                        noteId = note.id
+                    }
+                    is ApiResult.BizError -> AppLog.w(TAG) { "uploadRecording 建笔记业务错误 code=${r.code}" }
+                    is ApiResult.NetworkError -> AppLog.w(TAG) { "uploadRecording 建笔记网络错误: ${r.message}" }
+                }
+            }
+            val id = noteId ?: run {
+                AppLog.w(TAG) { "uploadRecording 无 noteId，跳过上传" }
+                return@launch
+            }
+            // 进度条起始：清零并置上传中
+            _uiState.update { it.copy(isUploadingAudio = true, audioUploadProgress = 0f) }
+            var lastPct = -1
+            try {
+                when (val r = audioUploadRepository.uploadNoteAudio(
+                    noteId = id,
+                    file = File(path),
+                    contentType = AppConfig.Media.AUDIO_MIME,
+                    durationMs = durationMs,
+                    onProgress = { uploaded, total ->
+                        val p = if (total > 0) (uploaded.toFloat() / total).coerceIn(0f, 1f) else 0f
+                        val pct = (p * 100).toInt()
+                        if (pct != lastPct) {   // 节流：仅整百分比变化时更新，避免刷 UI
+                            lastPct = pct
+                            _uiState.update { it.copy(audioUploadProgress = p) }
+                        }
+                    },
+                )) {
+                    is ApiResult.Success -> AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=${r.data}" }
+                    is ApiResult.BizError -> {
+                        AppLog.w(TAG) { "uploadRecording 业务错误 noteId=$id code=${r.code} traceId=${r.traceId}" }
+                        _saveError.tryEmit(r.message ?: "Audio upload failed (${r.code})")
+                    }
+                    is ApiResult.NetworkError -> {
+                        AppLog.w(TAG) { "uploadRecording 网络错误 noteId=$id: ${r.message}" }
+                        _saveError.tryEmit("Network error, audio not uploaded")
+                    }
+                }
+            } finally {
+                _uiState.update { it.copy(isUploadingAudio = false, audioUploadProgress = 0f) }
+            }
+        }
+    }
+
+    /** 取消进行中的源录音上传（用户点进度条上的 ×）。分片为断点续传，中断即停；未 complete 的不会挂到笔记。 */
+    fun cancelAudioUpload() {
+        audioUploadJob?.cancel()
+        audioUploadJob = null
+        _uiState.update { it.copy(isUploadingAudio = false, audioUploadProgress = 0f) }
     }
 
     // ── 图片上传 / 附件 ──────────────────────────────────────────────────────────

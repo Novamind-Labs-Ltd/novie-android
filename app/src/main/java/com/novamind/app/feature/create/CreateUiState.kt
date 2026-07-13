@@ -28,4 +28,8 @@ data class CreateUiState(
 
     // 保存中（正在 POST/PUT 落盘服务端）：用于顶部「Saving…」提示
     val isSaving: Boolean = false,
+
+    // 源录音上传中（§7）：驱动「Uploading for transcription…」进度条
+    val isUploadingAudio: Boolean = false,
+    val audioUploadProgress: Float = 0f,   // 0..1
 )

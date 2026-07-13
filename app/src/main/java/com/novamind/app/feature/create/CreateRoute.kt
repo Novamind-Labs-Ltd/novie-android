@@ -75,6 +75,8 @@ fun CreateRoute(
         onDeleteForever = onDeleteForever,
         onUploadImage = viewModel::uploadImage,
         attachmentUrls = attachmentUrls,
+        onUploadRecording = viewModel::uploadRecording,
+        onCancelUploadRecording = viewModel::cancelAudioUpload,
         modifier = modifier,
     )
 }

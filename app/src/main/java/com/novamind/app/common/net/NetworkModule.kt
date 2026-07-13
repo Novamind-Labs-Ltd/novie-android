@@ -72,4 +72,7 @@ object NetworkModule {
 
     /** 笔记附件（/api/v1.0/notes/{id}/attachments）类型化接口，走统一响应信封。 */
     val attachmentsApi: AttachmentsApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(AttachmentsApi::class.java) }
+
+    /** 笔记源录音（/api/v1.0/notes/{id}/audio，§7 断点续传）类型化接口，走统一响应信封。 */
+    val noteAudioApi: NoteAudioApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(NoteAudioApi::class.java) }
 }

@@ -34,7 +34,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.novamind.app.R
+import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.components.LoadingIndicator
 import com.novamind.app.feature.create.components.BorderColorSheet
 import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
@@ -80,6 +93,10 @@ fun CreateScreen(
     },
     // 附件 fileId → 签名下载 URL（打开已有笔记后由 ViewModel 提供，供本地图失效时兜底渲染）
     attachmentUrls: Map<String, String> = emptyMap(),
+    // 录音发送后上传为笔记源录音（§7）：给本地路径 + 时长(ms)，由 CreateRoute 接 ViewModel
+    onUploadRecording: (String, Long) -> Unit = { _, _ -> },
+    // 取消进行中的源录音上传（进度条上的 ×）
+    onCancelUploadRecording: () -> Unit = {},
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -490,8 +507,27 @@ fun CreateScreen(
                         "Recording ${TimeUtils.formatDuration(durationSeconds)}"
                     )
                     emitContent()
+                    // 上传为笔记源录音（§7）：时长秒转毫秒
+                    onUploadRecording(path, durationSeconds * 1000L)
                 },
                 modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+
+        // ── 源录音上传进度条（§7）：录音发送后直传云端时展示，可取消 ──
+        AnimatedVisibility(
+            visible = uiState.isUploadingAudio,
+            enter = fadeIn() + slideInVertically { it },
+            exit = fadeOut() + slideOutVertically { it },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            AudioUploadBar(
+                progress = uiState.audioUploadProgress,
+                onCancel = onCancelUploadRecording,
+                modifier = Modifier
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             )
         }
 
@@ -605,7 +641,84 @@ fun CreateScreen(
     }
 }
 
+// ─── 源录音上传进度条（§7）────────────────────────────────────────────────────
+
+/**
+ * 录音发送后直传云端时的进度条：左侧转圈，中间「Uploading for transcription…」+ 副标题，
+ * 右侧百分比与关闭按钮，底部一条确定进度的进度条。[progress] 取 0..1；[onCancel] 取消上传。
+ */
+@Composable
+private fun AudioUploadBar(
+    progress: Float,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pct = (progress.coerceIn(0f, 1f) * 100).toInt()
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = BackgroundColors.Surface.default.current(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderColors.Default.default.current()),
+        shadowElevation = 2.dp,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LoadingIndicator(size = 22.dp, strokeWidth = 2.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Uploading for transcription…",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextColors.Primary.default.current(),
+                    )
+                    Text(
+                        text = "This may take a moment.",
+                        fontSize = 11.sp,
+                        color = TextColors.Primary.tertiary.current(),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "$pct%",
+                    fontSize = 12.sp,
+                    color = TextColors.Primary.tertiary.current(),
+                )
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = "Cancel upload",
+                    tint = TextColors.Primary.tertiary.current(),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onCancel)
+                        .padding(4.dp)
+                        .size(18.dp),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            LinearProgressIndicator(
+                progress = { progress.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = IconColors.Brand.default.current(),
+                trackColor = BackgroundColors.Primary.tertiary.current(),
+            )
+        }
+    }
+}
+
 // ─── Preview ──────────────────────────────────────────────────────────────────
+
+@Preview(showBackground = true, name = "Audio upload bar")
+@Composable
+private fun AudioUploadBarPreview() {
+    AppTheme {
+        AudioUploadBar(progress = 0.5f, onCancel = {}, modifier = Modifier.padding(16.dp))
+    }
+}
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
