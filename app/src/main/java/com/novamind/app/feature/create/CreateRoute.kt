@@ -62,6 +62,7 @@ fun CreateRoute(
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val attachmentUrls by viewModel.attachmentUrls.collectAsStateWithLifecycle()
     CreateScreen(
         uiState = uiState,
         onEvent = viewModel::onEvent,
@@ -72,6 +73,8 @@ fun CreateRoute(
         readOnly = readOnly,
         onRestore = onRestore,
         onDeleteForever = onDeleteForever,
+        onUploadImage = viewModel::uploadImage,
+        attachmentUrls = attachmentUrls,
         modifier = modifier,
     )
 }

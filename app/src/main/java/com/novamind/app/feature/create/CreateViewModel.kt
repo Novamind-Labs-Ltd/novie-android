@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.data.AttachmentsRepository
+import com.novamind.app.data.FilesRepository
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.TagRepository
@@ -18,6 +20,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
@@ -27,8 +30,11 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import org.json.JSONObject
+import java.io.File
 import java.time.Instant
 
 private data class TextSnapshot(val title: String, val body: String)
@@ -39,6 +45,8 @@ class CreateViewModel @Inject constructor(
     private val notesRepository: NotesRepository,
     private val folderRepository: FolderRepository,
     private val tagRepository: TagRepository,
+    private val filesRepository: FilesRepository,
+    private val attachmentsRepository: AttachmentsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateUiState())
@@ -54,6 +62,16 @@ class CreateViewModel @Inject constructor(
     // 保存失败的一次性事件（供 UI 弹 Toast）；用 SharedFlow 避免重组时重复提示。
     private val _saveError = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val saveError = _saveError.asSharedFlow()
+
+    // 图片上传并发限流（一次多选最多 5 张，限 AppConfig.Media.MAX_UPLOAD_CONCURRENCY 并发、其余排队）。
+    private val uploadSemaphore = Semaphore(AppConfig.Media.MAX_UPLOAD_CONCURRENCY)
+
+    // 已挂载到该笔记的附件 fileId 集合（loadNote 从服务端拉取初始化；saveNow 对账时增删）。
+    private val attachedFileIds = mutableSetOf<String>()
+
+    // 附件 fileId → 签名下载 URL（loadNote 后由 GET attachments 提供，供编辑器渲染兜底）。
+    private val _attachmentUrls = MutableStateFlow<Map<String, String>>(emptyMap())
+    val attachmentUrls: StateFlow<Map<String, String>> = _attachmentUrls.asStateFlow()
 
     private val undoStack = ArrayDeque<TextSnapshot>()
     private val redoStack = ArrayDeque<TextSnapshot>()
@@ -106,6 +124,8 @@ class CreateViewModel @Inject constructor(
         redoStack.clear()
         remoteRev = null
         savedSnapshot = null
+        attachedFileIds.clear()
+        _attachmentUrls.value = emptyMap()
         _uiState.value =
             CreateUiState(availableFolders = availableFolders, availableTags = availableTags)
     }
@@ -139,6 +159,8 @@ class CreateViewModel @Inject constructor(
                         availableFolders = availableFolders,
                         availableTags = availableTags,
                     )
+                    // 拉附件，得到 fileId→签名 URL，供编辑器渲染 path 失效时兜底
+                    fetchAttachments(note.id)
                 }
                 is ApiResult.BizError ->
                     AppLog.w(TAG) { "loadNote 业务错误 id=$noteId code=${result.code} traceId=${result.traceId}" }
@@ -391,6 +413,8 @@ class CreateViewModel @Inject constructor(
                     }
                 }
             }
+            // 正文落盘后做附件对账（笔记已有 id 时）：正文里已上传的图片挂上、移除的摘掉
+            _uiState.value.editingNoteId?.let { noteId -> reconcileAttachments(noteId, state.body) }
         } finally {
             _uiState.update { it.copy(isSaving = false) }
         }
@@ -424,6 +448,66 @@ class CreateViewModel @Inject constructor(
             Unit
         }
     }
+
+    // ── 图片上传 / 附件 ──────────────────────────────────────────────────────────
+
+    /**
+     * 上传一张图片到服务端（presign→直传→confirm），返回 `fileId`。并发受 [uploadSemaphore] 限流。
+     * [contentType] 由调用方按文件类型给出（image/png 或 image/jpeg）。挂到笔记发生在保存时的附件对账。
+     */
+    suspend fun uploadImage(path: String, contentType: String): Result<String> =
+        uploadSemaphore.withPermit { filesRepository.uploadFile(File(path), contentType) }
+
+    /** 打开已有笔记时拉附件：初始化已挂载集合与 fileId→URL 映射（供编辑器渲染兜底）。 */
+    private suspend fun fetchAttachments(noteId: String) {
+        when (val r = attachmentsRepository.list(noteId)) {
+            is ApiResult.Success -> {
+                val items = r.data.orEmpty()
+                attachedFileIds.clear()
+                attachedFileIds.addAll(items.map { it.fileId })
+                _attachmentUrls.value = items
+                    .mapNotNull { a -> a.downloadUrl?.let { a.fileId to it } }
+                    .toMap()
+            }
+            is ApiResult.BizError -> AppLog.w(TAG) { "fetchAttachments 业务错误 noteId=$noteId code=${r.code}" }
+            is ApiResult.NetworkError -> AppLog.w(TAG) { "fetchAttachments 网络错误 noteId=$noteId: ${r.message}" }
+        }
+    }
+
+    /**
+     * 附件对账：把正文里的图片 fileId 集合与已挂载集合求差，多的 attach、少的 detach（幂等）。
+     * 在 saveNow 内、笔记已有 id 后调用；失败仅记日志、不阻塞正文保存（下次保存重试）。
+     */
+    private suspend fun reconcileAttachments(noteId: String, body: String) {
+        val wanted = imageFileIdsOf(body)
+        (wanted - attachedFileIds).forEach { fileId ->
+            when (val r = attachmentsRepository.attach(noteId, fileId)) {
+                is ApiResult.Success -> attachedFileIds.add(fileId)
+                is ApiResult.BizError -> AppLog.w(TAG) { "attach 失败 fileId=$fileId code=${r.code} traceId=${r.traceId}" }
+                is ApiResult.NetworkError -> AppLog.w(TAG) { "attach 网络错误 fileId=$fileId: ${r.message}" }
+            }
+        }
+        (attachedFileIds - wanted).forEach { fileId ->
+            when (val r = attachmentsRepository.detach(noteId, fileId)) {
+                is ApiResult.Success -> attachedFileIds.remove(fileId)
+                is ApiResult.BizError -> AppLog.w(TAG) { "detach 失败 fileId=$fileId code=${r.code} traceId=${r.traceId}" }
+                is ApiResult.NetworkError -> AppLog.w(TAG) { "detach 网络错误 fileId=$fileId: ${r.message}" }
+            }
+        }
+    }
+
+    /** 从 content 文档 JSON（`{"blocks":[...]}`）提取所有图片块已上传的 fileId。 */
+    private fun imageFileIdsOf(body: String): Set<String> = runCatching {
+        val blocks = JSONObject(body).optJSONArray("blocks") ?: return emptySet()
+        buildSet {
+            for (i in 0 until blocks.length()) {
+                val obj = blocks.optJSONObject(i) ?: continue
+                if (obj.optString("type") == "image") {
+                    obj.optString("fileId").takeIf { it.isNotBlank() }?.let { add(it) }
+                }
+            }
+        }
+    }.getOrDefault(emptySet())
 
     private fun updateText(newTitle: String, newBody: String) {
         val current = TextSnapshot(_uiState.value.title, _uiState.value.body)

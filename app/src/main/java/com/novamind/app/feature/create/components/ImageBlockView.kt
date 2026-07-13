@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.feature.create.editor.ImageBlock
+import com.novamind.app.feature.create.editor.UploadState
 import com.novamind.app.ui.theme.AppTheme
 import java.io.File
 
@@ -32,34 +34,61 @@ internal fun ImageBlockView(
     block: ImageBlock,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    onRetry: () -> Unit = {},
 ) {
+    // 优先本地文件（即时、离线可看）；本地失效（他机加载）时用签名 downloadUrl 兜底。
+    val model = remember(block.path, block.remoteUrl) {
+        File(block.path).takeIf { it.exists() } ?: block.remoteUrl
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
+        val imageModifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (block.width > 0 && block.height > 0) {
+                    Modifier.aspectRatio(block.width.toFloat() / block.height)
+                } else {
+                    Modifier
+                },
+            )
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFE8E7E2))
         // 点击图片进入预览。已知宽高时用 aspectRatio 预留高度，避免加载完成后高度突变导致滚动跳动。
         AsyncImage(
-            model = File(block.path),
+            model = model,
             contentDescription = "Note image",
             contentScale = ContentScale.FillWidth,
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (block.width > 0 && block.height > 0) {
-                        Modifier.aspectRatio(block.width.toFloat() / block.height)
-                    } else {
-                        Modifier
-                    },
-                )
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFE8E7E2))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(),
-                    onClick = onClick,
-                ),
+            modifier = imageModifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
         )
+        // 上传态角标：上传中转圈；失败点击重试。UPLOADED/LOCAL 无遮罩。
+        when (block.uploadState) {
+            UploadState.UPLOADING -> Box(
+                modifier = imageModifier.background(Color(0x33000000)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+            }
+            UploadState.FAILED -> Box(
+                modifier = imageModifier
+                    .background(Color(0x66000000))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(),
+                        onClick = onRetry,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Upload failed · tap to retry", color = Color.White, fontSize = 13.sp)
+            }
+            else -> Unit
+        }
         // 右上角删除按钮（与 PDF/文件块一致的删除能力，悬浮于图片之上）
         Box(
             modifier = Modifier

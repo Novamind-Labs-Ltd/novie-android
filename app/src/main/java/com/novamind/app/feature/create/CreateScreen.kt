@@ -46,6 +46,7 @@ import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor
 import com.novamind.app.feature.create.editor.ImageBlock
+import com.novamind.app.feature.create.editor.UploadState
 import com.novamind.app.feature.create.folder.FolderPickerSheet
 import com.novamind.app.feature.create.tag.TagPickerSheet
 import com.novamind.app.feature.create.editor.ImageStore
@@ -73,6 +74,12 @@ fun CreateScreen(
     readOnly: Boolean = false,              // 回收站只读态：仅查看，不可编辑
     onRestore: () -> Unit = {},             // 只读态「Restore」
     onDeleteForever: () -> Unit = {},       // 只读态「Delete」（彻底删除）
+    // 图片上传：给本地路径 + contentType，返回服务端 fileId（由 CreateRoute 接 ViewModel）
+    onUploadImage: suspend (String, String) -> Result<String> = { _, _ ->
+        Result.failure(IllegalStateException("upload not wired"))
+    },
+    // 附件 fileId → 签名下载 URL（打开已有笔记后由 ViewModel 提供，供本地图失效时兜底渲染）
+    attachmentUrls: Map<String, String> = emptyMap(),
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -134,6 +141,32 @@ fun CreateScreen(
         onEvent(CreateEvent.ContentChanged(json))
     }
 
+    // 上传已插入的图片并回填 fileId / 上传态；完成后 emitContent 让正文带上 fileId（供保存时对账挂附件）
+    val startUpload: (ImageBlock) -> Unit = { block ->
+        editor.updateImage(block.id) { it.copy(uploadState = UploadState.UPLOADING) }
+        scope.launch {
+            val ext = block.path.substringAfterLast('.', "").lowercase()
+            val contentType = if (ext == "png") "image/png" else "image/jpeg"
+            val result = onUploadImage(block.path, contentType)
+            editor.updateImage(block.id) {
+                it.copy(
+                    fileId = result.getOrNull() ?: it.fileId,
+                    uploadState = if (result.isSuccess) UploadState.UPLOADED else UploadState.FAILED,
+                )
+            }
+            emitContent()
+        }
+    }
+
+    // 打开已有笔记后拿到 fileId→签名 URL 时，回填到对应图片块，供本地路径失效时渲染
+    LaunchedEffect(attachmentUrls) {
+        if (attachmentUrls.isEmpty()) return@LaunchedEffect
+        editor.blocks.filterIsInstance<ImageBlock>().forEach { b ->
+            val url = b.fileId?.let { attachmentUrls[it] }
+            if (url != null && b.remoteUrl != url) editor.updateImage(b.id) { it.copy(remoteUrl = url) }
+        }
+    }
+
     // 新建笔记：进入后自动聚焦正文弹键盘；编辑已有笔记保持收起
     LaunchedEffect(Unit) {
         if (autoFocusBody) {
@@ -162,8 +195,9 @@ fun CreateScreen(
             // 导入（下采样+压缩+读宽高）放 IO 线程
             val saved = withContext(Dispatchers.IO) { ImageStore.importImage(context, uri) }
             saved?.let {
-                editor.insertImage(it.path, it.width, it.height)
+                val block = editor.insertImage(it.path, it.width, it.height)
                 emitContent()
+                startUpload(block)
             }
         }
     }
@@ -177,7 +211,7 @@ fun CreateScreen(
                 val saved = uris.take(imagePickMax).mapNotNull { uri ->
                     withContext(Dispatchers.IO) { ImageStore.importImage(context, uri) }
                 }
-                saved.forEach { editor.insertImage(it.path, it.width, it.height) }
+                saved.forEach { s -> startUpload(editor.insertImage(s.path, s.width, s.height)) }
                 if (saved.isNotEmpty()) emitContent()
             }
         }
@@ -192,8 +226,9 @@ fun CreateScreen(
         pendingCapturePath = null
         if (success && path != null) scope.launch {
             val saved = withContext(Dispatchers.IO) { ImageStore.finalizeCaptured(context, path) }
-            editor.insertImage(saved.path, saved.width, saved.height)
+            val block = editor.insertImage(saved.path, saved.width, saved.height)
             emitContent()
+            startUpload(block)
         }
     }
 
@@ -331,6 +366,7 @@ fun CreateScreen(
                             .indexOfFirst { it.id == id }
                         if (idx >= 0) previewIndex = idx
                     },
+                    onImageRetry = { startUpload(it) },
                     header = {
                         // ── 标题 ──────────────────────────────────────────
                         BasicTextField(

@@ -72,6 +72,9 @@ object AppConfig {
         /** 单条笔记最多附件数（图片 + PDF + Markdown 合计）。 */
         const val MAX_ATTACHMENTS = 5
 
+        /** 图片上传最大并发数（一次多选最多 5 张，限此并发、其余排队）。 */
+        const val MAX_UPLOAD_CONCURRENCY = 3
+
         /**
          * 文档选择器允许的 MIME 类型（PDF + Markdown）。
          * .md 在各文件提供方 MIME 不统一（text/markdown、text/x-markdown、甚至 text/plain），

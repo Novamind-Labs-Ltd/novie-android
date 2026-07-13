@@ -45,6 +45,7 @@ fun NoteContentEditor(
     onContentChanged: () -> Unit,
     coverTopWindowY: Float = Float.MAX_VALUE,   // 工具栏顶边窗口 Y；无遮挡时传 MAX_VALUE
     onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
+    onImageRetry: (ImageBlock) -> Unit = {},    // 图片上传失败后点击重试
     header: (@Composable () -> Unit)? = null,   // 随正文一起滚动的头部（标题 / folder / tags 等）
     readOnly: Boolean = false,                  // 录音期间等场景：正文不可编辑、点击不弹键盘
     bodyCharLimit: Int = Int.MAX_VALUE,         // 正文可输入字数上限（= 总上限 − 标题字数）
@@ -115,6 +116,7 @@ fun NoteContentEditor(
                 is ImageBlock -> ImageBlockView(
                     block = block,
                     onClick = { onImageClick(block.id) },
+                    onRetry = { onImageRetry(block) },
                     onDelete = {
                         state.removeBlock(block.id)
                         onContentChanged()

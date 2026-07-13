@@ -45,11 +45,24 @@ class TextBlock(
     val focusRequester = FocusRequester()
 }
 
-/** 图片块，path 指向内部存储中的图片文件；width/height 为像素尺寸（0 = 未知） */
-class ImageBlock(
+/** 图片上传态（运行期，不序列化）。 */
+enum class UploadState { LOCAL, UPLOADING, UPLOADED, FAILED }
+
+/**
+ * 图片块。[path] 指向内部存储中的本地图片（即时预览用，可能在他机失效）；
+ * [width]/[height] 为像素尺寸（0 = 未知）。
+ *
+ * 服务端相关：[fileId] 为上传成功后回填的服务端文件 id（**序列化进 content**，作稳定引用）；
+ * [remoteUrl] 为运行期从 `GET attachments` 拿到的签名下载 URL（**不序列化**，有时效）；
+ * [uploadState] 为运行期上传态（**不序列化**）。
+ */
+data class ImageBlock(
     val path: String,
     val width: Int = 0,
     val height: Int = 0,
+    val fileId: String? = null,
+    val remoteUrl: String? = null,
+    val uploadState: UploadState = UploadState.LOCAL,
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock
 
@@ -188,9 +201,20 @@ class NoteEditorState {
 
     // ── 插入 / 删除非文本块（图片 / 文档） ──────────────────────────────────
 
-    /** 在聚焦文本块的光标处插入图片块 */
-    fun insertImage(path: String, width: Int = 0, height: Int = 0) =
-        insertBlockAtCaret(ImageBlock(path, width, height))
+    /** 在聚焦文本块的光标处插入图片块，返回新块（供调用方发起上传并按 id 回填状态）。 */
+    fun insertImage(path: String, width: Int = 0, height: Int = 0): ImageBlock {
+        val block = ImageBlock(path, width, height, uploadState = UploadState.UPLOADING)
+        insertBlockAtCaret(block)
+        return block
+    }
+
+    /** 用 [transform] 替换指定 id 的图片块（更新上传态 / fileId / remoteUrl），触发重组。 */
+    fun updateImage(id: String, transform: (ImageBlock) -> ImageBlock) {
+        val idx = _blocks.indexOfFirst { it.id == id }
+        if (idx < 0) return
+        val cur = _blocks[idx] as? ImageBlock ?: return
+        _blocks[idx] = transform(cur)
+    }
 
     /** 在聚焦文本块的光标处插入文档块 */
     fun insertFile(path: String, name: String) = insertBlockAtCaret(FileBlock(path, name))
@@ -290,6 +314,7 @@ class NoteEditorState {
                     is ImageBlock -> arr.put(
                         JSONObject().put("type", "image").put("path", block.path)
                             .put("width", block.width).put("height", block.height)
+                            .apply { block.fileId?.let { put("fileId", it) } }   // 稳定引用，供他机/重装后取回
                     )
                     is FileBlock -> arr.put(
                         JSONObject().put("type", "file").put("path", block.path).put("name", block.name)
@@ -369,8 +394,18 @@ class NoteEditorState {
                         initialText = obj.optString("text"),
                         initialHtml = obj.optString("html").ifBlank { null },
                     )
-                    "image" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
-                        ImageBlock(it, obj.optInt("width", 0), obj.optInt("height", 0))
+                    "image" -> {
+                        val path = obj.optString("path")
+                        val fid = obj.optString("fileId").ifBlank { null }
+                        // 有本地 path 或有服务端 fileId 之一即可（他机加载时 path 可能失效，靠 fileId 取回）
+                        if (path.isBlank() && fid == null) null
+                        else ImageBlock(
+                            path = path,
+                            width = obj.optInt("width", 0),
+                            height = obj.optInt("height", 0),
+                            fileId = fid,
+                            uploadState = if (fid != null) UploadState.UPLOADED else UploadState.LOCAL,
+                        )
                     }
                     "file" -> obj.optString("path").takeIf { it.isNotBlank() }?.let {
                         FileBlock(it, obj.optString("name").ifBlank { "Document" })
