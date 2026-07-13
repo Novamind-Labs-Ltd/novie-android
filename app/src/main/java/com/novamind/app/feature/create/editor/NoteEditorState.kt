@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import com.mohamedrejeb.richeditor.model.RichTextState
@@ -148,6 +149,9 @@ class NoteEditorState {
         if (block != null && sel != null && !sel.collapsed) {
             polishTarget = PolishTarget(block.id, sel.min, sel.max)
             polishAll = false
+            // 折叠光标到选区末尾：让后续输入落在被 polish 的文字之后，
+            // 既不会因「带选区输入替换选区」而覆盖，也不会被扫光遮住（polish 区间固定为 [min,max)）。
+            runCatching { block.rich.selection = TextRange(sel.max) }
             return true
         }
         // 无选区：对所有文字做骨架（前提是确有文字）
