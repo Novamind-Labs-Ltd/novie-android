@@ -6,13 +6,13 @@ import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.FoldersRepository
-import com.novamind.app.data.NoteRepository
-import com.novamind.app.feature.create.editor.NoteDocument
+import com.novamind.app.data.NotesRepository
 import com.novamind.app.feature.create.folder.RemoteFolder
-import com.novamind.app.feature.create.model.Note
 import com.novamind.app.feature.create.model.NoteItem
+import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,39 +25,38 @@ import kotlinx.coroutines.launch
 /**
  * Library 页面 ViewModel。
  *
- * 文件夹列表**由服务端 `GET /folders` 驱动**（[FoldersRepository]）：create 走 `POST /folders`，
- * rename 走 `PATCH {name}`，删除走 `PATCH {trashed:true}`（移入回收站）。笔记仍来自本地
- * [NoteRepository]，按文件夹名聚合得到每个文件夹的 noteCount；文件夹颜色为本地概念（服务端不带），
- * 仍由 [FolderRepository]（Room）按名维护并在此合并显示。
+ * 笔记与文件夹均**由服务端驱动**，与首页保持一致：
+ * - Recent 页笔记来自 `GET /notes`（[NotesRepository.listNotes]，活跃视图），与 [com.novamind.app.feature.home.HomeViewModel] 相同的映射（列表项不含正文，故 description/tags 留空）；
+ * - 文件夹来自 `GET /folders`（[FoldersRepository]），create/rename/trash/reorder 走对应端点；
+ * - 文件夹颜色为本地概念（服务端不带），仍由 [FolderRepository]（Room）按名维护并合并显示；
+ * - 每个文件夹的 noteCount 由服务端笔记按 folderId → 文件夹名聚合得到。
  */
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
-    private val noteRepository: NoteRepository,
     private val folderRepository: FolderRepository,
     private val foldersRepository: FoldersRepository,
+    private val notesRepository: NotesRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState = _uiState.asStateFlow()
 
-    // 最近一次的领域笔记快照，供重命名 / 删除文件夹时改写笔记归属
-    private var domainNotes: List<Note> = emptyList()
-
-    // 服务端文件夹快照（GET /folders）；随 loadFolders 更新，驱动文件夹列表。
+    // 服务端笔记快照（GET /notes，活跃视图）
+    private val serverNotes = MutableStateFlow<List<RemoteNoteSummary>>(emptyList())
+    // 服务端文件夹快照（GET /folders）
     private val serverFolders = MutableStateFlow<List<RemoteFolder>>(emptyList())
 
     init {
-        // 三源合流：本地笔记（计数 + 卡片）× 本地文件夹（颜色兜底）× 服务端文件夹（存在性 / id / 排序）
-        combine(noteRepository.notes, folderRepository.folders, serverFolders) { notes, stored, remote ->
+        // 三源合流：服务端笔记（列表 + 计数）× 本地文件夹（颜色兜底）× 服务端文件夹（存在性 / id / 排序）
+        combine(serverNotes, folderRepository.folders, serverFolders) { notes, stored, remote ->
             Triple(notes, stored, remote)
         }
             .onEach { (notes, stored, remote) ->
-                domainNotes = notes
-                // 按文件夹聚合：无文件夹的归入「Unfiled」
-                val counts = notes.groupingBy { it.folder?.name ?: "Unfiled" }.eachCount()
+                val folderNameById = remote.associate { it.id to it.name }
+                // 按文件夹聚合：无文件夹（folderId=null）的归入「Unfiled」
+                val counts = notes.groupingBy { folderNameById[it.folderId] ?: "Unfiled" }.eachCount()
                 val colorByName = stored.associateBy { it.name }
                 val remoteByName = remote.associateBy { it.name }
-                // 文件夹存在性以「有笔记的分组」∪「服务端文件夹」为准
                 val names = LinkedHashSet<String>().apply {
                     addAll(counts.keys)
                     addAll(remote.map { it.name })
@@ -71,7 +70,6 @@ class LibraryViewModel @Inject constructor(
                             colorHex = colorByName[name]?.colorHex,
                         )
                     }
-                    // 服务端文件夹按其 sortOrder 在前；其余（笔记派生 / Unfiled）按笔记数降序其后
                     .sortedWith(
                         compareBy(
                             { remoteByName[it.name]?.sortOrder ?: Int.MAX_VALUE },
@@ -80,32 +78,37 @@ class LibraryViewModel @Inject constructor(
                     )
                 _uiState.update {
                     it.copy(
-                        notes = notes.map { note ->
-                            NoteItem(
-                                id = note.id,
-                                title = note.title,
-                                description = NoteDocument.previewText(note.body),
-                                tags = note.tags.map { it.name },
-                                borderColor = ColorUtils.parseHexColor(note.borderColorHex),
-                                imagePath = NoteDocument.firstImagePath(note.body),
-                                folderName = note.folder?.name,
-                                createdAt = note.createdAt,
-                                updatedAt = note.updatedAt,
-                            )
-                        },
+                        notes = notes.map { note -> note.toNoteItem(folderNameById[note.folderId]) },
                         folders = folders,
                     )
                 }
             }
             .launchIn(viewModelScope)
 
+        reload()
+    }
+
+    /** 静默重拉笔记与文件夹（每次进入 Library 时调用，与首页一致）。 */
+    fun reload() {
+        loadNotes()
         loadFolders()
+    }
+
+    /** 拉取服务端笔记列表（活跃视图，GET /notes）。 */
+    private fun loadNotes() {
+        viewModelScope.launch {
+            when (val r = notesRepository.listNotes(trashed = false, limit = NOTES_PAGE_SIZE)) {
+                is ApiResult.Success -> serverNotes.value = r.data?.items.orEmpty()
+                is ApiResult.BizError -> AppLog.w(TAG) { "loadNotes 业务错误 code=${r.code} traceId=${r.traceId}" }
+                is ApiResult.NetworkError -> AppLog.w(TAG) { "loadNotes 网络错误: ${r.message}" }
+            }
+        }
     }
 
     /** 拉取服务端文件夹列表（GET /folders），刷新 [serverFolders]。 */
     fun loadFolders() {
         viewModelScope.launch {
-            when (val r = foldersRepository.listFolders(limit = PAGE_SIZE)) {
+            when (val r = foldersRepository.listFolders(limit = FOLDERS_PAGE_SIZE)) {
                 is ApiResult.Success -> serverFolders.value = r.data?.items.orEmpty()
                 is ApiResult.BizError -> AppLog.w(TAG) { "loadFolders 业务错误 code=${r.code} traceId=${r.traceId}" }
                 is ApiResult.NetworkError -> AppLog.w(TAG) { "loadFolders 网络错误: ${r.message}" }
@@ -129,7 +132,10 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    /** 重命名文件夹：PATCH {name}；同步本地颜色记录与该文件夹下笔记的归属名，成功后重拉。 */
+    /**
+     * 重命名文件夹：PATCH {name}。服务端文件夹以 id 为身份，改名后其下笔记的 folderId 不变、
+     * 归属自动跟随，无需逐条改写笔记。本地颜色记录同步改名，成功后重拉。
+     */
     fun renameFolder(oldName: String, newName: String) {
         val from = oldName.trim()
         val to = newName.trim()
@@ -143,9 +149,6 @@ class LibraryViewModel @Inject constructor(
             when (val r = foldersRepository.renameFolder(id, to)) {
                 is ApiResult.Success -> {
                     folderRepository.rename(from, to)
-                    domainNotes.filter { it.folder?.name == from }.forEach { note ->
-                        noteRepository.addOrUpdate(note.copy(folder = note.folder?.copy(name = to)))
-                    }
                     loadFolders()
                 }
                 is ApiResult.BizError -> AppLog.w(TAG) { "renameFolder 业务错误 id=$id code=${r.code} traceId=${r.traceId}" }
@@ -154,7 +157,10 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    /** 删除文件夹：PATCH {trashed:true} 移入回收站；本地把其下笔记移到「未归档」并清理颜色记录，成功后重拉。 */
+    /**
+     * 删除文件夹：PATCH {trashed:true} 移入回收站（服务端要求文件夹为空，非空会 40910）。
+     * 本地清理颜色记录，成功后重拉。
+     */
     fun deleteFolder(name: String) {
         val target = name.trim()
         if (target.isEmpty() || target == "Unfiled") return
@@ -166,9 +172,6 @@ class LibraryViewModel @Inject constructor(
             when (val r = foldersRepository.setTrashed(id, trashed = true)) {
                 is ApiResult.Success -> {
                     folderRepository.delete(target)
-                    domainNotes.filter { it.folder?.name == target }.forEach { note ->
-                        noteRepository.addOrUpdate(note.copy(folder = null))
-                    }
                     loadFolders()
                 }
                 is ApiResult.BizError -> AppLog.w(TAG) { "deleteFolder 业务错误 id=$id code=${r.code} traceId=${r.traceId}" }
@@ -177,9 +180,7 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 修改文件夹颜色：颜色为本地概念（服务端无该字段），仍持久化到本地库，随 Flow 立即刷新列表。
-     */
+    /** 修改文件夹颜色：颜色为本地概念（服务端无该字段），持久化到本地库，随 Flow 立即刷新列表。 */
     fun changeFolderColor(name: String, colorHex: String?) {
         viewModelScope.launch { folderRepository.setColor(name, colorHex) }
     }
@@ -214,8 +215,26 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /** 列表项领域模型 → UI 模型。列表接口不含正文，故 description/tags/图片留空（与首页一致）。 */
+    private fun RemoteNoteSummary.toNoteItem(folderName: String?): NoteItem = NoteItem(
+        id = id,
+        title = title.orEmpty(),
+        description = "",
+        tags = emptyList(),
+        borderColor = ColorUtils.parseHexColor(borderColorHex),
+        imagePath = null,
+        folderName = folderName,
+        createdAt = createdAt.toEpochMillisOrZero(),
+        updatedAt = updatedAt.toEpochMillisOrZero(),
+    )
+
+    /** ISO-8601 → epoch 毫秒；空或解析失败回退 0。 */
+    private fun String?.toEpochMillisOrZero(): Long =
+        this?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() } ?: 0L
+
     private companion object {
         const val TAG = "LibraryVM"
-        const val PAGE_SIZE = 100
+        const val NOTES_PAGE_SIZE = 50
+        const val FOLDERS_PAGE_SIZE = 100
     }
 }

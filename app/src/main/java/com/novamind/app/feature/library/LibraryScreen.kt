@@ -571,6 +571,8 @@ fun LibraryRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    // 每次进入 Library（重新进入组合，如底栏切换 / 从编辑器返回）都静默重拉笔记与文件夹，与首页一致
+    LaunchedEffect(Unit) { viewModel.reload() }
     // 当前进入的文件夹（详情页）；null = 显示 Library 主页（Recent/Folders）
     var selectedFolder by rememberSaveable { mutableStateOf<String?>(null) }
     // 分段标签状态提升到这里：进入文件夹详情再返回时仍停留在 Folders 页（不回到 Recent）
