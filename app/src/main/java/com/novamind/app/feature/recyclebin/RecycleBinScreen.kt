@@ -44,6 +44,7 @@ import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.recyclebin.components.RecycleBinNoteCard
 import com.novamind.app.feature.recyclebin.components.TopIconButton
 import com.novamind.app.ui.components.BackButton
+import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
@@ -105,6 +106,7 @@ fun RecycleBinRoute(
                 uiState = uiState,
                 onBack = onBack,
                 onOpenNote = { selectedNoteId = it },
+                onEmptyAll = viewModel::emptyAll,
                 modifier = modifier,
             )
         }
@@ -118,8 +120,10 @@ fun RecycleBinScreen(
     uiState: RecycleBinUiState,
     onBack: () -> Unit = {},
     onOpenNote: (String) -> Unit = {},
+    onEmptyAll: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    var showEmptyConfirm by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -127,17 +131,27 @@ fun RecycleBinScreen(
             .statusBarsPadding()
             .padding(bottom = 24.dp),
     ) {
-        // 顶部工具条：返回
+        // 顶部工具条：返回 / 更多（清空回收站）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BackButton(
                 onClick = onBack,
                 tint = TextColors.Primary.default.current(),
             )
+            // 仅当回收站非空时显示「更多」→ 清空回收站
+            if (uiState.notes.isNotEmpty()) {
+                TopIconButton(
+                    iconRes = R.drawable.ic_more,
+                    desc = "Empty recycle bin",
+                    shape = CircleShape,
+                    onClick = { showEmptyConfirm = true },
+                )
+            }
         }
 
         // 标题 + 副标题
@@ -179,6 +193,20 @@ fun RecycleBinScreen(
                 }
             }
         }
+    }
+
+    // 清空回收站二次确认
+    if (showEmptyConfirm) {
+        DeleteConfirmSheet(
+            onConfirm = {
+                showEmptyConfirm = false
+                onEmptyAll()
+            },
+            onDismiss = { showEmptyConfirm = false },
+            title = "Empty Recycle Bin",
+            message = "Are you sure you want to permanently delete these ${uiState.notes.size} notes? This action cannot be undone.",
+            confirmLabel = "Delete permanently",
+        )
     }
 }
 

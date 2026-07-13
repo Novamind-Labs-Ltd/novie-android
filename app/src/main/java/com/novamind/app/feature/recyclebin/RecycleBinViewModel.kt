@@ -70,6 +70,22 @@ class RecycleBinViewModel @Inject constructor(
         }
     }
 
+    /** 清空回收站：把当前列表里的笔记逐个彻底删除（无批量端点，逐条 DELETE），完成后重拉一次。 */
+    fun emptyAll() {
+        val ids = _uiState.value.notes.map { it.id }
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            ids.forEach { id ->
+                when (val r = notesRepository.deleteNote(id)) {
+                    is ApiResult.Success -> Unit
+                    is ApiResult.BizError -> AppLog.w(TAG) { "emptyAll 删除业务错误 id=$id code=${r.code} traceId=${r.traceId}" }
+                    is ApiResult.NetworkError -> AppLog.w(TAG) { "emptyAll 删除网络错误 id=$id: ${r.message}" }
+                }
+            }
+            reload()
+        }
+    }
+
     /** 列表项领域模型 → UI 模型。列表接口不含正文，故 description/tags/图片留空；updatedAt 用软删时间。 */
     private fun RemoteNoteSummary.toNoteItem(): NoteItem = NoteItem(
         id = id,
