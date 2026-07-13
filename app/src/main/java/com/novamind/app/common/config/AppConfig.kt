@@ -61,6 +61,15 @@ object AppConfig {
         const val WRITE_TIMEOUT_SECONDS = 30L
     }
 
+    /** 列表分页参数（与后端硬上限对齐）。 */
+    object Paging {
+        /** 笔记列表每页条数（GET /notes，后端默认 50、硬上限 100）。 */
+        const val NOTES_PAGE_SIZE = 50
+
+        /** 文件夹列表每页条数（GET /folders，后端硬上限 100）。 */
+        const val FOLDERS_PAGE_SIZE = 100
+    }
+
     /** 媒体 / 文件相关上限与参数。 */
     object Media {
         /** 文档/附件大小上限（字节）。默认 16MB。 */

@@ -3,6 +3,7 @@ package com.novamind.app.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.NotesRepository
 import com.novamind.app.feature.create.model.NoteItem
@@ -71,7 +72,7 @@ class HomeViewModel @Inject constructor(
             else it.copy(isLoading = true, errorMessage = null)
         }
         viewModelScope.launch {
-            when (val result = notesRepository.listNotes(trashed = false, limit = PAGE_SIZE)) {
+            when (val result = notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE)) {
                 is ApiResult.Success -> {
                     val items = result.data?.items.orEmpty().map { it.toNoteItem() }
                     _uiState.update {
@@ -115,8 +116,4 @@ class HomeViewModel @Inject constructor(
     /** ISO-8601 → epoch 毫秒；空或解析失败回退 0。 */
     private fun String?.toEpochMillisOrZero(): Long =
         this?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() } ?: 0L
-
-    private companion object {
-        const val PAGE_SIZE = 50
-    }
 }

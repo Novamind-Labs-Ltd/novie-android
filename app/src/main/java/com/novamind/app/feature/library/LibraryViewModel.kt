@@ -2,6 +2,7 @@ package com.novamind.app.feature.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.FolderRepository
@@ -97,7 +98,7 @@ class LibraryViewModel @Inject constructor(
     /** 拉取服务端笔记列表（活跃视图，GET /notes）。 */
     private fun loadNotes() {
         viewModelScope.launch {
-            when (val r = notesRepository.listNotes(trashed = false, limit = NOTES_PAGE_SIZE)) {
+            when (val r = notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE)) {
                 is ApiResult.Success -> serverNotes.value = r.data?.items.orEmpty()
                 is ApiResult.BizError -> AppLog.w(TAG) { "loadNotes 业务错误 code=${r.code} traceId=${r.traceId}" }
                 is ApiResult.NetworkError -> AppLog.w(TAG) { "loadNotes 网络错误: ${r.message}" }
@@ -108,7 +109,7 @@ class LibraryViewModel @Inject constructor(
     /** 拉取服务端文件夹列表（GET /folders），刷新 [serverFolders]。 */
     fun loadFolders() {
         viewModelScope.launch {
-            when (val r = foldersRepository.listFolders(limit = FOLDERS_PAGE_SIZE)) {
+            when (val r = foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE)) {
                 is ApiResult.Success -> serverFolders.value = r.data?.items.orEmpty()
                 is ApiResult.BizError -> AppLog.w(TAG) { "loadFolders 业务错误 code=${r.code} traceId=${r.traceId}" }
                 is ApiResult.NetworkError -> AppLog.w(TAG) { "loadFolders 网络错误: ${r.message}" }
@@ -234,7 +235,5 @@ class LibraryViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "LibraryVM"
-        const val NOTES_PAGE_SIZE = 50
-        const val FOLDERS_PAGE_SIZE = 100
     }
 }

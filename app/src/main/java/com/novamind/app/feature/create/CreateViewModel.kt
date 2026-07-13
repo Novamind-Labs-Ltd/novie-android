@@ -525,7 +525,7 @@ class CreateViewModel @Inject constructor(
     /** 拉取服务端文件夹列表（GET /folders）填充选择器；失败保留现有列表并记日志。 */
     private fun loadFolders() {
         viewModelScope.launch {
-            when (val r = foldersRepository.listFolders(limit = FOLDERS_PAGE_SIZE)) {
+            when (val r = foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE)) {
                 is ApiResult.Success -> {
                     val folders = r.data?.items.orEmpty()
                         .sortedBy { it.sortOrder }
@@ -552,6 +552,5 @@ class CreateViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "CreateVM"
-        const val FOLDERS_PAGE_SIZE = 100
     }
 }
