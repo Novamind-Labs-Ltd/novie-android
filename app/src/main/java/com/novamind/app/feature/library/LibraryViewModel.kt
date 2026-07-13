@@ -185,11 +185,22 @@ class LibraryViewModel @Inject constructor(
         val byName = serverFolders.value.associateBy { it.name }
         val orderedIds = orderedNames.mapNotNull { byName[it]?.id }
         if (orderedIds.isEmpty()) return
+        // 先改 UI（乐观更新）：按新顺序重排 serverFolders 并重写 sortOrder，列表立即呈现新顺序、不等网络
+        serverFolders.value = orderedNames
+            .mapNotNull { byName[it] }
+            .mapIndexed { i, f -> f.copy(sortOrder = i) }
+        // 再调接口；失败则重拉服务端真值回滚
         viewModelScope.launch {
             when (val r = foldersRepository.reorderFolders(orderedIds)) {
-                is ApiResult.Success -> loadFolders()
-                is ApiResult.BizError -> AppLog.w(TAG) { "reorderFolders 业务错误 code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "reorderFolders 网络错误: ${r.message}" }
+                is ApiResult.Success -> Unit   // 已乐观更新，无需再刷
+                is ApiResult.BizError -> {
+                    AppLog.w(TAG) { "reorderFolders 业务错误 code=${r.code} traceId=${r.traceId}，回滚" }
+                    loadFolders()
+                }
+                is ApiResult.NetworkError -> {
+                    AppLog.w(TAG) { "reorderFolders 网络错误: ${r.message}，回滚" }
+                    loadFolders()
+                }
             }
         }
     }
