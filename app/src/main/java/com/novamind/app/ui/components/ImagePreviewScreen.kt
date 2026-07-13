@@ -117,6 +117,10 @@ fun ImagePreviewScreen(
 
     BackHandler(onBack = onBack)
 
+    // 每项可能是本地路径或 http(s) 网络 URL（笔记他机加载时用签名 downloadUrl）——分别交给 Coil。
+    fun previewModel(pathOrUrl: String): Any =
+        if (pathOrUrl.startsWith("http", ignoreCase = true)) pathOrUrl else File(pathOrUrl)
+
     val pagerState = rememberPagerState(
         initialPage = initialIndex.coerceIn(0, paths.lastIndex),
         pageCount = { paths.size },
@@ -130,7 +134,7 @@ fun ImagePreviewScreen(
             .filter { it in paths.indices }
             .forEach { i ->
                 context.imageLoader.enqueue(
-                    ImageRequest.Builder(context).data(File(paths[i])).build()
+                    ImageRequest.Builder(context).data(previewModel(paths[i])).build()
                 )
             }
     }
@@ -352,7 +356,7 @@ fun ImagePreviewScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 AsyncImage(
-                    model = File(paths[page]),
+                    model = previewModel(paths[page]),
                     contentDescription = "Image ${page + 1}",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier

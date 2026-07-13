@@ -564,7 +564,10 @@ fun CreateScreen(
         }
 
         // 图片预览（全屏覆盖）：滑动/缩放/删除，带淡入+缩放转场
-        val liveImages = editor.blocks.filterIsInstance<ImageBlock>().map { it.path }
+        // 每张解析为可渲染模型：本地文件存在用本地路径，否则用签名网络 URL（他机加载的笔记）
+        val liveImages = editor.blocks.filterIsInstance<ImageBlock>().map { b ->
+            b.path.takeIf { File(it).exists() } ?: b.remoteUrl ?: b.path
+        }
         // 退出动画期间 previewIndex 已置空，用上次快照续渲染避免闪白
         var lastPreviewPaths by remember { mutableStateOf<List<String>>(emptyList()) }
         var lastPreviewIndex by remember { mutableStateOf(0) }
@@ -581,10 +584,10 @@ fun CreateScreen(
                 paths = if (previewIndex != null) liveImages else lastPreviewPaths,
                 initialIndex = lastPreviewIndex,
                 onDelete = { page ->
-                    liveImages.getOrNull(page)?.let { path ->
-                        editor.blocks.filterIsInstance<ImageBlock>()
-                            .firstOrNull { it.path == path }
-                            ?.let { editor.removeBlock(it.id); emitContent() }
+                    // 按序号删除对应图片块（liveImages 可能含网络 URL，不能按 path 匹配）
+                    editor.blocks.filterIsInstance<ImageBlock>().getOrNull(page)?.let {
+                        editor.removeBlock(it.id)
+                        emitContent()
                     }
                 },
                 deleteMessage = "This will remove the image from the note.",
