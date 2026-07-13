@@ -7,7 +7,7 @@ import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.FilesRepository
-import com.novamind.app.data.FolderRepository
+import com.novamind.app.data.FoldersRepository
 import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.feature.create.editor.NoteDocument
@@ -43,7 +43,7 @@ private data class TextSnapshot(val title: String, val body: String)
 @HiltViewModel
 class CreateViewModel @Inject constructor(
     private val notesRepository: NotesRepository,
-    private val folderRepository: FolderRepository,
+    private val foldersRepository: FoldersRepository,
     private val tagRepository: TagRepository,
     private val filesRepository: FilesRepository,
     private val attachmentsRepository: AttachmentsRepository,
@@ -99,14 +99,8 @@ class CreateViewModel @Inject constructor(
             .sample(AppConfig.Editor.SAVE_MAX_INTERVAL_MS)
             .onEach { saveNow() }
             .launchIn(viewModelScope)
-        // 文件夹选择列表来自持久化文件夹库（实时）
-        folderRepository.folders
-            .onEach { stored ->
-                val folders = stored.map { Folder(id = it.id, name = it.name) }
-                availableFolders = folders
-                _uiState.update { it.copy(availableFolders = folders) }
-            }
-            .launchIn(viewModelScope)
+        // 文件夹选择列表来自服务端 GET /folders（进入时拉一次；打开选择器 / 新建后再刷新）
+        loadFolders()
         // 标签选择列表来自持久化标签库（实时）
         tagRepository.tags
             .onEach { stored ->
@@ -256,14 +250,31 @@ class CreateViewModel @Inject constructor(
             }
 
             is CreateEvent.NewFolderCreated -> {
-                // 新建文件夹落库（出现在文件夹库中）；并选中给当前笔记
-                val newFolder = Folder(name = event.name)
-                viewModelScope.launch { folderRepository.create(event.name, null) }
+                // 新建文件夹到服务端（POST /folders），成功后刷新列表；并乐观选中给当前笔记
                 _uiState.update { state ->
                     state.copy(
-                        selectedFolder = newFolder,
+                        selectedFolder = Folder(name = event.name),
                         showFolderPicker = false,
                     )
+                }
+                viewModelScope.launch {
+                    when (val r = foldersRepository.createFolder(event.name)) {
+                        is ApiResult.Success -> {
+                            r.data?.let { f ->
+                                // 用服务端返回的 id 校正选中项
+                                _uiState.update { st ->
+                                    if (st.selectedFolder?.name == f.name) {
+                                        st.copy(selectedFolder = Folder(id = f.id, name = f.name))
+                                    } else {
+                                        st
+                                    }
+                                }
+                            }
+                            loadFolders()
+                        }
+                        is ApiResult.BizError -> AppLog.w(TAG) { "createFolder 业务错误 code=${r.code} traceId=${r.traceId}" }
+                        is ApiResult.NetworkError -> AppLog.w(TAG) { "createFolder 网络错误: ${r.message}" }
+                    }
                 }
                 requestSave()
             }
@@ -274,8 +285,10 @@ class CreateViewModel @Inject constructor(
             is CreateEvent.DismissTagPicker ->
                 _uiState.update { it.copy(showTagPicker = false) }
 
-            is CreateEvent.ShowFolderPicker ->
+            is CreateEvent.ShowFolderPicker -> {
+                loadFolders()   // 打开选择器时刷新一次服务端文件夹
                 _uiState.update { it.copy(showFolderPicker = true) }
+            }
 
             is CreateEvent.DismissFolderPicker ->
                 _uiState.update { it.copy(showFolderPicker = false) }
@@ -509,6 +522,23 @@ class CreateViewModel @Inject constructor(
         }
     }.getOrDefault(emptySet())
 
+    /** 拉取服务端文件夹列表（GET /folders）填充选择器；失败保留现有列表并记日志。 */
+    private fun loadFolders() {
+        viewModelScope.launch {
+            when (val r = foldersRepository.listFolders(limit = FOLDERS_PAGE_SIZE)) {
+                is ApiResult.Success -> {
+                    val folders = r.data?.items.orEmpty()
+                        .sortedBy { it.sortOrder }
+                        .map { Folder(id = it.id, name = it.name) }
+                    availableFolders = folders
+                    _uiState.update { it.copy(availableFolders = folders) }
+                }
+                is ApiResult.BizError -> AppLog.w(TAG) { "loadFolders 业务错误 code=${r.code} traceId=${r.traceId}" }
+                is ApiResult.NetworkError -> AppLog.w(TAG) { "loadFolders 网络错误: ${r.message}" }
+            }
+        }
+    }
+
     private fun updateText(newTitle: String, newBody: String) {
         val current = TextSnapshot(_uiState.value.title, _uiState.value.body)
         if (current.title == newTitle && current.body == newBody) return
@@ -522,5 +552,6 @@ class CreateViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "CreateVM"
+        const val FOLDERS_PAGE_SIZE = 100
     }
 }
