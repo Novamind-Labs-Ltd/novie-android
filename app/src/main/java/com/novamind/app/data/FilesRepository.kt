@@ -68,16 +68,36 @@ class FilesRepository @Inject constructor() {
         Result.success(presign.fileId)
     }
 
-    /** S3 presigned POST：fields 用 LinkedHashMap 保序后置于文件之前。成功返回 true。 */
+    /**
+     * 直传对象存储。默认走 OSS **预签名 PUT**（当前后端契约：`upload.method=PUT` + `headers`）：
+     * 文件原始字节作请求体，headers 原样带上（Content-Type 由 body 的 media type 提供，避免重复头）。
+     * 仅当后端返回 S3 预签名 POST（`fields` 非空且非 PUT）时才回退到 multipart POST。成功返回 true。
+     */
     private suspend fun putToStorage(presign: PresignResp, file: File, contentType: String): Boolean {
-        val media = contentType.toMediaTypeOrNull()
-        val fields = LinkedHashMap<String, okhttp3.RequestBody>().apply {
-            presign.upload.fields.forEach { (k, v) -> put(k, v.toRequestBody(null)) }
+        val upload = presign.upload
+        val isPost = upload.method?.equals("POST", ignoreCase = true) == true ||
+            (upload.method == null && upload.fields.isNotEmpty())
+
+        val resp = if (isPost) {
+            // 兼容：S3 预签名 POST（表单字段在前、文件 part 名 "file"）
+            val media = contentType.toMediaTypeOrNull()
+            val fields = LinkedHashMap<String, okhttp3.RequestBody>().apply {
+                upload.fields.forEach { (k, v) -> put(k, v.toRequestBody(null)) }
+            }
+            val filePart = MultipartBody.Part.createFormData("file", file.name, file.asRequestBody(media))
+            NetworkModule.filesApi.uploadToStorage(upload.url, fields, filePart)
+        } else {
+            // OSS 预签名 PUT：Content-Type 取 headers 指定值（否则回退调用方 contentType），
+            // 其余 header 原样带上；Content-Type 走 body media type，从 headerMap 剔除避免重复。
+            val ct = upload.headers.entries.firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
+                ?.value ?: contentType
+            val headerMap = upload.headers.filterKeys { !it.equals("Content-Type", ignoreCase = true) }
+            val body = file.asRequestBody(ct.toMediaTypeOrNull())
+            NetworkModule.filesApi.uploadPut(upload.url, headerMap, body)
         }
-        val filePart = MultipartBody.Part.createFormData("file", file.name, file.asRequestBody(media))
-        val resp = NetworkModule.filesApi.uploadToStorage(presign.upload.url, fields, filePart)
+
         if (!resp.isSuccessful) {
-            AppLog.w(TAG) { "storage upload http=${resp.code()}" }
+            AppLog.w(TAG) { "storage upload http=${resp.code()} method=${if (isPost) "POST" else "PUT"}" }
         }
         resp.body()?.close()
         resp.errorBody()?.close()
