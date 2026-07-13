@@ -325,42 +325,44 @@ private fun FoldersPage(
     ) {
         items(ordered, key = { it.name }) { folder ->
             ReorderableItem(reorderState, key = folder.name) { _ ->
-                val rowModifier = Modifier.longPressDraggableHandle(
-                    onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
-                    onDragStopped = { onReorder(ordered.map { it.name }) },
-                )
                 if (folder.name == renameTarget) {
-                // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认
-                FolderRenameRow(
-                    initialName = folder.name,
-                    modifier = rowModifier,
-                    onConfirm = { newName ->
-                        // 与其它已有文件夹重名（忽略大小写）→ 提示且不修改
-                        val conflict = folders.any {
-                            it.name != folder.name && it.name.equals(newName, ignoreCase = true)
-                        }
-                        if (conflict) {
-                            Toast.makeText(
-                                context,
-                                "Folder \"$newName\" already exists",
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        } else {
-                            onRenameFolder(folder.name, newName)
-                            renameTarget = null
-                        }
-                    },
-                    onCancel = { renameTarget = null },
-                )
-            } else {
-                FolderRow(
-                    folder = folder,
-                    onClick = { onOpenFolder(folder.name) },
-                    modifier = rowModifier,
-                    onRename = { renameTarget = folder.name },
-                    onChangeColor = { colorTarget = folder.name },
-                    onDelete = { deleteTarget = folder.name },
-                )
+                    // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认（重命名态不参与拖拽）
+                    FolderRenameRow(
+                        initialName = folder.name,
+                        onConfirm = { newName ->
+                            // 与其它已有文件夹重名（忽略大小写）→ 提示且不修改
+                            val conflict = folders.any {
+                                it.name != folder.name && it.name.equals(newName, ignoreCase = true)
+                            }
+                            if (conflict) {
+                                Toast.makeText(
+                                    context,
+                                    "Folder \"$newName\" already exists",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            } else {
+                                onRenameFolder(folder.name, newName)
+                                renameTarget = null
+                            }
+                        },
+                        onCancel = { renameTarget = null },
+                    )
+                } else {
+                    // 长按整行开始拖拽：把手挂在外层 Box，内部 FolderRow 的点击打开互不抢手势
+                    Box(
+                        modifier = Modifier.longPressDraggableHandle(
+                            onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+                            onDragStopped = { onReorder(ordered.map { it.name }) },
+                        ),
+                    ) {
+                        FolderRow(
+                            folder = folder,
+                            onClick = { onOpenFolder(folder.name) },
+                            onRename = { renameTarget = folder.name },
+                            onChangeColor = { colorTarget = folder.name },
+                            onDelete = { deleteTarget = folder.name },
+                        )
+                    }
                 }
             }
         }
