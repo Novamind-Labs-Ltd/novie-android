@@ -43,6 +43,7 @@ import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.recyclebin.components.RecycleBinNoteCard
 import com.novamind.app.feature.recyclebin.components.TopIconButton
+import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
@@ -134,11 +135,9 @@ fun RecycleBinScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopIconButton(
-                iconRes = R.drawable.ic_panel_left,
-                desc = "Back",
-                shape = RoundedCornerShape(12.dp),
+            BackButton(
                 onClick = onBack,
+                tint = TextColors.Primary.default.current(),
             )
             TopIconButton(
                 iconRes = R.drawable.ic_more,
