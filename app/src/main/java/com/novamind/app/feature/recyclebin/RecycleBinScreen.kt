@@ -127,22 +127,16 @@ fun RecycleBinScreen(
             .statusBarsPadding()
             .padding(bottom = 24.dp),
     ) {
-        // 顶部工具条：左侧栏入口 / 更多
+        // 顶部工具条：返回
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BackButton(
                 onClick = onBack,
                 tint = TextColors.Primary.default.current(),
-            )
-            TopIconButton(
-                iconRes = R.drawable.ic_more,
-                desc = "More",
-                shape = CircleShape,
             )
         }
 
