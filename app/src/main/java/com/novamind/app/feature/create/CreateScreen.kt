@@ -97,6 +97,8 @@ fun CreateScreen(
     onUploadRecording: (String, Long) -> Unit = { _, _ -> },
     // 取消进行中的源录音上传（进度条上的 ×）
     onCancelUploadRecording: () -> Unit = {},
+    // 源录音上传成功的一次性事件：到达后关闭录音面板
+    recordingUploaded: kotlinx.coroutines.flow.Flow<Unit>? = null,
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -114,6 +116,10 @@ fun CreateScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAttachSheet by remember { mutableStateOf(false) }
     var showRecordingBar by remember { mutableStateOf(false) }
+    // 上传成功事件到达 → 关闭录音面板（面板在确认后保持显示，直到这里收到成功）
+    LaunchedEffect(recordingUploaded) {
+        recordingUploaded?.collect { showRecordingBar = false }
+    }
     // 图片预览的下标（null = 不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     var showShare by remember { mutableStateOf(false) }
@@ -496,39 +502,36 @@ fun CreateScreen(
             )
         }
 
-        // ── 录音条：底部弹出，完成后把音频作为附件追加到正文 ──
-        if (showRecordingBar) {
-            VoiceRecordingBar(
-                onCancel = { showRecordingBar = false },
-                onConfirm = { path, durationSeconds ->
-                    showRecordingBar = false
-                    editor.insertFile(
-                        path,
-                        "Recording ${TimeUtils.formatDuration(durationSeconds)}"
-                    )
-                    emitContent()
-                    // 上传为笔记源录音（§7）：时长秒转毫秒
-                    onUploadRecording(path, durationSeconds * 1000L)
-                },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            )
-        }
-
-        // ── 源录音上传进度条（§7）：录音发送后直传云端时展示，可取消 ──
-        AnimatedVisibility(
-            visible = uiState.isUploadingAudio,
-            enter = fadeIn() + slideInVertically { it },
-            exit = fadeOut() + slideOutVertically { it },
-            modifier = Modifier.align(Alignment.BottomCenter),
+        // ── 底部堆叠：上传进度条（§7）在上，录音板在下 ──
+        // 录音板自带 navigationBarsPadding；仅当录音板不在时才给整列补底部系统栏留白。
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .imePadding()
+                .then(if (!showRecordingBar) Modifier.navigationBarsPadding() else Modifier),
         ) {
-            AudioUploadBar(
-                progress = uiState.audioUploadProgress,
-                onCancel = onCancelUploadRecording,
-                modifier = Modifier
-                    .imePadding()
-                    .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            )
+            // 源录音上传进度条：录音发送后直传云端时展示，可取消
+            AnimatedVisibility(
+                visible = uiState.isUploadingAudio,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it },
+            ) {
+                AudioUploadBar(
+                    progress = uiState.audioUploadProgress,
+                    onCancel = onCancelUploadRecording,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                )
+            }
+            // 录音板：确认后不插入正文，仅触发上传（§7）；面板保持显示直到收到 recordingUploaded（上传成功）
+            if (showRecordingBar) {
+                VoiceRecordingBar(
+                    onCancel = { showRecordingBar = false },
+                    onConfirm = { path, durationSeconds ->
+                        onUploadRecording(path, durationSeconds * 1000L)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
 
         // ── BottomSheet ───────────────────────────────────────────────────

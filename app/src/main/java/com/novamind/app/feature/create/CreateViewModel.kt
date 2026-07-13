@@ -66,6 +66,10 @@ class CreateViewModel @Inject constructor(
     private val _saveError = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val saveError = _saveError.asSharedFlow()
 
+    // 源录音上传成功的一次性事件（供 UI 关闭录音面板）。
+    private val _recordingUploaded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val recordingUploaded = _recordingUploaded.asSharedFlow()
+
     // 图片上传并发限流（一次多选最多 5 张，限 AppConfig.Media.MAX_UPLOAD_CONCURRENCY 并发、其余排队）。
     private val uploadSemaphore = Semaphore(AppConfig.Media.MAX_UPLOAD_CONCURRENCY)
 
@@ -515,7 +519,10 @@ class CreateViewModel @Inject constructor(
                         }
                     },
                 )) {
-                    is ApiResult.Success -> AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=${r.data}" }
+                    is ApiResult.Success -> {
+                        AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=${r.data}" }
+                        _recordingUploaded.tryEmit(Unit)   // 通知 UI：上传成功，关闭录音面板
+                    }
                     is ApiResult.BizError -> {
                         AppLog.w(TAG) { "uploadRecording 业务错误 noteId=$id code=${r.code} traceId=${r.traceId}" }
                         _saveError.tryEmit(r.message ?: "Audio upload failed (${r.code})")

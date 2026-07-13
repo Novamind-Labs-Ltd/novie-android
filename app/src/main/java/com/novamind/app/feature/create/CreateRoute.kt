@@ -37,11 +37,17 @@ fun CreateRoute(
     LaunchedEffect(Unit) {
         viewModel.navigateBack.collect { onBack() }
     }
-    // 保存失败一次性提示（POST/PUT 业务或网络错误）
+    // 保存失败一次性提示（POST/PUT 业务或网络错误；含源录音上传失败）
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.saveError.collect { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+    // 源录音上传成功一次性提示
+    LaunchedEffect(Unit) {
+        viewModel.recordingUploaded.collect {
+            Toast.makeText(context, "Recording uploaded", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -77,6 +83,7 @@ fun CreateRoute(
         attachmentUrls = attachmentUrls,
         onUploadRecording = viewModel::uploadRecording,
         onCancelUploadRecording = viewModel::cancelAudioUpload,
+        recordingUploaded = viewModel.recordingUploaded,
         modifier = modifier,
     )
 }
