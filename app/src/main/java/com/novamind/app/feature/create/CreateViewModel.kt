@@ -510,6 +510,7 @@ class CreateViewModel @Inject constructor(
                         val pct = (p * 100).toInt()
                         if (pct != lastPct) {   // 节流：仅整百分比变化时更新，避免刷 UI
                             lastPct = pct
+                            AppLog.i(TAG) { "uploadRecording 进度 noteId=$id $pct% ($uploaded/$total)" }
                             _uiState.update { it.copy(audioUploadProgress = p) }
                         }
                     },
