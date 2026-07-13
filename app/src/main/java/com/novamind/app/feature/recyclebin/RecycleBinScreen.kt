@@ -45,6 +45,7 @@ import com.novamind.app.feature.recyclebin.components.RecycleBinNoteCard
 import com.novamind.app.feature.recyclebin.components.TopIconButton
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.components.DeleteConfirmSheet
+import com.novamind.app.ui.components.LoadingOverlay
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
@@ -124,13 +125,14 @@ fun RecycleBinScreen(
     modifier: Modifier = Modifier,
 ) {
     var showEmptyConfirm by remember { mutableStateOf(false) }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(BackgroundColors.Page.default.current())
-            .statusBarsPadding()
-            .padding(bottom = 24.dp),
-    ) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundColors.Page.default.current())
+                .statusBarsPadding()
+                .padding(bottom = 24.dp),
+        ) {
         // 顶部工具条：返回 / 更多（清空回收站）
         Row(
             modifier = Modifier
@@ -193,6 +195,9 @@ fun RecycleBinScreen(
                 }
             }
         }
+        }
+        // 清空过程中的全局 loading 遮罩；删除+刷新完成后消失
+        LoadingOverlay(visible = uiState.isEmptying)
     }
 
     // 清空回收站二次确认

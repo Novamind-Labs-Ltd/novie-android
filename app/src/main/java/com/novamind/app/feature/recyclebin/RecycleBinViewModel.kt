@@ -36,15 +36,18 @@ class RecycleBinViewModel @Inject constructor(
 
     /** 拉取回收站笔记（GET /notes?trashed=true）。 */
     fun reload() {
-        viewModelScope.launch {
-            when (val r = notesRepository.listNotes(trashed = true, limit = AppConfig.Paging.NOTES_PAGE_SIZE)) {
-                is ApiResult.Success -> {
-                    val items = r.data?.items.orEmpty().map { it.toNoteItem() }
-                    _uiState.update { it.copy(notes = items) }
-                }
-                is ApiResult.BizError -> AppLog.w(TAG) { "loadTrashed 业务错误 code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "loadTrashed 网络错误: ${r.message}" }
+        viewModelScope.launch { refreshTrashed() }
+    }
+
+    /** 拉取并刷新回收站列表（可被 emptyAll 等 await）。 */
+    private suspend fun refreshTrashed() {
+        when (val r = notesRepository.listNotes(trashed = true, limit = AppConfig.Paging.NOTES_PAGE_SIZE)) {
+            is ApiResult.Success -> {
+                val items = r.data?.items.orEmpty().map { it.toNoteItem() }
+                _uiState.update { it.copy(notes = items) }
             }
+            is ApiResult.BizError -> AppLog.w(TAG) { "loadTrashed 业务错误 code=${r.code} traceId=${r.traceId}" }
+            is ApiResult.NetworkError -> AppLog.w(TAG) { "loadTrashed 网络错误: ${r.message}" }
         }
     }
 
@@ -70,19 +73,27 @@ class RecycleBinViewModel @Inject constructor(
         }
     }
 
-    /** 清空回收站：把当前列表里的笔记逐个彻底删除（无批量端点，逐条 DELETE），完成后重拉一次。 */
+    /**
+     * 清空回收站：把当前列表里的笔记逐个彻底删除（无批量端点，逐条 DELETE），完成后刷新列表。
+     * 全程 [RecycleBinUiState.isEmptying]=true 驱动全局 loading，删除+刷新完成后置 false（loading 消失）。
+     */
     fun emptyAll() {
         val ids = _uiState.value.notes.map { it.id }
         if (ids.isEmpty()) return
+        _uiState.update { it.copy(isEmptying = true) }
         viewModelScope.launch {
-            ids.forEach { id ->
-                when (val r = notesRepository.deleteNote(id)) {
-                    is ApiResult.Success -> Unit
-                    is ApiResult.BizError -> AppLog.w(TAG) { "emptyAll 删除业务错误 id=$id code=${r.code} traceId=${r.traceId}" }
-                    is ApiResult.NetworkError -> AppLog.w(TAG) { "emptyAll 删除网络错误 id=$id: ${r.message}" }
+            try {
+                ids.forEach { id ->
+                    when (val r = notesRepository.deleteNote(id)) {
+                        is ApiResult.Success -> Unit
+                        is ApiResult.BizError -> AppLog.w(TAG) { "emptyAll 删除业务错误 id=$id code=${r.code} traceId=${r.traceId}" }
+                        is ApiResult.NetworkError -> AppLog.w(TAG) { "emptyAll 删除网络错误 id=$id: ${r.message}" }
+                    }
                 }
+                refreshTrashed()   // 等列表刷新完再收 loading
+            } finally {
+                _uiState.update { it.copy(isEmptying = false) }
             }
-            reload()
         }
     }
 

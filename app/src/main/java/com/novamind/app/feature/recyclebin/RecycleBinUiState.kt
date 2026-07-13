@@ -8,4 +8,6 @@ import com.novamind.app.feature.create.model.NoteItem
  */
 data class RecycleBinUiState(
     val notes: List<NoteItem> = emptyList(),
+    /** 正在清空回收站（逐条 DELETE + 刷新期间为 true），驱动全局 loading 遮罩。 */
+    val isEmptying: Boolean = false,
 )
