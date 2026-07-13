@@ -54,29 +54,20 @@ class LibraryViewModel @Inject constructor(
         }
             .onEach { (notes, stored, remote) ->
                 val folderNameById = remote.associate { it.id to it.name }
-                // 按文件夹聚合：无文件夹（folderId=null）的归入「Unfiled」
-                val counts = notes.groupingBy { folderNameById[it.folderId] ?: "Unfiled" }.eachCount()
+                // 计数按文件夹名聚合；无文件夹（folderId=null 或未匹配到服务端文件夹）的笔记 key 为 null，不计入任何文件夹
+                val counts = notes.groupingBy { folderNameById[it.folderId] }.eachCount()
                 val colorByName = stored.associateBy { it.name }
-                val remoteByName = remote.associateBy { it.name }
-                val names = LinkedHashSet<String>().apply {
-                    addAll(counts.keys)
-                    addAll(remote.map { it.name })
-                }
-                val folders = names
-                    .map { name ->
+                // 文件夹列表仅取服务端文件夹（不再有虚拟的 Unfiled 分组），按 sortOrder 排序
+                val folders = remote
+                    .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+                    .map { rf ->
                         LibraryFolder(
-                            id = remoteByName[name]?.id,
-                            name = name,
-                            noteCount = counts[name] ?: 0,
-                            colorHex = colorByName[name]?.colorHex,
+                            id = rf.id,
+                            name = rf.name,
+                            noteCount = counts[rf.name] ?: 0,
+                            colorHex = colorByName[rf.name]?.colorHex,
                         )
                     }
-                    .sortedWith(
-                        compareBy(
-                            { remoteByName[it.name]?.sortOrder ?: Int.MAX_VALUE },
-                            { -it.noteCount },
-                        ),
-                    )
                 _uiState.update {
                     it.copy(
                         notes = notes.map { note -> note.toNoteItem(folderNameById[note.folderId]) },
