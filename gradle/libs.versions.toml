@@ -1,61 +1,81 @@
 [versions]
+# 构建 / 语言 / 工具链
 agp = "9.1.1"
-coreKtx = "1.19.0"
+kotlin = "2.2.10"
+ksp = "2.3.9"
+
+# 测试
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
+
+# AndroidX 基础 / 生命周期
+coreKtx = "1.19.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.13.0"
-kotlin = "2.2.10"
+
+# Compose
 composeBom = "2026.02.01"
-# 拖拽排序（sh.calvin.reorderable，Compose Multiplatform）。若与当前 Kotlin 2.2 工具链的
-# metadata 不兼容（同 markdown/richeditor 的取舍），回退到用较低 Kotlin 编译的 2.x 版本。
-reorderable = "3.1.0"
+
+# Room
 room = "2.7.1"
-ksp = "2.3.9"
-roomKtx = "2.8.4"
-coil = "2.7.0"
+
+# WorkManager / Hilt（DI）
 work = "2.9.1"
 androidxHilt = "1.2.0"
+# Hilt 依赖注入（KSP 编译器）
+hilt = "2.59.2"
+
+# 认证 / 授权 / 生物识别
 auth0 = "3.14.0"
+# Google 身份授权：AuthorizationClient 申请 Calendar scope 并返回 OAuth access token
+playServicesAuth = "21.3.0"
+playServicesAuthBase = "18.3.3"
 biometric = "1.1.0"
 fragment = "1.8.6"
+
+# 网络 / 序列化
 okhttp = "4.12.0"
 retrofit = "2.11.0"
 kotlinxSerialization = "1.7.3"
 gson = "2.11.0"
-sentryAndroid = "8.34.0"
-firebaseBom = "34.14.0"
-googleServices = "4.4.4"
-firebaseCrashlyticsPlugin = "3.0.7"
-# MMKV：用 1.3.x LTS 以保留 32 位(armeabi-v7a)支持；2.x 起仅 64 位。
-mmkv = "1.3.16"
+
+# UI 组件 / 内容渲染
+# 拖拽排序（sh.calvin.reorderable，Compose Multiplatform）。若与当前 Kotlin 2.2 工具链的
+# metadata 不兼容（同 markdown/richeditor 的取舍），回退到用较低 Kotlin 编译的 2.x 版本。
+reorderable = "3.1.0"
+coil = "2.7.0"
 # Markdown 渲染（mikepenz，纯 Compose；m3 变体走 Material3 主题）
 # 固定 0.35.0：该版本用 Kotlin 2.1.21 编译，metadata 可被工程的 Kotlin 2.2 编译器读取；
 # 0.43.0 用 Kotlin 2.4 编译（kotlin-stdlib 2.4.0），与当前工具链不兼容。
 # 待工程 Kotlin/KSP 升到 2.4 后可再升级本库。
 markdownRenderer = "0.35.0"
-# Google 身份授权：AuthorizationClient 申请 Calendar scope 并返回 OAuth access token
-playServicesAuth = "21.3.0"
-playServicesAuthBase = "18.3.3"
-# Hilt 依赖注入（KSP 编译器）
-hilt = "2.59.2"
 # 富文本编辑器（MohamedRejeb）。固定 rc13：该版本用 Kotlin 2.1.21 编译，
 # metadata 可被工程 Kotlin 2.2 编译器读取；rc14 用 Kotlin 2.3.21 编译，
 # 与当前工具链不兼容（同 markdownRenderer 的取舍）。其 Compose 1.8.2 产物
 # 可在工程较新的 Compose 运行时（BOM 2026.02）上运行。待工程 Kotlin 升级后再升。
 richeditor = "1.0.0-rc13"
 
+# 存储
+# MMKV：用 1.3.x LTS 以保留 32 位(armeabi-v7a)支持；2.x 起仅 64 位。
+mmkv = "1.3.16"
+
+# 可观测性（Sentry / Firebase）
+sentryAndroid = "8.34.0"
+firebaseBom = "34.14.0"
+googleServices = "4.4.4"
+firebaseCrashlyticsPlugin = "3.0.7"
+
 [libraries]
+# AndroidX 基础 / 生命周期
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+
+# Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
@@ -65,37 +85,54 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 
+# Room
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
+
+# WorkManager / Hilt（DI）
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "androidxHilt" }
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "androidxHilt" }
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-richeditor-compose = { group = "com.mohamedrejeb.richeditor", name = "richeditor-compose", version.ref = "richeditor" }
-reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+
+# 认证 / 授权 / 生物识别
 auth0 = { group = "com.auth0.android", name = "auth0", version.ref = "auth0" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
+play-services-auth-base = { group = "com.google.android.gms", name = "play-services-auth-base", version.ref = "playServicesAuthBase" }
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment" }
+
+# 网络 / 序列化
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
-kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 retrofit-kotlinx-serialization = { group = "com.squareup.retrofit2", name = "converter-kotlinx-serialization", version.ref = "retrofit" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+
+# UI 组件 / 内容渲染
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+richeditor-compose = { group = "com.mohamedrejeb.richeditor", name = "richeditor-compose", version.ref = "richeditor" }
+reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
+markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
+
+# 存储
+mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
+
+# 可观测性（Sentry / Firebase）
 sentry-android = { group = "io.sentry", name = "sentry-android", version.ref = "sentryAndroid" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 firebase-inappmessaging-display = { group = "com.google.firebase", name = "firebase-inappmessaging-display" }
-mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }
-markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
-play-services-auth-base = { group = "com.google.android.gms", name = "play-services-auth-base", version.ref = "playServicesAuthBase" }
-hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
-hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+
+# 测试
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -105,4 +142,3 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
-
