@@ -159,6 +159,12 @@ object AppConfig {
         }
     }
 
+    /** 转写结果轮询（§9，前端拉）。 */
+    object Transcription {
+        /** 轮询间隔（毫秒）：源录音上传成功后每隔该时长拉一次结果，直到 READY / FAILED。 */
+        const val POLL_INTERVAL_MS = 5_000L
+    }
+
     /** AI「Polishing」选区骨架扫光条配色（ARGB，使用处用 Color(...) 包装）。 */
     object Polish {
         const val BAR_BASE = 0xFFDFDFDF

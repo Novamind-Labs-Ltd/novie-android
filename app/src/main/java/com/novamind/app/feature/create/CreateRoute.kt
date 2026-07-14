@@ -84,6 +84,7 @@ fun CreateRoute(
         onUploadRecording = viewModel::uploadRecording,
         onCancelUploadRecording = viewModel::cancelAudioUpload,
         recordingUploaded = viewModel.recordingUploaded,
+        transcriptionReady = viewModel.transcriptionReady,
         modifier = modifier,
     )
 }

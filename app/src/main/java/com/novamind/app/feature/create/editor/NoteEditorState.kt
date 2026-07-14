@@ -431,6 +431,22 @@ class NoteEditorState {
     // ── 内部维护 ────────────────────────────────────────────────────────────
 
     // 末尾若是非文本块（图片/文档，或列表为空），补一个空文本块，保证总能在最后输入
+    /**
+     * 追加一段纯文本到正文末尾（用于把转写结果渲染进笔记）。
+     * 末尾是文本块则接在其后（空行分隔），否则新增一个文本块。
+     */
+    fun appendText(text: String) {
+        if (text.isBlank()) return
+        val tail = _blocks.lastOrNull()
+        if (tail is TextBlock) {
+            val existing = tail.rich.annotatedString.text
+            tail.rich.setText(if (existing.isBlank()) text else "$existing\n\n$text")
+        } else {
+            _blocks.add(TextBlock(initialText = text))
+            appendTrailingTextIfNeeded()
+        }
+    }
+
     private fun appendTrailingTextIfNeeded() {
         if (_blocks.isEmpty() || _blocks.last() !is TextBlock) {
             _blocks.add(TextBlock())

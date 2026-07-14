@@ -99,6 +99,8 @@ fun CreateScreen(
     onCancelUploadRecording: () -> Unit = {},
     // 源录音上传成功的一次性事件：到达后关闭录音面板
     recordingUploaded: kotlinx.coroutines.flow.Flow<Unit>? = null,
+    // 转写结果就绪的一次性事件：携带文本，追加进正文（§9）
+    transcriptionReady: kotlinx.coroutines.flow.Flow<String>? = null,
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -108,7 +110,11 @@ fun CreateScreen(
     val savedTimeLabel = remember(uiState.updatedAt) {
         TimeUtils.smart(uiState.updatedAt ?: System.currentTimeMillis())
     }
-    val timeLabel = if (uiState.isSaving) "Saving…" else savedTimeLabel
+    val timeLabel = when {
+        uiState.isTranscribing -> "Transcribing…"
+        uiState.isSaving -> "Saving…"
+        else -> savedTimeLabel
+    }
 
     // 工具栏顶边（窗口 px），作为光标遮挡线
     var toolbarTopWindowY by remember { mutableStateOf(Float.MAX_VALUE) }
@@ -162,6 +168,14 @@ fun CreateScreen(
         val json = editor.documentJson
         lastSyncedBody = json   // 标记为已同步，避免回填重载
         onEvent(CreateEvent.ContentChanged(json))
+    }
+
+    // 转写结果就绪（§9）→ 追加进正文并同步保存。此时正文只读，但程序化写入不受影响。
+    LaunchedEffect(transcriptionReady) {
+        transcriptionReady?.collect { text ->
+            editor.appendText(text)
+            emitContent()
+        }
     }
 
     // 上传已插入的图片并回填 fileId / 上传态；完成后 emitContent 让正文带上 fileId（供保存时对账挂附件）
@@ -380,7 +394,7 @@ fun CreateScreen(
                 NoteContentEditor(
                     state = editor,
                     onContentChanged = emitContent,
-                    readOnly = showRecordingBar || readOnly,   // 录音期间 / 回收站只读态：正文不可编辑、不弹键盘
+                    readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中：正文不可编辑、不弹键盘
                     bodyCharLimit = (maxInputChars - titleLen).coerceAtLeast(0),
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
@@ -400,7 +414,7 @@ fun CreateScreen(
                                     onEvent(CreateEvent.TitleChanged(it))
                                 }
                             },
-                            readOnly = showRecordingBar || readOnly,   // 录音期间 / 回收站只读态不可编辑
+                            readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中不可编辑
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 8.dp),

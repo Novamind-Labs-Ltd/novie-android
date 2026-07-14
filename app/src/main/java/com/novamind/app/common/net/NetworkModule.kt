@@ -75,4 +75,7 @@ object NetworkModule {
 
     /** 笔记源录音（/api/v1.0/notes/{id}/audio，§7 断点续传）类型化接口，走统一响应信封。 */
     val noteAudioApi: NoteAudioApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(NoteAudioApi::class.java) }
+
+    /** 转写结果 / 状态（/api/v1.0/notes/{id}/transcription，§9 前端轮询）类型化接口。 */
+    val transcriptionApi: TranscriptionApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(TranscriptionApi::class.java) }
 }

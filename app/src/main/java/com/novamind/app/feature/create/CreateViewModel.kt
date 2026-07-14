@@ -11,6 +11,7 @@ import com.novamind.app.data.FilesRepository
 import com.novamind.app.data.FoldersRepository
 import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.TagRepository
+import com.novamind.app.data.TranscriptionRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.tag.Tag
@@ -18,8 +19,11 @@ import com.novamind.app.util.ColorUtils
 import com.novamind.app.util.ColorUtils.toHex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import com.novamind.app.common.net.TranscriptSegmentDto
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +54,7 @@ class CreateViewModel @Inject constructor(
     private val filesRepository: FilesRepository,
     private val attachmentsRepository: AttachmentsRepository,
     private val audioUploadRepository: AudioUploadRepository,
+    private val transcriptionRepository: TranscriptionRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateUiState())
@@ -69,6 +74,10 @@ class CreateViewModel @Inject constructor(
     // 源录音上传成功的一次性事件（供 UI 关闭录音面板）。
     private val _recordingUploaded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val recordingUploaded = _recordingUploaded.asSharedFlow()
+
+    // 转写结果就绪的一次性事件：携带渲染好的文本，供 UI 追加进正文（§9）。
+    private val _transcriptionReady = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val transcriptionReady = _transcriptionReady.asSharedFlow()
 
     // 图片上传并发限流（一次多选最多 5 张，限 AppConfig.Media.MAX_UPLOAD_CONCURRENCY 并发、其余排队）。
     private val uploadSemaphore = Semaphore(AppConfig.Media.MAX_UPLOAD_CONCURRENCY)
@@ -97,6 +106,9 @@ class CreateViewModel @Inject constructor(
 
     // 进行中的源录音上传协程：再次录音或用户取消时中断上一次。
     private var audioUploadJob: Job? = null
+
+    // 进行中的转写轮询协程：新一次录音上传时中断上一次。
+    private var transcriptionJob: Job? = null
 
     init {
         // 防抖：停顿超过 AUTO_SAVE_DELAY_MS 才落盘（大多数保存走这条）
@@ -479,6 +491,8 @@ class CreateViewModel @Inject constructor(
      */
     fun uploadRecording(path: String, durationMs: Long) {
         audioUploadJob?.cancel()
+        transcriptionJob?.cancel()   // 新一次录音：中断上一条的转写轮询
+        _uiState.update { it.copy(isTranscribing = false) }
         audioUploadJob = viewModelScope.launch {
             if (_uiState.value.editingNoteId == null) saveNow()
             var noteId = _uiState.value.editingNoteId
@@ -522,6 +536,7 @@ class CreateViewModel @Inject constructor(
                     is ApiResult.Success -> {
                         AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=${r.data}" }
                         _recordingUploaded.tryEmit(Unit)   // 通知 UI：上传成功，关闭录音面板
+                        startTranscriptionPolling(id, r.data)   // 上传成功 → 轮询转写结果（§9）
                     }
                     is ApiResult.BizError -> {
                         AppLog.w(TAG) { "uploadRecording 业务错误 noteId=$id code=${r.code} traceId=${r.traceId}" }
@@ -543,6 +558,67 @@ class CreateViewModel @Inject constructor(
         audioUploadJob?.cancel()
         audioUploadJob = null
         _uiState.update { it.copy(isUploadingAudio = false, audioUploadProgress = 0f) }
+    }
+
+    /**
+     * 转写结果轮询（§9）：源录音上传成功后每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 拉一次，
+     * 直到目标任务 `presentationState = READY`：把分段文本 emit 给 UI 追加进正文，并 consume 标记已消费；
+     * `FAILED` 则提示并停止。轮询期间 [CreateUiState.isTranscribing] 为真，笔记只读。
+     *
+     * @param jobId complete 返回的转写任务 id（可能为 null，幂等重复完成时）；为空则回退匹配最新未消费的 X 任务。
+     */
+    private fun startTranscriptionPolling(noteId: String, jobId: String?) {
+        transcriptionJob?.cancel()
+        transcriptionJob = viewModelScope.launch {
+            _uiState.update { it.copy(isTranscribing = true) }
+            try {
+                while (isActive) {
+                    delay(AppConfig.Transcription.POLL_INTERVAL_MS)
+                    val tasks = when (val r = transcriptionRepository.list(noteId)) {
+                        is ApiResult.Success -> r.data.orEmpty()
+                        is ApiResult.BizError -> {   // 40401 等：终态，停止轮询
+                            AppLog.w(TAG) { "transcription 业务错误 noteId=$noteId code=${r.code}，停止轮询" }
+                            break
+                        }
+                        is ApiResult.NetworkError -> {   // 网络抖动：本轮跳过，下一 tick 再试
+                            AppLog.w(TAG) { "transcription 网络错误 noteId=$noteId: ${r.message}，稍后重试" }
+                            continue
+                        }
+                    }
+                    // 优先按 jobId 命中；否则回退到最新（末尾）未消费的源录音任务
+                    val task = tasks.firstOrNull { jobId != null && it.jobId == jobId }
+                        ?: tasks.lastOrNull { it.kind == "X" && !it.consumed }
+                        ?: continue
+                    when (task.presentationState) {
+                        "READY" -> {
+                            val text = formatSegments(task.resultSegments)
+                            AppLog.i(TAG) { "transcription READY noteId=$noteId jobId=${task.jobId} len=${text.length}" }
+                            if (text.isNotBlank()) _transcriptionReady.tryEmit(text)
+                            transcriptionRepository.consume(noteId, task.jobId)   // best-effort
+                            break
+                        }
+                        "FAILED" -> {
+                            AppLog.w(TAG) { "transcription FAILED noteId=$noteId jobId=${task.jobId}" }
+                            _saveError.tryEmit("Transcription failed")
+                            break
+                        }
+                        else -> Unit   // PROCESSING：继续轮询
+                    }
+                }
+            } finally {
+                _uiState.update { it.copy(isTranscribing = false) }
+            }
+        }
+    }
+
+    /** 把转写分段拼成可读文本：多说话人时每段前缀「Sx: 」，单说话人直接换行拼接。 */
+    private fun formatSegments(segments: List<TranscriptSegmentDto>?): String {
+        val list = segments.orEmpty().filter { it.text.isNotBlank() }
+        if (list.isEmpty()) return ""
+        val multiSpeaker = list.mapNotNull { it.speaker?.takeIf { s -> s.isNotBlank() } }.distinct().size > 1
+        return list.joinToString("\n") { seg ->
+            if (multiSpeaker && !seg.speaker.isNullOrBlank()) "${seg.speaker}: ${seg.text}" else seg.text
+        }
     }
 
     // ── 图片上传 / 附件 ──────────────────────────────────────────────────────────

@@ -32,4 +32,7 @@ data class CreateUiState(
     // 源录音上传中（§7）：驱动「Uploading for transcription…」进度条
     val isUploadingAudio: Boolean = false,
     val audioUploadProgress: Float = 0f,   // 0..1
+
+    // 转写轮询中（§9）：结果就绪前笔记只读，不可编辑
+    val isTranscribing: Boolean = false,
 )
