@@ -77,7 +77,6 @@ SDK `auth0` **3.14.0**，封装层 `AuthManager`。
 | 字段 | 类型 | 来源 | 说明 |
 |---|---|---|---|
 | `BUILD_TIME` | String | `defaultConfig`（`SimpleDateFormat` 配置期取值） | 展示构建时间（配置期求值，见文末注意事项） |
-| `GIT_SHA` | String | `GitShaValueSource`（`git rev-parse --short HEAD`） | 当前提交短 SHA，取不到为 `unknown` |
 | `AUTH0_CLIENT_ID` / `AUTH0_DOMAIN` / `AUTH0_SCHEME` / `AUTH0_AUDIENCE` | String | `auth0.properties` | 见 §4 |
 | `DEFAULT_ENV` | String | product flavor | dev=`TEST`，prod=`PROD` |
 | `ENV_SWITCHABLE` | boolean | product flavor | dev=`true`，prod=`false`（prod 锁死环境） |
@@ -261,7 +260,7 @@ src/<flavor><BuildType>/  →  src/<buildType>/<flavor>/  →  src/<flavor>/  �
 
 ### 注意事项
 
-- **`BUILD_TIME` 与 configuration cache**：该字段在配置期用 `Date()` 求值。一旦开启 configuration cache，值会被冻结为「生成缓存时刻」，复用缓存的构建不刷新。若需真实构建时间，应改用与 `GIT_SHA` 相同的 `ValueSource` 方式。
+- **`BUILD_TIME` 与 configuration cache**：该字段在配置期用 `Date()` 求值。一旦开启 configuration cache，值会被冻结为「生成缓存时刻」，复用缓存的构建不刷新。若需真实构建时间，应改用 `ValueSource` 方式在执行期求值。
 - **敏感值来源**：Auth0 四项走 `auth0.properties`（不入库）；Firebase 走 `google-services.json`（入库）；Sentry DSN 在 Manifest（DSN 为客户端可嵌值，非机密）。
 
 ## 接入配置步骤（按平台）

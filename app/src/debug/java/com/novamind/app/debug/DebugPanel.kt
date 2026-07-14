@@ -167,7 +167,6 @@ fun DebugPanel(
                 InfoRow("App", "${BuildConfig.APPLICATION_ID}")
                 InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
                 InfoRow("Build Type", BuildConfig.BUILD_TYPE + if (BuildConfig.DEBUG) " · DEBUG" else "")
-                InfoRow("Git", BuildConfig.GIT_SHA)
                 InfoRow("Build Time", BuildConfig.BUILD_TIME)
                 InfoRow("Device", "${Build.MANUFACTURER} ${Build.MODEL}")
                 InfoRow("System", "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")

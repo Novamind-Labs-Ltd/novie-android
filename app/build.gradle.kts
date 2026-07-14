@@ -1,14 +1,8 @@
 import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 import io.sentry.android.gradle.instrumentation.logcat.LogcatLevel
-import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Properties
-import javax.inject.Inject
-import org.gradle.api.provider.Provider
-import org.gradle.api.provider.ValueSource
-import org.gradle.api.provider.ValueSourceParameters
-import org.gradle.process.ExecOperations
 
 plugins {
     alias(libs.plugins.android.application)
@@ -31,27 +25,6 @@ val auth0Props = Properties().apply {
 }
 fun auth0(key: String, default: String = ""): String = auth0Props.getProperty(key, default)
 
-// 取当前 git 短 SHA，失败返回 unknown（沙箱/无 git 时安全降级）。
-// 用 ValueSource 包装外部进程调用，兼容 configuration cache：每次构建重新求值，
-// 但不会把「读取 git」判定为配置缓存问题。
-abstract class GitShaValueSource : ValueSource<String, ValueSourceParameters.None> {
-    @get:Inject abstract val execOps: ExecOperations
-    override fun obtain(): String = try {
-        val out = ByteArrayOutputStream()
-        execOps.exec {
-            commandLine("git", "rev-parse", "--short", "HEAD")
-            standardOutput = out
-            errorOutput = ByteArrayOutputStream()
-            isIgnoreExitValue = true   // 非 git 仓库/取不到时不抛，交由下方 ifEmpty 降级
-        }
-        out.toString().trim().ifEmpty { "unknown" }
-    } catch (_: Exception) {
-        // git 不存在等异常（沙箱/CI tarball 构建）
-        "unknown"
-    }
-}
-val gitSha: Provider<String> = providers.of(GitShaValueSource::class.java) {}
-
 android {
     namespace = "com.novamind.app"
     compileSdk {
@@ -69,7 +42,6 @@ android {
 
         // 供 Debug 工具箱展示构建信息
         buildConfigField("String", "BUILD_TIME", "\"" + SimpleDateFormat("yyyy-MM-dd HH:mm").format(Date()) + "\"")
-        buildConfigField("String", "GIT_SHA", "\"${gitSha.get()}\"")
 
         // Auth0 配置（来自 auth0.properties，注入 BuildConfig 供代码读取）
         buildConfigField("String", "AUTH0_CLIENT_ID", "\"${auth0("AUTH0_CLIENT_ID")}\"")
