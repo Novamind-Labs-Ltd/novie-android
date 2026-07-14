@@ -58,6 +58,19 @@ android {
                 "proguard-rules.pro"
             )
         }
+        // qa（测试包）：与 debug 同包名后缀(.debug)，但开启混淆 + 瘦身。
+        // 注意：AGP 保留了 "test"/"androidTest" 作为测试 source set 名，buildType 不能叫 "test"，故取名 qa。
+        create("qa") {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            isMinifyEnabled = true
+            isShrinkResources = true   // 与代码压缩配套：移除未引用资源（需 minify 同时开启）
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("debug")   // 用 debug 签名，保证可直接安装
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
