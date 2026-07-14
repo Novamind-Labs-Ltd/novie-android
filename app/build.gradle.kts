@@ -85,6 +85,27 @@ android {
         }
     }
 
+    // 环境维度：dev / prod。与 buildTypes 正交，组合出 4 个 variant。
+    // 包名矩阵（applicationIdSuffix 叠加）：
+    //   devDebug   com.novamind.app.dev.debug   devRelease   com.novamind.app.dev
+    //   prodDebug  com.novamind.app.debug       prodRelease  com.novamind.app
+    // 注意：dev 的新包名需在 google-services.json 登记对应 client，否则构建报错。
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            // 默认后端环境；dev 允许运行时切换（ApiConfig 读取）
+            buildConfigField("String", "DEFAULT_ENV", "\"TEST\"")
+            buildConfigField("boolean", "ENV_SWITCHABLE", "true")
+        }
+        create("prod") {
+            dimension = "env"
+            // 默认后端环境；prod 锁死，不允许运行时切换
+            buildConfigField("String", "DEFAULT_ENV", "\"PROD\"")
+            buildConfigField("boolean", "ENV_SWITCHABLE", "false")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
