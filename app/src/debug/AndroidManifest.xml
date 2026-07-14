@@ -43,5 +43,12 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.App" />
 
+        <activity
+            android:name=".debug.asknovie.AskNovieAnimActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.App" />
+
     </application>
 </manifest>

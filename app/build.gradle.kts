@@ -166,6 +166,8 @@ dependencies {
     implementation(libs.reorderable)
     // Markdown 渲染（Debug Markdown 阅读器）
     implementation(libs.markdown.renderer.m3)
+    // Lottie 动画（仅 Debug「Ask Novie」动画演示页依赖，不进 release 包）
+    debugImplementation(libs.lottie.compose)
 
     // 存储
     // 键值存储：MMKV（封装在 common/storage/KeyValueStore，逐步替换 SharedPreferences）

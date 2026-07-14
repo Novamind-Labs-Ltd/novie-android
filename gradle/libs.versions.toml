@@ -50,6 +50,9 @@ coil = "2.7.0"
 # 0.43.0 用 Kotlin 2.4 编译（kotlin-stdlib 2.4.0），与当前工具链不兼容。
 # 待工程 Kotlin/KSP 升到 2.4 后可再升级本库。
 markdownRenderer = "0.35.0"
+# Lottie 动画（Debug「Ask Novie」动画演示页；仅 debug 变体依赖）。
+# lottie-compose 6.6.x 为纯 AAR，兼容当前 Compose BOM 2026.02 与 Kotlin 2.2 工具链。
+lottie = "6.6.6"
 # 富文本编辑器（MohamedRejeb）。固定 rc13：该版本用 Kotlin 2.1.21 编译，
 # metadata 可被工程 Kotlin 2.2 编译器读取；rc14 用 Kotlin 2.3.21 编译，
 # 与当前工具链不兼容（同 markdownRenderer 的取舍）。其 Compose 1.8.2 产物
@@ -117,6 +120,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 richeditor-compose = { group = "com.mohamedrejeb.richeditor", name = "richeditor-compose", version.ref = "richeditor" }
 reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
+lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }
 
 # 存储
 mmkv = { group = "com.tencent", name = "mmkv", version.ref = "mmkv" }

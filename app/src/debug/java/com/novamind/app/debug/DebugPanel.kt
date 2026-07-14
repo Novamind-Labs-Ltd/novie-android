@@ -64,6 +64,7 @@ import com.novamind.app.common.web.bridge.SourceLevel
 import com.novamind.app.util.SentryUtils
 import com.novamind.app.debug.apitest.ApiTestActivity
 import com.novamind.app.debug.apitest.ApiTarget
+import com.novamind.app.debug.asknovie.AskNovieAnimActivity
 import com.novamind.app.debug.files.FileBrowserActivity
 import com.novamind.app.debug.imageupload.ImageUploadActivity
 import com.novamind.app.debug.markdown.MarkdownPreviewActivity
@@ -298,6 +299,13 @@ fun DebugPanel(
                     Chip("Speech-to-Text Demo") { SpeechToTextActivity.start(context) }
                     Chip("Markdown Reader") { MarkdownPreviewActivity.start(context) }
                     Chip("PDF Preview") { PdfViewerActivity.start(context) }
+                }
+            }
+
+            // ── UI / 动画 ──
+            Section("UI / Motion") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("Ask Novie Animation") { AskNovieAnimActivity.start(context) }
                 }
             }
 
