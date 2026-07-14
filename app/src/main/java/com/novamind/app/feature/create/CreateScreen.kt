@@ -48,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import com.novamind.app.R
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.components.LoadingIndicator
+import com.novamind.app.ui.components.LoadingOverlay
 import com.novamind.app.feature.create.components.BorderColorSheet
 import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
@@ -655,6 +656,11 @@ fun CreateScreen(
             )
         }
 
+        // 语音转文字加载遮罩：转写轮询期间显示（拦截交互），语音全部转写完成后消失。
+        LoadingOverlay(
+            visible = uiState.isTranscribing,
+            message = "Transcribing your audio… This usually takes 1–10 minutes. Please check back shortly.",
+        )
     }
 }
 

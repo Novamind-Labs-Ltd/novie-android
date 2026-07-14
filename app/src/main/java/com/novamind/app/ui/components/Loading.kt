@@ -3,24 +3,31 @@ package com.novamind.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
@@ -56,6 +63,8 @@ fun LoadingIndicator(
 fun LoadingOverlay(
     visible: Boolean,
     modifier: Modifier = Modifier,
+    /** 可选文案：非空时在转圈下方居中展示（如「正在语音转文字中…」）。 */
+    message: String? = null,
     /** 遮罩透明度（0=全透明，1=不透明）；默认 0.15 的黑色，半透明可透出下层。 */
     scrimAlpha: Float = 0.15f,
     scrim: Color = Color.Black.copy(alpha = scrimAlpha),
@@ -79,7 +88,23 @@ fun LoadingOverlay(
             shadowElevation = 6.dp,
             modifier = Modifier.clip(RoundedCornerShape(16.dp)),
         ) {
-            LoadingIndicator(modifier = Modifier.padding(20.dp))
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                LoadingIndicator()
+                if (!message.isNullOrBlank()) {
+                    Text(
+                        text = message,
+                        color = TextColors.Primary.default.current(),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(max = 240.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -100,6 +125,16 @@ private fun LoadingOverlayPreview() {
     AppTheme {
         Box(Modifier.fillMaxSize()) {
             LoadingOverlay(visible = true)
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Loading · Overlay with message")
+@Composable
+private fun LoadingOverlayMessagePreview() {
+    AppTheme {
+        Box(Modifier.fillMaxSize()) {
+            LoadingOverlay(visible = true, message = "正在语音转文字中，大概需要1-10分钟，请稍后。")
         }
     }
 }
