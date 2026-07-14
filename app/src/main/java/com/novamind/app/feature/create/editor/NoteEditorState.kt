@@ -29,19 +29,15 @@ sealed interface EditorBlock {
 data class PolishTarget(val blockId: String, val start: Int, val end: Int)
 
 /**
- * 文本块，内含库 [RichTextState]（加粗/斜体/列表）。
- * [initialHtml] 优先（保留格式），否则用 [initialText] 纯文本初始化。
+ * 文本块，内含库 [RichTextState]。正文以**纯文本**持久化（不再存 html），用 [initialText] 初始化。
+ * 加粗/斜体等格式在会话内仍可用，但不随保存持久化。
  */
 class TextBlock(
     initialText: String = "",
-    initialHtml: String? = null,
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock {
     val rich = RichTextState().apply {
-        when {
-            !initialHtml.isNullOrBlank() -> setHtml(initialHtml)
-            initialText.isNotEmpty() -> setText(initialText)
-        }
+        if (initialText.isNotEmpty()) setText(initialText)
     }
     val focusRequester = FocusRequester()
 }
@@ -312,8 +308,7 @@ class NoteEditorState {
                 when (block) {
                     is TextBlock -> arr.put(
                         JSONObject().put("type", "text")
-                            .put("text", block.rich.annotatedString.text)   // 纯文本：供预览/搜索/旧兼容
-                            .put("html", block.rich.toHtml())               // 富文本：保留加粗/斜体/列表
+                            .put("text", block.rich.annotatedString.text)   // 纯文本正文（不再存 html）
                     )
                     is ImageBlock -> arr.put(
                         JSONObject().put("type", "image").put("path", block.path)
@@ -360,7 +355,7 @@ class NoteEditorState {
                 if (p is TextBlock && cur is TextBlock &&
                     cur.rich.annotatedString.text != p.rich.annotatedString.text
                 ) {
-                    cur.rich.setHtml(p.rich.toHtml())   // 原地更新保留格式，避免撤销/重做收键盘
+                    cur.rich.setText(p.rich.annotatedString.text)   // 原地更新纯文本，避免撤销/重做收键盘
                 }
             }
             return
@@ -394,10 +389,7 @@ class NoteEditorState {
             (0 until arr.length()).mapNotNull { i ->
                 val obj = arr.getJSONObject(i)
                 when (obj.optString("type")) {
-                    "text" -> TextBlock(
-                        initialText = obj.optString("text"),
-                        initialHtml = obj.optString("html").ifBlank { null },
-                    )
+                    "text" -> TextBlock(initialText = obj.optString("text"))
                     "image" -> {
                         val path = obj.optString("path")
                         val fid = obj.optString("fileId").ifBlank { null }
