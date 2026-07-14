@@ -177,6 +177,8 @@ class CreateViewModel @Inject constructor(
                     )
                     // 拉附件，得到 fileId→签名 URL，供编辑器渲染 path 失效时兜底
                     fetchAttachments(note.id)
+                    // 进入笔记：若服务端仍在转写（PROCESSING），恢复轮询以展示 loading，直至转写完成
+                    resumeTranscriptionIfProcessing(note.id)
                 }
                 is ApiResult.BizError ->
                     AppLog.w(TAG) { "loadNote 业务错误 id=$noteId code=${result.code} traceId=${result.traceId}" }
@@ -567,6 +569,34 @@ class CreateViewModel @Inject constructor(
      *
      * @param jobId complete 返回的转写任务 id（可能为 null，幂等重复完成时）；为空则回退匹配最新未消费的 X 任务。
      */
+    /**
+     * 进入笔记时的转写续查：拉一次 [transcriptionRepository.list]，若存在**仍在处理中**
+     * （`presentationState == PROCESSING`、源录音 `kind == "X"` 且未消费）的任务，则恢复
+     * [startTranscriptionPolling]——从而展示全局转写 loading 并持续轮询，直到 READY/FAILED。
+     *
+     * 仅在确有处理中任务时才启动，避免无任务时轮询空转导致 loading 卡住。
+     */
+    private fun resumeTranscriptionIfProcessing(noteId: String) {
+        viewModelScope.launch {
+            val tasks = when (val r = transcriptionRepository.list(noteId)) {
+                is ApiResult.Success -> r.data.orEmpty()
+                is ApiResult.BizError -> {
+                    AppLog.w(TAG) { "resumeTranscription 业务错误 noteId=$noteId code=${r.code}" }
+                    return@launch
+                }
+                is ApiResult.NetworkError -> {
+                    AppLog.w(TAG) { "resumeTranscription 网络错误 noteId=$noteId: ${r.message}" }
+                    return@launch
+                }
+            }
+            val pending = tasks.lastOrNull {
+                it.kind == "X" && !it.consumed && it.presentationState == "PROCESSING"
+            } ?: return@launch
+            AppLog.i(TAG) { "resume transcription polling noteId=$noteId jobId=${pending.jobId}" }
+            startTranscriptionPolling(noteId, pending.jobId)
+        }
+    }
+
     private fun startTranscriptionPolling(noteId: String, jobId: String?) {
         transcriptionJob?.cancel()
         transcriptionJob = viewModelScope.launch {
