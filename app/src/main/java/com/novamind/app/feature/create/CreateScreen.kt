@@ -71,6 +71,7 @@ import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.FileUtils
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -157,6 +158,9 @@ fun CreateScreen(
         kotlinx.coroutines.delay(260)
         settled = true
     }
+    // 正文是否已完成首次加载（按笔记重置）。转写填充需等它为真，否则 append 会被随后的
+    // loadDocumentAsync 回填覆盖（进页即 READY 的场景尤其容易踩到）。
+    var bodyLoaded by remember(uiState.editingNoteId) { mutableStateOf(false) }
     // 外部内容变化（加载/撤销重做）时回填，后台解析，避免与本地编辑互相覆盖
     LaunchedEffect(uiState.editingNoteId, uiState.body, settled) {
         if (!settled) return@LaunchedEffect
@@ -164,6 +168,7 @@ fun CreateScreen(
             editor.loadDocumentAsync(uiState.body, fallbackPlain = uiState.body)
             lastSyncedBody = uiState.body
         }
+        bodyLoaded = true
     }
     val emitContent = {
         val json = editor.documentJson
@@ -172,8 +177,10 @@ fun CreateScreen(
     }
 
     // 转写结果就绪（§9）→ 追加进正文并同步保存。此时正文只读，但程序化写入不受影响。
+    // 先等正文首次加载完成，避免进页即 READY 时 append 被随后的回填覆盖。
     LaunchedEffect(transcriptionReady) {
         transcriptionReady?.collect { text ->
+            snapshotFlow { bodyLoaded }.first { it }
             editor.appendText(text)
             emitContent()
         }

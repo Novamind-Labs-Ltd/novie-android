@@ -563,14 +563,7 @@ class CreateViewModel @Inject constructor(
     }
 
     /**
-     * 转写结果轮询（§9）：源录音上传成功后每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 拉一次，
-     * 直到目标任务 `presentationState = READY`：把分段文本 emit 给 UI 追加进正文，并 consume 标记已消费；
-     * `FAILED` 则提示并停止。轮询期间 [CreateUiState.isTranscribing] 为真，笔记只读。
-     *
-     * @param jobId complete 返回的转写任务 id（可能为 null，幂等重复完成时）；为空则回退匹配最新未消费的 X 任务。
-     */
-    /**
-     * 进入笔记时同步服务端转写（GET /notes/{id}/transcription）。对**源录音、未消费**（`kind == "X"`）任务：
+     * 进入笔记时同步服务端转写（GET /notes/{id}/transcription）。对**未消费**（排除听写 Y）的任务：
      * - `READY`：把结果文本填充进正文（经 [transcriptionReady] 追加）并调 consume 标记已消费；
      * - `PROCESSING`：恢复 [startTranscriptionPolling]，展示转写 loading 并轮询至完成后自动填充。
      *
@@ -590,7 +583,15 @@ class CreateViewModel @Inject constructor(
                     return@launch
                 }
             }
-            val pending = tasks.filter { it.kind == "X" && !it.consumed }
+            tasks.forEachIndexed { i, t ->
+                AppLog.i(TAG) {
+                    "transcription[$i] noteId=$noteId jobId=${t.jobId} kind=${t.kind} " +
+                        "state=${t.presentationState} consumed=${t.consumed} seg=${t.resultSegments?.size ?: 0}"
+                }
+            }
+            // 未消费的转写任务即待处理。放宽 kind 过滤：真实数据的 kind 可能为空/非 "X"
+            // （录音轮询靠 jobId 命中，从不依赖 kind），仅排除明确的听写任务（Y）。
+            val pending = tasks.filter { !it.consumed && it.kind != "Y" }
 
             // READY：填充正文 + consume（多条合并为一段一次性追加，避免 SharedFlow 单缓冲丢事件）
             val ready = pending.filter { it.presentationState == "READY" }
@@ -614,6 +615,23 @@ class CreateViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 离开笔记页时停止转写轮询：取消在途的 [transcriptionJob]，不再调用 /transcription。
+     * 取消会走轮询的 finally 复位 [CreateUiState.isTranscribing]（隐藏 loading）。
+     * 重新进入笔记会由 [syncTranscriptionOnOpen] 按服务端状态（READY 填充 / PROCESSING 续轮询）恢复。
+     */
+    fun stopTranscriptionPolling() {
+        transcriptionJob?.cancel()
+        transcriptionJob = null
+    }
+
+    /**
+     * 转写结果轮询（§9）：每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 拉一次，直到目标任务
+     * `presentationState = READY`：分段文本 emit 给 UI 追加进正文并 consume；`FAILED` 提示并停止。
+     * 轮询期间 [CreateUiState.isTranscribing] 为真（笔记只读、显示 loading）。
+     *
+     * @param jobId 转写任务 id（可能为 null）；为空则回退匹配最新未消费的 X 任务。
+     */
     private fun startTranscriptionPolling(noteId: String, jobId: String?) {
         transcriptionJob?.cancel()
         transcriptionJob = viewModelScope.launch {
