@@ -49,6 +49,7 @@ fun CreateTopBar(
     onChangeColor: () -> Unit = {},
     onDelete: () -> Unit = {},
     moreEnabled: Boolean = true,   // 笔记为空时禁用「更多(···)」
+    allowNoteActions: Boolean = true,  // 编辑进入才显示「改颜色 / 删除」；新建时隐藏
     readOnly: Boolean = false,     // 回收站只读态：右侧显示 Restore | Delete
     onRestore: () -> Unit = {},
     onDeleteForever: () -> Unit = {},
@@ -114,13 +115,15 @@ fun CreateTopBar(
                     enabled = canRedo,
                     onClick = onRedo,
                 )
-                // 更多：展开下拉菜单
+                // 更多：展开下拉菜单。菜单为空（新建态且未开放分享）时禁用，避免点出空菜单。
+                val hasMenuItems = FunConfig.DOCUMENT_SHARE_ENABLED || allowNoteActions
+                val moreClickable = moreEnabled && hasMenuItems
                 Box {
                     TopBarIconBtn(
                         icon = R.drawable.ic_more,
                         contentDescription = "More",
-                        enabled = moreEnabled,
-                        onClick = { if (moreEnabled) menuExpanded = true },
+                        enabled = moreClickable,
+                        onClick = { if (moreClickable) menuExpanded = true },
                     )
                     DropdownMenu(
                         expanded = menuExpanded,
@@ -142,26 +145,29 @@ fun CreateTopBar(
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                             )
                         }
-                        DropdownMenuItem(
-                            text = {
-                                Text("Change color", fontSize = 16.sp, color = TextColors.Primary.default.current())
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onChangeColor()
-                            },
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text("Delete", fontSize = 16.sp, color = IconColors.Error.default.current())
-                            },
-                            onClick = {
-                                menuExpanded = false
-                                onDelete()
-                            },
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        )
+                        // 「改颜色 / 删除」仅编辑进入（打开已有笔记）时提供；新建态不显示。
+                        if (allowNoteActions) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text("Change color", fontSize = 16.sp, color = TextColors.Primary.default.current())
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onChangeColor()
+                                },
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text("Delete", fontSize = 16.sp, color = IconColors.Error.default.current())
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDelete()
+                                },
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                        }
                     }
                 }
             }

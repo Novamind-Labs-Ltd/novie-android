@@ -84,6 +84,7 @@ fun CreateScreen(
     onEvent: (CreateEvent) -> Unit,
     onBack: () -> Unit = {},
     autoFocusBody: Boolean = false,         // 新建笔记进入时自动聚焦正文（弹出键盘）
+    isEditing: Boolean = false,             // 编辑进入（打开已有笔记）：允许删除 / 改颜色；新建不显示
     onFullscreenChange: (Boolean) -> Unit = {},  // 图片预览全屏页显隐回调
     maxImages: Int = AppConfig.Media.MAX_IMAGE_PICK,  // 一次最多可选图片数
     readOnly: Boolean = false,              // 回收站只读态：仅查看，不可编辑
@@ -387,6 +388,7 @@ fun CreateScreen(
                     showDeleteConfirm = true
                 },
                 moreEnabled = !noteEmpty,
+                allowNoteActions = isEditing,   // 仅编辑进入才显示 删除 / 改颜色
                 readOnly = readOnly,
                 onRestore = onRestore,
                 onDeleteForever = { showDeleteConfirm = true },   // 二次确认后彻底删除

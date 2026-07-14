@@ -79,6 +79,7 @@ fun CreateRoute(
         onEvent = viewModel::onEvent,
         onBack = onBack,
         autoFocusBody = noteId == null && !readOnly,   // 新建笔记自动聚焦正文并弹出键盘；只读态不聚焦
+        isEditing = noteId != null,                    // 编辑进入（打开已有笔记）：允许删除 / 改颜色
         onFullscreenChange = onFullscreenChange,
         maxImages = maxImages,
         readOnly = readOnly,
