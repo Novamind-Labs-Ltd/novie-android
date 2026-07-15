@@ -5,9 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.common.net.response.fold
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.FoldersRepository
-import com.novamind.app.data.NotesRepository
+import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.feature.create.folder.RemoteFolder
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
@@ -27,7 +28,7 @@ import kotlinx.coroutines.launch
  * Library 页面 ViewModel。
  *
  * 笔记与文件夹均**由服务端驱动**，与首页保持一致：
- * - Recent 页笔记来自 `GET /notes`（[NotesRepository.listNotes]，活跃视图），与 [com.novamind.app.feature.home.HomeViewModel] 相同的映射（列表项不含正文，故 description/tags 留空）；
+ * - Recent 页笔记来自 `GET /notes`（[RemoteNoteRepository.listNotes]，活跃视图），与 [com.novamind.app.feature.home.HomeViewModel] 相同的映射（列表项不含正文，故 description/tags 留空）；
  * - 文件夹来自 `GET /folders`（[FoldersRepository]），create/rename/trash/reorder 走对应端点；
  * - 文件夹颜色为本地概念（服务端不带），仍由 [FolderRepository]（Room）按名维护并合并显示；
  * - 每个文件夹的 noteCount 由服务端笔记按 folderId → 文件夹名聚合得到。
@@ -36,7 +37,7 @@ import kotlinx.coroutines.launch
 class LibraryViewModel @Inject constructor(
     private val folderRepository: FolderRepository,
     private val foldersRepository: FoldersRepository,
-    private val notesRepository: NotesRepository,
+    private val notesRepository: RemoteNoteRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
@@ -89,22 +90,20 @@ class LibraryViewModel @Inject constructor(
     /** 拉取服务端笔记列表（活跃视图，GET /notes）。 */
     private fun loadNotes() {
         viewModelScope.launch {
-            when (val r = notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE)) {
-                is ApiResult.Success -> serverNotes.value = r.data?.items.orEmpty()
-                is ApiResult.BizError -> AppLog.w(TAG) { "loadNotes 业务错误 code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "loadNotes 网络错误: ${r.message}" }
-            }
+            notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE).fold(
+                onSuccess = { serverNotes.value = it?.items.orEmpty() },
+                onFail = { logApiError("loadNotes", it) },
+            )
         }
     }
 
     /** 拉取服务端文件夹列表（GET /folders），刷新 [serverFolders]。 */
     fun loadFolders() {
         viewModelScope.launch {
-            when (val r = foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE)) {
-                is ApiResult.Success -> serverFolders.value = r.data?.items.orEmpty()
-                is ApiResult.BizError -> AppLog.w(TAG) { "loadFolders 业务错误 code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "loadFolders 网络错误: ${r.message}" }
-            }
+            foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE).fold(
+                onSuccess = { serverFolders.value = it?.items.orEmpty() },
+                onFail = { logApiError("loadFolders", it) },
+            )
         }
     }
 
@@ -113,14 +112,13 @@ class LibraryViewModel @Inject constructor(
         val trimmed = name.trim()
         if (trimmed.isBlank()) return
         viewModelScope.launch {
-            when (val r = foldersRepository.createFolder(trimmed)) {
-                is ApiResult.Success -> {
+            foldersRepository.createFolder(trimmed).fold(
+                onSuccess = {
                     folderRepository.create(trimmed, colorHex)   // 本地存颜色，供列表合并显示
                     loadFolders()
-                }
-                is ApiResult.BizError -> AppLog.w(TAG) { "createFolder 业务错误 code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "createFolder 网络错误: ${r.message}" }
-            }
+                },
+                onFail = { logApiError("createFolder", it) },
+            )
         }
     }
 
@@ -138,14 +136,13 @@ class LibraryViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            when (val r = foldersRepository.renameFolder(id, to)) {
-                is ApiResult.Success -> {
+            foldersRepository.renameFolder(id, to).fold(
+                onSuccess = {
                     folderRepository.rename(from, to)
                     loadFolders()
-                }
-                is ApiResult.BizError -> AppLog.w(TAG) { "renameFolder 业务错误 id=$id code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "renameFolder 网络错误 id=$id: ${r.message}" }
-            }
+                },
+                onFail = { logApiError("renameFolder id=$id", it) },
+            )
         }
     }
 
@@ -161,14 +158,13 @@ class LibraryViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            when (val r = foldersRepository.setTrashed(id, trashed = true)) {
-                is ApiResult.Success -> {
+            foldersRepository.setTrashed(id, trashed = true).fold(
+                onSuccess = {
                     folderRepository.delete(target)
                     loadFolders()
-                }
-                is ApiResult.BizError -> AppLog.w(TAG) { "deleteFolder 业务错误 id=$id code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "deleteFolder 网络错误 id=$id: ${r.message}" }
-            }
+                },
+                onFail = { logApiError("deleteFolder id=$id", it) },
+            )
         }
     }
 
@@ -191,17 +187,22 @@ class LibraryViewModel @Inject constructor(
             .mapIndexed { i, f -> f.copy(sortOrder = i) }
         // 再调接口；失败则重拉服务端真值回滚
         viewModelScope.launch {
-            when (val r = foldersRepository.reorderFolders(orderedIds)) {
-                is ApiResult.Success -> Unit   // 已乐观更新，无需再刷
-                is ApiResult.BizError -> {
-                    AppLog.w(TAG) { "reorderFolders 业务错误 code=${r.code} traceId=${r.traceId}，回滚" }
+            foldersRepository.reorderFolders(orderedIds).fold(
+                onSuccess = { },   // 已乐观更新，无需再刷
+                onFail = {         // 失败重拉服务端真值回滚
+                    logApiError("reorderFolders 回滚", it)
                     loadFolders()
-                }
-                is ApiResult.NetworkError -> {
-                    AppLog.w(TAG) { "reorderFolders 网络错误: ${r.message}，回滚" }
-                    loadFolders()
-                }
-            }
+                },
+            )
+        }
+    }
+
+    /** 仅记录 API 错误日志（本页各拉取/写操作均只记日志，不弹提示）。[op] 供定位。 */
+    private fun logApiError(op: String, r: ApiResult<*>) {
+        when (r) {
+            is ApiResult.BizError -> AppLog.w(TAG) { "$op 业务错误 code=${r.code} traceId=${r.traceId}" }
+            is ApiResult.NetworkError -> AppLog.w(TAG) { "$op 网络错误: ${r.message}" }
+            is ApiResult.Success -> Unit
         }
     }
 

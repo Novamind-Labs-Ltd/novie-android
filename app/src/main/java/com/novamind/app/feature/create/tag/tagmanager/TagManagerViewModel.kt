@@ -2,7 +2,7 @@ package com.novamind.app.feature.create.tag.tagmanager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.novamind.app.data.NoteRepository
+import com.novamind.app.data.LocalNoteRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.feature.create.model.Note
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +24,7 @@ private const val DEFAULT_TAG_COLOR = "#3D7A5A"
  */
 @HiltViewModel
 class TagManagerViewModel @Inject constructor(
-    private val noteRepository: NoteRepository,
+    private val noteRepository: LocalNoteRepository,
     private val tagRepository: TagRepository,
 ) : ViewModel() {
 

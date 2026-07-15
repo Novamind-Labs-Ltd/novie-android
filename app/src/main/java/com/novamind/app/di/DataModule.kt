@@ -3,11 +3,11 @@ package com.novamind.app.di
 import android.content.Context
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.FoldersRepository
-import com.novamind.app.data.NoteRepository
-import com.novamind.app.data.NotesRepository
+import com.novamind.app.data.LocalNoteRepository
+import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.RecordingRepository
 import com.novamind.app.data.RemoteFoldersRepository
-import com.novamind.app.data.RemoteNotesRepository
+import com.novamind.app.data.RemoteNoteRepositoryImpl
 import com.novamind.app.data.TagRepository
 import com.novamind.app.data.db.AppDatabase
 import com.novamind.app.data.db.RoomFolderRepository
@@ -32,7 +32,7 @@ object DataModule {
 
     @Provides
     @Singleton
-    fun provideNoteRepository(@ApplicationContext context: Context): NoteRepository =
+    fun provideLocalNoteRepository(@ApplicationContext context: Context): LocalNoteRepository =
         RoomNoteRepository(AppDatabase.getInstance(context).noteDao())
 
     @Provides
@@ -53,7 +53,7 @@ object DataModule {
     /** 云端笔记仓库（无状态，包装 NetworkModule）。 */
     @Provides
     @Singleton
-    fun provideNotesRepository(): NotesRepository = RemoteNotesRepository()
+    fun provideRemoteNoteRepository(): RemoteNoteRepository = RemoteNoteRepositoryImpl()
 
     /** 云端文件夹仓库（无状态，包装 NetworkModule）。 */
     @Provides

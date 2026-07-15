@@ -6,7 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
-import com.novamind.app.data.NotesRepository
+import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.db.AppDatabase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -24,7 +24,7 @@ import dagger.assisted.AssistedInject
 class NoteSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
-    private val notesRepository: NotesRepository,
+    private val notesRepository: RemoteNoteRepository,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {

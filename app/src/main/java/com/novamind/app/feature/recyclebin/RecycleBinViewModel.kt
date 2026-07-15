@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
-import com.novamind.app.data.NotesRepository
+import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
  */
 @HiltViewModel
 class RecycleBinViewModel @Inject constructor(
-    private val notesRepository: NotesRepository,
+    private val notesRepository: RemoteNoteRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecycleBinUiState())

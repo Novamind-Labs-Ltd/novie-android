@@ -11,7 +11,7 @@ import com.novamind.app.feature.create.model.UpdateNoteOutcome
  *
  * content 约定：App 以 `{"body": <编辑器文档字符串>}` 作为笔记内容 JSON；调用方只传 title/body 文本。
  */
-interface NotesRepository {
+interface RemoteNoteRepository {
 
     /**
      * 笔记列表（GET，keyset 游标分页）。同一接口经参数切换「活跃 / 回收站 / 某文件夹内」三视图。

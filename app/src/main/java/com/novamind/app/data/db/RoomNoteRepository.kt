@@ -1,12 +1,12 @@
 package com.novamind.app.data.db
 
 import com.novamind.app.common.sync.NoteSyncScheduler
-import com.novamind.app.data.NoteRepository
+import com.novamind.app.data.LocalNoteRepository
 import com.novamind.app.feature.create.model.Note
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class RoomNoteRepository(private val dao: NoteDao) : NoteRepository {
+class RoomNoteRepository(private val dao: NoteDao) : LocalNoteRepository {
 
     override val notes: Flow<List<Note>> =
         dao.getAllNotes().map { entities -> entities.map { it.toNote() } }

@@ -6,7 +6,7 @@ import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.fold
-import com.novamind.app.data.NotesRepository
+import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val notesRepository: NotesRepository,
+    private val notesRepository: RemoteNoteRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -64,7 +64,7 @@ class HomeViewModel @Inject constructor(
 
     /**
      * 拉取云端笔记列表（活跃视图）：GET /api/v1.0/notes。
-     * 经 [NotesRepository.listNotes] 走统一 [ApiResult] 三态：成功映射为 UI 列表；
+     * 经 [RemoteNoteRepository.listNotes] 走统一 [ApiResult] 三态：成功映射为 UI 列表；
      * 业务错误 / 网络错误落到 [HomeUiState.errorMessage]，并保留已有列表不清空。
      */
     private fun loadNotes(isRefresh: Boolean) {

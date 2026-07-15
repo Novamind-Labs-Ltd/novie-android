@@ -21,12 +21,12 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
- * [NotesRepository] 的网络实现：走统一响应 [apiCall]，把 DTO 映射为领域模型，DTO 不外泄。
+ * [RemoteNoteRepository] 的网络实现：走统一响应 [apiCall]，把 DTO 映射为领域模型，DTO 不外泄。
  * 每个笔记能力都记日志（统一走 [AppLog]）：开始 / 成功 / 业务错误 / 网络错误，便于联调与线上排障。
  *
  * 「成功映射 + 三分支日志」的样板由 [mapLogged] 统一收尾——各方法只保留「开始」日志、发请求、给映射与文案。
  */
-class RemoteNotesRepository : NotesRepository {
+class RemoteNoteRepositoryImpl : RemoteNoteRepository {
 
     override suspend fun listNotes(
         trashed: Boolean?,

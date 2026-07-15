@@ -12,7 +12,7 @@ import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.AudioUploadRepository
 import com.novamind.app.data.FilesRepository
 import com.novamind.app.data.FoldersRepository
-import com.novamind.app.data.NotesRepository
+import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.data.TranscriptionRepository
 import com.novamind.app.feature.create.editor.NoteDocument
@@ -63,7 +63,7 @@ import javax.inject.Inject
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class CreateViewModel @Inject constructor(
-    private val notesRepository: NotesRepository,
+    private val notesRepository: RemoteNoteRepository,
     private val foldersRepository: FoldersRepository,
     private val tagRepository: TagRepository,
     private val filesRepository: FilesRepository,
