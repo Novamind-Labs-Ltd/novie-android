@@ -680,17 +680,29 @@ class CreateViewModel @Inject constructor(
     }
 
     /**
-     * 把转写分段拼成 **HTML**：每个分段独占一段（`<p>` 换行显示）；有说话人时前缀
-     * **加粗 + 配色** 的 Speaker（`<b><span style="color:#..">Name</span></b>：文本`）凸显，无说话人只放文本。
+     * 把转写分段拼成 **HTML**：**连续相同说话人的分段合并为一段**（`<p>` 一行，说话人前缀只出现一次），
+     * 段内多条文本以空格拼接；有说话人时前缀 **加粗 + 配色** 的 Speaker
+     * （`<b><span style="color:#..">Name</span></b>：文本`）凸显，无说话人只放文本。
      * 颜色从 [SPEAKER_PALETTE] 取，按说话人名 hash 稳定映射——**同一 speaker 恒定同色**。
      * 结果经 [transcriptionReady] → `editor.appendHtml` 渲染进正文并随保存持久化（HTML）。
      */
     private fun formatSegments(segments: List<TranscriptSegmentDto>?): String {
         val list = segments.orEmpty().filter { it.text.isNotBlank() }
         if (list.isEmpty()) return ""
-        return list.joinToString("") { seg ->
+        // 合并连续相同说话人（含连续无说话人）的分段为一组，段内文本以空格拼接。
+        val groups = mutableListOf<Pair<String?, StringBuilder>>()
+        for (seg in list) {
             val speaker = seg.speaker?.trim()?.takeIf { it.isNotBlank() }
-            val body = escapeHtml(seg.text)
+            val text = seg.text.trim()
+            val last = groups.lastOrNull()
+            if (last != null && last.first == speaker) {
+                last.second.append(' ').append(text)
+            } else {
+                groups.add(speaker to StringBuilder(text))
+            }
+        }
+        return groups.joinToString("") { (speaker, sb) ->
+            val body = escapeHtml(sb.toString())
             if (speaker != null) {
                 val color = speakerColor(speaker)
                 "<p><b><span style=\"color:$color\">${escapeHtml(speaker)}</span></b>：$body</p>"
