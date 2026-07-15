@@ -22,7 +22,9 @@ import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * [NotesRepository] 的网络实现：走统一响应 [apiCall]，把 DTO 映射为领域模型，DTO 不外泄。
- * 每个笔记能力都打日志（统一走 [AppLog]）：开始/成功/业务错误/网络错误，便于联调与线上排障。
+ * 每个笔记能力都记日志（统一走 [AppLog]）：开始 / 成功 / 业务错误 / 网络错误，便于联调与线上排障。
+ *
+ * 「成功映射 + 三分支日志」的样板由 [mapLogged] 统一收尾——各方法只保留「开始」日志、发请求、给映射与文案。
  */
 class RemoteNotesRepository : NotesRepository {
 
@@ -33,65 +35,35 @@ class RemoteNotesRepository : NotesRepository {
         cursor: String?,
     ): ApiResult<RemoteNotePage> {
         AppLog.i(TAG) { "listNotes 开始 trashed=$trashed folderId=$folderId limit=$limit hasCursor=${cursor != null}" }
-        return when (val r = apiCall {
+        return apiCall {
             NetworkModule.notesApi.list(trashed = trashed, folderId = folderId, limit = limit, cursor = cursor)
-        }) {
-            is ApiResult.Success -> {
-                val page = r.data?.toDomain() ?: RemoteNotePage(emptyList(), null)
-                AppLog.i(TAG) { "listNotes 成功 count=${page.items.size} hasNext=${page.nextCursor != null}" }
-                ApiResult.Success<RemoteNotePage>(page)
-            }
-            is ApiResult.BizError -> {
-                AppLog.w(TAG) { "listNotes 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                r
-            }
-            is ApiResult.NetworkError -> {
-                AppLog.w(TAG) { "listNotes 网络错误: ${r.message}" }
-                r
-            }
-        }
+        }.mapLogged(
+            op = "listNotes",
+            transform = { it?.toDomain() ?: RemoteNotePage(emptyList(), null) },
+            successLog = { "listNotes 成功 count=${it?.items?.size} hasNext=${it?.nextCursor != null}" },
+        )
     }
 
     override suspend fun createNote(title: String?, body: String): ApiResult<RemoteNote> {
         AppLog.i(TAG) { "createNote 开始 titleLen=${title?.length ?: 0} bodyLen=${body.length}" }
-        return when (val r = apiCall {
+        return apiCall {
             NetworkModule.notesApi.create(
                 CreateNoteRequestDto(title = title, content = contentOf(body), preview = previewOf(body)),
             )
-        }) {
-            is ApiResult.Success -> {
-                val note = r.data?.toDomain()
-                AppLog.i(TAG) { "createNote 成功 id=${note?.id} rev=${note?.rev}" }
-                ApiResult.Success<RemoteNote>(note)
-            }
-            is ApiResult.BizError -> {
-                AppLog.w(TAG) { "createNote 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                r
-            }
-            is ApiResult.NetworkError -> {
-                AppLog.w(TAG) { "createNote 网络错误: ${r.message}" }
-                r
-            }
-        }
+        }.mapLogged(
+            op = "createNote",
+            transform = { it?.toDomain() },
+            successLog = { "createNote 成功 id=${it?.id} rev=${it?.rev}" },
+        )
     }
 
     override suspend fun getNote(id: String): ApiResult<RemoteNote> {
         AppLog.i(TAG) { "getNote 开始 id=$id" }
-        return when (val r = apiCall { NetworkModule.notesApi.get(id) }) {
-            is ApiResult.Success -> {
-                val note = r.data?.toDomain()
-                AppLog.i(TAG) { "getNote 成功 id=$id rev=${note?.rev}" }
-                ApiResult.Success<RemoteNote>(note)
-            }
-            is ApiResult.BizError -> {
-                AppLog.w(TAG) { "getNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                r
-            }
-            is ApiResult.NetworkError -> {
-                AppLog.w(TAG) { "getNote 网络错误 id=$id: ${r.message}" }
-                r
-            }
-        }
+        return apiCall { NetworkModule.notesApi.get(id) }.mapLogged(
+            op = "getNote id=$id",
+            transform = { it?.toDomain() },
+            successLog = { "getNote 成功 id=$id rev=${it?.rev}" },
+        )
     }
 
     override suspend fun updateNote(
@@ -102,7 +74,7 @@ class RemoteNotesRepository : NotesRepository {
         schemaVersion: Int?,
     ): ApiResult<UpdateNoteOutcome> {
         AppLog.i(TAG) { "updateNote 开始 id=$id baseRev=$rev bodyLen=${body.length}" }
-        return when (val r = apiCall {
+        return apiCall {
             NetworkModule.notesApi.update(
                 id,
                 UpdateNoteRequestDto(
@@ -113,80 +85,67 @@ class RemoteNotesRepository : NotesRepository {
                     preview = previewOf(body),
                 ),
             )
-        }) {
-            is ApiResult.Success -> {
-                val outcome = r.data?.let { UpdateNoteOutcome(applied = it.applied, note = it.note?.toDomain()) }
-                AppLog.i(TAG) { "updateNote 成功 id=$id applied=${outcome?.applied} newRev=${outcome?.note?.rev}" }
-                ApiResult.Success<UpdateNoteOutcome>(outcome)
-            }
-            is ApiResult.BizError -> {
-                AppLog.w(TAG) { "updateNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                r
-            }
-            is ApiResult.NetworkError -> {
-                AppLog.w(TAG) { "updateNote 网络错误 id=$id: ${r.message}" }
-                r
-            }
-        }
+        }.mapLogged(
+            op = "updateNote id=$id",
+            transform = { it?.let { d -> UpdateNoteOutcome(applied = d.applied, note = d.note?.toDomain()) } },
+            successLog = { "updateNote 成功 id=$id applied=${it?.applied} newRev=${it?.note?.rev}" },
+        )
     }
 
     override suspend fun setTrashed(id: String, trashed: Boolean): ApiResult<RemoteNote> {
         AppLog.i(TAG) { "setTrashed 开始 id=$id trashed=$trashed" }
-        return when (val r = apiCall {
+        return apiCall {
             NetworkModule.notesApi.setTrashed(id, TrashNoteRequestDto(trashed = trashed))
-        }) {
-            is ApiResult.Success -> {
-                val note = r.data?.toDomain()
-                AppLog.i(TAG) { "setTrashed 成功 id=$id trashed=$trashed rev=${note?.rev}" }
-                ApiResult.Success<RemoteNote>(note)
-            }
-            is ApiResult.BizError -> {
-                AppLog.w(TAG) { "setTrashed 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                r
-            }
-            is ApiResult.NetworkError -> {
-                AppLog.w(TAG) { "setTrashed 网络错误 id=$id: ${r.message}" }
-                r
-            }
-        }
+        }.mapLogged(
+            op = "setTrashed id=$id",
+            transform = { it?.toDomain() },
+            successLog = { "setTrashed 成功 id=$id trashed=$trashed rev=${it?.rev}" },
+        )
     }
 
     override suspend fun deleteNote(id: String): ApiResult<Unit> {
         AppLog.i(TAG) { "deleteNote 开始 id=$id" }
-        return when (val r = apiCall { NetworkModule.notesApi.delete(id) }) {
-            is ApiResult.Success -> {
-                AppLog.i(TAG) { "deleteNote 成功 id=$id" }
-                ApiResult.Success<Unit>(Unit)
-            }
-            is ApiResult.BizError -> {
-                AppLog.w(TAG) { "deleteNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                r
-            }
-            is ApiResult.NetworkError -> {
-                AppLog.w(TAG) { "deleteNote 网络错误 id=$id: ${r.message}" }
-                r
-            }
-        }
+        return apiCall { NetworkModule.notesApi.delete(id) }.mapLogged(
+            op = "deleteNote id=$id",
+            transform = { Unit },   // 两步删除，成功无数据（HTTP 204）
+            successLog = { "deleteNote 成功 id=$id" },
+        )
     }
 
     override suspend fun setBorderColor(id: String, borderColorHex: String?): ApiResult<RemoteNote> {
         AppLog.i(TAG) { "setBorderColor 开始 id=$id hex=$borderColorHex" }
-        return when (val r = apiCall {
+        return apiCall {
             NetworkModule.notesApi.setBorderColor(id, SetBorderColorRequestDto(borderColorHex = borderColorHex))
-        }) {
-            is ApiResult.Success -> {
-                val note = r.data?.toDomain()
-                AppLog.i(TAG) { "setBorderColor 成功 id=$id rev=${note?.rev}" }
-                ApiResult.Success<RemoteNote>(note)
-            }
-            is ApiResult.BizError -> {
-                AppLog.w(TAG) { "setBorderColor 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                r
-            }
-            is ApiResult.NetworkError -> {
-                AppLog.w(TAG) { "setBorderColor 网络错误 id=$id: ${r.message}" }
-                r
-            }
+        }.mapLogged(
+            op = "setBorderColor id=$id",
+            transform = { it?.toDomain() },
+            successLog = { "setBorderColor 成功 id=$id rev=${it?.rev}" },
+        )
+    }
+
+    // ── 收尾：成功映射 + 三分支日志 ──────────────────────────────────────
+    /**
+     * 把 [apiCall] 结果的三分支样板收敛为一处：
+     * - 成功 → [transform] 把 DTO 映射为领域模型（DTO 不外泄），并记成功日志 [successLog]（可用映射结果）；
+     * - 业务 / 网络错误 → 按 [op] 记错误日志并**原样透传**（[ApiResult] 协变，错误分支即 `ApiResult<R>`）。
+     */
+    private fun <T, R> ApiResult<T>.mapLogged(
+        op: String,
+        transform: (T?) -> R?,
+        successLog: (R?) -> String,
+    ): ApiResult<R> = when (this) {
+        is ApiResult.Success -> {
+            val mapped = transform(data)
+            AppLog.i(TAG) { successLog(mapped) }
+            ApiResult.Success(mapped)
+        }
+        is ApiResult.BizError -> {
+            AppLog.w(TAG) { "$op 业务错误 code=$code traceId=$traceId msg=$message" }
+            this
+        }
+        is ApiResult.NetworkError -> {
+            AppLog.w(TAG) { "$op 网络错误: $message" }
+            this
         }
     }
 

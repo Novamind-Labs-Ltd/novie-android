@@ -7,6 +7,7 @@ import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.TranscriptSegmentDto
 import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.common.net.response.fold
 import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.AudioUploadRepository
 import com.novamind.app.data.FilesRepository
@@ -183,9 +184,9 @@ class CreateViewModel @Inject constructor(
      * 正文按 `{"body": …}` 约定抽取；记录 [remoteRev] / [savedSnapshot]。失败保持编辑器不变并打日志。
      */
     private suspend fun loadNoteDetail(noteId: String) {
-        when (val result = notesRepository.getNote(noteId)) {
-            is ApiResult.Success -> {
-                val note = result.data ?: return
+        notesRepository.getNote(noteId).fold(
+            onSuccess = { note ->
+                note ?: return@fold
                 val title = note.title.orEmpty()
                 val body = bodyOf(note.content)
                 remoteRev = note.rev
@@ -203,12 +204,9 @@ class CreateViewModel @Inject constructor(
                 )
                 // 拉附件，得到 fileId→签名 URL，供编辑器渲染 path 失效时兜底
                 fetchAttachments(note.id)
-            }
-            is ApiResult.BizError ->
-                AppLog.w(TAG) { "loadNote 业务错误 id=$noteId code=${result.code} traceId=${result.traceId}" }
-            is ApiResult.NetworkError ->
-                AppLog.w(TAG) { "loadNote 网络错误 id=$noteId: ${result.message}" }
-        }
+            },
+            onFail = { logApiError("loadNote id=$noteId", it) },
+        )
     }
 
     /** 从 App content JSON（约定 `{"body": <文档字符串>}`）抽取正文；非该结构或解析失败回退空串。 */
@@ -305,23 +303,20 @@ class CreateViewModel @Inject constructor(
                     )
                 }
                 viewModelScope.launch {
-                    when (val r = foldersRepository.createFolder(event.name)) {
-                        is ApiResult.Success -> {
-                            r.data?.let { f ->
-                                // 用服务端返回的 id 校正选中项
+                    foldersRepository.createFolder(event.name).fold(
+                        onSuccess = { f ->
+                            // 用服务端返回的 id 校正选中项
+                            f?.let { folder ->
                                 _uiState.update { st ->
-                                    if (st.selectedFolder?.name == f.name) {
-                                        st.copy(selectedFolder = Folder(id = f.id, name = f.name))
-                                    } else {
-                                        st
-                                    }
+                                    if (st.selectedFolder?.name == folder.name) {
+                                        st.copy(selectedFolder = Folder(id = folder.id, name = folder.name))
+                                    } else st
                                 }
                             }
                             loadFolders()
-                        }
-                        is ApiResult.BizError -> AppLog.w(TAG) { "createFolder 业务错误 code=${r.code} traceId=${r.traceId}" }
-                        is ApiResult.NetworkError -> AppLog.w(TAG) { "createFolder 网络错误: ${r.message}" }
-                    }
+                        },
+                        onFail = { logApiError("createFolder", it) },
+                    )
                 }
                 requestSave()
             }
@@ -363,11 +358,10 @@ class CreateViewModel @Inject constructor(
                 viewModelScope.launch {
                     // 已保存过的笔记移入回收站（PATCH {trashed:true}，软删可恢复）；未保存的新笔记直接返回
                     if (noteId != null) {
-                        when (val r = notesRepository.setTrashed(noteId, trashed = true)) {
-                            is ApiResult.Success -> AppLog.i(TAG) { "moveToTrash 成功 id=$noteId" }
-                            is ApiResult.BizError -> AppLog.w(TAG) { "moveToTrash 业务错误 id=$noteId code=${r.code} traceId=${r.traceId}" }
-                            is ApiResult.NetworkError -> AppLog.w(TAG) { "moveToTrash 网络错误 id=$noteId: ${r.message}" }
-                        }
+                        notesRepository.setTrashed(noteId, trashed = true).fold(
+                            onSuccess = { AppLog.i(TAG) { "moveToTrash 成功 id=$noteId" } },
+                            onFail = { logApiError("moveToTrash id=$noteId", it) },
+                        )
                     }
                     _navigateBack.tryEmit(Unit)
                 }
@@ -378,11 +372,10 @@ class CreateViewModel @Inject constructor(
                 viewModelScope.launch {
                     // 永久删除（DELETE，两步制：须已在回收站）；未保存的新笔记直接返回
                     if (noteId != null) {
-                        when (val r = notesRepository.deleteNote(noteId)) {
-                            is ApiResult.Success -> AppLog.i(TAG) { "permanentDelete 成功 id=$noteId" }
-                            is ApiResult.BizError -> AppLog.w(TAG) { "permanentDelete 业务错误 id=$noteId code=${r.code} traceId=${r.traceId}" }
-                            is ApiResult.NetworkError -> AppLog.w(TAG) { "permanentDelete 网络错误 id=$noteId: ${r.message}" }
-                        }
+                        notesRepository.deleteNote(noteId).fold(
+                            onSuccess = { AppLog.i(TAG) { "permanentDelete 成功 id=$noteId" } },
+                            onFail = { logApiError("permanentDelete id=$noteId", it) },
+                        )
                     }
                     _navigateBack.tryEmit(Unit)
                 }
@@ -409,16 +402,31 @@ class CreateViewModel @Inject constructor(
         _uiState.update { it.copy(editingNoteId = id) }
     }
 
-    /** 保存（POST/PUT）业务错误统一处理：记日志 + 发一次性 [saveError]（供 UI 弹 Toast）。[op] 供日志定位。 */
-    private fun onNoteSaveBizError(op: String, r: ApiResult.BizError) {
-        AppLog.w(TAG) { "$op 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-        _saveError.tryEmit(r.message ?: "Save failed (${r.code})")
+    /**
+     * API 失败统一处理：记日志 + 发一次性 [saveError]（供 UI 弹 Toast）。[op] 供日志定位。
+     * 业务错误优先用后端 message，缺省回退 `"$bizFallback (code)"`；网络错误用 [networkMsg]。
+     */
+    private fun notifyError(op: String, r: ApiResult<*>, bizFallback: String, networkMsg: String) {
+        when (r) {
+            is ApiResult.BizError -> {
+                AppLog.w(TAG) { "$op 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+                _saveError.tryEmit(r.message ?: "$bizFallback (${r.code})")
+            }
+            is ApiResult.NetworkError -> {
+                AppLog.w(TAG) { "$op 网络错误: ${r.message}" }
+                _saveError.tryEmit(networkMsg)
+            }
+            is ApiResult.Success -> Unit
+        }
     }
 
-    /** 保存（POST/PUT）网络错误统一处理：记日志 + 发一次性 [saveError]。 */
-    private fun onNoteSaveNetworkError(op: String, r: ApiResult.NetworkError) {
-        AppLog.w(TAG) { "$op 网络错误: ${r.message}" }
-        _saveError.tryEmit("Network error, note not saved")
+    /** 仅记录 API 错误日志（无用户提示），用于纯读 / best-effort 场景。 */
+    private fun logApiError(op: String, r: ApiResult<*>) {
+        when (r) {
+            is ApiResult.BizError -> AppLog.w(TAG) { "$op 业务错误 code=${r.code} traceId=${r.traceId}" }
+            is ApiResult.NetworkError -> AppLog.w(TAG) { "$op 网络错误: ${r.message}" }
+            is ApiResult.Success -> Unit
+        }
     }
 
     /**
@@ -450,23 +458,23 @@ class CreateViewModel @Inject constructor(
         try {
             if (id == null) {
                 // 新建：POST /notes
-                when (val r = notesRepository.createNote(title = state.title, body = state.body)) {
-                    is ApiResult.Success -> r.data?.let { note ->
-                        markNoteCreated(note.id, note.rev, current)
-                        _uiState.update { it.copy(updatedAt = note.updatedAt.toEpochMillisOrNull()) }
-                        AppLog.i(TAG) { "createNote 成功 id=${note.id} rev=${note.rev}" }
-                        ok = true
-                    }
-                    is ApiResult.BizError -> onNoteSaveBizError("createNote", r)
-                    is ApiResult.NetworkError -> onNoteSaveNetworkError("createNote", r)
-                }
+                notesRepository.createNote(title = state.title, body = state.body).fold(
+                    onSuccess = { data ->
+                        data?.let { note ->
+                            markNoteCreated(note.id, note.rev, current)
+                            _uiState.update { it.copy(updatedAt = note.updatedAt.toEpochMillisOrNull()) }
+                            AppLog.i(TAG) { "createNote 成功 id=${note.id} rev=${note.rev}" }
+                            ok = true
+                        }
+                    },
+                    onFail = { notifyError("createNote", it, "Save failed", "Network error, note not saved") },
+                )
             } else {
                 // 更新：PUT /notes/{id}（latest-wins 乐观锁，带上手上的 rev）
-                when (val r = notesRepository.updateNote(
+                notesRepository.updateNote(
                     id = id, rev = remoteRev ?: 0L, title = state.title, body = state.body,
-                )) {
-                    is ApiResult.Success -> {
-                        val outcome = r.data
+                ).fold(
+                    onSuccess = { outcome ->
                         outcome?.note?.rev?.let { remoteRev = it }
                         savedSnapshot = current
                         outcome?.note?.updatedAt?.toEpochMillisOrNull()?.let { ua ->
@@ -478,10 +486,9 @@ class CreateViewModel @Inject constructor(
                             AppLog.i(TAG) { "updateNote 成功 id=$id newRev=${outcome?.note?.rev}" }
                             ok = true
                         }
-                    }
-                    is ApiResult.BizError -> onNoteSaveBizError("updateNote id=$id", r)
-                    is ApiResult.NetworkError -> onNoteSaveNetworkError("updateNote id=$id", r)
-                }
+                    },
+                    onFail = { notifyError("updateNote id=$id", it, "Save failed", "Network error, note not saved") },
+                )
             }
             // 正文落盘后做附件对账（笔记已有 id 时）：正文里已上传的图片挂上、移除的摘掉
             _uiState.value.editingNoteId?.let { noteId -> reconcileAttachments(noteId, state.body) }
@@ -501,21 +508,13 @@ class CreateViewModel @Inject constructor(
         if (_uiState.value.editingNoteId == null) saveNow()
         val id = _uiState.value.editingNoteId ?: return
         saveMutex.withLock {
-            when (val r = notesRepository.setBorderColor(id, hex)) {
-                is ApiResult.Success -> {
-                    r.data?.rev?.let { remoteRev = it }
-                    AppLog.i(TAG) { "setBorderColor 成功 id=$id hex=$hex rev=${r.data?.rev}" }
-                }
-                is ApiResult.BizError -> {
-                    AppLog.w(TAG) { "setBorderColor 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                    _saveError.tryEmit(r.message ?: "Failed to set colour (${r.code})")
-                }
-                is ApiResult.NetworkError -> {
-                    AppLog.w(TAG) { "setBorderColor 网络错误 id=$id: ${r.message}" }
-                    _saveError.tryEmit("Network error, colour not saved")
-                }
-            }
-            Unit
+            notesRepository.setBorderColor(id, hex).fold(
+                onSuccess = { note ->
+                    note?.rev?.let { remoteRev = it }
+                    AppLog.i(TAG) { "setBorderColor 成功 id=$id hex=$hex rev=${note?.rev}" }
+                },
+                onFail = { notifyError("setBorderColor id=$id", it, "Failed to set colour", "Network error, colour not saved") },
+            )
         }
     }
 
@@ -534,14 +533,15 @@ class CreateViewModel @Inject constructor(
             if (noteId == null) {
                 // 仅录音的空笔记：强制创建一条以承载源录音
                 val s = _uiState.value
-                when (val r = notesRepository.createNote(s.title, s.body)) {
-                    is ApiResult.Success -> r.data?.let { note ->
-                        markNoteCreated(note.id, note.rev, TextSnapshot(s.title, s.body))
-                        noteId = note.id
-                    }
-                    is ApiResult.BizError -> AppLog.w(TAG) { "uploadRecording 建笔记业务错误 code=${r.code}" }
-                    is ApiResult.NetworkError -> AppLog.w(TAG) { "uploadRecording 建笔记网络错误: ${r.message}" }
-                }
+                notesRepository.createNote(s.title, s.body).fold(
+                    onSuccess = { data ->
+                        data?.let { note ->
+                            markNoteCreated(note.id, note.rev, TextSnapshot(s.title, s.body))
+                            noteId = note.id
+                        }
+                    },
+                    onFail = { logApiError("uploadRecording 建笔记", it) },
+                )
             }
             val id = noteId ?: run {
                 AppLog.w(TAG) { "uploadRecording 无 noteId，跳过上传" }
@@ -551,7 +551,7 @@ class CreateViewModel @Inject constructor(
             _uiState.update { it.copy(isUploadingAudio = true, audioUploadProgress = 0f) }
             var lastPct = -1
             try {
-                when (val r = audioUploadRepository.uploadNoteAudio(
+                audioUploadRepository.uploadNoteAudio(
                     noteId = id,
                     file = File(path),
                     contentType = AppConfig.Media.AUDIO_MIME,
@@ -565,22 +565,15 @@ class CreateViewModel @Inject constructor(
                             _uiState.update { it.copy(audioUploadProgress = p) }
                         }
                     },
-                )) {
-                    is ApiResult.Success -> {
-                        AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=${r.data}" }
+                ).fold(
+                    onSuccess = { jobId ->
+                        AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=$jobId" }
                         _recordingUploaded.tryEmit(Unit)   // 通知 UI：上传成功，关闭录音面板
                         // 上传成功 → 轮询转写结果（§9）。详情已在编辑器，loadDetail=false 不重拉（避免覆盖编辑）。
                         startTranscriptionPolling(id, loadDetail = false)
-                    }
-                    is ApiResult.BizError -> {
-                        AppLog.w(TAG) { "uploadRecording 业务错误 noteId=$id code=${r.code} traceId=${r.traceId}" }
-                        _saveError.tryEmit(r.message ?: "Audio upload failed (${r.code})")
-                    }
-                    is ApiResult.NetworkError -> {
-                        AppLog.w(TAG) { "uploadRecording 网络错误 noteId=$id: ${r.message}" }
-                        _saveError.tryEmit("Network error, audio not uploaded")
-                    }
-                }
+                    },
+                    onFail = { notifyError("uploadRecording noteId=$id", it, "Audio upload failed", "Network error, audio not uploaded") },
+                )
             } finally {
                 _uiState.update { it.copy(isUploadingAudio = false, audioUploadProgress = 0f) }
             }
@@ -745,18 +738,17 @@ class CreateViewModel @Inject constructor(
 
     /** 打开已有笔记时拉附件：初始化已挂载集合与 fileId→URL 映射（供编辑器渲染兜底）。 */
     private suspend fun fetchAttachments(noteId: String) {
-        when (val r = attachmentsRepository.list(noteId)) {
-            is ApiResult.Success -> {
-                val items = r.data.orEmpty()
+        attachmentsRepository.list(noteId).fold(
+            onSuccess = { data ->
+                val items = data.orEmpty()
                 attachedFileIds.clear()
                 attachedFileIds.addAll(items.map { it.fileId })
                 _attachmentUrls.value = items
                     .mapNotNull { a -> a.downloadUrl?.let { a.fileId to it } }
                     .toMap()
-            }
-            is ApiResult.BizError -> AppLog.w(TAG) { "fetchAttachments 业务错误 noteId=$noteId code=${r.code}" }
-            is ApiResult.NetworkError -> AppLog.w(TAG) { "fetchAttachments 网络错误 noteId=$noteId: ${r.message}" }
-        }
+            },
+            onFail = { logApiError("fetchAttachments noteId=$noteId", it) },
+        )
     }
 
     /**
@@ -766,18 +758,16 @@ class CreateViewModel @Inject constructor(
     private suspend fun reconcileAttachments(noteId: String, body: String) {
         val wanted = imageFileIdsOf(body)
         (wanted - attachedFileIds).forEach { fileId ->
-            when (val r = attachmentsRepository.attach(noteId, fileId)) {
-                is ApiResult.Success -> attachedFileIds.add(fileId)
-                is ApiResult.BizError -> AppLog.w(TAG) { "attach 失败 fileId=$fileId code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "attach 网络错误 fileId=$fileId: ${r.message}" }
-            }
+            attachmentsRepository.attach(noteId, fileId).fold(
+                onSuccess = { attachedFileIds.add(fileId) },
+                onFail = { logApiError("attach fileId=$fileId", it) },
+            )
         }
         (attachedFileIds - wanted).forEach { fileId ->
-            when (val r = attachmentsRepository.detach(noteId, fileId)) {
-                is ApiResult.Success -> attachedFileIds.remove(fileId)
-                is ApiResult.BizError -> AppLog.w(TAG) { "detach 失败 fileId=$fileId code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "detach 网络错误 fileId=$fileId: ${r.message}" }
-            }
+            attachmentsRepository.detach(noteId, fileId).fold(
+                onSuccess = { attachedFileIds.remove(fileId) },
+                onFail = { logApiError("detach fileId=$fileId", it) },
+            )
         }
     }
 
@@ -797,17 +787,16 @@ class CreateViewModel @Inject constructor(
     /** 拉取服务端文件夹列表（GET /folders）填充选择器；失败保留现有列表并记日志。 */
     private fun loadFolders() {
         viewModelScope.launch {
-            when (val r = foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE)) {
-                is ApiResult.Success -> {
-                    val folders = r.data?.items.orEmpty()
+            foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE).fold(
+                onSuccess = { data ->
+                    val folders = data?.items.orEmpty()
                         .sortedBy { it.sortOrder }
                         .map { Folder(id = it.id, name = it.name) }
                     availableFolders = folders
                     _uiState.update { it.copy(availableFolders = folders) }
-                }
-                is ApiResult.BizError -> AppLog.w(TAG) { "loadFolders 业务错误 code=${r.code} traceId=${r.traceId}" }
-                is ApiResult.NetworkError -> AppLog.w(TAG) { "loadFolders 网络错误: ${r.message}" }
-            }
+                },
+                onFail = { logApiError("loadFolders", it) },
+            )
         }
     }
 

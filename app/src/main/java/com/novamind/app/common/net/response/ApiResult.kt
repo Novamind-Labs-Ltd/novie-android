@@ -77,3 +77,17 @@ inline fun <T> ApiResult<T>.onError(action: (ApiResult<T>) -> Unit): ApiResult<T
     if (this !is ApiResult.Success) action(this)
     return this
 }
+
+/**
+ * 分流处理：成功走 [onSuccess]（拿到数据，204 时为 null），失败（业务错误 / 网络错误）走 [onFail]
+ * （拿到错误结果本身，可进一步区分 [ApiResult.BizError] / [ApiResult.NetworkError]）。返回自身以便链式。
+ *
+ * 让调用方「只关心成功/失败」，而无需每处都写三分支 `when`；[onFail] 默认空，纯读场景可省略。
+ */
+inline fun <T> ApiResult<T>.fold(
+    onSuccess: (T?) -> Unit,
+    onFail: (ApiResult<T>) -> Unit = {},
+): ApiResult<T> {
+    if (this is ApiResult.Success) onSuccess(data) else onFail(this)
+    return this
+}
