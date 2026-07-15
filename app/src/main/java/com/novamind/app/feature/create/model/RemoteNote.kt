@@ -12,6 +12,8 @@ data class RemoteNote(
     val schemaVersion: Int,
     val title: String?,
     val content: String,          // 原始 JSON 文本
+    /** 列表/卡片用的纯文本摘要（content 第一行、≤50 字）；由前端提取后随保存传给服务端。 */
+    val preview: String?,
     val borderColorHex: String?,
     val createdAt: String?,
     val updatedAt: String?,

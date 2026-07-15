@@ -11,6 +11,7 @@ import com.novamind.app.common.net.TrashNoteRequestDto
 import com.novamind.app.common.net.UpdateNoteRequestDto
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.apiCall
+import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.RemoteNote
 import com.novamind.app.feature.create.model.RemoteNotePage
 import com.novamind.app.feature.create.model.RemoteNoteSummary
@@ -54,7 +55,9 @@ class RemoteNotesRepository : NotesRepository {
     override suspend fun createNote(title: String?, body: String): ApiResult<RemoteNote> {
         AppLog.i(TAG) { "createNote 开始 titleLen=${title?.length ?: 0} bodyLen=${body.length}" }
         return when (val r = apiCall {
-            NetworkModule.notesApi.create(CreateNoteRequestDto(title = title, content = contentOf(body)))
+            NetworkModule.notesApi.create(
+                CreateNoteRequestDto(title = title, content = contentOf(body), preview = previewOf(body)),
+            )
         }) {
             is ApiResult.Success -> {
                 val note = r.data?.toDomain()
@@ -102,7 +105,13 @@ class RemoteNotesRepository : NotesRepository {
         return when (val r = apiCall {
             NetworkModule.notesApi.update(
                 id,
-                UpdateNoteRequestDto(rev = rev, title = title, content = contentOf(body), schemaVersion = schemaVersion),
+                UpdateNoteRequestDto(
+                    rev = rev,
+                    title = title,
+                    content = contentOf(body),
+                    schemaVersion = schemaVersion,
+                    preview = previewOf(body),
+                ),
             )
         }) {
             is ApiResult.Success -> {
@@ -186,6 +195,14 @@ class RemoteNotesRepository : NotesRepository {
     private fun contentOf(body: String): JsonElement =
         JsonObject(mapOf("body" to JsonPrimitive(body)))
 
+    /** 纯文本摘要：取正文首个非空行、最多 50 个字；空正文返回 null（不设摘要）。 */
+    private fun previewOf(body: String): String? =
+        NoteDocument.previewText(body)
+            .lineSequence()
+            .firstOrNull { it.isNotBlank() }
+            ?.trim()
+            ?.take(PREVIEW_MAX_CHARS)
+
     private fun NotePageViewDto.toDomain(): RemoteNotePage = RemoteNotePage(
         items = items.map { it.toSummary() },
         nextCursor = nextCursor,
@@ -208,6 +225,7 @@ class RemoteNotesRepository : NotesRepository {
         schemaVersion = schemaVersion ?: 1,
         title = title,
         content = content?.toString() ?: "{}",
+        preview = preview,
         borderColorHex = borderColorHex,
         createdAt = createdAt,
         updatedAt = updatedAt,
@@ -215,5 +233,8 @@ class RemoteNotesRepository : NotesRepository {
 
     private companion object {
         const val TAG = "NotesRepo"
+
+        /** 摘要最大字数（前端截取；注意后端另有兜底截断，见 doc/frontend-api.md）。 */
+        const val PREVIEW_MAX_CHARS = 50
     }
 }

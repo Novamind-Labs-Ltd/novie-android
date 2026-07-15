@@ -91,6 +91,8 @@ data class NoteDto(
     val schemaVersion: Int? = null,
     val title: String? = null,
     val content: JsonElement? = null,
+    /** 纯文本摘要（列表/卡片用）。 */
+    val preview: String? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null,
     val borderColorHex: String? = null,
@@ -120,11 +122,12 @@ data class NoteListItemDto(
     val deletedAt: String? = null,
 )
 
-/** 创建笔记请求体：`title` 可选(≤255)，`content` 必填。 */
+/** 创建笔记请求体：`title` 可选(≤255)，`content` 必填，`preview` 可选（纯文本摘要，null=不设）。 */
 @Serializable
 data class CreateNoteRequestDto(
     val title: String? = null,
     val content: JsonElement,
+    val preview: String? = null,
 )
 
 /** 回收站开关请求体（PATCH 多路之一）：`true`=移入回收站，`false`=恢复。 */
@@ -139,13 +142,14 @@ data class SetBorderColorRequestDto(
     val borderColorHex: String? = null,
 )
 
-/** 全量更新请求体：`rev` 必填(客户端持有的基准版本)，`content` 必填，`title` null 表示清空。 */
+/** 全量更新请求体：`rev` 必填(客户端持有的基准版本)，`content` 必填，`title` null 表示清空，`preview` 纯文本摘要。 */
 @Serializable
 data class UpdateNoteRequestDto(
     val rev: Long,
     val title: String? = null,
     val content: JsonElement,
     val schemaVersion: Int? = null,
+    val preview: String? = null,
 )
 
 /** 更新结果：`applied=true` 本次写入生效；`false` 表示被更新/相等版本抢先，`note` 为当前胜出版本。 */
