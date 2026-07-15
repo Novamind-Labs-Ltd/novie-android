@@ -1,7 +1,7 @@
-package com.novamind.app.data
+package com.novamind.app.data.db
 
-import com.novamind.app.data.db.TagDao
-import com.novamind.app.data.db.TagEntity
+import com.novamind.app.data.StoredTag
+import com.novamind.app.data.TagRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID

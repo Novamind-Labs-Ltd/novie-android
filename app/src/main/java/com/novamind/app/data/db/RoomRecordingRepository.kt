@@ -1,8 +1,6 @@
-package com.novamind.app.data
+package com.novamind.app.data.db
 
-import com.novamind.app.data.db.RecordingDao
-import com.novamind.app.data.db.RecordingEntity
-import com.novamind.app.data.db.UploadStatus
+import com.novamind.app.data.RecordingRepository
 import com.novamind.app.util.FileUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow

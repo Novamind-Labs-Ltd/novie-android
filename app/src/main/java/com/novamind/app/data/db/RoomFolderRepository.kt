@@ -1,7 +1,7 @@
-package com.novamind.app.data
+package com.novamind.app.data.db
 
-import com.novamind.app.data.db.FolderDao
-import com.novamind.app.data.db.FolderEntity
+import com.novamind.app.data.FolderRepository
+import com.novamind.app.data.StoredFolder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID

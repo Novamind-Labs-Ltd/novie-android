@@ -1,10 +1,7 @@
-package com.novamind.app.data
+package com.novamind.app.data.db
 
 import com.novamind.app.common.sync.NoteSyncScheduler
-import com.novamind.app.data.db.NoteDao
-import com.novamind.app.data.db.SyncStatus
-import com.novamind.app.data.db.toEntity
-import com.novamind.app.data.db.toNote
+import com.novamind.app.data.NoteRepository
 import com.novamind.app.feature.create.model.Note
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

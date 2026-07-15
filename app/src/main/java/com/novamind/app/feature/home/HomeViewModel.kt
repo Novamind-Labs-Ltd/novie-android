@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.common.net.response.fold
 import com.novamind.app.data.NotesRepository
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
@@ -72,9 +73,9 @@ class HomeViewModel @Inject constructor(
             else it.copy(isLoading = true, errorMessage = null)
         }
         viewModelScope.launch {
-            when (val result = notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE)) {
-                is ApiResult.Success -> {
-                    val items = result.data?.items.orEmpty().map { it.toNoteItem() }
+            notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE).fold(
+                onSuccess = { page ->
+                    val items = page?.items.orEmpty().map { it.toNoteItem() }
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -83,22 +84,17 @@ class HomeViewModel @Inject constructor(
                             errorMessage = null,
                         )
                     }
-                }
-                is ApiResult.BizError -> _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        errorMessage = result.message ?: "Failed to load notes (${result.code})",
-                    )
-                }
-                is ApiResult.NetworkError -> _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        errorMessage = "网络异常，请重试",
-                    )
-                }
-            }
+                },
+                onFail = { result ->
+                    val message = when (result) {
+                        is ApiResult.BizError -> result.message ?: "Failed to load notes (${result.code})"
+                        else -> "网络异常，请重试"
+                    }
+                    _uiState.update {
+                        it.copy(isLoading = false, isRefreshing = false, errorMessage = message)
+                    }
+                },
+            )
         }
     }
 

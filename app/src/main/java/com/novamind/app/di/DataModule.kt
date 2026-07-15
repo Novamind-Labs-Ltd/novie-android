@@ -8,12 +8,12 @@ import com.novamind.app.data.NotesRepository
 import com.novamind.app.data.RecordingRepository
 import com.novamind.app.data.RemoteFoldersRepository
 import com.novamind.app.data.RemoteNotesRepository
-import com.novamind.app.data.RoomFolderRepository
-import com.novamind.app.data.RoomNoteRepository
-import com.novamind.app.data.RoomRecordingRepository
-import com.novamind.app.data.RoomTagRepository
 import com.novamind.app.data.TagRepository
 import com.novamind.app.data.db.AppDatabase
+import com.novamind.app.data.db.RoomFolderRepository
+import com.novamind.app.data.db.RoomNoteRepository
+import com.novamind.app.data.db.RoomRecordingRepository
+import com.novamind.app.data.db.RoomTagRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
