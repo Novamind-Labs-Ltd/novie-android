@@ -11,6 +11,7 @@ import com.novamind.app.common.net.TrashNoteRequestDto
 import com.novamind.app.common.net.UpdateNoteRequestDto
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.apiCall
+import com.novamind.app.common.net.response.mapLogged
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.RemoteNote
 import com.novamind.app.feature.create.model.RemoteNotePage
@@ -38,6 +39,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         return apiCall {
             NetworkModule.notesApi.list(trashed = trashed, folderId = folderId, limit = limit, cursor = cursor)
         }.mapLogged(
+            tag = TAG,
             op = "listNotes",
             transform = { it?.toDomain() ?: RemoteNotePage(emptyList(), null) },
             successLog = { "listNotes 成功 count=${it?.items?.size} hasNext=${it?.nextCursor != null}" },
@@ -51,6 +53,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
                 CreateNoteRequestDto(title = title, content = contentOf(body), preview = previewOf(body)),
             )
         }.mapLogged(
+            tag = TAG,
             op = "createNote",
             transform = { it?.toDomain() },
             successLog = { "createNote 成功 id=${it?.id} rev=${it?.rev}" },
@@ -60,6 +63,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
     override suspend fun getNote(id: String): ApiResult<RemoteNote> {
         AppLog.i(TAG) { "getNote 开始 id=$id" }
         return apiCall { NetworkModule.notesApi.get(id) }.mapLogged(
+            tag = TAG,
             op = "getNote id=$id",
             transform = { it?.toDomain() },
             successLog = { "getNote 成功 id=$id rev=${it?.rev}" },
@@ -86,6 +90,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
                 ),
             )
         }.mapLogged(
+            tag = TAG,
             op = "updateNote id=$id",
             transform = { it?.let { d -> UpdateNoteOutcome(applied = d.applied, note = d.note?.toDomain()) } },
             successLog = { "updateNote 成功 id=$id applied=${it?.applied} newRev=${it?.note?.rev}" },
@@ -97,6 +102,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         return apiCall {
             NetworkModule.notesApi.setTrashed(id, TrashNoteRequestDto(trashed = trashed))
         }.mapLogged(
+            tag = TAG,
             op = "setTrashed id=$id",
             transform = { it?.toDomain() },
             successLog = { "setTrashed 成功 id=$id trashed=$trashed rev=${it?.rev}" },
@@ -106,6 +112,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
     override suspend fun deleteNote(id: String): ApiResult<Unit> {
         AppLog.i(TAG) { "deleteNote 开始 id=$id" }
         return apiCall { NetworkModule.notesApi.delete(id) }.mapLogged(
+            tag = TAG,
             op = "deleteNote id=$id",
             transform = { Unit },   // 两步删除，成功无数据（HTTP 204）
             successLog = { "deleteNote 成功 id=$id" },
@@ -117,36 +124,11 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         return apiCall {
             NetworkModule.notesApi.setBorderColor(id, SetBorderColorRequestDto(borderColorHex = borderColorHex))
         }.mapLogged(
+            tag = TAG,
             op = "setBorderColor id=$id",
             transform = { it?.toDomain() },
             successLog = { "setBorderColor 成功 id=$id rev=${it?.rev}" },
         )
-    }
-
-    // ── 收尾：成功映射 + 三分支日志 ──────────────────────────────────────
-    /**
-     * 把 [apiCall] 结果的三分支样板收敛为一处：
-     * - 成功 → [transform] 把 DTO 映射为领域模型（DTO 不外泄），并记成功日志 [successLog]（可用映射结果）；
-     * - 业务 / 网络错误 → 按 [op] 记错误日志并**原样透传**（[ApiResult] 协变，错误分支即 `ApiResult<R>`）。
-     */
-    private fun <T, R> ApiResult<T>.mapLogged(
-        op: String,
-        transform: (T?) -> R?,
-        successLog: (R?) -> String,
-    ): ApiResult<R> = when (this) {
-        is ApiResult.Success -> {
-            val mapped = transform(data)
-            AppLog.i(TAG) { successLog(mapped) }
-            ApiResult.Success(mapped)
-        }
-        is ApiResult.BizError -> {
-            AppLog.w(TAG) { "$op 业务错误 code=$code traceId=$traceId msg=$message" }
-            this
-        }
-        is ApiResult.NetworkError -> {
-            AppLog.w(TAG) { "$op 网络错误: $message" }
-            this
-        }
     }
 
     // ── 映射 ──────────────────────────────────────────────────────────
