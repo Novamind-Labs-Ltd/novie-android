@@ -8,6 +8,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.auth0.android.result.Credentials
 import com.novamind.app.NovieApplication
+import com.novamind.app.common.log.AppLog
+import com.novamind.app.common.session.AuthSessionSignal
 import com.novamind.app.common.session.UserSessionManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +36,23 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         checkSession()
+        // 底层探测到会话失效（续期失败 / /me 40101）→ 强制登出到登录页。
+        viewModelScope.launch {
+            AuthSessionSignal.forceLogout.collect { forceLogout() }
+        }
+    }
+
+    /**
+     * 被动强制登出：由 [AuthSessionSignal] 触发（token 续期失败 / 服务端鉴权失效）。
+     * 已在未登录 / 游客态则忽略，避免重复清理与门控抖动。
+     */
+    private fun forceLogout() {
+        val state = _uiState.value
+        if (!state.isAuthenticated || state.isGuest) return
+        AppLog.w(TAG) { "session expired -> force logout" }
+        authManager.logoutLocal()
+        clearCalendarSession()
+        _uiState.update { loggedOutState() }
     }
 
     /**
@@ -133,8 +152,12 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         val state = _uiState.value
         if (!state.isAuthenticated || state.isGuest) return
 
-        // 回前台节流刷新档案：登录态下距上次成功刷新 ≥ 阈值才实际拉 /me（节流在 manager 内判定）。
-        viewModelScope.launch { UserSessionManager.refreshFromServer(force = false) }
+        // 回前台先静默续期一次（无生物识别提示），保持内存 access token 新鲜，
+        // 再节流刷新档案：登录态下距上次成功刷新 ≥ 阈值才实际拉 /me（节流在 manager 内判定）。
+        viewModelScope.launch {
+            runCatching { authManager.getCredentials() }
+            UserSessionManager.refreshFromServer(force = false)
+        }
 
         if (!(biometricPrefs.enabled && authManager.isBiometricAvailable())) return
 

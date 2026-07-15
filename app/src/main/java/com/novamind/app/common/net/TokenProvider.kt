@@ -10,4 +10,12 @@ package com.novamind.app.common.net
 object TokenProvider {
     @Volatile
     var accessToken: String? = null
+
+    /**
+     * 同步续期钩子：由认证层在启动时注入（见 NovieApplication）。
+     * 用 refresh_token **静默**续期，成功回写 [accessToken] 并返回新 token；失败返回 null（并由注入方触发失效登出）。
+     * 供 [TokenAuthenticator] 在收到 401 时调用（OkHttp Authenticator 运行在 IO 线程，可阻塞）。
+     */
+    @Volatile
+    var renew: (() -> String?)? = null
 }

@@ -114,6 +114,8 @@ object UserSessionManager {
                 IdentityRepository.Outcome.Unauthorized -> {
                     AppLog.w(TAG) { "刷新得鉴权失效 → 迁未登录" }
                     onLoggedOut()
+                    // 上抛给认证层，真正弹回登录页（onLoggedOut 只改全局会话，不触发登录门控）。
+                    AuthSessionSignal.notifySessionExpired()
                     true
                 }
                 IdentityRepository.Outcome.Failed -> {

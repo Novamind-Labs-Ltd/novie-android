@@ -19,6 +19,7 @@ import com.auth0.android.provider.WebAuthProvider
 import com.auth0.android.result.Credentials
 import com.novamind.app.BuildConfig
 import com.novamind.app.common.net.TokenProvider
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -52,6 +53,14 @@ class AuthManager(context: Context) {
 
     /** 本地是否已有未过期（或可凭 refresh_token 续期）的凭证，无网络请求。 */
     fun hasValidCredentials(): Boolean = baseManager.hasValidCredentials()
+
+    /**
+     * **同步**静默续期：用 refresh_token 换新 access token（无生物识别），成功回写 [TokenProvider] 并返回新 token；
+     * 失败（refresh_token 失效等）返回 null。供 OkHttp [com.novamind.app.common.net.TokenAuthenticator] 在 401 时调用。
+     * 仅可在非主线程调用（Authenticator 运行于 IO 线程）；内部 [runBlocking] 等待回调完成。
+     */
+    fun renewAccessTokenBlocking(): String? =
+        runCatching { runBlocking { getCredentials().accessToken } }.getOrNull()
 
     /**
      * 设备是否可用生物识别（已录入指纹/人脸等，Class 2 或以上）。

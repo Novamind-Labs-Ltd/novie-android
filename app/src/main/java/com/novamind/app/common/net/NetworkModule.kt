@@ -40,6 +40,8 @@ object NetworkModule {
             .hostnameVerifier(ApiTls.PINNED_HOSTNAME_VERIFIER)
             .addInterceptor(CommonHeadersInterceptor())
             .addInterceptor(AuthInterceptor())
+            // 401 → 用 refresh_token 静默续期并重试一次（续期钩子由认证层注入）
+            .authenticator(TokenAuthenticator())
             .apply { HttpLoggers.create()?.let(::addInterceptor) }
             .build()
     }

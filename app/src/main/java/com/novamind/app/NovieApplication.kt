@@ -15,8 +15,11 @@ import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.CommonHeaders
+import com.novamind.app.common.net.TokenProvider
 import com.novamind.app.common.push.PushChannels
+import com.novamind.app.common.session.AuthSessionSignal
 import com.novamind.app.common.session.UserSessionManager
+import com.novamind.app.feature.auth.AuthManager
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.feature.calendar.CalendarBindingStore
 import com.novamind.app.ui.theme.FontStore
@@ -64,6 +67,16 @@ class NovieApplication : Application(), ImageLoaderFactory, Configuration.Provid
         UserSessionManager.loadCached()    // 冷启动即有：读缓存档案，UI 先渲染（须在 MMKV 之后）
 
         ApiConfig.init(this)               // API 环境选择，供 NetworkModule 读取
+        // 注入 access token 续期钩子：OkHttp 收到 401 时经此用 refresh_token 静默续期；
+        // 续期失败上抛会话失效信号（AuthViewModel 收到后弹回登录页）。须在网络请求发生前完成。
+        run {
+            val authManager = AuthManager(this)
+            TokenProvider.renew = {
+                authManager.renewAccessTokenBlocking().also { token ->
+                    if (token == null) AuthSessionSignal.notifySessionExpired()
+                }
+            }
+        }
         SentryUtils.init(this)             // 须在 ApiConfig 之后（按环境上报）
         CommonHeaders.init(this)           // 缓存 HTTPS 公用头部
         PushChannels.ensureDefault(this)   // 预创建 FCM 通知渠道
