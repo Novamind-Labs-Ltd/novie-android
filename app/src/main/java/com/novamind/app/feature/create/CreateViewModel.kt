@@ -30,10 +30,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -386,21 +388,26 @@ class CreateViewModel @Inject constructor(
      * 后，后续请求走更新而非重复新建。仅同步 title + 正文（服务端 content 约定 `{"body": …}`）；
      * 边框色（另有 border-color 端点）、标签/文件夹（本地概念）不经此路径。
      */
-    private suspend fun saveNow() = saveMutex.withLock {
+    /**
+     * @return 正文是否已就绪落盘：`true`=保存成功 / 空笔记或无变化的无需保存；
+     *   `false`=保存失败或 latest-wins 未生效（供转写 READY 流据此决定是否 consume）。
+     */
+    private suspend fun saveNow(): Boolean = saveMutex.withLock {
         val state = _uiState.value
-        // 标题为空、且正文文档无文字也无图片时，视为空笔记不保存
+        // 标题为空、且正文文档无文字也无图片时，视为空笔记不保存（无内容可保存，视为已就绪）
         if (state.title.isBlank() && NoteDocument.previewText(state.body).isBlank()) {
-            return@withLock
+            return@withLock true
         }
 
         val current = TextSnapshot(state.title, state.body)
-        // 已保存过且内容无变化 → 跳过，避免重复 POST/PUT
+        // 已保存过且内容无变化 → 跳过，避免重复 POST/PUT（视为已就绪）
         if (state.editingNoteId != null && savedSnapshot == current) {
-            return@withLock
+            return@withLock true
         }
 
         val id = state.editingNoteId
         _uiState.update { it.copy(isSaving = true) }
+        var ok = false
         try {
             if (id == null) {
                 // 新建：POST /notes
@@ -412,6 +419,7 @@ class CreateViewModel @Inject constructor(
                             it.copy(editingNoteId = note.id, updatedAt = note.updatedAt.toEpochMillisOrNull())
                         }
                         AppLog.i(TAG) { "createNote 成功 id=${note.id} rev=${note.rev}" }
+                        ok = true
                     }
                     is ApiResult.BizError -> {
                         AppLog.w(TAG) { "createNote 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
@@ -438,6 +446,7 @@ class CreateViewModel @Inject constructor(
                             AppLog.w(TAG) { "updateNote 落后未生效 id=$id serverRev=${outcome.note?.rev}（latest-wins，已同步服务端 rev）" }
                         } else {
                             AppLog.i(TAG) { "updateNote 成功 id=$id newRev=${outcome?.note?.rev}" }
+                            ok = true
                         }
                     }
                     is ApiResult.BizError -> {
@@ -455,7 +464,7 @@ class CreateViewModel @Inject constructor(
         } finally {
             _uiState.update { it.copy(isSaving = false) }
         }
-        Unit
+        ok
     }
 
     /**
@@ -658,8 +667,21 @@ class CreateViewModel @Inject constructor(
                         "READY" -> {
                             val text = formatSegments(task.resultSegments)
                             AppLog.i(TAG) { "transcription READY noteId=$noteId jobId=${task.jobId} len=${text.length}" }
-                            if (text.isNotBlank()) _transcriptionReady.tryEmit(text)
-                            transcriptionRepository.consume(noteId, task.jobId)   // best-effort
+                            if (text.isNotBlank()) {
+                                // 追加进正文，并等 UI 回流到 body（转写期间正文只读，body 变化只来自本次追加）。
+                                val before = _uiState.value.body
+                                _transcriptionReady.tryEmit(text)
+                                withTimeoutOrNull(APPEND_SYNC_TIMEOUT_MS) {
+                                    uiState.first { it.body != before }
+                                }
+                            }
+                            // 先保存笔记，把追加后的正文落盘；成功后才 consume。
+                            // 未存住（保存失败 / latest-wins 未生效）→ 不 consume，下次进页 syncTranscriptionOnOpen 重试。
+                            if (saveNow()) {
+                                transcriptionRepository.consume(noteId, task.jobId)   // best-effort
+                            } else {
+                                AppLog.w(TAG) { "transcription READY 保存未成功，暂不 consume noteId=$noteId jobId=${task.jobId}" }
+                            }
                             break
                         }
                         "FAILED" -> {
@@ -776,5 +798,8 @@ class CreateViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "CreateVM"
+
+        /** 转写 READY 后等正文追加回流到 body 的最长等待，超时则直接以当前 body 保存。 */
+        const val APPEND_SYNC_TIMEOUT_MS = 3_000L
     }
 }
