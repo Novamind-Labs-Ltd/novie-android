@@ -2,6 +2,7 @@ package com.novamind.app.feature.create
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.graphics.toArgb
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
@@ -683,7 +684,7 @@ class CreateViewModel @Inject constructor(
      * 把转写分段拼成 **HTML**：**连续相同说话人的分段合并为一段**（`<p>` 一行，说话人前缀只出现一次），
      * 段内多条文本以空格拼接；有说话人时前缀 **加粗 + 配色** 的 Speaker
      * （`<b><span style="color:#..">Name</span></b>：文本`）凸显，无说话人只放文本。
-     * 颜色从 [SPEAKER_PALETTE] 取，按说话人名 hash 稳定映射——**同一 speaker 恒定同色**。
+     * 颜色从 [AppConfig.Editor.SPEAKER_PALETTE]（复用设计系统 Palette）取，按说话人名 hash 稳定映射——**同一 speaker 恒定同色**。
      * 结果经 [transcriptionReady] → `editor.appendHtml` 渲染进正文并随保存持久化（HTML）。
      */
     private fun formatSegments(segments: List<TranscriptSegmentDto>?): String {
@@ -712,10 +713,11 @@ class CreateViewModel @Inject constructor(
         }
     }
 
-    /** 说话人 → 调色板颜色：按名字 hash 取模，保证同一说话人每次都同色。 */
+    /** 说话人 → 调色板颜色（`#RRGGBB`）：从 [AppConfig.Editor.SPEAKER_PALETTE] 按名字 hash 取模，同名恒定同色。 */
     private fun speakerColor(speaker: String): String {
-        val idx = (speaker.hashCode() % SPEAKER_PALETTE.size + SPEAKER_PALETTE.size) % SPEAKER_PALETTE.size
-        return SPEAKER_PALETTE[idx]
+        val palette = AppConfig.Editor.SPEAKER_PALETTE
+        val idx = (speaker.hashCode() % palette.size + palette.size) % palette.size
+        return "#%06X".format(0xFFFFFF and palette[idx].toArgb())
     }
 
     /** 转义 HTML 特殊字符，避免转写文本 / 说话人名破坏 HTML 结构。 */
@@ -815,11 +817,5 @@ class CreateViewModel @Inject constructor(
 
         /** 转写 READY 后等 UI 追加完成 ack 的最长等待，超时（如页面未订阅）则不保存/不 consume，下次进页重试。 */
         const val APPEND_SYNC_TIMEOUT_MS = 3_000L
-
-        /** 转写说话人配色调色板（在浅底上可辨识）；按说话人名 hash 稳定取色，同名恒定同色。 */
-        val SPEAKER_PALETTE = listOf(
-            "#E53935", "#8E24AA", "#3949AB", "#1E88E5", "#00897B",
-            "#43A047", "#F4511E", "#6D4C41", "#C2185B", "#00838F",
-        )
     }
 }

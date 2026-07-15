@@ -55,6 +55,21 @@ object AppConfig {
 
         /** 列表（有序/无序）左缩进（约一个 tab）；富文本库默认约 38，偏大。 */
         const val LIST_INDENT = 10
+
+        /**
+         * 转写说话人配色（直接复用设计系统 [Palette]）；按说话人名 hash 稳定取色——同一 speaker 恒定同色，
+         * 不同 speaker 分散到不同色。取 500-700 段以保证在浅底可辨识。
+         */
+        val SPEAKER_PALETTE: List<Color> = listOf(
+            Palette.red500,
+            Palette.orange500,
+            Palette.green600,
+            Palette.teal600,
+            Palette.slate600,
+            Palette.forrest600,
+            Palette.fern600,
+            Palette.sand700,
+        )
     }
 
     /** 网络超时（秒）。 */
