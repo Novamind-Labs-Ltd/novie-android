@@ -34,7 +34,7 @@ fun CreateRoute(
         else viewModel.reset()
     }
     // 离开笔记页（切 tab / 返回，本 Route 离开组合）即停止转写轮询，不再调用 /transcription；
-    // 重新进入会由 loadNote → syncTranscriptionOnOpen 按服务端状态恢复。
+    // 重新进入会由 loadNote → startTranscriptionPolling 按服务端状态恢复。
     DisposableEffect(Unit) {
         onDispose { viewModel.stopTranscriptionPolling() }
     }

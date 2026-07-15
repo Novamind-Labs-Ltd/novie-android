@@ -179,8 +179,8 @@ class CreateViewModel @Inject constructor(
                     )
                     // 拉附件，得到 fileId→签名 URL，供编辑器渲染 path 失效时兜底
                     fetchAttachments(note.id)
-                    // 进入笔记：同步服务端转写（READY 填充正文并 consume；PROCESSING 恢复轮询显示 loading）
-                    syncTranscriptionOnOpen(note.id)
+                    // 进入笔记：直接走转写轮询（无任务即结束；READY 填充+保存+consume；PROCESSING 显示 loading 续轮询）
+                    startTranscriptionPolling(note.id)
                 }
                 is ApiResult.BizError ->
                     AppLog.w(TAG) { "loadNote 业务错误 id=$noteId code=${result.code} traceId=${result.traceId}" }
@@ -547,7 +547,7 @@ class CreateViewModel @Inject constructor(
                     is ApiResult.Success -> {
                         AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=${r.data}" }
                         _recordingUploaded.tryEmit(Unit)   // 通知 UI：上传成功，关闭录音面板
-                        startTranscriptionPolling(id, r.data)   // 上传成功 → 轮询转写结果（§9）
+                        startTranscriptionPolling(id)   // 上传成功 → 轮询转写结果（§9）
                     }
                     is ApiResult.BizError -> {
                         AppLog.w(TAG) { "uploadRecording 业务错误 noteId=$id code=${r.code} traceId=${r.traceId}" }
@@ -572,62 +572,9 @@ class CreateViewModel @Inject constructor(
     }
 
     /**
-     * 进入笔记时同步服务端转写（GET /notes/{id}/transcription）。对**未消费**（排除听写 Y）的任务：
-     * - `READY`：把结果文本填充进正文（经 [transcriptionReady] 追加）并调 consume 标记已消费；
-     * - `PROCESSING`：恢复 [startTranscriptionPolling]，展示转写 loading 并轮询至完成后自动填充。
-     *
-     * READY 的填充发生在 getNote/attachments/list 多次网络请求之后，此时正文已加载完成，追加不会被回填覆盖。
-     * 仅在确有 PROCESSING 任务时才启动轮询，避免无任务时空转导致 loading 卡住。
-     */
-    private fun syncTranscriptionOnOpen(noteId: String) {
-        viewModelScope.launch {
-            val tasks = when (val r = transcriptionRepository.list(noteId)) {
-                is ApiResult.Success -> r.data.orEmpty()
-                is ApiResult.BizError -> {
-                    AppLog.w(TAG) { "syncTranscription 业务错误 noteId=$noteId code=${r.code}" }
-                    return@launch
-                }
-                is ApiResult.NetworkError -> {
-                    AppLog.w(TAG) { "syncTranscription 网络错误 noteId=$noteId: ${r.message}" }
-                    return@launch
-                }
-            }
-            tasks.forEachIndexed { i, t ->
-                AppLog.i(TAG) {
-                    "transcription[$i] noteId=$noteId jobId=${t.jobId} kind=${t.kind} " +
-                        "state=${t.presentationState} consumed=${t.consumed} seg=${t.resultSegments?.size ?: 0}"
-                }
-            }
-            // 未消费的转写任务即待处理。放宽 kind 过滤：真实数据的 kind 可能为空/非 "X"
-            // （录音轮询靠 jobId 命中，从不依赖 kind），仅排除明确的听写任务（Y）。
-            val pending = tasks.filter { !it.consumed && it.kind != "Y" }
-
-            // READY：填充正文 + consume（多条合并为一段一次性追加，避免 SharedFlow 单缓冲丢事件）
-            val ready = pending.filter { it.presentationState == "READY" }
-            if (ready.isNotEmpty()) {
-                val text = ready
-                    .mapNotNull { formatSegments(it.resultSegments).ifBlank { null } }
-                    .joinToString("\n")
-                if (text.isNotBlank()) {
-                    AppLog.i(TAG) { "transcription READY on open noteId=$noteId count=${ready.size} len=${text.length}" }
-                    _transcriptionReady.tryEmit(text)
-                }
-                ready.forEach { transcriptionRepository.consume(noteId, it.jobId) }   // best-effort
-            }
-
-            // PROCESSING：恢复轮询（展示 loading，转好后自动填充并 consume）
-            val processing = pending.firstOrNull { it.presentationState == "PROCESSING" }
-            if (processing != null) {
-                AppLog.i(TAG) { "resume transcription polling noteId=$noteId jobId=${processing.jobId}" }
-                startTranscriptionPolling(noteId, processing.jobId)
-            }
-        }
-    }
-
-    /**
      * 离开笔记页时停止转写轮询：取消在途的 [transcriptionJob]，不再调用 /transcription。
      * 取消会走轮询的 finally 复位 [CreateUiState.isTranscribing]（隐藏 loading）。
-     * 重新进入笔记会由 [syncTranscriptionOnOpen] 按服务端状态（READY 填充 / PROCESSING 续轮询）恢复。
+     * 重新进入笔记会由 [startTranscriptionPolling] 按服务端状态（READY 填充 / PROCESSING 续轮询）恢复。
      */
     fun stopTranscriptionPolling() {
         transcriptionJob?.cancel()
@@ -635,48 +582,57 @@ class CreateViewModel @Inject constructor(
     }
 
     /**
-     * 转写结果轮询（§9）：每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 拉一次，直到目标任务
-     * `presentationState = READY`：分段文本 emit 给 UI 追加进正文并 consume；`FAILED` 提示并停止。
-     * 轮询期间 [CreateUiState.isTranscribing] 为真（笔记只读、显示 loading）。
-     *
-     * @param jobId 转写任务 id（可能为 null）；为空则回退匹配最新未消费的 X 任务。
+     * 转写结果同步 + 轮询（§9）。进页与录音上传成功后统一走这里（不按 jobId 精确匹配，
+     * 每条笔记同一时刻只盯一条转写，取**最新未消费**、排除听写 Y 的任务）：
+     * - 首轮**立即**拉取，之后每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 拉一次；
+     * - `READY`：按段追加正文 → 保存成功后才 consume（三步串行，见下）；
+     * - `FAILED`：提示并停止；
+     * - `PROCESSING`：标记 [CreateUiState.isTranscribing]（只读 + loading）并继续轮询；
+     * - **无待处理任务**（无转写 / 已全部消费）→ 直接结束，不空转、不显示 loading（进页每次调用也不会误显）。
+     * - 仅在确认到 PROCESSING 后才容忍网络抖动重试；未确认前遇网络错误即结束，避免每次进页空转。
      */
-    private fun startTranscriptionPolling(noteId: String, jobId: String?) {
+    private fun startTranscriptionPolling(noteId: String) {
         transcriptionJob?.cancel()
         transcriptionJob = viewModelScope.launch {
-            _uiState.update { it.copy(isTranscribing = true) }
+            var confirmed = false   // 是否已确认存在进行中的转写（据此显示 loading、容忍网络抖动）
             try {
+                var first = true
                 while (isActive) {
-                    delay(AppConfig.Transcription.POLL_INTERVAL_MS)
+                    if (!first) delay(AppConfig.Transcription.POLL_INTERVAL_MS)
+                    first = false
                     val tasks = when (val r = transcriptionRepository.list(noteId)) {
                         is ApiResult.Success -> r.data.orEmpty()
                         is ApiResult.BizError -> {   // 40401 等：终态，停止轮询
                             AppLog.w(TAG) { "transcription 业务错误 noteId=$noteId code=${r.code}，停止轮询" }
                             break
                         }
-                        is ApiResult.NetworkError -> {   // 网络抖动：本轮跳过，下一 tick 再试
-                            AppLog.w(TAG) { "transcription 网络错误 noteId=$noteId: ${r.message}，稍后重试" }
-                            continue
+                        is ApiResult.NetworkError -> {   // 已确认在处理才重试；未确认前不空转
+                            AppLog.w(TAG) { "transcription 网络错误 noteId=$noteId: ${r.message}" }
+                            if (confirmed) continue else break
                         }
                     }
-                    // 优先按 jobId 命中；否则回退到最新（末尾）未消费的源录音任务
-                    val task = tasks.firstOrNull { jobId != null && it.jobId == jobId }
-                        ?: tasks.lastOrNull { it.kind == "X" && !it.consumed }
-                        ?: continue
+                    // 取最新（末尾）未消费任务（排除听写 Y）；无待处理 → 结束（不显示 loading）
+                    val task = tasks.lastOrNull { !it.consumed && it.kind != "Y" } ?: break
                     when (task.presentationState) {
                         "READY" -> {
                             val text = formatSegments(task.resultSegments)
                             AppLog.i(TAG) { "transcription READY noteId=$noteId jobId=${task.jobId} len=${text.length}" }
+                            // 三步严格串行，保障「文本先落盘再消费」：
+                            // 1) 更新 UI：把转写文本追加进正文并显示；等其回流到 body（body 变化只来自本次程序化追加）。
                             if (text.isNotBlank()) {
-                                // 追加进正文，并等 UI 回流到 body（转写期间正文只读，body 变化只来自本次追加）。
                                 val before = _uiState.value.body
                                 _transcriptionReady.tryEmit(text)
-                                withTimeoutOrNull(APPEND_SYNC_TIMEOUT_MS) {
+                                val appended = withTimeoutOrNull(APPEND_SYNC_TIMEOUT_MS) {
                                     uiState.first { it.body != before }
+                                } != null
+                                if (!appended) {
+                                    // 追加未回流（事件丢失/超时）→ 不保存也不 consume，避免消费后丢文本；下次进页重试。
+                                    AppLog.w(TAG) { "transcription READY 追加未回流，暂不保存/consume noteId=$noteId jobId=${task.jobId}" }
+                                    break
                                 }
                             }
-                            // 先保存笔记，把追加后的正文落盘；成功后才 consume。
-                            // 未存住（保存失败 / latest-wins 未生效）→ 不 consume，下次进页 syncTranscriptionOnOpen 重试。
+                            // 2) 保存追加后的正文。3) 仅保存成功才 consume；未存住（保存失败 / latest-wins 未生效）
+                            //    → 不 consume，下次进页重试。
                             if (saveNow()) {
                                 transcriptionRepository.consume(noteId, task.jobId)   // best-effort
                             } else {
@@ -689,7 +645,12 @@ class CreateViewModel @Inject constructor(
                             _saveError.tryEmit("Transcription failed")
                             break
                         }
-                        else -> Unit   // PROCESSING：继续轮询
+                        else -> {   // PROCESSING：确认在处理 → 显示 loading（只读）并继续轮询
+                            if (!confirmed) {
+                                confirmed = true
+                                _uiState.update { it.copy(isTranscribing = true) }
+                            }
+                        }
                     }
                 }
             } finally {
