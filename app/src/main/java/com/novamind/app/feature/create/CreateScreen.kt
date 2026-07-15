@@ -667,9 +667,11 @@ fun CreateScreen(
             )
         }
 
-        // 加载/转写遮罩：打开笔记加载中显示普通 loading；转写轮询中显示带文案的 loading（拦截交互）。
+        // 全局 loading：打开笔记加载中显示普通 loading；转写轮询中显示带文案的 loading。
+        // scrimAlpha=0 → 不加半透明蒙层，只保留居中 HUD（仍拦截误触）。
         LoadingOverlay(
             visible = uiState.isTranscribing || uiState.isLoading,
+            scrimAlpha = 0f,
             message = if (uiState.isTranscribing) {
                 "Transcribing your audio… This usually takes 1–10 minutes. Please check back shortly."
             } else {
