@@ -11,6 +11,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import com.mohamedrejeb.richeditor.model.RichTextState
+import com.novamind.app.common.config.AppConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -38,6 +39,9 @@ class TextBlock(
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock {
     val rich = RichTextState().apply {
+        // 列表缩进：库默认偏大（约两个 tab），bullet/有序列表都会离屏幕左边太远；
+        // 收窄到约一个 tab（见 AppConfig.Editor.LIST_INDENT）。listIndent 同时作用于有序/无序列表。
+        config.listIndent = AppConfig.Editor.LIST_INDENT
         when {
             !initialHtml.isNullOrBlank() -> setHtml(initialHtml)
             initialText.isNotEmpty() -> setText(initialText)
