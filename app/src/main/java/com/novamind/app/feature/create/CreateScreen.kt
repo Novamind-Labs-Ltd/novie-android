@@ -667,10 +667,14 @@ fun CreateScreen(
             )
         }
 
-        // 语音转文字加载遮罩：转写轮询期间显示（拦截交互），语音全部转写完成后消失。
+        // 加载/转写遮罩：打开笔记加载中显示普通 loading；转写轮询中显示带文案的 loading（拦截交互）。
         LoadingOverlay(
-            visible = uiState.isTranscribing,
-            message = "Transcribing your audio… This usually takes 1–10 minutes. Please check back shortly.",
+            visible = uiState.isTranscribing || uiState.isLoading,
+            message = if (uiState.isTranscribing) {
+                "Transcribing your audio… This usually takes 1–10 minutes. Please check back shortly."
+            } else {
+                null
+            },
         )
     }
 }

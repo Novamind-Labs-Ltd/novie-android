@@ -156,44 +156,48 @@ class CreateViewModel @Inject constructor(
     }
 
     /**
-     * 按 id 从**服务端**加载笔记（GET /notes/{id}）填充编辑器。
+     * 打开已有笔记：**先拉转写**（GET /notes/{id}/transcription），据此决定何时拉详情：
+     * - 无待处理任务 / FAILED → 直接拉笔记详情；
+     * - PROCESSING → 先只显示 loading 轮询，**暂不拉详情**；转写 READY 落盘后再拉详情并追加。
      *
-     * 服务端 NoteView 不含本地的标签/文件夹（这些目前只在本地库），故 selectedTags/selectedFolder 留空；
-     * 正文按 App content 约定 `{"body": <文档字符串>}` 从 [RemoteNote.content] 抽取。
-     * 同时记录 [remoteRev]（供后续 PUT 乐观锁）与 [savedSnapshot]（供无变化跳过）；失败时保持编辑器不变并打日志。
+     * 详情加载逻辑抽到 [loadNoteDetail]，由 [startTranscriptionPolling] 在恰当时机调用。
      */
     fun loadNote(noteId: String) {
         undoStack.clear()
         redoStack.clear()
-        viewModelScope.launch {
-            when (val result = notesRepository.getNote(noteId)) {
-                is ApiResult.Success -> {
-                    val note = result.data ?: return@launch
-                    val title = note.title.orEmpty()
-                    val body = bodyOf(note.content)
-                    remoteRev = note.rev
-                    savedSnapshot = TextSnapshot(title, body)
-                    _uiState.value = CreateUiState(
-                        editingNoteId = note.id,
-                        updatedAt = note.updatedAt.toEpochMillisOrNull(),
-                        title = title,
-                        body = body,
-                        selectedTags = emptyList(),
-                        selectedFolder = null,
-                        borderColor = ColorUtils.parseHexColor(note.borderColorHex),
-                        availableFolders = availableFolders,
-                        availableTags = availableTags,
-                    )
-                    // 拉附件，得到 fileId→签名 URL，供编辑器渲染 path 失效时兜底
-                    fetchAttachments(note.id)
-                    // 进入笔记：直接走转写轮询（无任务即结束；READY 填充+保存+consume；PROCESSING 显示 loading 续轮询）
-                    startTranscriptionPolling(note.id)
-                }
-                is ApiResult.BizError ->
-                    AppLog.w(TAG) { "loadNote 业务错误 id=$noteId code=${result.code} traceId=${result.traceId}" }
-                is ApiResult.NetworkError ->
-                    AppLog.w(TAG) { "loadNote 网络错误 id=$noteId: ${result.message}" }
+        startTranscriptionPolling(noteId, loadDetail = true)
+    }
+
+    /**
+     * 拉取笔记详情（GET /notes/{id}）填充编辑器 + 附件。服务端 NoteView 不含本地标签/文件夹，故留空；
+     * 正文按 `{"body": …}` 约定抽取；记录 [remoteRev] / [savedSnapshot]。失败保持编辑器不变并打日志。
+     */
+    private suspend fun loadNoteDetail(noteId: String) {
+        when (val result = notesRepository.getNote(noteId)) {
+            is ApiResult.Success -> {
+                val note = result.data ?: return
+                val title = note.title.orEmpty()
+                val body = bodyOf(note.content)
+                remoteRev = note.rev
+                savedSnapshot = TextSnapshot(title, body)
+                _uiState.value = CreateUiState(
+                    editingNoteId = note.id,
+                    updatedAt = note.updatedAt.toEpochMillisOrNull(),
+                    title = title,
+                    body = body,
+                    selectedTags = emptyList(),
+                    selectedFolder = null,
+                    borderColor = ColorUtils.parseHexColor(note.borderColorHex),
+                    availableFolders = availableFolders,
+                    availableTags = availableTags,
+                )
+                // 拉附件，得到 fileId→签名 URL，供编辑器渲染 path 失效时兜底
+                fetchAttachments(note.id)
             }
+            is ApiResult.BizError ->
+                AppLog.w(TAG) { "loadNote 业务错误 id=$noteId code=${result.code} traceId=${result.traceId}" }
+            is ApiResult.NetworkError ->
+                AppLog.w(TAG) { "loadNote 网络错误 id=$noteId: ${result.message}" }
         }
     }
 
@@ -554,7 +558,8 @@ class CreateViewModel @Inject constructor(
                     is ApiResult.Success -> {
                         AppLog.i(TAG) { "uploadRecording 成功 noteId=$id jobId=${r.data}" }
                         _recordingUploaded.tryEmit(Unit)   // 通知 UI：上传成功，关闭录音面板
-                        startTranscriptionPolling(id)   // 上传成功 → 轮询转写结果（§9）
+                        // 上传成功 → 轮询转写结果（§9）。详情已在编辑器，loadDetail=false 不重拉（避免覆盖编辑）。
+                        startTranscriptionPolling(id, loadDetail = false)
                     }
                     is ApiResult.BizError -> {
                         AppLog.w(TAG) { "uploadRecording 业务错误 noteId=$id code=${r.code} traceId=${r.traceId}" }
@@ -589,19 +594,25 @@ class CreateViewModel @Inject constructor(
     }
 
     /**
-     * 转写结果同步 + 轮询（§9）。进页与录音上传成功后统一走这里（不按 jobId 精确匹配，
-     * 每条笔记同一时刻只盯一条转写，取**最新未消费**、排除听写 Y 的任务）：
-     * - 首轮**立即**拉取，之后每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 拉一次；
-     * - `READY`：按段追加正文 → 保存成功后才 consume（三步串行，见下）；
-     * - `FAILED`：提示并停止；
-     * - `PROCESSING`：标记 [CreateUiState.isTranscribing]（只读 + loading）并继续轮询；
-     * - **无待处理任务**（无转写 / 已全部消费）→ 直接结束，不空转、不显示 loading（进页每次调用也不会误显）。
-     * - 仅在确认到 PROCESSING 后才容忍网络抖动重试；未确认前遇网络错误即结束，避免每次进页空转。
+     * 转写结果同步 + 轮询（§9）。进页（[loadDetail]=true）与录音上传成功（[loadDetail]=false）统一走这里。
+     * 取**最新未消费**（kind=X）任务；首轮**立即**拉取，之后每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 一次：
+     * - `READY`：按段追加正文 → 保存成功后才 consume（三步串行）；追加前确保详情已加载。
+     * - `FAILED`：提示并停止。
+     * - `PROCESSING`：标记 [CreateUiState.isTranscribing]（loading）继续轮询；此期间**暂不拉详情**。
+     * - **无待处理任务**：结束，不空转、不显示 loading。
+     * - 未确认 PROCESSING 前遇网络/业务错误即结束，避免每次进页空转。
+     *
+     * 详情加载（[loadNoteDetail]）时机：**打开笔记**（[loadDetail]=true）在「无任务 / READY / FAILED / 拉取失败」
+     * 时才拉——即「有待处理任务先不拉详情」；**录音上传后**（[loadDetail]=false）详情已在编辑器，不重拉以免覆盖编辑。
      */
-    private fun startTranscriptionPolling(noteId: String) {
+    private fun startTranscriptionPolling(noteId: String, loadDetail: Boolean) {
         transcriptionJob?.cancel()
         transcriptionJob = viewModelScope.launch {
-            var confirmed = false   // 是否已确认存在进行中的转写（据此显示 loading、容忍网络抖动）
+            var confirmed = false            // 是否已确认存在进行中的转写（据此显示 loading、容忍网络抖动）
+            var detailLoaded = !loadDetail   // 上传路径：详情已在编辑器，视为已加载、不再拉
+            suspend fun ensureDetail() { if (!detailLoaded) { loadNoteDetail(noteId); detailLoaded = true } }
+            // 打开笔记：拉转写状态 + 拉详情期间显示 loading（loadNoteDetail 加载完成会重置 UiState、自然关闭）。
+            if (loadDetail) _uiState.update { it.copy(isLoading = true) }
             try {
                 var first = true
                 while (isActive) {
@@ -609,19 +620,22 @@ class CreateViewModel @Inject constructor(
                     first = false
                     val tasks = when (val r = transcriptionRepository.list(noteId)) {
                         is ApiResult.Success -> r.data.orEmpty()
-                        is ApiResult.BizError -> {   // 40401 等：终态，停止轮询
+                        is ApiResult.BizError -> {   // 40401 等：终态，仍需展示笔记 → 补拉详情后停止
                             AppLog.w(TAG) { "transcription 业务错误 noteId=$noteId code=${r.code}，停止轮询" }
-                            break
+                            ensureDetail(); break
                         }
-                        is ApiResult.NetworkError -> {   // 已确认在处理才重试；未确认前不空转
+                        is ApiResult.NetworkError -> {   // 已确认在处理才重试；未确认前补拉详情后停止，不空转
                             AppLog.w(TAG) { "transcription 网络错误 noteId=$noteId: ${r.message}" }
-                            if (confirmed) continue else break
+                            if (confirmed) continue else { ensureDetail(); break }
                         }
                     }
-                    // 取最新（末尾）未消费任务（排除听写 Y）；无待处理 → 结束（不显示 loading）
-                    val task = tasks.lastOrNull { !it.consumed && it.kind == "X" } ?: break
+                    // 取最新（末尾）未消费任务（kind=X）；无待处理 → 拉详情并结束
+                    val task = tasks.lastOrNull { !it.consumed && it.kind == "X" }
+                    if (task == null) { ensureDetail(); break }
                     when (task.presentationState) {
                         "READY" -> {
+                            // 追加前确保详情已加载（PROCESSING 期间未拉时在此补拉），编辑器就绪后再追加
+                            ensureDetail()
                             val text = formatSegments(task.resultSegments)
                             AppLog.i(TAG) { "transcription READY noteId=$noteId jobId=${task.jobId} len=${text.length}" }
                             // 三步严格串行，保障「文本先落盘再消费」：
@@ -647,10 +661,11 @@ class CreateViewModel @Inject constructor(
                         }
                         "FAILED" -> {
                             AppLog.w(TAG) { "transcription FAILED noteId=$noteId jobId=${task.jobId}" }
+                            ensureDetail()
                             _saveError.tryEmit("Transcription failed")
                             break
                         }
-                        else -> {   // PROCESSING：确认在处理 → 显示 loading（只读）并继续轮询
+                        else -> {   // PROCESSING：确认在处理 → 显示 loading（暂不拉详情）并继续轮询
                             if (!confirmed) {
                                 confirmed = true
                                 _uiState.update { it.copy(isTranscribing = true) }
@@ -659,7 +674,7 @@ class CreateViewModel @Inject constructor(
                     }
                 }
             } finally {
-                _uiState.update { it.copy(isTranscribing = false) }
+                _uiState.update { it.copy(isTranscribing = false, isLoading = false) }
             }
         }
     }
