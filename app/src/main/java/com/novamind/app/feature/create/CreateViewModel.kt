@@ -698,15 +698,23 @@ class CreateViewModel @Inject constructor(
         }
     }
 
-    /** 把转写分段拼成可读文本：多说话人时每段前缀「Sx: 」，单说话人直接换行拼接。 */
+    /**
+     * 把转写分段拼成 **Markdown**：每个分段独占一段（空行分隔以确保换行显示），
+     * 有说话人时前缀 **加粗** 的 Speaker（`**Name**：文本`）凸显，无说话人则只放文本。
+     * 结果经 [transcriptionReady] → `editor.appendMarkdown` 渲染进正文并随保存持久化。
+     */
     private fun formatSegments(segments: List<TranscriptSegmentDto>?): String {
         val list = segments.orEmpty().filter { it.text.isNotBlank() }
         if (list.isEmpty()) return ""
-        val multiSpeaker = list.mapNotNull { it.speaker?.takeIf { s -> s.isNotBlank() } }.distinct().size > 1
-        return list.joinToString("\n") { seg ->
-            if (multiSpeaker && !seg.speaker.isNullOrBlank()) "${seg.speaker}: ${seg.text}" else seg.text
+        return list.joinToString("\n\n") { seg ->
+            val speaker = seg.speaker?.trim()?.takeIf { it.isNotBlank() }
+            if (speaker != null) "**${escapeMarkdown(speaker)}**：${seg.text}" else seg.text
         }
     }
+
+    /** 转义 Speaker 名里的 Markdown 强调字符，避免破坏加粗标记。 */
+    private fun escapeMarkdown(s: String): String =
+        s.replace("\\", "\\\\").replace("*", "\\*").replace("_", "\\_")
 
     // ── 图片上传 / 附件 ──────────────────────────────────────────────────────────
 

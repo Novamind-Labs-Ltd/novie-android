@@ -29,15 +29,19 @@ sealed interface EditorBlock {
 data class PolishTarget(val blockId: String, val start: Int, val end: Int)
 
 /**
- * 文本块，内含库 [RichTextState]。正文以**纯文本**持久化（不再存 html），用 [initialText] 初始化。
- * 加粗/斜体等格式在会话内仍可用，但不随保存持久化。
+ * 文本块，内含库 [RichTextState]。正文以 **Markdown** 持久化（保留加粗/斜体/列表）：
+ * [initialMarkdown] 优先（还原格式），否则用 [initialText] 纯文本初始化（旧笔记 / 无格式）。
  */
 class TextBlock(
     initialText: String = "",
+    initialMarkdown: String? = null,
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock {
     val rich = RichTextState().apply {
-        if (initialText.isNotEmpty()) setText(initialText)
+        when {
+            !initialMarkdown.isNullOrBlank() -> setMarkdown(initialMarkdown)
+            initialText.isNotEmpty() -> setText(initialText)
+        }
     }
     val focusRequester = FocusRequester()
 }
@@ -308,7 +312,8 @@ class NoteEditorState {
                 when (block) {
                     is TextBlock -> arr.put(
                         JSONObject().put("type", "text")
-                            .put("text", block.rich.annotatedString.text)   // 纯文本正文（不再存 html）
+                            .put("text", block.rich.annotatedString.text)   // 纯文本：预览/搜索/旧兼容
+                            .put("markdown", block.rich.toMarkdown())        // 富文本：保留加粗/斜体/列表
                     )
                     is ImageBlock -> arr.put(
                         JSONObject().put("type", "image").put("path", block.path)
@@ -355,7 +360,7 @@ class NoteEditorState {
                 if (p is TextBlock && cur is TextBlock &&
                     cur.rich.annotatedString.text != p.rich.annotatedString.text
                 ) {
-                    cur.rich.setText(p.rich.annotatedString.text)   // 原地更新纯文本，避免撤销/重做收键盘
+                    cur.rich.setMarkdown(p.rich.toMarkdown())   // 原地更新（保留格式），避免撤销/重做收键盘
                 }
             }
             return
@@ -389,7 +394,10 @@ class NoteEditorState {
             (0 until arr.length()).mapNotNull { i ->
                 val obj = arr.getJSONObject(i)
                 when (obj.optString("type")) {
-                    "text" -> TextBlock(initialText = obj.optString("text"))
+                    "text" -> TextBlock(
+                        initialText = obj.optString("text"),
+                        initialMarkdown = obj.optString("markdown").ifBlank { null },
+                    )
                     "image" -> {
                         val path = obj.optString("path")
                         val fid = obj.optString("fileId").ifBlank { null }
@@ -435,6 +443,22 @@ class NoteEditorState {
             tail.rich.setText(if (existing.isBlank()) text else "$existing\n\n$text")
         } else {
             _blocks.add(TextBlock(initialText = text))
+            appendTrailingTextIfNeeded()
+        }
+    }
+
+    /**
+     * 追加一段 **Markdown** 到正文末尾（用于把转写结果按段渲染进笔记，保留 Speaker 加粗等格式）。
+     * 末尾是文本块则以 Markdown 形式接在其后（空行分隔），否则新增一个 Markdown 文本块。
+     */
+    fun appendMarkdown(markdown: String) {
+        if (markdown.isBlank()) return
+        val tail = _blocks.lastOrNull()
+        if (tail is TextBlock) {
+            val existing = tail.rich.toMarkdown()
+            tail.rich.setMarkdown(if (existing.isBlank()) markdown else "$existing\n\n$markdown")
+        } else {
+            _blocks.add(TextBlock(initialMarkdown = markdown))
             appendTrailingTextIfNeeded()
         }
     }
