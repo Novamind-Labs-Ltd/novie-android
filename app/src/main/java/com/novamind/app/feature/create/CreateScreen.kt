@@ -180,9 +180,9 @@ fun CreateScreen(
     // 转写结果就绪（§9）→ 追加进正文并同步保存。此时正文只读，但程序化写入不受影响。
     // 先等正文首次加载完成，避免进页即 READY 时 append 被随后的回填覆盖。
     LaunchedEffect(transcriptionReady) {
-        transcriptionReady?.collect { markdown ->
+        transcriptionReady?.collect { html ->
             snapshotFlow { bodyLoaded }.first { it }
-            editor.appendMarkdown(markdown)   // 转写文本为 Markdown（Speaker 加粗、分段换行）
+            editor.appendHtml(html)   // 转写文本为 HTML（Speaker 加粗+配色、分段换行）
             emitContent()
         }
     }

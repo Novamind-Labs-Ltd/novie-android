@@ -660,22 +660,35 @@ class CreateViewModel @Inject constructor(
     }
 
     /**
-     * 把转写分段拼成 **Markdown**：每个分段独占一段（空行分隔以确保换行显示），
-     * 有说话人时前缀 **加粗** 的 Speaker（`**Name**：文本`）凸显，无说话人则只放文本。
-     * 结果经 [transcriptionReady] → `editor.appendMarkdown` 渲染进正文并随保存持久化。
+     * 把转写分段拼成 **HTML**：每个分段独占一段（`<p>` 换行显示）；有说话人时前缀
+     * **加粗 + 配色** 的 Speaker（`<b><span style="color:#..">Name</span></b>：文本`）凸显，无说话人只放文本。
+     * 颜色从 [SPEAKER_PALETTE] 取，按说话人名 hash 稳定映射——**同一 speaker 恒定同色**。
+     * 结果经 [transcriptionReady] → `editor.appendHtml` 渲染进正文并随保存持久化（HTML）。
      */
     private fun formatSegments(segments: List<TranscriptSegmentDto>?): String {
         val list = segments.orEmpty().filter { it.text.isNotBlank() }
         if (list.isEmpty()) return ""
-        return list.joinToString("\n\n") { seg ->
+        return list.joinToString("") { seg ->
             val speaker = seg.speaker?.trim()?.takeIf { it.isNotBlank() }
-            if (speaker != null) "**${escapeMarkdown(speaker)}**：${seg.text}" else seg.text
+            val body = escapeHtml(seg.text)
+            if (speaker != null) {
+                val color = speakerColor(speaker)
+                "<p><b><span style=\"color:$color\">${escapeHtml(speaker)}</span></b>：$body</p>"
+            } else {
+                "<p>$body</p>"
+            }
         }
     }
 
-    /** 转义 Speaker 名里的 Markdown 强调字符，避免破坏加粗标记。 */
-    private fun escapeMarkdown(s: String): String =
-        s.replace("\\", "\\\\").replace("*", "\\*").replace("_", "\\_")
+    /** 说话人 → 调色板颜色：按名字 hash 取模，保证同一说话人每次都同色。 */
+    private fun speakerColor(speaker: String): String {
+        val idx = (speaker.hashCode() % SPEAKER_PALETTE.size + SPEAKER_PALETTE.size) % SPEAKER_PALETTE.size
+        return SPEAKER_PALETTE[idx]
+    }
+
+    /** 转义 HTML 特殊字符，避免转写文本 / 说话人名破坏 HTML 结构。 */
+    private fun escapeHtml(s: String): String =
+        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     // ── 图片上传 / 附件 ──────────────────────────────────────────────────────────
 
@@ -770,5 +783,11 @@ class CreateViewModel @Inject constructor(
 
         /** 转写 READY 后等正文追加回流到 body 的最长等待，超时则直接以当前 body 保存。 */
         const val APPEND_SYNC_TIMEOUT_MS = 3_000L
+
+        /** 转写说话人配色调色板（在浅底上可辨识）；按说话人名 hash 稳定取色，同名恒定同色。 */
+        val SPEAKER_PALETTE = listOf(
+            "#E53935", "#8E24AA", "#3949AB", "#1E88E5", "#00897B",
+            "#43A047", "#F4511E", "#6D4C41", "#C2185B", "#00838F",
+        )
     }
 }

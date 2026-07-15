@@ -29,17 +29,17 @@ sealed interface EditorBlock {
 data class PolishTarget(val blockId: String, val start: Int, val end: Int)
 
 /**
- * 文本块，内含库 [RichTextState]。正文以 **Markdown** 持久化（保留加粗/斜体/列表）：
- * [initialMarkdown] 优先（还原格式），否则用 [initialText] 纯文本初始化（旧笔记 / 无格式）。
+ * 文本块，内含库 [RichTextState]。正文以 **HTML** 持久化（保留加粗/斜体/列表/颜色等富文本）：
+ * [initialHtml] 优先（还原格式），否则用 [initialText] 纯文本初始化（旧笔记 / 无格式）。
  */
 class TextBlock(
     initialText: String = "",
-    initialMarkdown: String? = null,
+    initialHtml: String? = null,
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock {
     val rich = RichTextState().apply {
         when {
-            !initialMarkdown.isNullOrBlank() -> setMarkdown(initialMarkdown)
+            !initialHtml.isNullOrBlank() -> setHtml(initialHtml)
             initialText.isNotEmpty() -> setText(initialText)
         }
     }
@@ -313,7 +313,7 @@ class NoteEditorState {
                     is TextBlock -> arr.put(
                         JSONObject().put("type", "text")
                             .put("text", block.rich.annotatedString.text)   // 纯文本：预览/搜索/旧兼容
-                            .put("markdown", block.rich.toMarkdown())        // 富文本：保留加粗/斜体/列表
+                            .put("html", block.rich.toHtml())                // 富文本：保留加粗/斜体/列表/颜色
                     )
                     is ImageBlock -> arr.put(
                         JSONObject().put("type", "image").put("path", block.path)
@@ -360,7 +360,7 @@ class NoteEditorState {
                 if (p is TextBlock && cur is TextBlock &&
                     cur.rich.annotatedString.text != p.rich.annotatedString.text
                 ) {
-                    cur.rich.setMarkdown(p.rich.toMarkdown())   // 原地更新（保留格式），避免撤销/重做收键盘
+                    cur.rich.setHtml(p.rich.toHtml())   // 原地更新（保留格式），避免撤销/重做收键盘
                 }
             }
             return
@@ -396,7 +396,7 @@ class NoteEditorState {
                 when (obj.optString("type")) {
                     "text" -> TextBlock(
                         initialText = obj.optString("text"),
-                        initialMarkdown = obj.optString("markdown").ifBlank { null },
+                        initialHtml = obj.optString("html").ifBlank { null },
                     )
                     "image" -> {
                         val path = obj.optString("path")
@@ -448,17 +448,17 @@ class NoteEditorState {
     }
 
     /**
-     * 追加一段 **Markdown** 到正文末尾（用于把转写结果按段渲染进笔记，保留 Speaker 加粗等格式）。
-     * 末尾是文本块则以 Markdown 形式接在其后（空行分隔），否则新增一个 Markdown 文本块。
+     * 追加一段 **HTML** 到正文末尾（用于把转写结果按段渲染进笔记，保留 Speaker 加粗/配色等格式）。
+     * 末尾是文本块则把 HTML 拼接在其后，否则新增一个 HTML 文本块。
      */
-    fun appendMarkdown(markdown: String) {
-        if (markdown.isBlank()) return
+    fun appendHtml(html: String) {
+        if (html.isBlank()) return
         val tail = _blocks.lastOrNull()
         if (tail is TextBlock) {
-            val existing = tail.rich.toMarkdown()
-            tail.rich.setMarkdown(if (existing.isBlank()) markdown else "$existing\n\n$markdown")
+            val existing = tail.rich.toHtml()
+            tail.rich.setHtml(if (existing.isBlank()) html else "$existing$html")
         } else {
-            _blocks.add(TextBlock(initialMarkdown = markdown))
+            _blocks.add(TextBlock(initialHtml = html))
             appendTrailingTextIfNeeded()
         }
     }
