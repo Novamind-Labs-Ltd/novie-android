@@ -20,6 +20,7 @@ import com.novamind.app.util.ColorUtils.toHex
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.novamind.app.common.net.TranscriptSegmentDto
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -30,7 +31,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
@@ -46,6 +46,12 @@ import java.io.File
 import java.time.Instant
 
 private data class TextSnapshot(val title: String, val body: String)
+
+/**
+ * 转写结果插入事件：[html] 为渲染好的富文本，[ack] 供 UI 追加并回流 body 后 complete，
+ * VM 据此确认「UI 已更新完成」再保存（见 [CreateViewModel.startTranscriptionPolling] 的 READY 分支）。
+ */
+data class TranscriptionInsert(val html: String, val ack: CompletableDeferred<Unit>)
 
 @OptIn(FlowPreview::class)
 @HiltViewModel
@@ -77,8 +83,9 @@ class CreateViewModel @Inject constructor(
     private val _recordingUploaded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val recordingUploaded = _recordingUploaded.asSharedFlow()
 
-    // 转写结果就绪的一次性事件：携带渲染好的文本，供 UI 追加进正文（§9）。
-    private val _transcriptionReady = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    // 转写结果就绪的一次性事件：携带渲染好的 HTML + 完成 ack，供 UI 追加进正文（§9）。
+    // UI 追加并回流 body 后 complete(ack)，VM 据此确定「UI 已更新完」再保存，保证顺序（见 startTranscriptionPolling）。
+    private val _transcriptionReady = MutableSharedFlow<TranscriptionInsert>(extraBufferCapacity = 1)
     val transcriptionReady = _transcriptionReady.asSharedFlow()
 
     // 图片上传并发限流（一次多选最多 5 张，限 AppConfig.Media.MAX_UPLOAD_CONCURRENCY 并发、其余排队）。
@@ -612,22 +619,20 @@ class CreateViewModel @Inject constructor(
                         }
                     }
                     // 取最新（末尾）未消费任务（排除听写 Y）；无待处理 → 结束（不显示 loading）
-                    val task = tasks.lastOrNull { !it.consumed && it.kind != "Y" } ?: break
+                    val task = tasks.lastOrNull { !it.consumed && it.kind == "X" } ?: break
                     when (task.presentationState) {
                         "READY" -> {
                             val text = formatSegments(task.resultSegments)
                             AppLog.i(TAG) { "transcription READY noteId=$noteId jobId=${task.jobId} len=${text.length}" }
                             // 三步严格串行，保障「文本先落盘再消费」：
-                            // 1) 更新 UI：把转写文本追加进正文并显示；等其回流到 body（body 变化只来自本次程序化追加）。
+                            // 1) 更新 UI：把转写文本追加进正文并显示；等 UI 明确回 ack（追加+回流 body 完成）再继续。
                             if (text.isNotBlank()) {
-                                val before = _uiState.value.body
-                                _transcriptionReady.tryEmit(text)
-                                val appended = withTimeoutOrNull(APPEND_SYNC_TIMEOUT_MS) {
-                                    uiState.first { it.body != before }
-                                } != null
-                                if (!appended) {
-                                    // 追加未回流（事件丢失/超时）→ 不保存也不 consume，避免消费后丢文本；下次进页重试。
-                                    AppLog.w(TAG) { "transcription READY 追加未回流，暂不保存/consume noteId=$noteId jobId=${task.jobId}" }
+                                val ack = CompletableDeferred<Unit>()
+                                _transcriptionReady.tryEmit(TranscriptionInsert(text, ack))
+                                val done = withTimeoutOrNull(APPEND_SYNC_TIMEOUT_MS) { ack.await() } != null
+                                if (!done) {
+                                    // UI 未确认追加完成（未订阅/超时）→ 不保存也不 consume，避免消费后丢文本；下次进页重试。
+                                    AppLog.w(TAG) { "transcription READY 追加未完成，暂不保存/consume noteId=$noteId jobId=${task.jobId}" }
                                     break
                                 }
                             }
@@ -781,7 +786,7 @@ class CreateViewModel @Inject constructor(
     private companion object {
         const val TAG = "CreateVM"
 
-        /** 转写 READY 后等正文追加回流到 body 的最长等待，超时则直接以当前 body 保存。 */
+        /** 转写 READY 后等 UI 追加完成 ack 的最长等待，超时（如页面未订阅）则不保存/不 consume，下次进页重试。 */
         const val APPEND_SYNC_TIMEOUT_MS = 3_000L
 
         /** 转写说话人配色调色板（在浅底上可辨识）；按说话人名 hash 稳定取色，同名恒定同色。 */

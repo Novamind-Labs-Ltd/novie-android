@@ -102,8 +102,8 @@ fun CreateScreen(
     onCancelUploadRecording: () -> Unit = {},
     // 源录音上传成功的一次性事件：到达后关闭录音面板
     recordingUploaded: kotlinx.coroutines.flow.Flow<Unit>? = null,
-    // 转写结果就绪的一次性事件：携带文本，追加进正文（§9）
-    transcriptionReady: kotlinx.coroutines.flow.Flow<String>? = null,
+    // 转写结果就绪的一次性事件：携带 HTML + ack，追加进正文后 complete(ack) 通知 VM（§9）
+    transcriptionReady: kotlinx.coroutines.flow.Flow<TranscriptionInsert>? = null,
     modifier: Modifier = Modifier,
     forceToolbarVisible: Boolean = false,   // 预览用：强制显示格式工具栏
 ) {
@@ -180,10 +180,11 @@ fun CreateScreen(
     // 转写结果就绪（§9）→ 追加进正文并同步保存。此时正文只读，但程序化写入不受影响。
     // 先等正文首次加载完成，避免进页即 READY 时 append 被随后的回填覆盖。
     LaunchedEffect(transcriptionReady) {
-        transcriptionReady?.collect { html ->
+        transcriptionReady?.collect { insert ->
             snapshotFlow { bodyLoaded }.first { it }
-            editor.appendHtml(html)   // 转写文本为 HTML（Speaker 加粗+配色、分段换行）
-            emitContent()
+            editor.appendHtml(insert.html)   // 转写文本为 HTML（Speaker 加粗+配色、分段换行）
+            emitContent()                    // 同步更新 uiState.body
+            insert.ack.complete(Unit)        // 明确通知 VM：UI 已追加完成，可安全保存
         }
     }
 
