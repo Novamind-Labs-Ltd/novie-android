@@ -69,10 +69,10 @@ internal fun NoteCard(
             // 标题为空时：用正文作标题（限 1 行），正文区显示标题没显示完的剩余内容
             val hasTitle = note.title.isNotBlank()
             // 标题 1 行实际渲染到的字符末尾位置，用于截取剩余正文
-            var titleEnd by remember(note.id, note.description) { mutableStateOf(-1) }
+            var titleEnd by remember(note.id, note.preview) { mutableStateOf(-1) }
 
             Text(
-                text = if (hasTitle) note.title else note.description,
+                text = if (hasTitle) note.title else note.preview,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextTitle,
@@ -88,9 +88,9 @@ internal fun NoteCard(
             )
 
             val bodyText = when {
-                hasTitle -> note.description
-                titleEnd in 0 until note.description.length ->
-                    note.description.substring(titleEnd).trimStart('\n', ' ')
+                hasTitle -> note.preview
+                titleEnd in 0 until note.preview.length ->
+                    note.preview.substring(titleEnd).trimStart('\n', ' ')
                 else -> ""
             }
             if (bodyText.isNotBlank()) {

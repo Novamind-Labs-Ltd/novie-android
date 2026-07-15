@@ -211,6 +211,7 @@ class RemoteNotesRepository : NotesRepository {
     private fun NoteListItemDto.toSummary(): RemoteNoteSummary = RemoteNoteSummary(
         id = id,
         title = title,
+        preview = preview,
         borderColorHex = borderColorHex,
         createdAt = createdAt,
         updatedAt = updatedAt,

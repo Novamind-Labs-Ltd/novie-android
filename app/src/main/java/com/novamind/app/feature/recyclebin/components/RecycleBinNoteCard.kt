@@ -80,7 +80,7 @@ internal fun RecycleBinNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
             // 标题为空时用正文充当标题（限 1 行），与首页 / Library 卡片一致
             val hasTitle = note.title.isNotBlank()
             Text(
-                text = if (hasTitle) note.title else note.description,
+                text = if (hasTitle) note.title else note.preview,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextTitle,
@@ -88,9 +88,9 @@ internal fun RecycleBinNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
                 overflow = TextOverflow.Ellipsis,
             )
             // 内容：占满剩余空间，把缩略图压到底部
-            if (note.description.isNotBlank()) {
+            if (note.preview.isNotBlank()) {
                 Text(
-                    text = note.description,
+                    text = note.preview,
                     fontSize = 12.sp,
                     color = ColorTextSub,
                     lineHeight = 17.sp,
@@ -128,7 +128,7 @@ private fun RecycleBinNoteCardPreview() {
             note = NoteItem(
                 id = "1",
                 title = "Q3 marketing campaign",
-                description = "Meeting Summary\nQ3 Strategy: Reviewed competitor analysis and finalized the budget for the upcoming product launch.",
+                preview = "Meeting Summary\nQ3 Strategy: Reviewed competitor analysis and finalized the budget for the upcoming product launch.",
                 updatedAt = System.currentTimeMillis(),
             ),
         )

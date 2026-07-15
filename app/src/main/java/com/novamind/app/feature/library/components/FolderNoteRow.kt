@@ -42,7 +42,7 @@ internal fun FolderNoteRow(note: NoteItem, onClick: () -> Unit) {
             )
             Text(note.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
             Text(
-                note.description,
+                note.preview,
                 fontSize = 14.sp,
                 color = ColorTextTitle.copy(alpha = 0.8f),
                 lineHeight = 20.sp,

@@ -76,10 +76,10 @@ internal fun LibraryNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
             // 标题为空时：用正文作标题（限 1 行），正文区显示标题没显示完的剩余内容
             val hasTitle = note.title.isNotBlank()
             // 标题 1 行实际渲染到的字符末尾位置，用于截取剩余正文
-            var titleEnd by remember(note.id, note.description) { mutableStateOf(-1) }
+            var titleEnd by remember(note.id, note.preview) { mutableStateOf(-1) }
 
             Text(
-                text = if (hasTitle) note.title else note.description,
+                text = if (hasTitle) note.title else note.preview,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 color = ColorTextTitle,
@@ -96,9 +96,9 @@ internal fun LibraryNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
 
             // 内容：占满标题与图片之外的剩余空间
             val bodyText = when {
-                hasTitle -> note.description
-                titleEnd in 0 until note.description.length ->
-                    note.description.substring(titleEnd).trimStart('\n', ' ')
+                hasTitle -> note.preview
+                titleEnd in 0 until note.preview.length ->
+                    note.preview.substring(titleEnd).trimStart('\n', ' ')
                 else -> ""
             }
             if (bodyText.isNotBlank()) {
@@ -144,7 +144,7 @@ private fun LibraryNoteCardPreview() {
             note = NoteItem(
                 id = "1",
                 title = "Product roadmap",
-                description = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
                 tags = listOf("Work"),
                 folderName = "Work",
                 updatedAt = System.currentTimeMillis(),
@@ -161,7 +161,7 @@ private fun LibraryNoteCardWithImagePreview() {
             note = NoteItem(
                 id = "2",
                 title = "Product roadmap",
-                description = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
                 tags = listOf("Work"),
                 folderName = "Work",
                 updatedAt = System.currentTimeMillis(),

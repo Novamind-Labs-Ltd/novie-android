@@ -222,7 +222,7 @@ class LibraryViewModel @Inject constructor(
     private fun RemoteNoteSummary.toNoteItem(folderName: String?): NoteItem = NoteItem(
         id = id,
         title = title.orEmpty(),
-        description = "",
+        preview = preview.orEmpty(),
         tags = emptyList(),
         borderColor = ColorUtils.parseHexColor(borderColorHex),
         imagePath = null,

@@ -6,7 +6,8 @@ import androidx.compose.ui.graphics.Color
 data class NoteItem(
     val id: String,
     val title: String,
-    val description: String,
+    /** 纯文本摘要（服务端 preview：正文首行、≤50 字）；列表副标题展示用。 */
+    val preview: String,
     val isSelected: Boolean = false,
     val tags: List<String> = emptyList(),
     /** 自定义边框颜色；null = 默认边框（hex 仅在数据层转换） */

@@ -101,7 +101,7 @@ class RecycleBinViewModel @Inject constructor(
     private fun RemoteNoteSummary.toNoteItem(): NoteItem = NoteItem(
         id = id,
         title = title.orEmpty(),
-        description = "",
+        preview = preview.orEmpty(),
         tags = emptyList(),
         borderColor = ColorUtils.parseHexColor(borderColorHex),
         folderName = null,

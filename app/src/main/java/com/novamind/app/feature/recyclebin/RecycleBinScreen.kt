@@ -221,13 +221,13 @@ private val sampleDeleted = listOf(
     NoteItem(
         id = "1",
         title = "Q3 marketing campaign",
-        description = "Meeting Summary\nQ3 Strategy: Reviewed competitor analysis and finalized the budget for the upcoming product launch.",
+        preview = "Meeting Summary\nQ3 Strategy: Reviewed competitor analysis and finalized the budget for the upcoming product launch.",
         updatedAt = System.currentTimeMillis(),
     ),
     NoteItem(
         id = "2",
         title = "Team retro",
-        description = "Sprint retrospective notes.",
+        preview = "Sprint retrospective notes.",
         updatedAt = System.currentTimeMillis() - 5L * 86_400_000L,
     ),
 )

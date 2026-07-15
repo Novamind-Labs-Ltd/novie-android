@@ -10,6 +10,8 @@ package com.novamind.app.feature.create.model
 data class RemoteNoteSummary(
     val id: String,
     val title: String?,
+    /** 纯文本摘要（后端 preview：正文首行、上限约 30-50 字）。 */
+    val preview: String?,
     val borderColorHex: String?,
     val createdAt: String?,   // ISO-8601
     val updatedAt: String?,   // ISO-8601

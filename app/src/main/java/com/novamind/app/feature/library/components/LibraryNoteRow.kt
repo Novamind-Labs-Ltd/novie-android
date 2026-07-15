@@ -56,7 +56,7 @@ internal fun LibraryNoteRow(note: NoteItem, onClick: () -> Unit = {}) {
                 )
             }
             Text(
-                note.description,
+                note.preview,
                 fontSize = 13.sp,
                 color = ColorTextSub,
                 lineHeight = 18.sp,

@@ -111,6 +111,8 @@ data class NotePageViewDto(
 data class NoteListItemDto(
     val id: String,
     val title: String? = null,
+    /** 纯文本摘要（列表卡片用）。 */
+    val preview: String? = null,
     val borderColorHex: String? = null,
     val createdAt: String? = null,
     val updatedAt: String? = null,
