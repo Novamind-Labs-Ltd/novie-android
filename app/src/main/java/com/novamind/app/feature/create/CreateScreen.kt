@@ -61,6 +61,7 @@ import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.UploadState
+import com.novamind.app.feature.create.model.TranscriptionInsert
 import com.novamind.app.feature.create.folder.FolderPickerSheet
 import com.novamind.app.feature.create.tag.TagPickerSheet
 import com.novamind.app.feature.create.editor.ImageStore

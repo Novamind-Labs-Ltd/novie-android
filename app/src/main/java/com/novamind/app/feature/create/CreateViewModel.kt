@@ -1,10 +1,11 @@
 package com.novamind.app.feature.create
 
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.compose.ui.graphics.toArgb
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
+import com.novamind.app.common.net.TranscriptSegmentDto
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.AudioUploadRepository
@@ -15,17 +16,16 @@ import com.novamind.app.data.TagRepository
 import com.novamind.app.data.TranscriptionRepository
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
+import com.novamind.app.feature.create.model.TextSnapshot
+import com.novamind.app.feature.create.model.TranscriptionInsert
 import com.novamind.app.feature.create.tag.Tag
 import com.novamind.app.util.ColorUtils
 import com.novamind.app.util.ColorUtils.toHex
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import com.novamind.app.common.net.TranscriptSegmentDto
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,24 +36,29 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
-
-private data class TextSnapshot(val title: String, val body: String)
+import javax.inject.Inject
 
 /**
- * 转写结果插入事件：[html] 为渲染好的富文本，[ack] 供 UI 追加并回流 body 后 complete，
- * VM 据此确认「UI 已更新完成」再保存（见 [CreateViewModel.startTranscriptionPolling] 的 READY 分支）。
+ * 「新建 / 编辑笔记」页的 ViewModel（MVVM 单一状态源）：持有 [CreateUiState]，承接编辑器的
+ * 标题 / 正文 / 标签 / 文件夹 / 边框色变更。主要职责：
+ * - **自动保存**：变更发 [saveTrigger]，经防抖 + 封顶两条流限频，由 [saveNow] 串行落盘
+ *   （无 id 走 POST、有 id 走 PUT，latest-wins 乐观锁）；
+ * - **撤销 / 重做**：本地 [undoStack] / [redoStack] 维护标题+正文快照；
+ * - **附件**：图片上传（[uploadImage]）+ 保存时按正文对账挂载/摘除（[reconcileAttachments]）；
+ * - **源录音转写**：录音上传（[uploadRecording]）→ 轮询结果（[startTranscriptionPolling]）→ 追加进正文。
+ *
+ * 一次性事件（导航返回 / 保存失败 / 录音上传成功 / 转写就绪）用 [MutableSharedFlow] 暴露，避免重组重复触发。
  */
-data class TranscriptionInsert(val html: String, val ack: CompletableDeferred<Unit>)
-
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class CreateViewModel @Inject constructor(
@@ -65,6 +70,8 @@ class CreateViewModel @Inject constructor(
     private val audioUploadRepository: AudioUploadRepository,
     private val transcriptionRepository: TranscriptionRepository,
 ) : ViewModel() {
+
+    // ── 对外状态与一次性事件 ─────────────────────────────────────────────────────
 
     private val _uiState = MutableStateFlow(CreateUiState())
     val uiState = _uiState.asStateFlow()
@@ -98,6 +105,8 @@ class CreateViewModel @Inject constructor(
     // 附件 fileId → 签名下载 URL（loadNote 后由 GET attachments 提供，供编辑器渲染兜底）。
     private val _attachmentUrls = MutableStateFlow<Map<String, String>>(emptyMap())
     val attachmentUrls: StateFlow<Map<String, String>> = _attachmentUrls.asStateFlow()
+
+    // ── 内部记账（撤销栈 / 保存限频 / 乐观锁版本 / 在途协程） ──────────────────────
 
     private val undoStack = ArrayDeque<TextSnapshot>()
     private val redoStack = ArrayDeque<TextSnapshot>()
@@ -393,14 +402,32 @@ class CreateViewModel @Inject constructor(
         viewModelScope.launch { saveNow() }
     }
 
+    /** 新建成功后回填服务端 id/rev 并记住已存快照（[saveNow] 与 [uploadRecording] 复用）。 */
+    private fun markNoteCreated(id: String, rev: Long?, snapshot: TextSnapshot) {
+        remoteRev = rev
+        savedSnapshot = snapshot
+        _uiState.update { it.copy(editingNoteId = id) }
+    }
+
+    /** 保存（POST/PUT）业务错误统一处理：记日志 + 发一次性 [saveError]（供 UI 弹 Toast）。[op] 供日志定位。 */
+    private fun onNoteSaveBizError(op: String, r: ApiResult.BizError) {
+        AppLog.w(TAG) { "$op 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
+        _saveError.tryEmit(r.message ?: "Save failed (${r.code})")
+    }
+
+    /** 保存（POST/PUT）网络错误统一处理：记日志 + 发一次性 [saveError]。 */
+    private fun onNoteSaveNetworkError(op: String, r: ApiResult.NetworkError) {
+        AppLog.w(TAG) { "$op 网络错误: ${r.message}" }
+        _saveError.tryEmit("Network error, note not saved")
+    }
+
     /**
      * 落盘到服务端：无 id → `POST /notes` 新建；有 id → `PUT /notes/{id}` 全量更新（latest-wins 乐观锁）。
      *
      * 由 [saveMutex] 串行化，避免防抖/封顶两条流并发写、乱序，也保证「新建的首个请求先拿到服务端 id」
      * 后，后续请求走更新而非重复新建。仅同步 title + 正文（服务端 content 约定 `{"body": …}`）；
      * 边框色（另有 border-color 端点）、标签/文件夹（本地概念）不经此路径。
-     */
-    /**
+     *
      * @return 正文是否已就绪落盘：`true`=保存成功 / 空笔记或无变化的无需保存；
      *   `false`=保存失败或 latest-wins 未生效（供转写 READY 流据此决定是否 consume）。
      */
@@ -425,22 +452,13 @@ class CreateViewModel @Inject constructor(
                 // 新建：POST /notes
                 when (val r = notesRepository.createNote(title = state.title, body = state.body)) {
                     is ApiResult.Success -> r.data?.let { note ->
-                        remoteRev = note.rev
-                        savedSnapshot = current
-                        _uiState.update {
-                            it.copy(editingNoteId = note.id, updatedAt = note.updatedAt.toEpochMillisOrNull())
-                        }
+                        markNoteCreated(note.id, note.rev, current)
+                        _uiState.update { it.copy(updatedAt = note.updatedAt.toEpochMillisOrNull()) }
                         AppLog.i(TAG) { "createNote 成功 id=${note.id} rev=${note.rev}" }
                         ok = true
                     }
-                    is ApiResult.BizError -> {
-                        AppLog.w(TAG) { "createNote 业务错误 code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                        _saveError.tryEmit(r.message ?: "Save failed (${r.code})")
-                    }
-                    is ApiResult.NetworkError -> {
-                        AppLog.w(TAG) { "createNote 网络错误: ${r.message}" }
-                        _saveError.tryEmit("Network error, note not saved")
-                    }
+                    is ApiResult.BizError -> onNoteSaveBizError("createNote", r)
+                    is ApiResult.NetworkError -> onNoteSaveNetworkError("createNote", r)
                 }
             } else {
                 // 更新：PUT /notes/{id}（latest-wins 乐观锁，带上手上的 rev）
@@ -461,14 +479,8 @@ class CreateViewModel @Inject constructor(
                             ok = true
                         }
                     }
-                    is ApiResult.BizError -> {
-                        AppLog.w(TAG) { "updateNote 业务错误 id=$id code=${r.code} traceId=${r.traceId} msg=${r.message}" }
-                        _saveError.tryEmit(r.message ?: "Save failed (${r.code})")
-                    }
-                    is ApiResult.NetworkError -> {
-                        AppLog.w(TAG) { "updateNote 网络错误 id=$id: ${r.message}" }
-                        _saveError.tryEmit("Network error, note not saved")
-                    }
+                    is ApiResult.BizError -> onNoteSaveBizError("updateNote id=$id", r)
+                    is ApiResult.NetworkError -> onNoteSaveNetworkError("updateNote id=$id", r)
                 }
             }
             // 正文落盘后做附件对账（笔记已有 id 时）：正文里已上传的图片挂上、移除的摘掉
@@ -524,9 +536,7 @@ class CreateViewModel @Inject constructor(
                 val s = _uiState.value
                 when (val r = notesRepository.createNote(s.title, s.body)) {
                     is ApiResult.Success -> r.data?.let { note ->
-                        remoteRev = note.rev
-                        savedSnapshot = TextSnapshot(s.title, s.body)
-                        _uiState.update { it.copy(editingNoteId = note.id) }
+                        markNoteCreated(note.id, note.rev, TextSnapshot(s.title, s.body))
                         noteId = note.id
                     }
                     is ApiResult.BizError -> AppLog.w(TAG) { "uploadRecording 建笔记业务错误 code=${r.code}" }
