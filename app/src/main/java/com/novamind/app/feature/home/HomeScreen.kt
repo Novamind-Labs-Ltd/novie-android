@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,8 +20,8 @@ import com.novamind.app.feature.home.components.HomeTopBar
 import com.novamind.app.feature.home.components.RecentNoteCard
 import com.novamind.app.feature.home.components.SectionHeader
 import com.novamind.app.feature.home.components.UpcomingCard
-import com.novamind.app.common.config.AppConfig
 import com.novamind.app.feature.create.model.NoteItem
+import com.novamind.app.ui.components.AppPullToRefresh
 import com.novamind.app.ui.theme.AppTheme
 
 // 配色与视觉组件在 feature/home/components 包（HomeColors 等），本文件只保留编排与菜单模型。
@@ -74,47 +71,38 @@ fun HomeScreen(
     notificationCount: Int = 0,
     modifier: Modifier = Modifier,
 ) {
-    // 下拉刷新：每次开始刷新时从共享配色池随机换一个指示器颜色（配色池见 AppConfig）。
-    val pullState = rememberPullToRefreshState()
-    var indicatorColor by remember { mutableStateOf(AppConfig.PullRefresh.INDICATOR_COLORS.first()) }
-    LaunchedEffect(uiState.isRefreshing) {
-        if (uiState.isRefreshing) indicatorColor = AppConfig.PullRefresh.INDICATOR_COLORS.random()
-    }
-
-    PullToRefreshBox(
-        isRefreshing = uiState.isRefreshing,
-        onRefresh = onRefresh,
-        state = pullState,
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BgPage),
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullState,
-                isRefreshing = uiState.isRefreshing,
-                color = indicatorColor,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-        },
+            .background(BgPage)
+            .statusBarsPadding(),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
-                .padding(bottom = 120.dp),
-        ) {
-            // ── 顶部：头像 + 问候 + 提醒 ─────────────────────────────────────
-            HomeTopBar(
-                userName = userName,
-                onNotificationsClick = onNotificationsClick,
-                onAvatarClick = onAvatarClick,
-                avatarPath = avatarPath,
-                notificationCount = notificationCount,
-                modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
-            )
+        // ── 固定头部：头像 + 问候 + 提醒（不随下拉/滚动移动）─────────────────
+        HomeTopBar(
+            userName = userName,
+            onNotificationsClick = onNotificationsClick,
+            onAvatarClick = onAvatarClick,
+            avatarPath = avatarPath,
+            notificationCount = notificationCount,
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
+        )
 
-            Spacer(modifier = Modifier.height(8.dp))
+        // ── 自定义下拉刷新（非系统 PullToRefreshBox）：头部固定；下拉时内容整体下移，
+        //     spinner 与内容平级、显示在让出的空白带中 ─────────────────────────
+        AppPullToRefresh(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 120.dp),
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
 
             // ── Up next ──────────────────────────────────────────────────────
             SectionHeader(
@@ -193,7 +181,8 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }
