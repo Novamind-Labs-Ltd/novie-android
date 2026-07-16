@@ -90,6 +90,9 @@ object AppConfig {
         /** 笔记列表每页条数（GET /notes，后端默认 50、硬上限 100）。 */
         const val NOTES_PAGE_SIZE = 50
 
+        /** 首页「Recent notes」展示条数上限（只影响首页，Library/回收站仍用 [NOTES_PAGE_SIZE]）。 */
+        const val HOME_RECENT_NOTES_SIZE = 20
+
         /** 文件夹列表每页条数（GET /folders，后端硬上限 100）。 */
         const val FOLDERS_PAGE_SIZE = 100
     }

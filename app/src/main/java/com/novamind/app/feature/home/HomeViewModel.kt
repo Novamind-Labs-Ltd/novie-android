@@ -75,7 +75,7 @@ class HomeViewModel @Inject constructor(
             else it.copy(isLoading = true, errorMessage = null)
         }
         viewModelScope.launch {
-            notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE).fold(
+            notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.HOME_RECENT_NOTES_SIZE).fold(
                 onSuccess = { page ->
                     val items = page?.items.orEmpty().map { it.toNoteItem() }
                     _uiState.update {
