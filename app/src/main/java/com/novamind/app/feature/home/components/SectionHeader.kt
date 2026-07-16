@@ -32,8 +32,8 @@ internal fun SectionHeader(
     ) {
         Text(
             text = title,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
             color = ColorTextTitle,
         )
         IconButton(onClick = onSeeAll, modifier = Modifier.size(28.dp)) {

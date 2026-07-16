@@ -31,12 +31,14 @@ class HomeViewModel @Inject constructor(
                     title = "Monthly report sharing",
                     subtitle = "Team project progress tracking",
                     iconResId = R.drawable.ic_upcoming_report,
+                    time = "10:00",
                 ),
                 UpcomingItem(
                     id = "2",
                     title = "Board meeting",
                     subtitle = "Internal stakeholder alignment",
                     iconResId = R.drawable.ic_upcoming_meeting,
+                    time = "11:30",
                 ),
             ),
         )

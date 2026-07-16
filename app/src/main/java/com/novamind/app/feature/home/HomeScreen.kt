@@ -3,10 +3,7 @@ package com.novamind.app.feature.home
 import com.novamind.app.common.log.AppLog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -15,17 +12,15 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.feature.home.components.AskNovieButton
 import com.novamind.app.feature.home.components.BgPage
 import com.novamind.app.feature.home.components.ColorTextHint
-import com.novamind.app.feature.home.components.ColorTextTitle
 import com.novamind.app.feature.home.components.HomeTopBar
-import com.novamind.app.feature.home.components.NoteCard
-import com.novamind.app.feature.home.components.SearchBar
+import com.novamind.app.feature.home.components.RecentNoteCard
 import com.novamind.app.feature.home.components.SectionHeader
 import com.novamind.app.feature.home.components.UpcomingCard
 import com.novamind.app.common.config.AppConfig
@@ -36,7 +31,7 @@ import com.novamind.app.ui.theme.AppTheme
 
 private const val TAG = "Home"
 
-// ─── 顶部「更多」底部弹窗菜单 ──────────────────────────────────────────────────
+// ─── 「更多」菜单模型（保留供 MoreSheet 复用；home_final 顶栏已不直接展示） ────────
 
 /** 菜单分组。 */
 enum class HomeMenuSection(val title: String) {
@@ -66,21 +61,19 @@ enum class HomeMenuItem(
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
-    onSearchQueryChange: (String) -> Unit,
     onUpcomingSeeAll: () -> Unit,
     onNotesSeeAll: () -> Unit,
     onNoteClick: (noteId: String) -> Unit = {},
-    onMenuAction: (HomeMenuItem) -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
+    onAskNovie: () -> Unit = {},
+    onStartNotes: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    userName: String = "",
     avatarPath: String? = null,
     notificationCount: Int = 0,
-    forceMenuOpen: Boolean = false,   // 预览用：默认展开「更多」菜单
     modifier: Modifier = Modifier,
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-
     // 下拉刷新：每次开始刷新时从共享配色池随机换一个指示器颜色（配色池见 AppConfig）。
     val pullState = rememberPullToRefreshState()
     var indicatorColor by remember { mutableStateOf(AppConfig.PullRefresh.INDICATOR_COLORS.first()) }
@@ -109,67 +102,58 @@ fun HomeScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
-                .padding(bottom = 100.dp),
+                .padding(bottom = 120.dp),
         ) {
-            // ── 顶部栏 ──────────────────────────────────────────────────────
+            // ── 顶部：头像 + 问候 + 提醒 ─────────────────────────────────────
             HomeTopBar(
-                onMenuAction = onMenuAction,
+                userName = userName,
                 onNotificationsClick = onNotificationsClick,
                 onAvatarClick = onAvatarClick,
                 avatarPath = avatarPath,
                 notificationCount = notificationCount,
-                initialMenuExpanded = forceMenuOpen,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
             )
 
-            // ── 标题 ─────────────────────────────────────────────────────────
-            Text(
-                text = "Home",
-                fontSize = 40.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = ColorTextTitle,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ── 搜索框 ───────────────────────────────────────────────────────
-            SearchBar(
-                query = searchQuery,
-                onQueryChange = {
-                    searchQuery = it
-                    onSearchQueryChange(it)
-                },
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Upcoming ─────────────────────────────────────────────────────
+            // ── Up next ──────────────────────────────────────────────────────
             SectionHeader(
-                title = "Upcoming",
+                title = "Up next",
                 onSeeAll = onUpcomingSeeAll,
-                modifier = Modifier.padding(horizontal = 20.dp),
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                uiState.upcomingItems.forEach { item ->
-                    UpcomingCard(item = item)
+                // 首个卡片带「Start notes」动作按钮，其余仅展示时间/标题/副标题（对齐设计稿）。
+                uiState.upcomingItems.forEachIndexed { index, item ->
+                    UpcomingCard(
+                        item = item,
+                        showAction = index == 0,
+                        onAction = onStartNotes,
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // ── My notes ─────────────────────────────────────────────────────
+            // ── Ask Novie ────────────────────────────────────────────────────
+            AskNovieButton(
+                onClick = onAskNovie,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // ── Recent notes ─────────────────────────────────────────────────
             SectionHeader(
-                title = "My notes",
+                title = "Recent notes",
                 onSeeAll = onNotesSeeAll,
-                modifier = Modifier.padding(horizontal = 20.dp),
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -188,13 +172,15 @@ fun HomeScreen(
                     )
                 }
             } else {
-                // ── Note 卡片横向懒加载列表 ──────────────────────────────────
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                // ── Note 纵向卡片列表 ────────────────────────────────────────
+                // 整页已在 verticalScroll 中，多条笔记直接纵向堆叠、随页面滚动
+                // （不用 LazyColumn，避免与外层竖向滚动的无限高度约束冲突）。
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    items(items = uiState.notes, key = { it.id }) { note ->
-                        NoteCard(
+                    uiState.notes.forEach { note ->
+                        RecentNoteCard(
                             note = note,
                             onClick = {
                                 AppLog.d(TAG) { "note clicked: id=${note.id} title=\"${note.title}\" " +
@@ -214,26 +200,103 @@ fun HomeScreen(
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, showSystemUi = true)
+// 预览示例数据（避免各 Preview 重复构造）。
+private fun previewUpcoming(): List<UpcomingItem> = listOf(
+    UpcomingItem("1", "Monthly report sharing", "Team project progress tracking", R.drawable.ic_upcoming_report, time = "10:00"),
+    UpcomingItem("2", "Board meeting", "Internal stakeholder alignment", R.drawable.ic_upcoming_meeting, time = "11:30"),
+    UpcomingItem("3", "Design review", "Review the new note editor flows", R.drawable.ic_upcoming_report, time = "14:00"),
+)
+
+private fun previewNotes(count: Int): List<NoteItem> {
+    val now = System.currentTimeMillis()
+    val samples = listOf(
+        NoteItem("1", "Q3 KPIs", "Discussed Q3 KPIs. John to finalize the report by Thursday.", updatedAt = now),
+        NoteItem("2", "", "Discussed Q3 KPIs. John to finalize the report by Thursday.", updatedAt = now - 3_600_000L),
+        NoteItem("3", "Pic notes", "Team offsite venue shortlist and travel logistics.", updatedAt = now - 86_400_000L),
+        NoteItem("4", "Market research", "Here is an overview of your competitors in 2026.", updatedAt = now - 172_800_000L),
+        NoteItem("5", "1:1 with Felix", "Hero campaign planning and Q4 goals.", updatedAt = now - 259_200_000L),
+        NoteItem("6", "Weekly sync", "Action items and blockers from the team standup.", updatedAt = now - 345_600_000L),
+    )
+    return List(count) { i -> samples[i % samples.size].let { it.copy(id = "n$i", updatedAt = it.updatedAt) } }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Success")
 @Composable
-private fun HomeScreenPreview() {
+private fun HomeScreenSuccessPreview() {
     AppTheme {
         HomeScreen(
-            uiState = HomeUiState(
-                upcomingItems = listOf(
-                    UpcomingItem("1", "Monthly report sharing", "Team project progress tracking", R.drawable.ic_upcoming_report),
-                    UpcomingItem("2", "Board meeting", "Internal stakeholder alignment", R.drawable.ic_upcoming_meeting),
-                ),
-                notes = listOf(
-                    NoteItem("1", "Market research", "Here is an overview of your competitors in 2026."),
-                    NoteItem("2", "Market research", "Here is an overview of your competitors in 2026.", isSelected = true),
-                    NoteItem("3", "Market research", "Here is an overview of your competitors in 2026."),
-                ),
-            ),
-            onSearchQueryChange = {},
+            uiState = HomeUiState(upcomingItems = previewUpcoming(), notes = previewNotes(3)),
             onUpcomingSeeAll = {},
             onNotesSeeAll = {},
-            // 不在预览里强开「更多」：ModalBottomSheet 无法在 @Preview 渲染，会让预览失效
+            userName = "Jam",
+            notificationCount = 3,
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Many notes (scroll)")
+@Composable
+private fun HomeScreenManyNotesPreview() {
+    AppTheme {
+        HomeScreen(
+            uiState = HomeUiState(upcomingItems = previewUpcoming(), notes = previewNotes(6)),
+            onUpcomingSeeAll = {},
+            onNotesSeeAll = {},
+            userName = "Jam",
+            notificationCount = 12,
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Empty notes")
+@Composable
+private fun HomeScreenEmptyPreview() {
+    AppTheme {
+        HomeScreen(
+            uiState = HomeUiState(upcomingItems = previewUpcoming(), notes = emptyList()),
+            onUpcomingSeeAll = {},
+            onNotesSeeAll = {},
+            userName = "Jam",
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Loading (refresh)")
+@Composable
+private fun HomeScreenLoadingPreview() {
+    AppTheme {
+        HomeScreen(
+            uiState = HomeUiState(upcomingItems = previewUpcoming(), notes = previewNotes(2), isRefreshing = true),
+            onUpcomingSeeAll = {},
+            onNotesSeeAll = {},
+            userName = "Jam",
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Guest")
+@Composable
+private fun HomeScreenGuestPreview() {
+    AppTheme {
+        HomeScreen(
+            uiState = HomeUiState(upcomingItems = previewUpcoming(), notes = previewNotes(2)),
+            onUpcomingSeeAll = {},
+            onNotesSeeAll = {},
+            userName = "",
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Dark", uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun HomeScreenDarkPreview() {
+    AppTheme(darkTheme = true) {
+        HomeScreen(
+            uiState = HomeUiState(upcomingItems = previewUpcoming(), notes = previewNotes(3)),
+            onUpcomingSeeAll = {},
+            onNotesSeeAll = {},
+            userName = "Jam",
+            notificationCount = 3,
         )
     }
 }

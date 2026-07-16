@@ -207,6 +207,12 @@ class MainActivity : FragmentActivity() {
                                     libraryAsSubpage = true
                                     currentRoute = BottomNavDestination.Library.route
                                 },
+                                // Up next 首卡「Start notes」→ 新建笔记
+                                onStartNotes = {
+                                    editingNoteId = null
+                                    createReturnRoute = BottomNavDestination.Home.route
+                                    currentRoute = BottomNavDestination.Create.route
+                                },
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 onSwitchToLogin = { authViewModel.exitGuest() },

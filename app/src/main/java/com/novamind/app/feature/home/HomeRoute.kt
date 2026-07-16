@@ -43,6 +43,8 @@ fun HomeRoute(
     onUpcomingSeeAll: () -> Unit = {},
     onNotesSeeAll: () -> Unit = {},
     onNoteClick: (noteId: String) -> Unit = {},
+    onAskNovie: () -> Unit = {},                   // Ask Novie 入口（由宿主接入创建/助手流程）
+    onStartNotes: () -> Unit = {},                 // Up next 首卡「Start notes」动作
     onFullscreenChange: (Boolean) -> Unit = {},   // 子页/抽屉打开 → 宿主隐藏底部导航
     onLogout: () -> Unit = {},                     // 退出登录（由宿主交给 AuthViewModel 处理）
     onSwitchToLogin: () -> Unit = {},              // 游客切换到登录页
@@ -138,21 +140,15 @@ fun HomeRoute(
             when (ov) {
                 HomeOverlay.None -> HomeScreen(
                     uiState = uiState,
-                    onSearchQueryChange = viewModel::onSearchQueryChange,
                     onUpcomingSeeAll = { overlay = HomeOverlay.Upcoming },
                     onNotesSeeAll = onNotesSeeAll,
                     onNoteClick = onNoteClick,
                     onNotificationsClick = { overlay = HomeOverlay.Notifications },
-                    onMenuAction = { item ->
-                        // 「更多」底部菜单动作：Permissions / About 有对应页面，其余暂为占位
-                        when (item) {
-                            HomeMenuItem.Permissions -> overlay = HomeOverlay.Permissions
-                            HomeMenuItem.AboutMyNovie -> overlay = HomeOverlay.About
-                            else -> Unit
-                        }
-                    },
+                    onAskNovie = onAskNovie,
+                    onStartNotes = onStartNotes,
                     onAvatarClick = { scope.launch { drawerState.open() } },
                     onRefresh = viewModel::onRefresh,
+                    userName = userName?.takeIf { it.isNotBlank() } ?: "",
                     avatarPath = avatarPath,
                     notificationCount = notifications.unreadCount(),
                 )

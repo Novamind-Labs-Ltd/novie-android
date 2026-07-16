@@ -7,6 +7,8 @@ data class UpcomingItem(
     val title: String,
     val subtitle: String,
     val iconResId: Int,
+    /** 计划时间（如「10:00」）；home_final 卡片左侧展示，为空则不显示。 */
+    val time: String = "",
 )
 
 data class HomeUiState(

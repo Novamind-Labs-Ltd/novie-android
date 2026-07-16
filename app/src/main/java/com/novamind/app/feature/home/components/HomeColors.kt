@@ -5,6 +5,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.TextColors
@@ -38,6 +39,16 @@ internal val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 internal val ColorIconCircle: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
+
+/** Up next 卡片左侧时间戳文字（Figma: text/warning/on-surface → orange-900）。 */
+internal val ColorTimeStamp: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Warning.onSurface.current()
+/** 深色胶囊按钮底色（Figma: button/primary/background-tertiary → gray-700）：Start notes / Ask Novie。 */
+internal val ColorButtonDark: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.backgroundTertiary.current()
+/** 深底上的文字/图标色（Figma: text/primary/on-dark → sand-300）。 */
+internal val ColorOnDark: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.onDark.current()
 
 /** NoteCard 选中态边框：品牌浅绿（固定基础色）。 */
 internal val ColorSelectedBorder = Palette.forrest200
