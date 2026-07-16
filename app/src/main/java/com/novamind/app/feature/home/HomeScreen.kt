@@ -113,17 +113,28 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                // 首个卡片带「Start notes」动作按钮，其余仅展示时间/标题/副标题（对齐设计稿）。
-                uiState.upcomingItems.forEachIndexed { index, item ->
-                    UpcomingCard(
-                        item = item,
-                        showAction = index == 0,
-                        onAction = onStartNotes,
+            // 今日会议/任务；无数据显示空状态
+            if (uiState.upcomingItems.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "No meetings or tasks today",
+                        fontSize = 13.sp,
+                        color = ColorTextHint,
                     )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    uiState.upcomingItems.forEach { item ->
+                        UpcomingCard(item = item)
+                    }
                 }
             }
 
@@ -237,12 +248,12 @@ private fun HomeScreenManyNotesPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Home · Empty notes")
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Empty (up next & notes)")
 @Composable
 private fun HomeScreenEmptyPreview() {
     AppTheme {
         HomeScreen(
-            uiState = HomeUiState(upcomingItems = previewUpcoming(), notes = emptyList()),
+            uiState = HomeUiState(upcomingItems = emptyList(), notes = emptyList()),
             onUpcomingSeeAll = {},
             onNotesSeeAll = {},
             userName = "Jam",
