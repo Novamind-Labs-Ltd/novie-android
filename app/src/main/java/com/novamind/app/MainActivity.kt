@@ -24,8 +24,10 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -129,6 +131,9 @@ class MainActivity : FragmentActivity() {
                 BackHandler(enabled = showProfilePermissions) { showProfilePermissions = false }
                 var showAbout by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showAbout) { showAbout = false }
+                // 底栏「+」速拨展开态：提升到此，便于用全屏遮罩「点任意处收起」
+                var navExpanded by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = navExpanded) { navExpanded = false }
                 // Library 子页时，系统返回与左上角返回键行为一致
                 BackHandler(
                     enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
@@ -293,6 +298,15 @@ class MainActivity : FragmentActivity() {
                         }
                     }
 
+                    // 速拨展开时的全屏透明遮罩：点任意处收起（置于内容之上、底栏之下）
+                    if (navExpanded) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) { detectTapGestures { navExpanded = false } },
+                        )
+                    }
+
                     // 底部导航栏：全屏页或 Create 编辑页时滑出隐藏
                     AnimatedVisibility(
                         visible = !hideBottomNav && currentRoute != BottomNavDestination.Create.route,
@@ -317,6 +331,8 @@ class MainActivity : FragmentActivity() {
                             },
                             // 中央「+」速拨：Ask Novie
                             onAskNovie = { showAskNovie = true },
+                            expanded = navExpanded,
+                            onExpandedChange = { navExpanded = it },
                         )
                     }
 

@@ -20,9 +20,7 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -108,6 +106,8 @@ private val NavBarHeight = BarHeight + 120.dp                 // 预留 FAB/速�
  * @param onNavigate   tab 点击回调（Home/Calendar/Library/Profile）
  * @param onCreate     速拨 Create（新建笔记）
  * @param onAskNovie   速拨 Ask Novie
+ * @param expanded         「+」速拨是否展开（受控，由外部持有以便全屏遮罩点击收起）
+ * @param onExpandedChange 展开态变化回调
  */
 @Composable
 fun AppBottomNavBar(
@@ -115,10 +115,10 @@ fun AppBottomNavBar(
     onNavigate: (String) -> Unit,
     onCreate: () -> Unit = {},
     onAskNovie: () -> Unit = {},
+    expanded: Boolean = false,
+    onExpandedChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -129,7 +129,7 @@ fun AppBottomNavBar(
         CradleBar(
             currentRoute = currentRoute,
             modifier = Modifier.align(Alignment.BottomCenter),
-            onNavigate = { expanded = false; onNavigate(it) },
+            onNavigate = { onExpandedChange(false); onNavigate(it) },
         )
 
         // 速拨子按钮（Ask / Create），展开时浮于 FAB 之上
@@ -138,8 +138,8 @@ fun AppBottomNavBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .offset(y = -SpeedDialTopOffset),
-            onAskNovie = { expanded = false; onAskNovie() },
-            onCreate = { expanded = false; onCreate() },
+            onAskNovie = { onExpandedChange(false); onAskNovie() },
+            onCreate = { onExpandedChange(false); onCreate() },
         )
 
         // 中央「+」FAB（点击切换速拨）
@@ -148,7 +148,7 @@ fun AppBottomNavBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .offset(y = -FabTopOffset),
-            onClick = { expanded = !expanded },
+            onClick = { onExpandedChange(!expanded) },
         )
     }
 }
