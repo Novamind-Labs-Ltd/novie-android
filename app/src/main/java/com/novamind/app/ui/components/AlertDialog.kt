@@ -1,25 +1,17 @@
 package com.novamind.app.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -29,8 +21,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.ButtonColors
-import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
@@ -42,19 +32,12 @@ private val TextTitle: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()               // #333
 private val TextBody: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()             // #656565
-private val ConfirmBg: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()               // #333 深色
-private val DangerBg: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Destructive.background.current()       // 红
-private val DismissBg: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()              // #a3a3a3
-private val OnButton: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Default.onColor.current()               // 常白
 
 /**
  * 通用居中提醒弹窗（Figma: AlertDialog）。
  *
- * 标题 + 可选说明 + 一到两个按钮。默认双按钮：左「取消」（灰）/ 右「确认」（深色，[destructive] 时为红）。
+ * 标题 + 可选说明 + 一到两个胶囊按钮（复用通用 [Button]）。默认双按钮：
+ * 左「取消」（描边胶囊）/ 右「确认」（深色实心，[destructive] 时为红）。
  * 传 [dismissLabel] = null 则只显示单个确认按钮（铺满一行）。
  *
  * @param onDismissRequest 点击遮罩/返回键关闭时回调
@@ -67,7 +50,7 @@ private val OnButton: Color
  * @param destructive      确认按钮是否用危险色（红）
  */
 @Composable
-fun AlertDialog(
+fun AppAlertDialog(
     onDismissRequest: () -> Unit,
     title: String,
     onConfirm: () -> Unit,
@@ -121,53 +104,22 @@ fun AlertDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (dismissLabel != null) {
-                        DialogButton(
-                            label = dismissLabel,
-                            background = DismissBg,
-                            textColor = OnButton,
+                        Button(
+                            text = dismissLabel,
                             onClick = onDismiss,
+                            variant = ButtonVariant.Secondary,
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    DialogButton(
-                        label = confirmLabel,
-                        background = if (destructive) DangerBg else ConfirmBg,
-                        textColor = OnButton,
+                    Button(
+                        text = confirmLabel,
                         onClick = onConfirm,
+                        variant = if (destructive) ButtonVariant.Destructive else ButtonVariant.Primary,
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun DialogButton(
-    label: String,
-    background: Color,
-    textColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .height(40.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(background)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            color = textColor,
-        )
     }
 }
 
@@ -177,7 +129,7 @@ private fun DialogButton(
 @Composable
 private fun AlertDialogPreview() {
     AppTheme {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = {},
             title = "Move to Recycle Bin?",
             message = "You can restore this note from the Bin within 30 days.",
@@ -191,7 +143,7 @@ private fun AlertDialogPreview() {
 @Composable
 private fun AlertDialogDangerPreview() {
     AppTheme {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = {},
             title = "Delete permanently?",
             message = "This note will be deleted and can't be restored.",
@@ -206,7 +158,7 @@ private fun AlertDialogDangerPreview() {
 @Composable
 private fun AlertDialogSinglePreview() {
     AppTheme {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = {},
             title = "Saved",
             message = "Your note has been synced to the cloud.",
