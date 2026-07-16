@@ -7,18 +7,15 @@ import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.fold
 import com.novamind.app.data.RemoteNoteRepository
-import com.novamind.app.data.calendar.GoogleCalendarRepository
+import com.novamind.app.data.calendar.TodayAgendaUseCase
 import com.novamind.app.data.calendar.isPast
-import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -27,8 +24,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val notesRepository: RemoteNoteRepository,
-    private val calendarRepository: GoogleCalendarRepository,
-    private val tasksRepository: GoogleTasksRepository,
+    private val todayAgenda: TodayAgendaUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -98,13 +94,10 @@ class HomeViewModel @Inject constructor(
      */
     private fun loadUpcoming() {
         viewModelScope.launch {
-            val today = LocalDate.now()
-            val events = safeFetch { calendarRepository.eventsOn(today) }
-            val tasks = safeFetch { tasksRepository.tasksOn(today) }
-
+            val agenda = todayAgenda()   // 静默授权 + 拉今日会议/任务（尽力而为，失败返回空）
             val items = buildList {
                 // 会议（有时间，按开始时间；仓库已按 start 排序）
-                events.filterNot { it.isPast }.forEach { e ->
+                agenda.events.filterNot { it.isPast }.forEach { e ->
                     add(
                         UpcomingItem(
                             id = "evt_${e.id}",
@@ -119,7 +112,7 @@ class HomeViewModel @Inject constructor(
                     )
                 }
                 // 任务（date-only，无具体时间）
-                tasks.filterNot { it.isCompleted }.forEach { t ->
+                agenda.tasks.filterNot { it.isCompleted }.forEach { t ->
                     add(
                         UpcomingItem(
                             id = "task_${t.id}",
@@ -134,16 +127,6 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(upcomingItems = items) }
         }
     }
-
-    /** best-effort 拉取：吞掉业务/网络异常返回空，但不吞协程取消。 */
-    private suspend fun <T> safeFetch(block: suspend () -> List<T>): List<T> =
-        try {
-            block()
-        } catch (c: CancellationException) {
-            throw c
-        } catch (e: Exception) {
-            emptyList()
-        }
 
     /** 列表项领域模型 → UI 模型。列表接口不含正文，故 description/tags 留空；正文在打开详情时另拉。 */
     private fun RemoteNoteSummary.toNoteItem(): NoteItem = NoteItem(
