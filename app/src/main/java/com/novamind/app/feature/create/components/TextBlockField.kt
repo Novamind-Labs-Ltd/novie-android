@@ -22,7 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -165,9 +167,37 @@ internal fun TextBlockField(
                             start = Offset(sweepX, 0f),
                             end = Offset(sweepX + band, 0f),
                         )
-                        // getPathForRange 返回整段选区（跨所有行）的路径，一次性覆盖全部选中文字
-                        val path = layout.getPathForRange(start, end)
-                        drawPath(path = path, brush = brush)
+                        // 按行逐条绘制骨架（带上下留白 + 圆角），读起来是「一行一行」而非整段连成一块。
+                        // 首行从 start 处起、末行到 end 处止，中间行取整行文字宽度。
+                        val gap = AppConfig.Polish.LINE_GAP_DP.dp.toPx()
+                        val radius = CornerRadius(AppConfig.Polish.CORNER_RADIUS_DP.dp.toPx())
+                        val firstLine = layout.getLineForOffset(start)
+                        val lastLine = layout.getLineForOffset((end - 1).coerceAtLeast(start))
+                        for (line in firstLine..lastLine) {
+                            val left = if (line == firstLine) {
+                                layout.getHorizontalPosition(start, usePrimaryDirection = true)
+                            } else {
+                                layout.getLineLeft(line)
+                            }
+                            val right = if (line == lastLine) {
+                                layout.getHorizontalPosition(end, usePrimaryDirection = true)
+                            } else {
+                                layout.getLineRight(line)
+                            }
+                            // 统一行高：各行等高（文本 lineHeight 相同），上下各内缩 gap/2 居中，
+                            // 行间留白一致；首末行也按同一规则，观感整齐
+                            val half = gap / 2f
+                            val top = layout.getLineTop(line) + half
+                            val bottom = layout.getLineBottom(line) - half
+                            if (right > left && bottom > top) {
+                                drawRoundRect(
+                                    brush = brush,
+                                    topLeft = Offset(left, top),
+                                    size = Size(right - left, bottom - top),
+                                    cornerRadius = radius,
+                                )
+                            }
+                        }
                     }
                 }
             },

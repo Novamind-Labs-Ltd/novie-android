@@ -193,6 +193,12 @@ object AppConfig {
     object Polish {
         const val BAR_BASE = 0xFFDFDFDF
         const val BAR_HIGHLIGHT = 0xFFF0F0F0
+
+        /** 骨架每行上下留白（dp）：让多行骨架读起来是「一行一行」而非连成一整块。 */
+        const val LINE_GAP_DP = 3
+
+        /** 骨架条圆角（dp）。 */
+        const val CORNER_RADIUS_DP = 4
     }
 
     /** 日志系统（common/log，设计见 log-system-design.md）。 */
