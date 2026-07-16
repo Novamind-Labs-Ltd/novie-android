@@ -18,7 +18,7 @@
 - **P1 重要**：完整功能（选择器、撤销重做、计数、工具栏、附件上限/类型、预览、上传进度、恢复、分享、加载遮罩、全屏联动、元信息、自动聚焦、错误分支细节、a11y 主干）。
 - **P2 边界/增强**：边界值、组合态、动画防闪、文案优先级、幂等、输入法计数、显示适配、并发、性能、隐私。
 
-**关键常量**（`AppConfig`）：`Editor.MAX_INPUT_CHARS`、`COUNT_DISPLAY_THRESHOLD`、`MAX_HISTORY`、`AUTO_SAVE_DELAY_MS`、`SAVE_MAX_INTERVAL_MS`、`Media.MAX_ATTACHMENTS`、`MAX_IMAGE_PICK`、`MAX_UPLOAD_CONCURRENCY`、`MAX_DOCUMENT_SIZE`(16MB)、`DOCUMENT_MIME_TYPES`。
+**关键常量**（`AppConfig`）：`Editor.MAX_INPUT_CHARS`(正文上限)、`TITLE_MAX_CHARS`(标题上限=50)、`TITLE_LIMIT_TOAST_INTERVAL_MS`(标题超限 Toast 节流)、`COUNT_DISPLAY_THRESHOLD`、`MAX_HISTORY`、`AUTO_SAVE_DELAY_MS`、`SAVE_MAX_INTERVAL_MS`、`Media.MAX_ATTACHMENTS`、`MAX_IMAGE_PICK`、`MAX_UPLOAD_CONCURRENCY`、`MAX_DOCUMENT_SIZE`(16MB)、`DOCUMENT_MIME_TYPES`。
 **入参**：`autoFocusBody`(=新建且非只读)、`isEditing`(=打开已有)、`maxImages`、`readOnly`、`forceToolbarVisible`、`attachmentUrls`。
 
 ---
@@ -33,17 +33,30 @@
 | TC-EDIT-05 | P0 | UI | 正文含图 | 插入/删除图片致结构变化 | 派发 `ContentChanged`，body JSON 增/删对应块 |
 | TC-EDIT-04 | P0 | UI | 录音中 / 转写中 / 只读 任一 | 尝试编辑标题+正文 | 均只读、不弹键盘、不接收输入、不派发事件 |
 
-## 2. 字数上限与计数
+## 2. 字数限制与计数
+
+> 标题与正文是**两条独立**限制：标题 ≤ `TITLE_MAX_CHARS`(50)，正文 ≤ `MAX_INPUT_CHARS`；**标题不计入正文总字数**，右下角计数只反映正文。
+
+**标题（独立上限 50，`TITLE_MAX_CHARS`）**
 
 | ID | P | 层 | 前置 | 步骤 | 预期 |
 |---|---|---|---|---|---|
-| TC-LIMIT-01 | P0 | UI | `title+body < 上限` | 标题输入 | 正常接收，派发 `TitleChanged` |
-| TC-LIMIT-02 | P0 | UI | `title+body == 上限` | 标题增字 | 增长型修改被拒（不派发） |
-| TC-LIMIT-02b | P0 | UI | `== 上限` | 标题删字（新长 ≤ 原长） | 允许，派发 `TitleChanged` |
-| TC-LIMIT-06 | P0 | UI | 正文接近上限 | 正文继续输入 | 受 `bodyCharLimit = 上限 − 标题长度` 限制 |
-| TC-LIMIT-03 | P1 | UI | 总字数 < 阈值 | 观察右下角 | 显示实际字数 |
-| TC-LIMIT-03b | P1 | UI | 总字数 ≥ 阈值 | 观察 | 显示「Remaining N」形式 |
-| TC-LIMIT-04 | P1 | UI | 总字数 ≥ 上限 | 观察 | 计数用错误色（红） |
+| TC-LIMIT-01 | P0 | UI | 标题 < 50 | 标题输入 | 正常接收，派发 `TitleChanged`（不受正文长度影响） |
+| TC-LIMIT-02 | P0 | UI | 标题 == 50 | 继续增字（增长型） | 拒绝、不派发；弹英文 Toast「Title cannot exceed 50 characters」 |
+| TC-LIMIT-02b | P0 | UI | 标题 == 50 | 删字（新长 ≤ 原长） | 允许，派发 `TitleChanged` |
+| TC-LIMIT-07 | P1 | UI | 标题达 50 | 继续按键（被拒绝） | 光标与文本保持不动（`TextFieldValue` 受控，拒绝时不更新） |
+| TC-LIMIT-08 | P2 | UI | 标题达 50 | 连续快速按键 | Toast 按 `TITLE_LIMIT_TOAST_INTERVAL_MS` 节流，不重复刷屏 |
+| TC-LIMIT-09 | P2 | UI | 标题 < 50 | 粘贴使总长 > 50 | 整段增长被拒 + Toast；文本/光标不变（不截断已有内容） |
+| TC-LIMIT-10 | P1 | UI | 标题有字、正文有内容 | 观察右下角计数 | 计数只等于正文字数，**不含标题**；标题增删不影响正文可输入上限 |
+
+**正文（独立上限 `MAX_INPUT_CHARS`）与计数**
+
+| ID | P | 层 | 前置 | 步骤 | 预期 |
+|---|---|---|---|---|---|
+| TC-LIMIT-06 | P0 | UI | 正文接近上限 | 正文继续输入 | 受 `bodyCharLimit = MAX_INPUT_CHARS` 限制（不再扣减标题长度） |
+| TC-LIMIT-03 | P1 | UI | 正文字数 < 阈值 | 观察右下角 | 显示实际正文字数 |
+| TC-LIMIT-03b | P1 | UI | 正文字数 ≥ 阈值 | 观察 | 显示「Remaining N」形式 |
+| TC-LIMIT-04 | P1 | UI | 正文字数 ≥ 上限 | 观察 | 计数用错误色（红） |
 | TC-LIMIT-05 | P1 | UI | 录音中 / 只读 | 观察 | 计数不展示 |
 
 ## 3. 保存 · 自动保存 · 并发去重
