@@ -86,8 +86,9 @@ private val FabBorder: Color
 // ─── 尺寸 ─────────────────────────────────────────────────────────────────────
 
 private val BarHeight = 68.dp
-private val FabSize = 60.dp
-private val SubButtonSize = 48.dp
+private val FabSize = 65.dp        // 设计：vuesax/linear/scan size-[65px]
+private val FabIconSize = 38.dp    // 设计：add size-[38px]
+private val SubButtonSize = 48.dp  // 设计：ask/create size-[48px]
 private val CradleWidth = 96.dp
 private val CradleDepth = 30.dp
 private val TopCorner = 22.dp
@@ -195,7 +196,6 @@ private fun CenterFab(
     Surface(
         shape = CircleShape,
         color = BarBg,
-        shadowElevation = 6.dp,
         border = BorderStroke(1.dp, FabBorder),
         modifier = modifier.size(FabSize),
     ) {
@@ -212,7 +212,7 @@ private fun CenterFab(
                 contentDescription = if (expanded) "Close" else "Create",
                 tint = ColorUnselected,
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(FabIconSize)
                     .rotate(rotation),
             )
         }
@@ -235,8 +235,8 @@ private fun SpeedDialRow(
         modifier = modifier,
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-            SpeedDialButton(R.drawable.ic_chat, "Ask Novie", onAskNovie)
-            SpeedDialButton(R.drawable.ic_nav_create, "Create", onCreate)
+            SpeedDialButton(R.drawable.ic_chat, "Ask Novie", iconSize = 28.dp, onClick = onAskNovie)
+            SpeedDialButton(R.drawable.ic_nav_create, "Create", iconSize = 24.dp, onClick = onCreate)
         }
     }
 }
@@ -246,11 +246,11 @@ private fun SpeedDialButton(
     iconRes: Int,
     contentDescription: String,
     onClick: () -> Unit,
+    iconSize: Dp = 24.dp,
 ) {
     Surface(
         shape = CircleShape,
         color = BarBg,
-        shadowElevation = 4.dp,
         border = BorderStroke(1.dp, Palette.gray600),
         modifier = Modifier.size(SubButtonSize),
     ) {
@@ -262,7 +262,7 @@ private fun SpeedDialButton(
                 painter = painterResource(id = iconRes),
                 contentDescription = contentDescription,
                 tint = ColorUnselected,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(iconSize),
             )
         }
     }
