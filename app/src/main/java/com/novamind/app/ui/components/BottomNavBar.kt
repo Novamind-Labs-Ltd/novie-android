@@ -1,5 +1,6 @@
 package com.novamind.app.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -24,9 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
@@ -52,23 +51,28 @@ import com.novamind.app.ui.theme.AppTheme
 sealed class BottomNavDestination(
     val route: String,
     val label: String,
-    val iconResId: Int?,
 ) {
-    object Home : BottomNavDestination("home", "Home", R.drawable.ic_nav_home)
-    object Calendar : BottomNavDestination("calendar", "Calendar", R.drawable.ic_nav_calendar)
+    object Home : BottomNavDestination("home", "Home")
+    object Calendar : BottomNavDestination("calendar", "Calendar")
     /** 中央 FAB 对应的编辑页路由（不作为可见 tab 渲染）。 */
-    object Create : BottomNavDestination("create", "Create", R.drawable.ic_nav_create)
-    object Library : BottomNavDestination("library", "Library", R.drawable.ic_nav_library)
-    object Profile : BottomNavDestination("profile", "Profile", R.drawable.ic_nav_profile)
+    object Create : BottomNavDestination("create", "Create")
+    object Library : BottomNavDestination("library", "Library")
+    object Profile : BottomNavDestination("profile", "Profile")
 }
 
-/** 底栏可见 tab（左二 / 右二，中间留出 FAB 凹槽）。 */
-val bottomNavTabs = listOf(
-    BottomNavDestination.Home,
-    BottomNavDestination.Calendar,
-    BottomNavDestination.Library,
-    BottomNavDestination.Profile,
-)
+/**
+ * 目标对应的图标资源。注意：故意在渲染期用 `when` 解析，而不是把 `R.drawable.*` 存进
+ * object 构造里——后者会在类初始化（<clinit>）期引用资源 ID，在 Compose 预览(layoutlib)
+ * 下易触发「Could not initialize class」而导致预览崩溃。
+ */
+@DrawableRes
+private fun BottomNavDestination.iconRes(): Int = when (this) {
+    BottomNavDestination.Home -> R.drawable.ic_nav_home
+    BottomNavDestination.Calendar -> R.drawable.ic_nav_calendar
+    BottomNavDestination.Create -> R.drawable.ic_nav_create
+    BottomNavDestination.Library -> R.drawable.ic_nav_library
+    BottomNavDestination.Profile -> R.drawable.ic_nav_profile
+}
 
 // ─── 颜色：统一引用 ui/colors 设计令牌，随主题深浅自动解析 ────────────────────────
 
@@ -89,39 +93,10 @@ private val SubButtonSize = 48.dp
 private val CradleWidth = 96.dp
 private val CradleDepth = 30.dp
 private val TopCorner = 22.dp
-
-// ─── 中央带凹槽的顶边形状 ─────────────────────────────────────────────────────
-
-/** 顶边中央下凹的栏体形状（平滑三次贝塞尔谷），用于容纳浮动 FAB。 */
-private class CradleTopShape(
-    private val cradleWidth: Dp,
-    private val cradleDepth: Dp,
-    private val topCorner: Dp,
-) : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val path = Path()
-        with(density) {
-            val w = size.width
-            val h = size.height
-            val half = cradleWidth.toPx() / 2f
-            val depth = cradleDepth.toPx()
-            val corner = topCorner.toPx()
-            val cx = w / 2f
-
-            path.moveTo(0f, corner)
-            path.quadraticBezierTo(0f, 0f, corner, 0f)               // 左上圆角
-            path.lineTo(cx - half, 0f)                                // 平直到凹槽起点
-            path.cubicTo(cx - half * 0.5f, 0f, cx - half * 0.5f, depth, cx, depth)   // 谷左半
-            path.cubicTo(cx + half * 0.5f, depth, cx + half * 0.5f, 0f, cx + half, 0f) // 谷右半
-            path.lineTo(w - corner, 0f)
-            path.quadraticBezierTo(w, 0f, w, corner)                  // 右上圆角
-            path.lineTo(w, h)
-            path.lineTo(0f, h)
-            path.close()
-        }
-        return Outline.Generic(path)
-    }
-}
+/** FAB 上探（一半探出栏体上沿）与速拨预留区，用作整体高度与各元素纵向偏移。 */
+private val FabTopOffset = BarHeight - FabSize / 2            // FAB 相对底部上移量
+private val SpeedDialTopOffset = FabTopOffset + FabSize + 16.dp // 速拨相对底部上移量
+private val NavBarHeight = BarHeight + 120.dp                 // 预留 FAB/速拨的整体高度
 
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 
@@ -143,85 +118,128 @@ fun AppBottomNavBar(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val fabRotation by animateFloatAsState(if (expanded) 45f else 0f, label = "fab_rotation")
-    val cradle = remember { CradleTopShape(CradleWidth, CradleDepth, TopCorner) }
 
-    // 预留 FAB 上探与速拨区域的高度
     Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .height(BarHeight + 120.dp),
+            .height(NavBarHeight),
     ) {
-        // ── 栏体（含四个 tab） ──────────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(BarHeight)
-                .shadow(elevation = 10.dp, shape = cradle, clip = false)
-                .background(BarBg, cradle),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                NavTab(BottomNavDestination.Home, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
-                NavTab(BottomNavDestination.Calendar, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
-                Spacer(Modifier.width(CradleWidth))   // 中间凹槽让位给 FAB
-                NavTab(BottomNavDestination.Library, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
-                NavTab(BottomNavDestination.Profile, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
-            }
-        }
+        // 栏体 + 四个 tab（点 tab 顺便收起速拨）
+        CradleBar(
+            currentRoute = currentRoute,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            onNavigate = { expanded = false; onNavigate(it) },
+        )
 
-        // ── 速拨子按钮（Ask / Create），展开时浮于 FAB 之上 ─────────────────
-        AnimatedVisibility(
+        // 速拨子按钮（Ask / Create），展开时浮于 FAB 之上
+        SpeedDialRow(
             visible = expanded,
-            enter = fadeIn() + scaleIn(initialScale = 0.6f),
-            exit = fadeOut() + scaleOut(targetScale = 0.6f),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = -(BarHeight - FabSize / 2 + FabSize + 16.dp)),
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                SpeedDialButton(R.drawable.ic_chat, "Ask Novie") { expanded = false; onAskNovie() }
-                SpeedDialButton(R.drawable.ic_nav_create, "Create") { expanded = false; onCreate() }
-            }
-        }
+                .offset(y = -SpeedDialTopOffset),
+            onAskNovie = { expanded = false; onAskNovie() },
+            onCreate = { expanded = false; onCreate() },
+        )
 
-        // ── 中央「+」FAB（点击切换速拨） ────────────────────────────────────
-        Surface(
-            shape = CircleShape,
-            color = BarBg,
-            shadowElevation = 6.dp,
-            border = BorderStroke(1.dp, FabBorder),
+        // 中央「+」FAB（点击切换速拨）
+        CenterFab(
+            expanded = expanded,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = -(BarHeight - FabSize / 2))
-                .size(FabSize),
+                .offset(y = -FabTopOffset),
+            onClick = { expanded = !expanded },
+        )
+    }
+}
+
+// ─── 栏体（中央下凹 + 四个 tab） ───────────────────────────────────────────────
+
+@Composable
+private fun CradleBar(
+    currentRoute: String,
+    modifier: Modifier = Modifier,
+    onNavigate: (String) -> Unit,
+) {
+    val cradle = remember { CradleTopShape(CradleWidth, CradleDepth, TopCorner) }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(BarHeight)
+            .background(BarBg, cradle),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false, radius = FabSize / 2),
-                    onClick = { expanded = !expanded },
-                ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_add),
-                    contentDescription = if (expanded) "Close" else "Create",
-                    tint = ColorUnselected,
-                    modifier = Modifier.size(28.dp).rotate(fabRotation),
-                )
-            }
+            NavTab(BottomNavDestination.Home, currentRoute, Modifier.weight(1f), onNavigate)
+            NavTab(BottomNavDestination.Calendar, currentRoute, Modifier.weight(1f), onNavigate)
+            Spacer(Modifier.width(CradleWidth))   // 中间凹槽让位给 FAB
+            NavTab(BottomNavDestination.Library, currentRoute, Modifier.weight(1f), onNavigate)
+            NavTab(BottomNavDestination.Profile, currentRoute, Modifier.weight(1f), onNavigate)
+        }
+    }
+}
+
+// ─── 中央「+」FAB ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun CenterFab(
+    expanded: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val rotation by animateFloatAsState(if (expanded) 45f else 0f, label = "fab_rotation")
+    Surface(
+        shape = CircleShape,
+        color = BarBg,
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, FabBorder),
+        modifier = modifier.size(FabSize),
+    ) {
+        Box(
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, radius = FabSize / 2),
+                onClick = onClick,
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_add),
+                contentDescription = if (expanded) "Close" else "Create",
+                tint = ColorUnselected,
+                modifier = Modifier
+                    .size(28.dp)
+                    .rotate(rotation),
+            )
         }
     }
 }
 
 // ─── 速拨子按钮 ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun SpeedDialRow(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    onAskNovie: () -> Unit,
+    onCreate: () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + scaleIn(initialScale = 0.6f),
+        exit = fadeOut() + scaleOut(targetScale = 0.6f),
+        modifier = modifier,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            SpeedDialButton(R.drawable.ic_chat, "Ask Novie", onAskNovie)
+            SpeedDialButton(R.drawable.ic_nav_create, "Create", onCreate)
+        }
+    }
+}
 
 @Composable
 private fun SpeedDialButton(
@@ -275,7 +293,7 @@ private fun NavTab(
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(
-            painter = painterResource(id = destination.iconResId!!),
+            painter = painterResource(id = destination.iconRes()),
             contentDescription = destination.label,
             tint = tint,
             modifier = Modifier.size(24.dp),
@@ -288,6 +306,39 @@ private fun NavTab(
             color = tint,
             maxLines = 1,
         )
+    }
+}
+
+// ─── 中央下凹的顶边形状 ───────────────────────────────────────────────────────
+
+/** 顶边中央下凹的栏体形状（平滑三次贝塞尔谷），用于容纳浮动 FAB。 */
+private class CradleTopShape(
+    private val cradleWidth: Dp,
+    private val cradleDepth: Dp,
+    private val topCorner: Dp,
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val path = Path()
+        with(density) {
+            val w = size.width
+            val h = size.height
+            val half = cradleWidth.toPx() / 2f
+            val depth = cradleDepth.toPx()
+            val corner = topCorner.toPx()
+            val cx = w / 2f
+
+            path.moveTo(0f, corner)
+            path.quadraticBezierTo(0f, 0f, corner, 0f)                                  // 左上圆角
+            path.lineTo(cx - half, 0f)                                                   // 平直到凹槽起点
+            path.cubicTo(cx - half * 0.5f, 0f, cx - half * 0.5f, depth, cx, depth)       // 谷左半
+            path.cubicTo(cx + half * 0.5f, depth, cx + half * 0.5f, 0f, cx + half, 0f)   // 谷右半
+            path.lineTo(w - corner, 0f)
+            path.quadraticBezierTo(w, 0f, w, corner)                                     // 右上圆角
+            path.lineTo(w, h)
+            path.lineTo(0f, h)
+            path.close()
+        }
+        return Outline.Generic(path)
     }
 }
 
