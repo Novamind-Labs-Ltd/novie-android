@@ -132,8 +132,13 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    // 会议卡带「Start notes」按钮，任务卡不带（按 item.isMeeting 区分）
                     uiState.upcomingItems.forEach { item ->
-                        UpcomingCard(item = item)
+                        UpcomingCard(
+                            item = item,
+                            showAction = item.isMeeting,
+                            onAction = onStartNotes,
+                        )
                     }
                 }
             }
@@ -202,9 +207,11 @@ fun HomeScreen(
 
 // 预览示例数据（避免各 Preview 重复构造）。
 private fun previewUpcoming(): List<UpcomingItem> = listOf(
-    UpcomingItem("1", "Monthly report sharing", "Team project progress tracking", R.drawable.ic_upcoming_report, time = "10:00"),
-    UpcomingItem("2", "Board meeting", "Internal stakeholder alignment", R.drawable.ic_upcoming_meeting, time = "11:30"),
-    UpcomingItem("3", "Design review", "Review the new note editor flows", R.drawable.ic_upcoming_report, time = "14:00"),
+    // 会议卡（带 Start notes）
+    UpcomingItem("1", "Monthly report sharing", "Team project progress tracking", R.drawable.ic_upcoming_meeting, time = "10:00", isMeeting = true),
+    UpcomingItem("2", "Board meeting", "Internal stakeholder alignment", R.drawable.ic_upcoming_meeting, time = "11:30", isMeeting = true),
+    // 任务卡（不带按钮，Google Tasks 无具体时间）
+    UpcomingItem("3", "Finalize Q3 report", "", R.drawable.ic_upcoming_report, time = "", isMeeting = false),
 )
 
 private fun previewNotes(count: Int): List<NoteItem> {

@@ -112,6 +112,7 @@ class HomeViewModel @Inject constructor(
                             subtitle = e.location.orEmpty(),
                             iconResId = R.drawable.ic_upcoming_meeting,
                             time = if (e.isAllDay) "" else e.start.format(TIME_FMT),
+                            isMeeting = true,   // 会议卡：带 Start notes
                         )
                     )
                 }
