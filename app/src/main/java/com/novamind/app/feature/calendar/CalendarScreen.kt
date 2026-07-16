@@ -11,15 +11,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,7 +24,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
-import com.novamind.app.common.config.AppConfig
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventType
 import com.novamind.app.data.tasks.CalendarTask
@@ -55,6 +48,7 @@ import com.novamind.app.feature.calendar.components.StatCard
 import com.novamind.app.feature.calendar.components.TaskRow
 import com.novamind.app.feature.calendar.components.TodoBg
 import com.novamind.app.feature.calendar.components.TodoIcon
+import com.novamind.app.ui.components.AppPullToRefresh
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -87,38 +81,29 @@ fun CalendarScreen(
     val dayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
     val dateStr = selectedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH))
 
-    // 下拉刷新：仅已连接时真正触发拉取（未连接/游客态下 Refresh 为 no-op）。
-    val pullState = rememberPullToRefreshState()
-    // 刷新指示器随机配色：仅在「开始刷新」这一刻换色，避免每次重组闪烁。配色池见 AppConfig。
-    var indicatorColor by remember { mutableStateOf(AppConfig.PullRefresh.INDICATOR_COLORS.first()) }
-    LaunchedEffect(uiState.isLoading) {
-        if (uiState.isLoading) indicatorColor = AppConfig.PullRefresh.INDICATOR_COLORS.random()
-    }
-    PullToRefreshBox(
-        isRefreshing = uiState.isLoading,
-        onRefresh = { onEvent(CalendarUiEvent.Refresh) },
-        state = pullState,
+    // 下拉刷新：与首页一致的自定义平级刷新（非系统 PullToRefreshBox）+ status-loading 图标；
+    // 仅已连接时真正触发拉取（未连接/游客态下 Refresh 为 no-op）。
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(BgPage),
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullState,
-                isRefreshing = uiState.isLoading,
-                color = indicatorColor,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-        },
+            .background(BgPage)
+            .statusBarsPadding(),
     ) {
-        // 左右滑动只在周条（DayCell 区域）内生效：由周条自身的 HorizontalPager 处理，
-        // 内容区不挂全局横滑手势，统计卡/议程等区域滑动不切换日期。
-        Column(
+        AppPullToRefresh(
+            isRefreshing = uiState.isLoading,
+            onRefresh = { onEvent(CalendarUiEvent.Refresh) },
             modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 100.dp),
+                .weight(1f)
+                .fillMaxWidth(),
         ) {
+            // 左右滑动只在周条（DayCell 区域）内生效：由周条自身的 HorizontalPager 处理，
+            // 内容区不挂全局横滑手势，统计卡/议程等区域滑动不切换日期。
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 100.dp),
+            ) {
         // 顶部标题 + 操作 pill
         Row(
             modifier = Modifier
@@ -347,6 +332,7 @@ fun CalendarScreen(
                 }
             }
         }
+            }
         }
     }
 }
