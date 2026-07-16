@@ -29,7 +29,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -126,6 +128,17 @@ fun CreateScreen(
     // 标题超长 Toast 的节流时间戳：避免达上限后每次按键都弹提示
     var lastTitleLimitToastMs by remember { mutableStateOf(0L) }
 
+    // 标题用 TextFieldValue 受控：拒绝输入时保持文本 + 光标不变（防止达上限后继续输入光标跳动）
+    var titleFieldValue by remember {
+        mutableStateOf(TextFieldValue(uiState.title, TextRange(uiState.title.length)))
+    }
+    // 外部改标题（加载 / 撤销重做 / 转写等）时同步进输入框，光标落到末尾
+    LaunchedEffect(uiState.title) {
+        if (titleFieldValue.text != uiState.title) {
+            titleFieldValue = TextFieldValue(uiState.title, TextRange(uiState.title.length))
+        }
+    }
+
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAttachSheet by remember { mutableStateOf(false) }
     var showRecordingBar by remember { mutableStateOf(false) }
@@ -150,11 +163,10 @@ fun CreateScreen(
     // 图文正文编辑器状态（文本 + 图片块），文档 JSON 同步给 ViewModel
     val editor = remember { NoteEditorState() }
     val polishing = editor.isPolishing
-    // 字数上限：标题 + 正文合计
+    // 字数上限：仅统计正文（标题另有独立上限 TITLE_MAX_CHARS，不计入总字数）
     val maxInputChars = AppConfig.Editor.MAX_INPUT_CHARS
-    val titleLen = uiState.title.length
     val bodyLen = editor.textLength
-    val totalChars = titleLen + bodyLen
+    val totalChars = bodyLen
     // 最近同步过的 body，用字符串比较避免每次变化都重建 documentJson
     var lastSyncedBody by remember { mutableStateOf<String?>(null) }
     // 进场动画期间不灌内容，落定后再解析填充，避免入场卡顿
@@ -411,7 +423,7 @@ fun CreateScreen(
                     state = editor,
                     onContentChanged = emitContent,
                     readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中：正文不可编辑、不弹键盘
-                    bodyCharLimit = (maxInputChars - titleLen).coerceAtLeast(0),
+                    bodyCharLimit = maxInputChars,   // 正文上限独立，不再扣减标题字数
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
                         keyboardController?.hide()
@@ -423,12 +435,14 @@ fun CreateScreen(
                     header = {
                         // ── 标题 ──────────────────────────────────────────
                         BasicTextField(
-                            value = uiState.title,
-                            onValueChange = { newTitle ->
-                                val shrinking = newTitle.length <= uiState.title.length
+                            value = titleFieldValue,
+                            onValueChange = { newValue ->
+                                val newText = newValue.text
+                                val shrinking = newText.length <= titleFieldValue.text.length
                                 when {
                                     // 标题上限 50：超出且为「增长型」修改 → 拒绝并弹英文 Toast（节流）
-                                    newTitle.length > AppConfig.Editor.TITLE_MAX_CHARS && !shrinking -> {
+                                    // 关键：不更新 titleFieldValue，保持文本 + 光标不变，光标不跳动
+                                    newText.length > AppConfig.Editor.TITLE_MAX_CHARS && !shrinking -> {
                                         val now = System.currentTimeMillis()
                                         if (now - lastTitleLimitToastMs > AppConfig.Editor.TITLE_LIMIT_TOAST_INTERVAL_MS) {
                                             lastTitleLimitToastMs = now
@@ -439,11 +453,11 @@ fun CreateScreen(
                                             ).show()
                                         }
                                     }
-                                    // 标题 + 正文合计不超上限；超限的「增长型」修改静默拒绝
-                                    newTitle.length + bodyLen <= maxInputChars || shrinking ->
-                                        onEvent(CreateEvent.TitleChanged(newTitle))
-
-                                    else -> Unit
+                                    // 未超标题上限即接受（标题独立限长，不计入正文总字数）
+                                    else -> {
+                                        titleFieldValue = newValue
+                                        onEvent(CreateEvent.TitleChanged(newText))
+                                    }
                                 }
                             },
                             readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中不可编辑
@@ -457,7 +471,7 @@ fun CreateScreen(
                             ),
                             cursorBrush = SolidColor(TextColors.Primary.default.current()),
                             decorationBox = { inner ->
-                                if (uiState.title.isEmpty()) {
+                                if (titleFieldValue.text.isEmpty()) {
                                     Text(
                                         "New note",
                                         fontSize = 15.sp,
