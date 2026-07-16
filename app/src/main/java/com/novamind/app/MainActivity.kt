@@ -43,6 +43,9 @@ import com.novamind.app.feature.calendar.CalendarRoute
 import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
 import com.novamind.app.feature.library.LibraryRoute
+import com.novamind.app.feature.profile.ProfileRoute
+import com.novamind.app.feature.home.AboutMyNovieScreen
+import com.novamind.app.common.permission.PermissionManagerScreen
 import com.novamind.app.feature.recyclebin.RecycleBinRoute
 import com.novamind.app.feature.create.tag.tagmanager.TagManagerRoute
 import com.novamind.app.feature.asknovie.AskNovieScreen
@@ -69,11 +72,11 @@ import dagger.hilt.android.AndroidEntryPoint
 
 // 导航顺序，用于判断滑动方向
 private val navOrder = listOf(
-    BottomNavDestination.Brand.route,
     BottomNavDestination.Home.route,
+    BottomNavDestination.Calendar.route,
     BottomNavDestination.Create.route,
     BottomNavDestination.Library.route,
-    BottomNavDestination.Calendar.route,
+    BottomNavDestination.Profile.route,
 )
 
 // Hilt 入口：使 viewModel() 支持 @HiltViewModel
@@ -118,6 +121,11 @@ class MainActivity : FragmentActivity() {
                 BackHandler(enabled = showRecycleBin) { showRecycleBin = false }
                 var showTagManager by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showTagManager) { showTagManager = false }
+                // Profile 页入口的全屏覆盖层：权限管理 / 关于
+                var showProfilePermissions by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = showProfilePermissions) { showProfilePermissions = false }
+                var showAbout by rememberSaveable { mutableStateOf(false) }
+                BackHandler(enabled = showAbout) { showAbout = false }
                 // Library 子页时，系统返回与左上角返回键行为一致
                 BackHandler(
                     enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
@@ -259,6 +267,16 @@ class MainActivity : FragmentActivity() {
                             BottomNavDestination.Calendar.route -> CalendarRoute(
                                 onFullscreenChange = { hideBottomNav = it },
                             )
+                            BottomNavDestination.Profile.route -> ProfileRoute(
+                                userName = userSession.profile?.displayName,
+                                userEmail = userSession.profile?.email ?: userSession.userKey,
+                                isGuest = authState.isGuest,
+                                appVersion = "v${BuildConfig.VERSION_NAME}",
+                                onOpenPermissions = { showProfilePermissions = true },
+                                onAbout = { showAbout = true },
+                                onLogout = { authViewModel.logout(this@MainActivity) },
+                                onLogin = { authViewModel.exitGuest() },
+                            )
                         }
                     }
 
@@ -272,21 +290,20 @@ class MainActivity : FragmentActivity() {
                         AppBottomNavBar(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
-                                // 品牌按钮 → Ask Novie，不切换 tab
-                                if (route == BottomNavDestination.Brand.route) {
-                                    showAskNovie = true
-                                    return@AppBottomNavBar
-                                }
                                 // 底栏进入 Library 清掉子页标记
                                 if (route == BottomNavDestination.Library.route) libraryAsSubpage = false
-                                // 已在当前页（如编辑中点 Create）不重置不跳转
+                                // 已在当前页不重复跳转
                                 if (route == currentRoute) return@AppBottomNavBar
-                                if (route == BottomNavDestination.Create.route) {
-                                    editingNoteId = null
-                                    createReturnRoute = currentRoute
-                                }
                                 currentRoute = route
                             },
+                            // 中央「+」速拨：新建笔记
+                            onCreate = {
+                                editingNoteId = null
+                                createReturnRoute = currentRoute
+                                currentRoute = BottomNavDestination.Create.route
+                            },
+                            // 中央「+」速拨：Ask Novie
+                            onAskNovie = { showAskNovie = true },
                         )
                     }
 
@@ -323,6 +340,32 @@ class MainActivity : FragmentActivity() {
                     ) {
                         TagManagerRoute(
                             onBack = { showTagManager = false },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    // 权限管理（Profile 页入口，全屏覆盖）
+                    AnimatedVisibility(
+                        visible = showProfilePermissions,
+                        enter = slideInHorizontally { it } + fadeIn(),
+                        exit = slideOutHorizontally { it } + fadeOut(),
+                    ) {
+                        PermissionManagerScreen(
+                            onBack = { showProfilePermissions = false },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    // 关于 MyNovie（Profile 页入口，全屏覆盖）
+                    AnimatedVisibility(
+                        visible = showAbout,
+                        enter = slideInHorizontally { it } + fadeIn(),
+                        exit = slideOutHorizontally { it } + fadeOut(),
+                    ) {
+                        AboutMyNovieScreen(
+                            versionName = BuildConfig.VERSION_NAME,
+                            versionCode = BuildConfig.VERSION_CODE,
+                            onBack = { showAbout = false },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

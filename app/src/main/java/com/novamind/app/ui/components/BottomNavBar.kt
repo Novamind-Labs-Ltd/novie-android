@@ -1,29 +1,49 @@
 package com.novamind.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.ReadOnlyComposable
 import com.novamind.app.R
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.IconColors
+import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
@@ -34,135 +54,214 @@ sealed class BottomNavDestination(
     val label: String,
     val iconResId: Int?,
 ) {
-    /** 左侧品牌/特殊按钮，无标签 */
-    object Brand : BottomNavDestination("brand", "", null)
     object Home : BottomNavDestination("home", "Home", R.drawable.ic_nav_home)
+    object Calendar : BottomNavDestination("calendar", "Calendar", R.drawable.ic_nav_calendar)
+    /** 中央 FAB 对应的编辑页路由（不作为可见 tab 渲染）。 */
     object Create : BottomNavDestination("create", "Create", R.drawable.ic_nav_create)
     object Library : BottomNavDestination("library", "Library", R.drawable.ic_nav_library)
-    object Calendar : BottomNavDestination("calendar", "Calendar", R.drawable.ic_nav_calendar)
+    object Profile : BottomNavDestination("profile", "Profile", R.drawable.ic_nav_profile)
 }
 
-val bottomNavDestinations = listOf(
-    BottomNavDestination.Brand,
+/** 底栏可见 tab（左二 / 右二，中间留出 FAB 凹槽）。 */
+val bottomNavTabs = listOf(
     BottomNavDestination.Home,
-    BottomNavDestination.Create,
-    BottomNavDestination.Library,
     BottomNavDestination.Calendar,
+    BottomNavDestination.Library,
+    BottomNavDestination.Profile,
 )
 
-// ─── 颜色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色） ──
+// ─── 颜色：统一引用 ui/colors 设计令牌，随主题深浅自动解析 ────────────────────────
 
 private val ColorSelected: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+    @Composable @ReadOnlyComposable get() = IconColors.Success.default.current()   // #145436
 private val ColorUnselected: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Default.secondary.current()
-private val ColorBrand: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()
+    @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()    // #333
 private val BarBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+private val FabBorder: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()
+
+// ─── 尺寸 ─────────────────────────────────────────────────────────────────────
+
+private val BarHeight = 68.dp
+private val FabSize = 60.dp
+private val SubButtonSize = 48.dp
+private val CradleWidth = 96.dp
+private val CradleDepth = 30.dp
+private val TopCorner = 22.dp
+
+// ─── 中央带凹槽的顶边形状 ─────────────────────────────────────────────────────
+
+/** 顶边中央下凹的栏体形状（平滑三次贝塞尔谷），用于容纳浮动 FAB。 */
+private class CradleTopShape(
+    private val cradleWidth: Dp,
+    private val cradleDepth: Dp,
+    private val topCorner: Dp,
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val path = Path()
+        with(density) {
+            val w = size.width
+            val h = size.height
+            val half = cradleWidth.toPx() / 2f
+            val depth = cradleDepth.toPx()
+            val corner = topCorner.toPx()
+            val cx = w / 2f
+
+            path.moveTo(0f, corner)
+            path.quadraticBezierTo(0f, 0f, corner, 0f)               // 左上圆角
+            path.lineTo(cx - half, 0f)                                // 平直到凹槽起点
+            path.cubicTo(cx - half * 0.5f, 0f, cx - half * 0.5f, depth, cx, depth)   // 谷左半
+            path.cubicTo(cx + half * 0.5f, depth, cx + half * 0.5f, 0f, cx + half, 0f) // 谷右半
+            path.lineTo(w - corner, 0f)
+            path.quadraticBezierTo(w, 0f, w, corner)                  // 右上圆角
+            path.lineTo(w, h)
+            path.lineTo(0f, h)
+            path.close()
+        }
+        return Outline.Generic(path)
+    }
+}
 
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 
 /**
- * 底部导航栏
+ * 底部导航栏（home_final / nav）：中央下凹栏体 + 浮动「+」FAB，两侧各两个 tab。
+ * 「+」点击展开 Ask Novie / Create 两个速拨子按钮。
  *
  * @param currentRoute 当前选中路由
- * @param onNavigate   点击回调，携带目标路由字符串
+ * @param onNavigate   tab 点击回调（Home/Calendar/Library/Profile）
+ * @param onCreate     速拨 Create（新建笔记）
+ * @param onAskNovie   速拨 Ask Novie
  */
 @Composable
 fun AppBottomNavBar(
     currentRoute: String,
     onNavigate: (String) -> Unit,
+    onCreate: () -> Unit = {},
+    onAskNovie: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    var expanded by remember { mutableStateOf(false) }
+    val fabRotation by animateFloatAsState(if (expanded) 45f else 0f, label = "fab_rotation")
+    val cradle = remember { CradleTopShape(CradleWidth, CradleDepth, TopCorner) }
+
+    // 预留 FAB 上探与速拨区域的高度
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 12.dp)
-            .padding(top = 8.dp, bottom = 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .height(BarHeight + 120.dp),
     ) {
-        // 左侧：独立圆形品牌胶囊
-        Surface(
-            color = BarBg,
-            shadowElevation = 12.dp,
-            shape = RoundedCornerShape(50), // 正圆
-        ) {
-            BrandNavItem(
-                modifier = Modifier.size(58.dp),
-                onClick = { onNavigate(BottomNavDestination.Brand.route) },
-            )
-        }
-
-        // 右侧：四个导航项的长胶囊
-        Surface(
-            modifier = Modifier.weight(1f),
-            color = BarBg,
-            shadowElevation = 12.dp,
-            shape = RoundedCornerShape(50),
+        // ── 栏体（含四个 tab） ──────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(BarHeight)
+                .shadow(elevation = 10.dp, shape = cradle, clip = false)
+                .background(BarBg, cradle),
         ) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .padding(horizontal = 2.dp),
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                bottomNavDestinations
-                    .filterNot { it is BottomNavDestination.Brand }
-                    .forEach { dest ->
-                        RegularNavItem(
-                            destination = dest,
-                            selected = currentRoute == dest.route,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onNavigate(dest.route) },
-                        )
-                    }
+                NavTab(BottomNavDestination.Home, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
+                NavTab(BottomNavDestination.Calendar, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
+                Spacer(Modifier.width(CradleWidth))   // 中间凹槽让位给 FAB
+                NavTab(BottomNavDestination.Library, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
+                NavTab(BottomNavDestination.Profile, currentRoute, Modifier.weight(1f)) { expanded = false; onNavigate(it) }
+            }
+        }
+
+        // ── 速拨子按钮（Ask / Create），展开时浮于 FAB 之上 ─────────────────
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + scaleIn(initialScale = 0.6f),
+            exit = fadeOut() + scaleOut(targetScale = 0.6f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = -(BarHeight - FabSize / 2 + FabSize + 16.dp)),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                SpeedDialButton(R.drawable.ic_chat, "Ask Novie") { expanded = false; onAskNovie() }
+                SpeedDialButton(R.drawable.ic_nav_create, "Create") { expanded = false; onCreate() }
+            }
+        }
+
+        // ── 中央「+」FAB（点击切换速拨） ────────────────────────────────────
+        Surface(
+            shape = CircleShape,
+            color = BarBg,
+            shadowElevation = 6.dp,
+            border = BorderStroke(1.dp, FabBorder),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = -(BarHeight - FabSize / 2))
+                .size(FabSize),
+        ) {
+            Box(
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(bounded = false, radius = FabSize / 2),
+                    onClick = { expanded = !expanded },
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_add),
+                    contentDescription = if (expanded) "Close" else "Create",
+                    tint = ColorUnselected,
+                    modifier = Modifier.size(28.dp).rotate(fabRotation),
+                )
             }
         }
     }
 }
 
-// ─── 品牌图标按钮 ─────────────────────────────────────────────────────────────
+// ─── 速拨子按钮 ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun BrandNavItem(
+private fun SpeedDialButton(
+    iconRes: Int,
+    contentDescription: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxHeight()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, radius = 28.dp),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
+    Surface(
+        shape = CircleShape,
+        color = BarBg,
+        shadowElevation = 4.dp,
+        border = BorderStroke(1.dp, Palette.gray600),
+        modifier = Modifier.size(SubButtonSize),
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_nav_brand),
-            contentDescription = "Brand",
-            tint = ColorBrand,
-            modifier = Modifier.size(22.dp),
-        )
+        Box(
+            modifier = Modifier.clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = contentDescription,
+                tint = ColorUnselected,
+                modifier = Modifier.size(24.dp),
+            )
+        }
     }
 }
 
-// ─── 普通导航项 ───────────────────────────────────────────────────────────────
+// ─── 普通 tab ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun RegularNavItem(
+private fun NavTab(
     destination: BottomNavDestination,
-    selected: Boolean,
-    onClick: () -> Unit,
+    currentRoute: String,
     modifier: Modifier = Modifier,
+    onClick: (String) -> Unit,
 ) {
-    val iconTint = if (selected) ColorSelected else ColorUnselected
-    val labelColor = if (selected) ColorSelected else ColorUnselected
-    val labelWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+    val selected = currentRoute == destination.route
+    val tint = if (selected) ColorSelected else ColorUnselected
+    val weight = if (selected) FontWeight.SemiBold else FontWeight.Medium
 
     Column(
         modifier = modifier
@@ -170,37 +269,23 @@ private fun RegularNavItem(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = false, radius = 32.dp),
-                onClick = onClick,
+                onClick = { onClick(destination.route) },
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Box(
-            modifier = if (selected) {
-                Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ColorSelected.copy(alpha = 0.12f))
-                    .padding(horizontal = 10.dp, vertical = 3.dp)
-            } else {
-                Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-            },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(id = destination.iconResId!!),
-                contentDescription = destination.label,
-                tint = iconTint,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(1.dp))
-
+        Icon(
+            painter = painterResource(id = destination.iconResId!!),
+            contentDescription = destination.label,
+            tint = tint,
+            modifier = Modifier.size(24.dp),
+        )
+        Spacer(Modifier.height(6.dp))
         Text(
             text = destination.label,
-            fontSize = 10.sp,
-            fontWeight = labelWeight,
-            color = labelColor,
+            fontSize = 12.sp,
+            fontWeight = weight,
+            color = tint,
             maxLines = 1,
         )
     }
@@ -208,24 +293,26 @@ private fun RegularNavItem(
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, backgroundColor = 0xFFF5F5F0)
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Bottom Nav · Home")
 @Composable
 private fun BottomNavBarHomePreview() {
     AppTheme {
-        AppBottomNavBar(
-            currentRoute = BottomNavDestination.Home.route,
-            onNavigate = {},
-        )
+        AppBottomNavBar(currentRoute = BottomNavDestination.Home.route, onNavigate = {})
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF5F5F0)
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Bottom Nav · Library")
 @Composable
 private fun BottomNavBarLibraryPreview() {
     AppTheme {
-        AppBottomNavBar(
-            currentRoute = BottomNavDestination.Library.route,
-            onNavigate = {},
-        )
+        AppBottomNavBar(currentRoute = BottomNavDestination.Library.route, onNavigate = {})
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF1A1A1A, name = "Bottom Nav · Dark")
+@Composable
+private fun BottomNavBarDarkPreview() {
+    AppTheme(darkTheme = true) {
+        AppBottomNavBar(currentRoute = BottomNavDestination.Profile.route, onNavigate = {})
     }
 }
