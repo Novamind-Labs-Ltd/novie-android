@@ -123,6 +123,9 @@ fun CreateScreen(
     // 工具栏顶边（窗口 px），作为光标遮挡线
     var toolbarTopWindowY by remember { mutableStateOf(Float.MAX_VALUE) }
 
+    // 标题超长 Toast 的节流时间戳：避免达上限后每次按键都弹提示
+    var lastTitleLimitToastMs by remember { mutableStateOf(0L) }
+
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAttachSheet by remember { mutableStateOf(false) }
     var showRecordingBar by remember { mutableStateOf(false) }
@@ -421,10 +424,26 @@ fun CreateScreen(
                         // ── 标题 ──────────────────────────────────────────
                         BasicTextField(
                             value = uiState.title,
-                            onValueChange = {
-                                // 标题 + 正文合计不超上限；超限的「增长型」修改拒绝
-                                if (it.length + bodyLen <= maxInputChars || it.length <= uiState.title.length) {
-                                    onEvent(CreateEvent.TitleChanged(it))
+                            onValueChange = { newTitle ->
+                                val shrinking = newTitle.length <= uiState.title.length
+                                when {
+                                    // 标题上限 50：超出且为「增长型」修改 → 拒绝并弹英文 Toast（节流）
+                                    newTitle.length > AppConfig.Editor.TITLE_MAX_CHARS && !shrinking -> {
+                                        val now = System.currentTimeMillis()
+                                        if (now - lastTitleLimitToastMs > AppConfig.Editor.TITLE_LIMIT_TOAST_INTERVAL_MS) {
+                                            lastTitleLimitToastMs = now
+                                            Toast.makeText(
+                                                context,
+                                                "Title cannot exceed ${AppConfig.Editor.TITLE_MAX_CHARS} characters",
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    }
+                                    // 标题 + 正文合计不超上限；超限的「增长型」修改静默拒绝
+                                    newTitle.length + bodyLen <= maxInputChars || shrinking ->
+                                        onEvent(CreateEvent.TitleChanged(newTitle))
+
+                                    else -> Unit
                                 }
                             },
                             readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中不可编辑

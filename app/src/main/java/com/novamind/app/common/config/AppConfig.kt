@@ -50,6 +50,12 @@ object AppConfig {
         /** 单条笔记最大可输入字数（标题 + 正文合计）。 */
         const val MAX_INPUT_CHARS = 50000
 
+        /** 标题最大字数：超过后再输入会被拒绝并提示。 */
+        const val TITLE_MAX_CHARS = 50
+
+        /** 标题超长 Toast 的最小间隔（毫秒）：达上限后连续按键只在此间隔内提示一次。 */
+        const val TITLE_LIMIT_TOAST_INTERVAL_MS = 1500L
+
         /** 字数计数展示阈值：低于此值显示实际字数，达到/超过则统一显示为上限 [MAX_INPUT_CHARS]。 */
         const val COUNT_DISPLAY_THRESHOLD = 40000
 
