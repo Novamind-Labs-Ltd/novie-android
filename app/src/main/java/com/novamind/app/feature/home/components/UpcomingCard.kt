@@ -1,5 +1,6 @@
 package com.novamind.app.feature.home.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,9 +33,12 @@ internal fun UpcomingCard(
     showAction: Boolean = false,
     actionLabel: String = "Start notes",
     onAction: () -> Unit = {},
+    onClick: (() -> Unit)? = null,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(12.dp),
         color = BgCard,
         shadowElevation = 1.dp,

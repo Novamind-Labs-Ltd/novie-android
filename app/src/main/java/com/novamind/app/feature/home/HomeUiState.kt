@@ -1,5 +1,6 @@
 package com.novamind.app.feature.home
 
+import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.feature.create.model.NoteItem
 
 data class UpcomingItem(
@@ -17,6 +18,8 @@ data class HomeUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val upcomingItems: List<UpcomingItem> = emptyList(),
+    /** Up next 中「任务」对应的原始 Google Tasks（用于点击进入详情/编辑）。 */
+    val todayTasks: List<CalendarTask> = emptyList(),
     val notes: List<NoteItem> = emptyList(),
     val errorMessage: String? = null,
 )

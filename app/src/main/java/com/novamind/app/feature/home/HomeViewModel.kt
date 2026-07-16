@@ -9,11 +9,14 @@ import com.novamind.app.common.net.response.fold
 import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.calendar.TodayAgendaUseCase
 import com.novamind.app.data.calendar.isPast
+import com.novamind.app.data.tasks.CalendarTask
+import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +28,7 @@ import kotlinx.coroutines.launch
 class HomeViewModel @Inject constructor(
     private val notesRepository: RemoteNoteRepository,
     private val todayAgenda: TodayAgendaUseCase,
+    private val tasksRepository: GoogleTasksRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -124,7 +128,39 @@ class HomeViewModel @Inject constructor(
                     )
                 }
             }
-            _uiState.update { it.copy(upcomingItems = items) }
+            // 记住展示中的原始任务，供点击进入详情/编辑取回完整字段（listId/notes/due 等）
+            _uiState.update {
+                it.copy(
+                    upcomingItems = items,
+                    todayTasks = agenda.tasks.filterNot { t -> t.isCompleted },
+                )
+            }
+        }
+    }
+
+    // ─── Up next 任务编辑（写回 Google Tasks 后刷新 Up next） ─────────────────────
+
+    /** 更新任务标题/描述/截止日。 */
+    fun updateTask(task: CalendarTask, title: String, notes: String?, due: LocalDate) {
+        viewModelScope.launch {
+            runCatching { tasksRepository.updateTask(task.listId, task.id, title, notes, due) }
+            loadUpcoming()
+        }
+    }
+
+    /** 切换完成状态。 */
+    fun setTaskCompleted(task: CalendarTask, completed: Boolean) {
+        viewModelScope.launch {
+            runCatching { tasksRepository.setCompleted(task.listId, task.id, completed) }
+            loadUpcoming()
+        }
+    }
+
+    /** 删除任务。 */
+    fun deleteTask(task: CalendarTask) {
+        viewModelScope.launch {
+            runCatching { tasksRepository.deleteTask(task.listId, task.id) }
+            loadUpcoming()
         }
     }
 

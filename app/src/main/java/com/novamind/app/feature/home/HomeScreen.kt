@@ -61,6 +61,7 @@ fun HomeScreen(
     onUpcomingSeeAll: () -> Unit,
     onNotesSeeAll: () -> Unit,
     onNoteClick: (noteId: String) -> Unit = {},
+    onTaskClick: (itemId: String) -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAskNovie: () -> Unit = {},
@@ -132,12 +133,15 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    // 会议卡带「Start notes」按钮，任务卡不带（按 item.isMeeting 区分）
+                    // 会议卡带「Start notes」按钮；任务卡整卡可点，进入任务详情
                     uiState.upcomingItems.forEach { item ->
                         UpcomingCard(
                             item = item,
                             showAction = item.isMeeting,
                             onAction = onStartNotes,
+                            onClick = if (!item.isMeeting) {
+                                { onTaskClick(item.id) }
+                            } else null,
                         )
                     }
                 }

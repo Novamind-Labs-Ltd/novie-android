@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -22,9 +23,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import java.time.LocalDate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.BuildConfig
+import com.novamind.app.data.tasks.CalendarTask
+import com.novamind.app.feature.calendar.AddTaskScreen
 import com.novamind.app.common.notifications.NotificationListScreen
 import com.novamind.app.common.notifications.sampleNotifications
 import com.novamind.app.common.notifications.unreadCount
@@ -36,7 +40,7 @@ import com.novamind.app.ui.components.DeleteConfirmSheet
 import kotlinx.coroutines.launch
 
 /** Home 下的子页面 */
-private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Avatar, About }
+private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Avatar, About, TaskDetail }
 
 @Composable
 fun HomeRoute(
@@ -70,6 +74,8 @@ fun HomeRoute(
 
     var notifications by remember { mutableStateOf(sampleNotifications) }
     var overlay by remember { mutableStateOf(HomeOverlay.None) }
+    // 当前打开详情的任务（TaskDetail 覆盖层用）
+    var selectedTask by remember { mutableStateOf<CalendarTask?>(null) }
     // 退出登录二次确认弹窗
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
@@ -143,6 +149,13 @@ fun HomeRoute(
                     onUpcomingSeeAll = { overlay = HomeOverlay.Upcoming },
                     onNotesSeeAll = onNotesSeeAll,
                     onNoteClick = onNoteClick,
+                    // 点任务卡 → 取回原始 CalendarTask 打开详情/编辑覆盖层
+                    onTaskClick = { itemId ->
+                        uiState.todayTasks.find { "task_${it.id}" == itemId }?.let { task ->
+                            selectedTask = task
+                            overlay = HomeOverlay.TaskDetail
+                        }
+                    },
                     onNotificationsClick = { overlay = HomeOverlay.Notifications },
                     onAskNovie = onAskNovie,
                     onStartNotes = onStartNotes,
@@ -179,6 +192,37 @@ fun HomeRoute(
                     versionCode = BuildConfig.VERSION_CODE,
                     onBack = { overlay = HomeOverlay.None },
                 )
+
+                // 任务详情/编辑：复用日历页的 AddTaskScreen（编辑模式），改动写回 Google Tasks
+                HomeOverlay.TaskDetail -> {
+                    val task = selectedTask
+                    if (task == null) {
+                        overlay = HomeOverlay.None
+                    } else {
+                        // key：切换不同任务时强制重建表单（rememberSaveable 只取首次初值）
+                        key(task.id) {
+                            AddTaskScreen(
+                                initialDue = task.due ?: LocalDate.now(),
+                                initialTitle = task.title,
+                                initialNotes = task.notes.orEmpty(),
+                                completed = task.isCompleted,
+                                onSave = { title, notes, due ->
+                                    overlay = HomeOverlay.None
+                                    viewModel.updateTask(task, title, notes, due)
+                                },
+                                onToggleCompleted = {
+                                    overlay = HomeOverlay.None
+                                    viewModel.setTaskCompleted(task, !task.isCompleted)
+                                },
+                                onDelete = {
+                                    overlay = HomeOverlay.None
+                                    viewModel.deleteTask(task)
+                                },
+                                onBack = { overlay = HomeOverlay.None },
+                            )
+                        }
+                    }
+                }
             }
         }
     }
