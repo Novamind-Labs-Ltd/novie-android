@@ -23,6 +23,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
@@ -183,6 +184,8 @@ class MainActivity : FragmentActivity() {
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    // 按路由保存/恢复各页可保存状态（含滚动位置）：从详情返回首页时保留滚动进度。
+                    val saveableStateHolder = rememberSaveableStateHolder()
                     AnimatedContent(
                         targetState = currentRoute,
                         modifier = Modifier.fillMaxSize(),   // 给子页面有界高度（CreateScreen 的 weight 依赖）
@@ -212,6 +215,7 @@ class MainActivity : FragmentActivity() {
                         },
                         label = "page_transition",
                     ) { route ->
+                        saveableStateHolder.SaveableStateProvider(route) {
                         when (route) {
                             BottomNavDestination.Home.route -> HomeRoute(
                                 onNoteClick = { noteId ->
@@ -285,6 +289,7 @@ class MainActivity : FragmentActivity() {
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 onLogin = { authViewModel.exitGuest() },
                             )
+                        }
                         }
                     }
 
