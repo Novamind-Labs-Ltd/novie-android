@@ -71,7 +71,7 @@ import com.novamind.app.debug.markdown.MarkdownPreviewActivity
 import com.novamind.app.debug.notification.NotificationDebugger
 import com.novamind.app.common.pdf.PdfViewerActivity
 import com.novamind.app.debug.speech.SpeechToTextActivity
-import com.novamind.app.data.NoteRepository
+import com.novamind.app.data.LocalNoteRepository
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -93,7 +93,7 @@ private val Danger = Color(0xFFD13C3C)
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 internal interface DebugPanelEntryPoint {
-    fun noteRepository(): NoteRepository
+    fun noteRepository(): LocalNoteRepository
 }
 
 /**
