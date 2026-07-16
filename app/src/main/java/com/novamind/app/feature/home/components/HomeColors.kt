@@ -15,8 +15,8 @@ import com.novamind.app.ui.colors.current
  * Home 模块共享配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析
  * （不使用硬编码颜色）。供 HomeScreen / UpcomingListScreen 与 components 下组件共用。
  */
-internal val BgPage: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
+/** 首页页面底色：固定为设计稿 background/page/default = #f3f1eb（sand-400），不随深浅主题变化。 */
+internal val BgPage: Color = Palette.sand400
 internal val BgCard: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 internal val BgActionBar: Color
