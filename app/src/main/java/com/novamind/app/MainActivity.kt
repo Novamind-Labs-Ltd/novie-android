@@ -14,6 +14,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -185,21 +187,27 @@ class MainActivity : FragmentActivity() {
                         targetState = currentRoute,
                         modifier = Modifier.fillMaxSize(),   // 给子页面有界高度（CreateScreen 的 weight 依赖）
                         transitionSpec = {
-                            val fromIndex = navOrder.indexOf(initialState)
-                            val toIndex = navOrder.indexOf(targetState)
                             val createRoute = BottomNavDestination.Create.route
-                            // Create 视作详情页：进从右入、返向右出，不受 navOrder 影响
-                            val forward = when {
-                                targetState == createRoute -> true
-                                initialState == createRoute -> false
-                                else -> toIndex >= fromIndex
-                            }
-                            if (forward) {
-                                (slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f))
-                                    .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut())
+                            val involvesCreate = targetState == createRoute || initialState == createRoute
+                            if (!involvesCreate) {
+                                // Home / Calendar / Library / Profile 之间：直接切换，无动画
+                                EnterTransition.None togetherWith ExitTransition.None
                             } else {
-                                (slideInHorizontally { -it / 3 } + fadeIn(initialAlpha = 0.3f))
-                                    .togetherWith(slideOutHorizontally { it } + fadeOut())
+                                val fromIndex = navOrder.indexOf(initialState)
+                                val toIndex = navOrder.indexOf(targetState)
+                                // Create 视作详情页：进从右入、返向右出，不受 navOrder 影响
+                                val forward = when {
+                                    targetState == createRoute -> true
+                                    initialState == createRoute -> false
+                                    else -> toIndex >= fromIndex
+                                }
+                                if (forward) {
+                                    (slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f))
+                                        .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut())
+                                } else {
+                                    (slideInHorizontally { -it / 3 } + fadeIn(initialAlpha = 0.3f))
+                                        .togetherWith(slideOutHorizontally { it } + fadeOut())
+                                }
                             }
                         },
                         label = "page_transition",
