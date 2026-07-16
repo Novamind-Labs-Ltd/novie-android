@@ -22,6 +22,8 @@ data class CalendarEvent(
      * 判定在数据层映射时完成（依赖 API 的 attendees / hangoutLink / conferenceData，领域层不保留原始字段）。
      */
     val isMeeting: Boolean = false,
+    /** 事件描述（Google Calendar description）；可能含 HTML/富文本，UI 层按需清洗。放末尾避免影响位置参数调用。 */
+    val description: String? = null,
 )
 
 /**

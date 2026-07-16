@@ -109,7 +109,9 @@ class HomeViewModel @Inject constructor(
                         UpcomingItem(
                             id = "evt_${e.id}",
                             title = e.title,
-                            subtitle = e.location.orEmpty(),
+                            // 描述优先（压掉多余空白/换行），无描述回退地点
+                            subtitle = (e.description?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
+                                ?: e.location).orEmpty(),
                             iconResId = R.drawable.ic_upcoming_meeting,
                             time = if (e.isAllDay) "" else e.start.format(TIME_FMT),
                             isMeeting = true,   // 会议卡：带 Start notes

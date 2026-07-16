@@ -69,6 +69,7 @@ class GoogleCalendarRepositoryImpl(
             start = startLocal,
             end = endLocal,
             location = location,
+            description = description?.takeIf { it.isNotBlank() },
             eventType = domainType,
             isMeeting = domainType == CalendarEventType.DEFAULT && (hasInvitees || hasMeetingLink),
         )

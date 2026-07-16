@@ -21,6 +21,7 @@ data class EventDto(
     val id: String? = null,
     val status: String? = null,
     val summary: String? = null,
+    val description: String? = null,
     val location: String? = null,
     val eventType: String? = null,
     val hangoutLink: String? = null,
