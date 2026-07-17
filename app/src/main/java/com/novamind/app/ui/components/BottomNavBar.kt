@@ -111,7 +111,7 @@ private val BarHeight = 56.dp       // 设计：栏体内容带高度（不含 h
 private val FabSize = 65.dp        // 设计：vuesax/linear/scan size-[65px]
 private val FabIconSize = 38.dp    // 设计：add size-[38px]
 private val SubButtonSize = 48.dp  // 设计：ask/create size-[48px]
-private val CradleWidth = 96.dp
+private val CradleWidth = 82.dp     // 设计：凹槽贴合 65dp FAB，左右各留 ~8dp 间隙
 private val CradleDepth = 30.dp
 private val TopCorner = 22.dp
 private val StrokeSm = 1.5.dp      // 设计令牌 Stroke/SM = 1.5
@@ -119,11 +119,13 @@ private val FabShadow = 3.dp       // 设计：drop-shadow (0,3,3) neutral-400
 private val RightGroupWidth = 120.dp // 设计：Library/Profile 组固定宽 120
 private val LeftGroupGap = 30.dp     // 设计：Home↔Calendar 间距 30
 private val NavItemsPadding = 24.dp  // 设计：nav items 左右内边距 24
-private val BottomMargin = 12.dp     // 栏体离屏幕底边的额外留白（叠加在系统手势条 inset 之上）
-/** FAB 上探（一半探出栏体上沿）与速拨预留区，用作整体高度与各元素纵向偏移。 */
-private val FabTopOffset = BarHeight - FabSize / 2            // FAB 相对底部上移量
-private val SpeedDialTopOffset = FabTopOffset + FabSize + 16.dp // 速拨相对底部上移量
-private val NavBarHeight = BarHeight + 120.dp                 // 预留 FAB/速拨的整体高度
+/**
+ * 栏体底部安全区（叠加系统手势条 inset）：让 tab 内容高于 home 指示条/手势条。
+ * 设计 home_final：nav 贴屏幕底边，label 距底约 35dp（tab 带居中后再留 ~30dp）。
+ */
+private val BottomSafeExtra = 30.dp
+private val SpeedDialGap = 16.dp     // 速拨相对 FAB 顶边的额外抬升
+private val FabZoneHeight = 120.dp   // 栏体之上为 FAB 上探 + 速拨预留的高度区
 
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 
@@ -148,17 +150,21 @@ fun AppBottomNavBar(
     onExpandedChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    // 底部 margin = 系统手势条 inset + 固定留白，让栏体浮在屏幕底边之上、不压到 home 指示条。
+    // 栏体贴屏幕底边（不再上浮）；底部安全区 = 系统手势条 inset + 设计留白，抬高 tab 内容。
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomSafe = navInset + BottomSafeExtra
+    val barTotalHeight = BarHeight + bottomSafe
+    val fabTopOffset = barTotalHeight - FabSize / 2                 // FAB 中心与栏体顶边齐平
+    val speedDialTopOffset = fabTopOffset + FabSize + SpeedDialGap
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = navInset + BottomMargin)
-            .height(NavBarHeight),
+            .height(barTotalHeight + FabZoneHeight),
     ) {
-        // 栏体 + 四个 tab（点 tab 顺便收起速拨）
+        // 栏体 + 四个 tab（贴底、含安全区；点 tab 顺便收起速拨）
         CradleBar(
             currentRoute = currentRoute,
+            barHeight = barTotalHeight,
             modifier = Modifier.align(Alignment.BottomCenter),
             onNavigate = { onExpandedChange(false); onNavigate(it) },
         )
@@ -168,7 +174,7 @@ fun AppBottomNavBar(
             visible = expanded,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = -SpeedDialTopOffset),
+                .offset(y = -speedDialTopOffset),
             onAskNovie = { onExpandedChange(false); onAskNovie() },
             onCreate = { onExpandedChange(false); onCreate() },
         )
@@ -178,7 +184,7 @@ fun AppBottomNavBar(
             expanded = expanded,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = -FabTopOffset),
+                .offset(y = -fabTopOffset),
             onClick = { onExpandedChange(!expanded) },
         )
     }
@@ -189,6 +195,7 @@ fun AppBottomNavBar(
 @Composable
 private fun CradleBar(
     currentRoute: String,
+    barHeight: Dp,
     modifier: Modifier = Modifier,
     onNavigate: (String) -> Unit,
 ) {
@@ -196,13 +203,14 @@ private fun CradleBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(BarHeight)
+            .height(barHeight)              // 含底部安全区，栏体背景铺到屏幕底边
             .background(BarBg, cradle),
     ) {
         Row(
-            // 设计 nav items：左右各 24 内边距，两组分列，内容纵向居中。
+            // tab 内容带置于栏体顶部 BarHeight 内（下方为安全区）；左右各 24 内边距，两组分列，纵向居中。
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .height(BarHeight)
                 .padding(horizontal = NavItemsPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
