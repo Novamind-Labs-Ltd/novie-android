@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,6 +48,7 @@ fun NoteContentEditor(
     onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
     onImageRetry: (ImageBlock) -> Unit = {},    // 图片上传失败后点击重试
     header: (@Composable () -> Unit)? = null,   // 随正文一起滚动的头部（标题 / folder / tags 等）
+    stickyBanner: (@Composable () -> Unit)? = null,  // 吸顶提示条（如字数超限）：跟随头部后、向上滚动时常驻顶部
     readOnly: Boolean = false,                  // 录音期间等场景：正文不可编辑、点击不弹键盘
     bodyCharLimit: Int = Int.MAX_VALUE,         // 正文可输入字数上限（= 总上限 − 标题字数）
     modifier: Modifier = Modifier,
@@ -85,6 +87,12 @@ fun NoteContentEditor(
         // 头部（标题 / folder / tags 等）：作为首个 item，随正文一起滚动
         if (header != null) {
             item(key = "__header__") { header() }
+        }
+
+        // 吸顶提示条：作为普通 item 排在头部之后（初始位于 meta 之下，与设计一致）。
+        // 滚动到顶后由下方的 pinned 覆盖层接管（本版本 Compose 无 LazyColumn.stickyHeader）。
+        if (stickyBanner != null) {
+            item(key = "__tip__") { stickyBanner() }
         }
 
         items(state.blocks, key = { it.id }) { block ->
@@ -173,6 +181,21 @@ fun NoteContentEditor(
             )
         }
     }
+
+        // 手动吸顶：当列表内提示条(__tip__)滚到/越过视口顶时，在顶部覆盖一个常驻副本。
+        if (stickyBanner != null) {
+            val tipIndex = if (header != null) 1 else 0
+            val pinned by remember {
+                derivedStateOf {
+                    val info = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "__tip__" }
+                    if (info != null) info.offset <= 0                     // 顶边已到/越过视口顶
+                    else listState.firstVisibleItemIndex > tipIndex        // 已完全滚过（不在可见区）
+                }
+            }
+            if (pinned) {
+                Box(modifier = Modifier.align(Alignment.TopStart)) { stickyBanner() }
+            }
+        }
 
         // 右侧快速拖拽滚动条（覆盖在正文右缘）
         FastScrollbar(

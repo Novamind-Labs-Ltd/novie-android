@@ -61,6 +61,7 @@ import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor
+import com.novamind.app.feature.create.components.NoteTipBanner
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.UploadState
 import com.novamind.app.feature.create.model.TranscriptionInsert
@@ -424,6 +425,10 @@ fun CreateScreen(
                     onContentChanged = emitContent,
                     readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中：正文不可编辑、不弹键盘
                     bodyCharLimit = maxInputChars,   // 正文上限独立，不再扣减标题字数
+                    // 字数达/超上限：红色提示条吸顶，随正文向上滚动常驻顶部（回收站只读态不展示）
+                    stickyBanner = if (!readOnly && totalChars >= maxInputChars) {
+                        { NoteTipBanner(maxChars = maxInputChars) }
+                    } else null,
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
                         keyboardController?.hide()
