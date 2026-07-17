@@ -20,6 +20,7 @@ import com.novamind.app.feature.home.components.HomeTopBar
 import com.novamind.app.feature.home.components.RecentNoteCard
 import com.novamind.app.feature.home.components.SectionHeader
 import com.novamind.app.feature.home.components.UpcomingCard
+import com.novamind.app.feature.home.components.UpNextConnectCard
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.ui.components.AppPullToRefresh
 import com.novamind.app.ui.theme.AppTheme
@@ -67,9 +68,12 @@ fun HomeScreen(
     onAskNovie: () -> Unit = {},
     onStartNotes: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onConnectCalendar: () -> Unit = {},
     userName: String = "",
     avatarPath: String? = null,
     notificationCount: Int = 0,
+    calendarNeedsAuth: Boolean = false,
+    calendarConnecting: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -115,8 +119,15 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 今日会议/任务；无数据显示空状态
-            if (uiState.upcomingItems.isEmpty()) {
+            // 未授权 Google 日历：展示连接入口（与日历页一致的授权流程）
+            if (calendarNeedsAuth) {
+                UpNextConnectCard(
+                    connecting = calendarConnecting,
+                    onConnect = onConnectCalendar,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            } else if (uiState.upcomingItems.isEmpty()) {
+                // 今日无会议/任务：空状态
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -269,6 +280,24 @@ private fun HomeScreenEmptyPreview() {
             onUpcomingSeeAll = {},
             onNotesSeeAll = {},
             userName = "Jam",
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Home · Up next needs Google auth")
+@Composable
+private fun HomeScreenNeedsAuthPreview() {
+    AppTheme {
+        HomeScreen(
+            uiState = HomeUiState(
+                upcomingItems = emptyList(),
+                notes = previewNotes(2),
+                calendarNeedsAuth = true,
+            ),
+            onUpcomingSeeAll = {},
+            onNotesSeeAll = {},
+            userName = "Jam",
+            calendarNeedsAuth = true,
         )
     }
 }

@@ -21,5 +21,9 @@ data class HomeUiState(
     /** Up next 中「任务」对应的原始 Google Tasks（用于点击进入详情/编辑）。 */
     val todayTasks: List<CalendarTask> = emptyList(),
     val notes: List<NoteItem> = emptyList(),
+    /** Up next 未授权 Google 日历：展示「连接日历」入口（有可连接账号但未授权时）。 */
+    val calendarNeedsAuth: Boolean = false,
+    /** 正在走日历连接 / 授权同意流程（按钮显示 loading，避免重复点击）。 */
+    val calendarConnecting: Boolean = false,
     val errorMessage: String? = null,
 )

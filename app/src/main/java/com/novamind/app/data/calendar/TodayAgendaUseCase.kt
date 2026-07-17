@@ -12,10 +12,14 @@ import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** 今日议程：会议(events) + 任务(tasks)。 */
+/** 今日议程：会议(events) + 任务(tasks)，附带授权状态。 */
 data class TodayAgenda(
     val events: List<CalendarEvent> = emptyList(),
     val tasks: List<CalendarTask> = emptyList(),
+    /** 是否已静默授权成功（拿到可用 token，议程数据来自日历）。 */
+    val authorized: Boolean = false,
+    /** 是否有可用于连接的账号（非游客且有登录邮箱）——决定是否展示「连接日历」入口。 */
+    val accountAvailable: Boolean = false,
 )
 
 /**
@@ -42,12 +46,15 @@ class TodayAgendaUseCase @Inject constructor(
             ?: UserSessionManager.current.userKey)?.takeIf { it.isNotBlank() }
             ?: return TodayAgenda()
 
-        if (!acquireTokenSilently(account)) return TodayAgenda()
+        // 有账号但静默授权失败 → 未授权（accountAvailable=true 供 UI 展示「连接」按钮）
+        if (!acquireTokenSilently(account)) return TodayAgenda(accountAvailable = true)
 
         val today = LocalDate.now()
         return TodayAgenda(
             events = fetchEvents(today, account),
             tasks = safe { tasksRepository.tasksOn(today) },
+            authorized = true,
+            accountAvailable = true,
         )
     }
 

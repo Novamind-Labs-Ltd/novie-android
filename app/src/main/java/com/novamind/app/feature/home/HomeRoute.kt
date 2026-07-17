@@ -1,5 +1,8 @@
 package com.novamind.app.feature.home
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -67,6 +70,18 @@ fun HomeRoute(
 
     // 每次回到首页（HomeRoute 重新进入组合，如底栏切换 / 从编辑器返回）都静默重拉笔记列表
     LaunchedEffect(Unit) { viewModel.reload() }
+
+    // Up next 未授权时的「连接日历」授权流程（与日历页一致）：
+    // VM 需用户同意时经 consentRequest 发出恢复意图，这里启动并回传结果。
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) viewModel.onConsentGranted()
+        else viewModel.onConsentCancelled()
+    }
+    LaunchedEffect(Unit) {
+        viewModel.consentRequest.collect { intent -> consentLauncher.launch(intent) }
+    }
 
     // 个人资料（头像）
     LaunchedEffect(Unit) { ProfileStore.load(context) }
@@ -161,9 +176,12 @@ fun HomeRoute(
                     onStartNotes = onStartNotes,
                     onAvatarClick = { scope.launch { drawerState.open() } },
                     onRefresh = viewModel::onRefresh,
+                    onConnectCalendar = viewModel::connectCalendar,
                     userName = userName?.takeIf { it.isNotBlank() } ?: "",
                     avatarPath = avatarPath,
                     notificationCount = notifications.unreadCount(),
+                    calendarNeedsAuth = uiState.calendarNeedsAuth,
+                    calendarConnecting = uiState.calendarConnecting,
                 )
 
                 HomeOverlay.Notifications -> NotificationListScreen(
