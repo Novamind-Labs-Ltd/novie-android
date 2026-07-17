@@ -71,7 +71,12 @@ import com.novamind.app.debug.markdown.MarkdownPreviewActivity
 import com.novamind.app.debug.notification.NotificationDebugger
 import com.novamind.app.common.pdf.PdfViewerActivity
 import com.novamind.app.debug.speech.SpeechToTextActivity
+import com.novamind.app.common.google.GoogleCalendarAuthSource
+import com.novamind.app.common.google.GoogleTokenProvider
+import com.novamind.app.common.google.TokenOutcome
 import com.novamind.app.data.LocalNoteRepository
+import com.novamind.app.data.calendar.CalendarEventCache
+import com.novamind.app.feature.calendar.CalendarBindingStore
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -94,6 +99,9 @@ private val Danger = Color(0xFFD13C3C)
 @InstallIn(SingletonComponent::class)
 internal interface DebugPanelEntryPoint {
     fun noteRepository(): LocalNoteRepository
+    fun googleCalendarAuthSource(): GoogleCalendarAuthSource
+    fun calendarBindingStore(): CalendarBindingStore
+    fun calendarEventCache(): CalendarEventCache
 }
 
 /**
@@ -107,11 +115,14 @@ fun DebugPanel(
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val noteRepository = remember(context) {
+    val entry = remember(context) {
         EntryPointAccessors
             .fromApplication(context.applicationContext, DebugPanelEntryPoint::class.java)
-            .noteRepository()
     }
+    val noteRepository = remember(entry) { entry.noteRepository() }
+    val calAuthSource = remember(entry) { entry.googleCalendarAuthSource() }
+    val calBinding = remember(entry) { entry.calendarBindingStore() }
+    val calCache = remember(entry) { entry.calendarEventCache() }
     val scope = rememberCoroutineScope()
 
     val fingerprint = remember { DeviceIdentity.fingerprint(context) }
@@ -129,6 +140,10 @@ fun DebugPanel(
     // /api/v1.0/notes 列表接口测试：结果以弹窗展示
     var notesResult by remember { mutableStateOf<String?>(null) }
     var notesLoading by remember { mutableStateOf(false) }
+
+    // Google 日历取消授权：结果以弹窗展示
+    var revokeResult by remember { mutableStateOf<String?>(null) }
+    var revoking by remember { mutableStateOf(false) }
 
     // 组件/能力测试
     var urlInput by remember { mutableStateOf("https://m.bing.com") }
@@ -307,6 +322,41 @@ fun DebugPanel(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("Ask Novie Animation") { AskNovieAnimActivity.start(context) }
                 }
+            }
+
+            // ── Google 日历授权 ──
+            Section("Google Calendar Authorization") {
+                InfoRow("Connected", if (calBinding.isConnected) "Yes" else "No")
+                InfoRow("Account", calBinding.accountEmail ?: "-")
+                InfoRow("In-memory token", if (GoogleTokenProvider.isAuthorized) "present" else "none")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // 服务端吊销 + 清 GMS 缓存 + 清本地会话；下次连接需重新同意授权。
+                    Chip(if (revoking) "Revoking…" else "Revoke Authorization", danger = true) {
+                        if (!revoking) {
+                            revoking = true
+                            scope.launch {
+                                revokeResult = revokeGoogleCalendar(calAuthSource, calBinding, calCache)
+                                revoking = false
+                                refresh++
+                            }
+                        }
+                    }
+                }
+                Text(
+                    "Revokes the Google Calendar/Tasks grant on Google's server and clears the local session. " +
+                        "Reconnecting will prompt for consent again.",
+                    fontSize = 12.sp, color = TextSub,
+                )
+            }
+
+            // 取消授权结果弹窗
+            revokeResult?.let { result ->
+                AlertDialog(
+                    onDismissRequest = { revokeResult = null },
+                    confirmButton = { TextButton(onClick = { revokeResult = null }) { Text("Close") } },
+                    title = { Text("Revoke Google Calendar") },
+                    text = { Text(result, fontSize = 13.sp) },
+                )
             }
 
             // ── 本地数据 ──
@@ -578,6 +628,43 @@ fun DebugPanel(
 
 private fun normalizeUrl(input: String): String =
     if (input.startsWith("http://") || input.startsWith("https://")) input else "https://$input"
+
+/**
+ * 取消 Google 日历授权（debug 工具）：尽力做「服务端吊销 + 清 GMS 缓存 + 清本地会话」。
+ *
+ * token 优先取内存态；内存没有（如冷启动未静默取过）则用绑定邮箱静默取一次，
+ * 以便真正打 Google 吊销接口。取不到 token 则只清本地（服务端授权可能仍在）。
+ */
+private suspend fun revokeGoogleCalendar(
+    authSource: GoogleCalendarAuthSource,
+    binding: CalendarBindingStore,
+    cache: CalendarEventCache,
+): String {
+    val email = binding.accountEmail
+    var token = GoogleTokenProvider.accessToken
+    if (token == null && email != null) {
+        token = (authSource.fetchToken(email) as? TokenOutcome.Success)?.token
+    }
+    var serverRevoked = false
+    token?.let {
+        authSource.clearToken(it)   // 清设备端 GMS token 缓存
+        authSource.revoke(it)       // 打 Google 吊销端点（best-effort，失败不抛）
+        serverRevoked = true
+    }
+    // 清本地会话：内存 token / 绑定 / 事件缓存
+    GoogleTokenProvider.clear()
+    binding.clear()
+    cache.clear()
+    return buildString {
+        appendLine(if (serverRevoked) "✅ Server grant revoked" else "⚠ No token available — cleared local session only")
+        appendLine("Account: ${email ?: "-"}")
+        appendLine("Cleared: in-memory token · binding · event cache")
+        append(
+            if (serverRevoked) "Reconnecting will require consent again."
+            else "Server grant may still exist; revoke it in Google Account settings if needed.",
+        )
+    }
+}
 
 @Composable
 private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
