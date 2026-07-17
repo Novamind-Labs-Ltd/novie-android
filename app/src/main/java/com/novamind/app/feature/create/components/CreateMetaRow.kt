@@ -1,6 +1,5 @@
 package com.novamind.app.feature.create.components
 import com.novamind.app.ui.colors.current
-import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.BackgroundColors
 
@@ -20,18 +19,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.tag.Tag
-import com.novamind.app.feature.create.tag.TagChip
 import com.novamind.app.ui.theme.AppTheme
 
 /**
- * Meta 操作行：文件夹 chip、标签 chip（已选标签 + 添加入口）、时间 chip。可横向滚动。
+ * Meta 操作行（home_final / new conversation）：文件夹 chip、标签 chip、日期时间。可横向滚动。
+ * 设计：米色扁平胶囊（#fcfaf6，无阴影），文件夹/标签图标 16dp、文字 14sp；日期图标 16dp、文字 12sp。
  */
 @Composable
 fun CreateMetaRow(
@@ -46,28 +44,30 @@ fun CreateMetaRow(
     Row(
         modifier = modifier
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 文件夹 chip（编辑页仅显示 folder，不平铺已选 tag）
-        // 只读态无文件夹时显示「Unassigned」；可编辑态保留「Add to folder」入口文案
-        MetaChip(
-            iconResId = R.drawable.ic_nav_library,
-            label = selectedFolder?.name ?: if (readOnly) "Unassigned" else "Add to folder",
-            isActive = selectedFolder != null,
-            onClick = if (readOnly) null else onShowFolderPicker,
-        )
-        // 标签入口：已选时在标签后显示数量（超过 99 显示 99+），始终中性样式
-        MetaChip(
-            iconResId = R.drawable.ic_nav_brand,
-            label = if (selectedTags.isEmpty()) "Tags" else "Tags (${tagCountLabel(selectedTags.size)})",
-            isActive = false,
-            onClick = if (readOnly) null else onShowTagPicker,
-        )
-        // 时间：不做成胶囊，只显示图标 + 文字
+        // 文件夹 + 标签 两枚胶囊为一组（组内间距 10）
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 文件夹：无文件夹时显示「Unassigned」（对齐设计稿）
+            MetaChip(
+                iconResId = R.drawable.ic_folder,
+                label = selectedFolder?.name ?: "Unassigned",
+                onClick = if (readOnly) null else onShowFolderPicker,
+            )
+            // 标签入口：已选时在标签后显示数量（超过 99 显示 99+）
+            MetaChip(
+                iconResId = R.drawable.ic_tag,
+                label = if (selectedTags.isEmpty()) "Tags" else "Tags (${tagCountLabel(selectedTags.size)})",
+                onClick = if (readOnly) null else onShowTagPicker,
+            )
+        }
+        // 日期时间：非胶囊，图标 16 + 文字 12
+        Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -75,11 +75,11 @@ fun CreateMetaRow(
                 painter = painterResource(id = R.drawable.ic_nav_calendar),
                 contentDescription = null,
                 tint = TextColors.Primary.secondary.current(),
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(16.dp),
             )
             Text(
                 text = timeLabel,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 color = TextColors.Primary.secondary.current(),
             )
         }
@@ -93,15 +93,13 @@ private fun tagCountLabel(count: Int): String = if (count > 99) "99+" else count
 private fun MetaChip(
     iconResId: Int,
     label: String,
-    isActive: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(50)
+    val shape = RoundedCornerShape(100)
     Surface(
         shape = shape,
-        color = if (isActive) IconColors.Brand.default.current().copy(alpha = 0.1f) else BackgroundColors.Surface.default.current(),
-        shadowElevation = 1.dp,
-        // 先按形状裁剪再 clickable，使按压 ripple 也是圆角，与 chip 形状一致
+        color = BackgroundColors.Page.secondary.current(),   // 设计：米色 #fcfaf6，无阴影
+        // 先按形状裁剪再 clickable，使按压 ripple 也是圆角
         modifier = if (onClick != null) Modifier
             .clip(shape)
             .clickable(
@@ -111,21 +109,20 @@ private fun MetaChip(
             ) else Modifier,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
                 painter = painterResource(id = iconResId),
                 contentDescription = null,
-                tint = if (isActive) IconColors.Brand.default.current() else TextColors.Primary.secondary.current(),
-                modifier = Modifier.size(14.dp),
+                tint = TextColors.Primary.default.current(),
+                modifier = Modifier.size(16.dp),
             )
             Text(
                 text = label,
-                fontSize = 13.sp,
-                color = if (isActive) IconColors.Brand.default.current() else TextColors.Primary.secondary.current(),
-                fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
+                fontSize = 14.sp,
+                color = TextColors.Primary.default.current(),
             )
         }
     }
@@ -133,21 +130,21 @@ private fun MetaChip(
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "Not Selected")
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Not Selected")
 @Composable
 private fun CreateMetaRowEmptyPreview() {
     AppTheme {
         CreateMetaRow(
             selectedFolder = null,
             selectedTags = emptyList(),
-            timeLabel = "Today 14:26",
+            timeLabel = "Today 8:31 am",
             onShowFolderPicker = {},
             onShowTagPicker = {},
         )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFDFCF8, name = "Folder + Tag Selected")
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Folder + Tag Selected")
 @Composable
 private fun CreateMetaRowFilledPreview() {
     AppTheme {
@@ -157,7 +154,7 @@ private fun CreateMetaRowFilledPreview() {
                 Tag(id = "t1", name = "Research", colorHex = "#3D7A5A"),
                 Tag(id = "t3", name = "Design", colorHex = "#3D5A7A"),
             ),
-            timeLabel = "Today 14:26",
+            timeLabel = "Today 8:31 am",
             onShowFolderPicker = {},
             onShowTagPicker = {},
         )

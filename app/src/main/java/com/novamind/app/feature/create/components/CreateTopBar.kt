@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.common.config.FunConfig
-import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 
 /**
@@ -62,8 +61,13 @@ fun CreateTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 左：圆形返回按钮（通用组件）
-        BackButton(onClick = onBack, background = BackgroundColors.Surface.default.current(), tint = TextColors.Primary.default.current())
+        // 左：返回（扁平图标，无圆底，对齐设计稿）
+        TopBarIconBtn(
+            icon = R.drawable.ic_arrow_back,
+            contentDescription = "Back",
+            enabled = true,
+            onClick = onBack,
+        )
 
         // 只读态（回收站）：右侧 Restore | Delete 文字胶囊
         if (readOnly) {
@@ -91,17 +95,11 @@ fun CreateTopBar(
             return@Row
         }
 
-        // 右：胶囊容器 —— 撤销 | 重做 | 更多(···)
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = BackgroundColors.Surface.default.current(),
-            shadowElevation = 2.dp,
+        // 右：撤销 | 重做 | 更多(···)（扁平图标，无胶囊底，对齐设计稿）
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
                 TopBarIconBtn(
                     icon = R.drawable.ic_undo,
                     contentDescription = "Undo",
@@ -165,7 +163,6 @@ fun CreateTopBar(
                     }
                 }
             }
-        }
     }
 }
 
@@ -178,11 +175,11 @@ private fun TopBarIconBtn(
 ) {
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(36.dp)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, radius = 20.dp),
+                indication = ripple(bounded = false, radius = 18.dp),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
@@ -191,7 +188,7 @@ private fun TopBarIconBtn(
             painter = painterResource(id = icon),
             contentDescription = contentDescription,
             tint = if (enabled) TextColors.Primary.default.current() else TextColors.Primary.tertiary.current(),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(24.dp),
         )
     }
 }

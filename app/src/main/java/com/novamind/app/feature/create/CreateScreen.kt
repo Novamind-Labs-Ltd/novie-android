@@ -465,17 +465,17 @@ fun CreateScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
                             textStyle = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Medium,
                                 color = TextColors.Primary.default.current(),
                             ),
                             cursorBrush = SolidColor(TextColors.Primary.default.current()),
                             decorationBox = { inner ->
                                 if (titleFieldValue.text.isEmpty()) {
                                     Text(
-                                        "New note",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Normal,
+                                        "Untitled",
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Medium,
                                         color = TextColors.Primary.tertiary.current()
                                     )
                                 }
@@ -546,10 +546,8 @@ fun CreateScreen(
         // 低于展示阈值显示实际字数；达到/超过阈值则统一显示为上限（避免临近上限时数字频繁跳动）。
         if (!showRecordingBar && !readOnly) {
             val toolbarShown = (imeVisible || forceToolbarVisible)
-            val displayCount =
-                if (totalChars < AppConfig.Editor.COUNT_DISPLAY_THRESHOLD) "$totalChars" else {
-                    "Remaining $maxInputChars-$totalChars "
-                }
+            // 设计：右下角持续展示「已用/上限」（千分位），超限标红。
+            val displayCount = "%,d/%,d".format(totalChars, maxInputChars)
             Text(
                 text = displayCount,
                 fontSize = 11.sp,
