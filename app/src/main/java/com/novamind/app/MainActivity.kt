@@ -238,6 +238,8 @@ class MainActivity : FragmentActivity() {
                                     createReturnRoute = BottomNavDestination.Home.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },
+                                // 首页「Ask Novie」入口 → 打开 Ask Novie（与底栏速拨一致）
+                                onAskNovie = { showAskNovie = true },
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 onSwitchToLogin = { authViewModel.exitGuest() },
