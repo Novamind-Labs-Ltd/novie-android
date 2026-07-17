@@ -1,15 +1,36 @@
-<!-- Figma home_final · nav / si:library-books-line（描边）。 -->
+<!-- Figma home_final · nav / si:library-books-line = selected（填充绿 + 白线）。双色，渲染时不 tint。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- 绿色书本主体 -->
+    <path
+        android:fillColor="#145436"
+        android:pathData="M8,3H20A2,2 0 0 1 22,5V17A2,2 0 0 1 20,19H8A2,2 0 0 1 6,17V5A2,2 0 0 1 8,3Z" />
+    <!-- 绿色书本外框 -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FF000000"
+        android:strokeColor="#145436"
         android:strokeWidth="1.5"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:strokeMiterLimit="10"
         android:pathData="M10,11H18M10,14H14M10,8H18M20,22H8.4C5.42,22 3,19.58 3,16.6V5M8.4,3H19.6C19.9152,3 20.2273,3.06208 20.5184,3.18269C20.8096,3.3033 21.0742,3.48008 21.2971,3.70294C21.5199,3.9258 21.6967,4.19038 21.8173,4.48156C21.9379,4.77274 22,5.08483 22,5.4V16.6C22,17.2365 21.7471,17.847 21.2971,18.2971C20.847,18.7471 20.2365,19 19.6,19H8.4C8.08483,19 7.77274,18.9379 7.48156,18.8173C7.19038,18.6967 6.9258,18.5199 6.70294,18.2971C6.25286,17.847 6,17.2365 6,16.6V5.4C6,5.08483 6.06208,4.77274 6.18269,4.48156C6.3033,4.19038 6.48008,3.9258 6.70294,3.70294C7.15303,3.25286 7.76348,3 8.4,3Z" />
+    <!-- 白色文本行 -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:pathData="M9.5,8.5L18.5,8.5" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:pathData="M9.5,11.5L18.5,11.5" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:pathData="M9.5,14.5L14.5,14.5" />
 </vector>

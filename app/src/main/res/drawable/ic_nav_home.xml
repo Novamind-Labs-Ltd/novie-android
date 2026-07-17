@@ -1,9 +1,14 @@
+<!-- Figma home_final · nav / home = Default（描边，未选中态）。单色，运行时由 Compose tint 上色。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FF000000"
-        android:pathData="M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z" />
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M10.043,3.1494C11.0596,2.33303 12.6531,2.28691 13.7549,3.00682L13.9688,3.16111L20.5137,8.39647V8.39744C20.8916,8.70554 21.2196,9.1888 21.4307,9.74119C21.6408,10.291 21.719,10.8673 21.6465,11.3476L20.3877,18.8847C20.1387,20.3182 18.7435,21.5 17.2998,21.5H6.70023C5.32704,21.5 4.04312,20.4867 3.68265,19.164L3.62308,18.8955L2.36332,11.3574V11.3564L2.33988,11.1709C2.30176,10.7279 2.38065,10.2244 2.56449,9.74217C2.74833,9.26008 3.02469,8.83065 3.34965,8.5244L3.49222,8.40037L10.043,3.15037V3.1494ZM12,13.75C11.3139,13.75 10.75,14.3138 10.75,15V18C10.75,18.6861 11.3139,19.25 12,19.25C12.6862,19.25 13.25,18.6861 13.25,18V15C13.25,14.3139 12.6862,13.75 12,13.75Z" />
 </vector>

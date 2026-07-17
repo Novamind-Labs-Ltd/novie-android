@@ -36,12 +36,12 @@ internal fun SectionHeader(
             fontWeight = FontWeight.Bold,
             color = ColorTextTitle,
         )
-        IconButton(onClick = onSeeAll, modifier = Modifier.size(28.dp)) {
+        IconButton(onClick = onSeeAll, modifier = Modifier.size(36.dp)) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_chevron_right),
+                painter = painterResource(id = R.drawable.ic_arrow_forward),
                 contentDescription = "See all",
-                tint = ColorTextSub,
-                modifier = Modifier.size(18.dp),
+                tint = ColorTextTitle,
+                modifier = Modifier.size(24.dp),
             )
         }
     }

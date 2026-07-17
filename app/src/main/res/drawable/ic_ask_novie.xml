@@ -1,0 +1,26 @@
+<!-- Figma home_final · asknovie（描边对话气泡 + 加号）。用于 Ask Novie 入口与底栏速拨。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M10.7918,3C9.28674,3.21414 7.86007,3.80543 6.64409,4.71903C5.42812,5.63263 4.46222,6.83895 3.83597,8.22612C3.20973,9.61328 2.94342,11.1364 3.06176,12.6541C3.1801,14.1718 3.67924,15.635 4.5129,16.908L3,20.9981L8.06856,20.0792C9.37215,20.7189 10.8107,21.0338 12.262,20.9971C13.7132,20.9604 15.1341,20.5733 16.4038,19.8685C17.6735,19.1638 18.7545,18.1623 19.5547,16.9494C20.3549,15.7364 20.8507,14.3479 21,12.9018" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M13.5,6H21" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M18,3L18,10.5" />
+</vector>

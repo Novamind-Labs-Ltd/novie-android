@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.current
@@ -72,6 +74,20 @@ private fun BottomNavDestination.iconRes(): Int = when (this) {
     BottomNavDestination.Profile -> R.drawable.ic_nav_profile
 }
 
+/**
+ * 选中态专属图标（设计 selected 变体：填充绿 #145436 + 白色内容）。为双色素材，
+ * 渲染时不 tint（tint = Color.Unspecified），保留自带配色；返回 null 表示该 tab 无
+ * 专属选中图（如 Home 沿用实心图标，靠 tint 变绿）。
+ */
+@DrawableRes
+private fun BottomNavDestination.selectedIconRes(): Int? = when (this) {
+    BottomNavDestination.Home -> R.drawable.ic_nav_home_selected
+    BottomNavDestination.Calendar -> R.drawable.ic_nav_calendar_selected
+    BottomNavDestination.Library -> R.drawable.ic_nav_library_selected
+    BottomNavDestination.Profile -> R.drawable.ic_nav_profile_selected
+    else -> null
+}
+
 // ─── 颜色：统一引用 ui/colors 设计令牌，随主题深浅自动解析 ────────────────────────
 
 private val ColorSelected: Color
@@ -80,18 +96,28 @@ private val ColorUnselected: Color
     @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()    // #333
 private val BarBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+/** 设计：FAB 描边 = border/focus/default（浅色 #000 / 深色白）。 */
 private val FabBorder: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()
+    @Composable @ReadOnlyComposable get() = BorderColors.Focus.default.current()
+/** 设计：速拨子按钮描边 = palette/gray-600 #656565。 */
+private val SubButtonBorder: Color
+    @Composable @ReadOnlyComposable get() = Palette.gray600
 
 // ─── 尺寸 ─────────────────────────────────────────────────────────────────────
 
-private val BarHeight = 68.dp
+private val BarHeight = 56.dp       // 设计：栏体内容带高度（不含 home 指示条安全区）
 private val FabSize = 65.dp        // 设计：vuesax/linear/scan size-[65px]
 private val FabIconSize = 38.dp    // 设计：add size-[38px]
 private val SubButtonSize = 48.dp  // 设计：ask/create size-[48px]
 private val CradleWidth = 96.dp
 private val CradleDepth = 30.dp
 private val TopCorner = 22.dp
+private val StrokeSm = 1.5.dp      // 设计令牌 Stroke/SM = 1.5
+private val FabShadow = 3.dp       // 设计：drop-shadow (0,3,3) neutral-400
+private val RightGroupWidth = 120.dp // 设计：Library/Profile 组固定宽 120
+private val LeftGroupGap = 30.dp     // 设计：Home↔Calendar 间距 30
+private val NavItemsPadding = 24.dp  // 设计：nav items 左右内边距 24
+private val BottomMargin = 12.dp     // 栏体离屏幕底边的额外留白（叠加在系统手势条 inset 之上）
 /** FAB 上探（一半探出栏体上沿）与速拨预留区，用作整体高度与各元素纵向偏移。 */
 private val FabTopOffset = BarHeight - FabSize / 2            // FAB 相对底部上移量
 private val SpeedDialTopOffset = FabTopOffset + FabSize + 16.dp // 速拨相对底部上移量
@@ -120,10 +146,12 @@ fun AppBottomNavBar(
     onExpandedChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    // 底部 margin = 系统手势条 inset + 固定留白，让栏体浮在屏幕底边之上、不压到 home 指示条。
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
+            .padding(bottom = navInset + BottomMargin)
             .height(NavBarHeight),
     ) {
         // 栏体 + 四个 tab（点 tab 顺便收起速拨）
@@ -170,16 +198,26 @@ private fun CradleBar(
             .background(BarBg, cradle),
     ) {
         Row(
+            // 设计 nav items：左右各 24 内边距，两组分列，内容纵向居中。
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = NavItemsPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NavTab(BottomNavDestination.Home, currentRoute, Modifier.weight(1f), onNavigate)
-            NavTab(BottomNavDestination.Calendar, currentRoute, Modifier.weight(1f), onNavigate)
-            Spacer(Modifier.width(CradleWidth))   // 中间凹槽让位给 FAB
-            NavTab(BottomNavDestination.Library, currentRoute, Modifier.weight(1f), onNavigate)
-            NavTab(BottomNavDestination.Profile, currentRoute, Modifier.weight(1f), onNavigate)
+            // 左组：Home + Calendar（固定间距 30）
+            Row(horizontalArrangement = Arrangement.spacedBy(LeftGroupGap)) {
+                NavTab(BottomNavDestination.Home, currentRoute, onClick = onNavigate)
+                NavTab(BottomNavDestination.Calendar, currentRoute, onClick = onNavigate)
+            }
+            Spacer(Modifier.weight(1f))   // 中间凹槽让位给 FAB
+            // 右组：Library + Profile（固定宽 120，两端对齐）
+            Row(
+                modifier = Modifier.width(RightGroupWidth),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                NavTab(BottomNavDestination.Library, currentRoute, onClick = onNavigate)
+                NavTab(BottomNavDestination.Profile, currentRoute, onClick = onNavigate)
+            }
         }
     }
 }
@@ -196,8 +234,15 @@ private fun CenterFab(
     Surface(
         shape = CircleShape,
         color = BarBg,
-        border = BorderStroke(1.dp, FabBorder),
-        modifier = modifier.size(FabSize),
+        border = BorderStroke(StrokeSm, FabBorder),
+        modifier = modifier
+            .size(FabSize)
+            .shadow(
+                elevation = FabShadow,
+                shape = CircleShape,
+                spotColor = Palette.neutral400,
+                ambientColor = Palette.neutral400,
+            ),
     ) {
         Box(
             modifier = Modifier.clickable(
@@ -235,7 +280,7 @@ private fun SpeedDialRow(
         modifier = modifier,
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-            SpeedDialButton(R.drawable.ic_chat, "Ask Novie", iconSize = 28.dp, onClick = onAskNovie)
+            SpeedDialButton(R.drawable.ic_ask_novie, "Ask Novie", iconSize = 28.dp, onClick = onAskNovie)
             SpeedDialButton(R.drawable.ic_nav_create, "Create", iconSize = 24.dp, onClick = onCreate)
         }
     }
@@ -251,7 +296,7 @@ private fun SpeedDialButton(
     Surface(
         shape = CircleShape,
         color = BarBg,
-        border = BorderStroke(1.dp, Palette.gray600),
+        border = BorderStroke(StrokeSm, SubButtonBorder),
         modifier = Modifier.size(SubButtonSize),
     ) {
         Box(
@@ -280,28 +325,39 @@ private fun NavTab(
     val selected = currentRoute == destination.route
     val tint = if (selected) ColorSelected else ColorUnselected
     val weight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+    // 选中态优先用设计 selected 专属双色图（不 tint）；否则用单色图靠 tint 上色。
+    val selectedRes = destination.selectedIconRes()
 
     Column(
         modifier = modifier
-            .fillMaxHeight()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = false, radius = 32.dp),
                 onClick = { onClick(destination.route) },
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(6.dp), // 设计：图标↔文字 gap 6
     ) {
-        Icon(
-            painter = painterResource(id = destination.iconRes()),
-            contentDescription = destination.label,
-            tint = tint,
-            modifier = Modifier.size(24.dp),
-        )
-        Spacer(Modifier.height(6.dp))
+        if (selected && selectedRes != null) {
+            Icon(
+                painter = painterResource(id = selectedRes),
+                contentDescription = destination.label,
+                tint = Color.Unspecified,   // 双色素材，保留自带绿+白
+                modifier = Modifier.size(24.dp),
+            )
+        } else {
+            Icon(
+                painter = painterResource(id = destination.iconRes()),
+                contentDescription = destination.label,
+                tint = tint,
+                modifier = Modifier.size(24.dp),
+            )
+        }
         Text(
             text = destination.label,
             fontSize = 12.sp,
+            lineHeight = 15.sp,          // 设计：leading 1.25
+            letterSpacing = 0.24.sp,     // 设计：tracking 0.24px
             fontWeight = weight,
             color = tint,
             maxLines = 1,

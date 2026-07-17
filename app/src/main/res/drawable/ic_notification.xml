@@ -1,9 +1,17 @@
+<!-- Figma home_final · comm-reminder（描边铃铛 + 右上填充提醒点）。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M18,8C18,15 21,17 21,17H3C3,17 6,15 6,8C6,6.4087 6.63214,4.88258 7.75736,3.75736C8.88258,2.63214 10.4087,2 12,2M13.73,21C13.5542,21.3031 13.3018,21.5547 12.9982,21.7295C12.6946,21.9044 12.3504,21.9965 12,21.9965C11.6496,21.9965 11.3054,21.9044 11.0018,21.7295C10.6982,21.5547 10.4458,21.3031 10.27,21" />
+    <path
         android:fillColor="#FF000000"
-        android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2zm6,-6v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32V4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"/>
+        android:pathData="M13,4a3,3 0 1,0 6,0a3,3 0 1,0 -6,0Z" />
 </vector>
