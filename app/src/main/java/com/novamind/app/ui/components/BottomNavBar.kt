@@ -96,12 +96,14 @@ private val ColorUnselected: Color
     @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()    // #333
 private val BarBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
-/** 设计：FAB 描边 = border/focus/default（浅色 #000 / 深色白）。 */
+/** 设计：收起态 FAB 描边 = border/focus/default（浅色 #000 / 深色白）。 */
 private val FabBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Focus.default.current()
-/** 设计：速拨子按钮描边 = palette/gray-600 #656565。 */
+/** 设计：展开态 FAB 描边 = palette/neutral-600 #808080（弱化，强调让位给速拨按钮）。 */
+private val FabBorderExpanded: Color = Palette.neutral600
+/** 设计（展开态 nav）：速拨子按钮描边 = border/focus/default（黑）。 */
 private val SubButtonBorder: Color
-    @Composable @ReadOnlyComposable get() = Palette.gray600
+    @Composable @ReadOnlyComposable get() = BorderColors.Focus.default.current()
 
 // ─── 尺寸 ─────────────────────────────────────────────────────────────────────
 
@@ -231,10 +233,12 @@ private fun CenterFab(
     onClick: () -> Unit,
 ) {
     val rotation by animateFloatAsState(if (expanded) 45f else 0f, label = "fab_rotation")
+    // 设计：展开时 FAB 描边弱化为 neutral-600 灰，收起时用 focus/default 黑。
+    val fabBorder = if (expanded) FabBorderExpanded else FabBorder
     Surface(
         shape = CircleShape,
         color = BarBg,
-        border = BorderStroke(StrokeSm, FabBorder),
+        border = BorderStroke(StrokeSm, fabBorder),
         modifier = modifier
             .size(FabSize)
             .shadow(
