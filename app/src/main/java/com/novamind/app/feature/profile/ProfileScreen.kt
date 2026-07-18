@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.novamind.app.BuildConfig
 import com.novamind.app.R
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.IconColors
@@ -66,6 +67,8 @@ fun ProfileScreen(
     onAbout: () -> Unit = {},
     onLogout: () -> Unit = {},
     onLogin: () -> Unit = {},
+    onLogoutLocal: () -> Unit = {},
+    onLogoutFederated: () -> Unit = {},
     appVersion: String = "",
     modifier: Modifier = Modifier,
 ) {
@@ -141,6 +144,27 @@ fun ProfileScreen(
                 ProfileEntry(R.drawable.ic_key, "Log in / Sign up", onClick = onLogin)
             } else {
                 ProfileEntry(R.drawable.ic_key, "Sign out", onClick = onLogout, danger = true)
+            }
+        }
+
+        // ── DEBUG：区分两种登出，验证是否真正清除 Auth0 SSO 会话 ─────────────────
+        // 仅 debug 构建可见；release 不打包此区块。
+        if (BuildConfig.DEBUG && !isGuest) {
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = "DEBUG · 登出对比",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = ColorSub,
+                modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+            )
+            Surface(shape = RoundedCornerShape(16.dp), color = BgCard, shadowElevation = 1.dp) {
+                Column {
+                    // 本地登出：只清本地凭证/缓存，不打开浏览器，Auth0 SSO 会话保留
+                    ProfileEntry(R.drawable.ic_key, "本地登出（保留 SSO）", onClick = onLogoutLocal)
+                    // 彻底登出：打开浏览器命中 /v2/logout，清除 Auth0 SSO 会话
+                    ProfileEntry(R.drawable.ic_key, "彻底登出（清 SSO）", onClick = onLogoutFederated, danger = true)
+                }
             }
         }
 

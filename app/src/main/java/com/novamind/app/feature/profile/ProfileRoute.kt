@@ -23,6 +23,8 @@ fun ProfileRoute(
     onAbout: () -> Unit = {},
     onLogout: () -> Unit = {},
     onLogin: () -> Unit = {},
+    onLogoutLocal: () -> Unit = {},
+    onLogoutFederated: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -39,6 +41,8 @@ fun ProfileRoute(
         onAbout = onAbout,
         onLogout = onLogout,
         onLogin = onLogin,
+        onLogoutLocal = onLogoutLocal,
+        onLogoutFederated = onLogoutFederated,
         appVersion = appVersion,
         modifier = modifier,
     )

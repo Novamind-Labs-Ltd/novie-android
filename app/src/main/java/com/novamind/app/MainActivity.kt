@@ -295,6 +295,9 @@ class MainActivity : FragmentActivity() {
                                 onAbout = { showAbout = true },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 onLogin = { authViewModel.exitGuest() },
+                                // DEBUG：对比两种登出行为
+                                onLogoutLocal = { authViewModel.logout(this@MainActivity) },
+                                onLogoutFederated = { authViewModel.logoutFederated(this@MainActivity) },
                             )
                         }
                         }
