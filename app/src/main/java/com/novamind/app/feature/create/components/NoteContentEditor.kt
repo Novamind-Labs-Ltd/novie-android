@@ -196,12 +196,6 @@ fun NoteContentEditor(
                 Box(modifier = Modifier.align(Alignment.TopStart)) { stickyBanner() }
             }
         }
-
-        // 右侧快速拖拽滚动条（覆盖在正文右缘）
-        FastScrollbar(
-            listState = listState,
-            modifier = Modifier.align(Alignment.CenterEnd),
-        )
     }
 }
 
