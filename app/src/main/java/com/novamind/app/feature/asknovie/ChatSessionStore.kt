@@ -9,10 +9,47 @@ import org.json.JSONObject
 enum class Role { User, Assistant }
 enum class AttachType { Image, File, Audio }
 data class Attachment(val type: AttachType, val path: String, val name: String)
+
+/** 2×2 象限图的单元格（agentic「visualise」技能产物）。 */
+data class QuadrantCell(
+    val heading: String,
+    val lines: List<String>,
+    val highlight: Boolean = false,
+    val badge: String? = null,
+)
+
+/**
+ * 助手消息中的富内容块（agentic 工具流）。为纯 UI 演示态，不做 JSON 持久化。
+ * - [SkillStatus] 技能/工具执行状态行（点阵 + 文案）
+ * - [Quadrant] 内联生成的 2×2 象限图
+ * - [NoteResult] 生成的笔记结果卡片
+ * - [CreateNoteCta] 「Create as a note」行动按钮
+ */
+sealed interface ChatBlock {
+    data class SkillStatus(val label: String, val working: Boolean = true) : ChatBlock
+    data class Quadrant(
+        val title: String,
+        val subtitle: String,
+        val topAxis: String,
+        val bottomAxis: String,
+        val leftAxis: String,
+        val rightAxis: String,
+        val cells: List<QuadrantCell>,
+    ) : ChatBlock
+    data class NoteResult(val title: String, val body: String, val dateLabel: String) : ChatBlock
+    data object CreateNoteCta : ChatBlock
+}
+
 data class ChatMessage(
     val role: Role,
     val text: String,
     val attachments: List<Attachment> = emptyList(),
+    // 富内容块（非文本消息）；为空则按普通文本渲染。不持久化。
+    val block: ChatBlock? = null,
+    // 助手消息是否显示花标头像（用于总结/收尾语气的消息）。
+    val showAvatar: Boolean = false,
+    // 是否为灰字状态行（如「Creation … is done.」），不带操作行。
+    val dim: Boolean = false,
 )
 
 /** 一次会话。[title] 默认取第一句话。 */

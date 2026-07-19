@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -20,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.ui.theme.AppTheme
 
@@ -77,27 +80,56 @@ internal fun SendButton(onClick: () -> Unit) {
     }
 }
 
-/** 语音按钮（深色圆形）：失焦时显示。 */
+/**
+ * 输入区圆形图标按钮（浅灰底 #F1F3F4 + 深色图标），对应 Figma 底部输入栏的「+」与麦克风。
+ * @param iconSize 图标尺寸（+ 用 16dp，麦克风用 20dp）
+ */
 @Composable
-internal fun MicButton(onClick: () -> Unit) {
+internal fun ComposerRoundButton(
+    iconRes: Int,
+    desc: String,
+    iconSize: Dp = 20.dp,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(Dark)
+            .background(IconChipBg)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, color = OnDark),
+                indication = ripple(bounded = false),
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_mic),
-            contentDescription = "Voice",
-            tint = OnDark,
-            modifier = Modifier.size(20.dp),
+            painter = painterResource(iconRes),
+            contentDescription = desc,
+            tint = TextTitle,
+            modifier = Modifier.size(iconSize),
         )
+    }
+}
+
+/** 模型选择胶囊（Figma「Opus 4.8」）：浅灰底展示当前模型名，暂为展示态。 */
+@Composable
+internal fun ModelPill(text: String, onClick: (() -> Unit)? = null) {
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(IconChipBg)
+            .then(
+                if (onClick != null) Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(),
+                    onClick = onClick,
+                ) else Modifier,
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = text, color = ChipText, fontSize = 14.sp, maxLines = 1)
     }
 }
 
@@ -169,8 +201,9 @@ private fun AskNovieButtonsPreview() {
         ) {
             BareIconButton(R.drawable.ic_history, "History")
             BareIconButton(R.drawable.ic_more, "More", enabled = false)
+            ComposerRoundButton(R.drawable.ic_add, "Add", iconSize = 16.dp) {}
+            ComposerRoundButton(R.drawable.ic_mic, "Voice") {}
             SendButton {}
-            MicButton {}
             StopButton {}
             ScrollToBottomButton {}
         }
@@ -199,11 +232,20 @@ private fun SendButtonPreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · MicButton")
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · Composer buttons + model pill")
 @Composable
-private fun MicButtonPreview() {
+private fun ComposerControlsPreview() {
     AppTheme {
-        Row(modifier = Modifier.padding(12.dp)) { MicButton {} }
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ComposerRoundButton(R.drawable.ic_add, "Add", iconSize = 16.dp) {}
+            ModelPill("Opus 4.8")
+            ComposerRoundButton(R.drawable.ic_mic, "Voice") {}
+            SendButton {}
+        }
     }
 }
 

@@ -1,0 +1,16 @@
+<!-- Novie brand flower (asknovie hero logo) · 5 filled rounded petals + center.
+     基础填充为黑，实际颜色由 Icon(tint=…) 覆盖以适配深浅主题。对应 Figma asknovie「Symbal」。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M7.4,6.5 a4.6,4.6 0 1,0 9.2,0 a4.6,4.6 0 1,0 -9.2,0 Z
+                          M12.63,10.30 a4.6,4.6 0 1,0 9.2,0 a4.6,4.6 0 1,0 -9.2,0 Z
+                          M10.63,16.45 a4.6,4.6 0 1,0 9.2,0 a4.6,4.6 0 1,0 -9.2,0 Z
+                          M4.17,16.45 a4.6,4.6 0 1,0 9.2,0 a4.6,4.6 0 1,0 -9.2,0 Z
+                          M2.17,10.30 a4.6,4.6 0 1,0 9.2,0 a4.6,4.6 0 1,0 -9.2,0 Z
+                          M7.8,12 a4.2,4.2 0 1,0 8.4,0 a4.2,4.2 0 1,0 -8.4,0 Z" />
+</vector>

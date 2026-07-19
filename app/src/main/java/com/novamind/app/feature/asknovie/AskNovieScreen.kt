@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -36,8 +37,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,10 +63,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,11 +75,18 @@ import com.novamind.app.feature.asknovie.components.AttachmentChip
 import com.novamind.app.feature.asknovie.components.BareIconButton
 import com.novamind.app.feature.asknovie.components.Bg
 import com.novamind.app.feature.asknovie.components.Card
+import com.novamind.app.feature.asknovie.components.ComposerRoundButton
+import com.novamind.app.feature.asknovie.components.CreateNoteCta
 import com.novamind.app.feature.asknovie.components.Dark
-import com.novamind.app.feature.asknovie.components.MicButton
+import com.novamind.app.feature.asknovie.components.FooterDisclaimer
+import com.novamind.app.feature.asknovie.components.Hint
+import com.novamind.app.feature.asknovie.components.ModelPill
 import com.novamind.app.feature.asknovie.components.MoreMenu
+import com.novamind.app.feature.asknovie.components.NoteResultCard
+import com.novamind.app.feature.asknovie.components.QuadrantDiagram
 import com.novamind.app.feature.asknovie.components.ScrollToBottomButton
 import com.novamind.app.feature.asknovie.components.SendButton
+import com.novamind.app.feature.asknovie.components.SkillStatusRow
 import com.novamind.app.feature.asknovie.components.StopButton
 import com.novamind.app.feature.asknovie.components.SuggestionChip
 import com.novamind.app.feature.asknovie.components.TextSub
@@ -89,7 +95,6 @@ import com.novamind.app.feature.asknovie.components.TypingIndicator
 import com.novamind.app.feature.asknovie.components.UserBubble
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
-import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.components.DeleteConfirmSheet
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.ui.components.VoiceRecordingBar
@@ -106,7 +111,7 @@ import java.util.UUID
 /** 预设快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
     "Help me brainstorm",
-    "Who have I promised to follow up",
+    "Who have I promised to follow up with?",
     "Summarize my notes",
 )
 
@@ -133,6 +138,46 @@ private fun mockReply(prompt: String): String {
             "(This is a mock reply for now — I’ll connect to the real assistant later.) " +
             "Want me to break it into next steps?"
 }
+
+/**
+ * 是否触发 agentic 工具流演示（澄清 → visualise 技能 → 生成笔记）。
+ * 命中这些短语即进入脚本化演示（对应 Figma「look back on this year」场景）。
+ */
+private fun isAgenticTrigger(prompt: String): Boolean {
+    val p = prompt.lowercase()
+    return listOf("look back", "lookback", "cs hire", "first cs", "visualise", "visualize", "cs look like")
+        .any { p.contains(it) }
+}
+
+/** agentic 演示用的内联象限图数据（对应 Figma「First CS hire」）。 */
+private val DEMO_QUADRANT = ChatBlock.Quadrant(
+    title = "First CS hire — seniority × specialization",
+    subtitle = "Sarah's framing, visualized",
+    topAxis = "Onboarding-focused",
+    bottomAxis = "Generalist",
+    leftAxis = "Junior",
+    rightAxis = "Senior",
+    cells = listOf(
+        QuadrantCell(
+            "Junior + focused",
+            listOf("Cheap, narrow coaching cost", "Scope is the role", "— training window is bounded"),
+            highlight = true,
+            badge = "◆ SARAH'S TARGET",
+        ),
+        QuadrantCell(
+            "Senior + focused",
+            listOf("Expensive, low coaching cost", "Senior for a narrow scope", "— may feel small to them"),
+        ),
+        QuadrantCell(
+            "Junior + broad",
+            listOf("Cheap but heavy coaching", "Broad CS scope + junior", "≈ 10 hrs/week back on you"),
+        ),
+        QuadrantCell(
+            "Senior + broad",
+            listOf("Expensive AND scope creep risk", "Senior generalists", "reshape the role"),
+        ),
+    ),
+)
 
 /**
  * Ask Novie 聊天入口页：顶部返回/历史/更多，中部问候或对话列表，底部快捷建议 + 输入框。
@@ -173,6 +218,13 @@ fun AskNovieScreen(
     }
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    // 底部模型胶囊：当前模型 + 选择弹窗
+    var selectedModel by rememberSaveable { mutableStateOf("Opus 4.8") }
+    var showModelPicker by remember { mutableStateOf(false) }
+    // agentic 工具流弹窗：澄清问题 / 生成笔记
+    var showClarify by remember { mutableStateOf(false) }
+    var showCreateNote by remember { mutableStateOf(false) }
+    var createNoteTitle by remember { mutableStateOf("First CS hire") }
     var attachments by remember { mutableStateOf(initialAttachments) }   // 待发送附件
     var showAttachMenu by remember { mutableStateOf(false) }             // 「+」选择菜单
     // 全屏图片预览：当前图片在「图片附件」中的下标（null 表示不显示）
@@ -304,11 +356,32 @@ fun AskNovieScreen(
             sendTick++                          // 触发「滚动到顶部」
             keepBottomSpace = true              // 本轮保留底部留白
 
-            isResponding = true
             onSend(prompt)
-            responseJob = scope.launch {
-                try {
-                    delay(450)            // 思考中（显示三点）
+
+            if (isAgenticTrigger(prompt)) {
+                // agentic 演示：助手先追问一句，再弹出澄清问题弹窗
+                isResponding = true
+                responseJob = scope.launch {
+                    try {
+                        delay(600)
+                        isResponding = false
+                        messages = messages + ChatMessage(
+                            Role.Assistant,
+                            "A few things to sharpen the picture. What does CS look like at " +
+                                "Nova today — mostly onboarding new customers, ongoing account " +
+                                "work, or reactive support?",
+                        )
+                        delay(300)
+                        showClarify = true
+                    } finally {
+                        isResponding = false
+                    }
+                }
+            } else {
+                isResponding = true
+                responseJob = scope.launch {
+                    try {
+                        delay(450)            // 思考中（显示三点）
                     val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
                     val full = mockReply(basis)
                     // 开始逐字输出
@@ -334,6 +407,7 @@ fun AskNovieScreen(
                     // 正常结束或被「停止」取消都在此复位（已输出的部分文本保留）
                     isResponding = false
                     isStreaming = false
+                }
                 }
             }
         }
@@ -362,6 +436,64 @@ fun AskNovieScreen(
         }
     }
 
+    // ── agentic 工具流（脚本化演示）：澄清 → visualise 技能 → 生成笔记 ──
+    // 澄清作答：记录答案 → 运行 visualise 技能 → 象限图 → 「Create as a note」按钮
+    val onClarifyAnswered: (String) -> Unit = { answer ->
+        showClarify = false
+        messages = messages + ChatMessage(Role.User, answer)
+        anchorIndex = messages.lastIndex
+        sendTick++
+        keepBottomSpace = true
+        responseJob = scope.launch {
+            isResponding = true
+            messages = messages + ChatMessage(
+                Role.Assistant, "", block = ChatBlock.SkillStatus("using visualise skill"),
+            )
+            delay(1200)
+            messages = messages + ChatMessage(Role.Assistant, "", block = DEMO_QUADRANT)
+            delay(500)
+            messages = messages + ChatMessage(Role.Assistant, "", block = ChatBlock.CreateNoteCta)
+            isResponding = false
+        }
+    }
+    // 「Create as a note」：打开生成笔记弹窗
+    val onCreateNoteRequested: () -> Unit = {
+        keyboardController?.hide()
+        createNoteTitle = "First CS hire"
+        showCreateNote = true
+    }
+    // 生成笔记确认：运行「创建笔记」技能 → 完成态 + 笔记卡片 + 收尾语
+    val onNoteCreated: (String) -> Unit = { title ->
+        showCreateNote = false
+        val finalTitle = title.ifBlank { "First CS hire" }
+        responseJob = scope.launch {
+            isResponding = true
+            messages = messages + ChatMessage(
+                Role.Assistant, "", block = ChatBlock.SkillStatus("Creating notes now.."),
+            )
+            delay(1200)
+            messages = messages + ChatMessage(
+                Role.Assistant, "Creation of $finalTitle note is done.", dim = true,
+            )
+            messages = messages + ChatMessage(
+                Role.Assistant, "",
+                block = ChatBlock.NoteResult(
+                    title = finalTitle,
+                    body = "Junior + focused hire. Cheap, narrow coaching cost; " +
+                        "scope is the role; training window is bounded.",
+                    dateLabel = "AUG 1   10:00AM",
+                ),
+            )
+            delay(300)
+            messages = messages + ChatMessage(
+                Role.Assistant,
+                "Anything else you want to sharpen, or ready to move on?",
+                showAvatar = true,
+            )
+            isResponding = false
+        }
+    }
+
     // 发送后：把刚发送的用户消息平滑滚到顶部（仿 ChatGPT「新一页」，底部占位腾出空间供回复生成）。
     LaunchedEffect(sendTick) {
         if (sendTick > 0) listState.animateScrollToItem(anchorIndex)
@@ -380,6 +512,21 @@ fun AskNovieScreen(
                 ChatSession(sessionId, title, System.currentTimeMillis(), messages),
             )
         }
+    }
+
+    // 开始新会话：先保存当前会话（含实时 / 部分回复），再取消生成并清空全部状态。
+    // 顶部「+」与历史弹窗「New chat」共用。
+    val startNewChat: () -> Unit = {
+        persistCurrentSession()
+        responseJob?.cancel(); responseJob = null
+        isResponding = false
+        isStreaming = false
+        messages = emptyList()
+        input = ""
+        attachments = emptyList()
+        customTitle = null
+        keepBottomSpace = false
+        sessionId = UUID.randomUUID().toString()
     }
 
     // 会话持久化：消息或标题变化即存储（流式期间不写，结束后保存一次）
@@ -402,42 +549,49 @@ fun AskNovieScreen(
                     detectTapGestures { focusManager.clearFocus() }
                 },
         ) {
-            // ── 顶部栏 ──
+            // ── 顶部栏（Figma：返回 · 新会话 / 历史 / 更多，均为无底色圆形按钮）──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "Back")
+                BareIconButton(R.drawable.ic_arrow_back, "Back", onClick = onBack)
                 Spacer(Modifier.weight(1f))
-                // 历史 + 更多 合并胶囊
-                Surface(color = Card, shape = RoundedCornerShape(50), shadowElevation = 1.dp) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BareIconButton(
+                        R.drawable.ic_add,
+                        "New chat",
+                        onClick = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            startNewChat()
+                        },
+                    )
+                    BareIconButton(
+                        R.drawable.ic_history,
+                        "History",
+                        onClick = { showHistory = true },
+                    )
+                    Box {
                         BareIconButton(
-                            R.drawable.ic_history,
-                            "History",
-                            onClick = { showHistory = true })
-                        Box {
-                            BareIconButton(
-                                R.drawable.ic_more,
-                                "More",
-                                enabled = messages.isNotEmpty(),
-                                onClick = { showMoreMenu = true },
-                            )
-                            MoreMenu(
-                                expanded = showMoreMenu,
-                                onDismiss = { showMoreMenu = false },
-                                onShare = { showMoreMenu = false; onShare() },
-                                onRename = { showMoreMenu = false; onRename(); showRename = true },
-                                onExportToNotes = { showMoreMenu = false; onExportToNotes() },
-                                onDelete = { showMoreMenu = false; showDeleteConfirm = true },
-                            )
-                        }
+                            R.drawable.ic_more,
+                            "More",
+                            enabled = messages.isNotEmpty(),
+                            onClick = { showMoreMenu = true },
+                        )
+                        MoreMenu(
+                            expanded = showMoreMenu,
+                            onDismiss = { showMoreMenu = false },
+                            onShare = { showMoreMenu = false; onShare() },
+                            onRename = { showMoreMenu = false; onRename(); showRename = true },
+                            onExportToNotes = { showMoreMenu = false; onExportToNotes() },
+                            onDelete = { showMoreMenu = false; showDeleteConfirm = true },
+                        )
                     }
                 }
             }
@@ -450,20 +604,43 @@ fun AskNovieScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 if (messages.isEmpty() && !isResponding) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // 空状态（Figma）：品牌花标 + 问候 + 竖排快捷建议，靠左顶部对齐。
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 24.dp),
+                        horizontalAlignment = Alignment.Start,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_novie_flower),
+                            contentDescription = null,
+                            tint = TextTitle,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Spacer(Modifier.height(20.dp))
                         Text(
                             text = "Hi, $userName",
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = TextTitle,
                         )
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(12.dp))
                         Text(
                             text = "What’s on your mind?",
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             color = TextSub,
-                            textAlign = TextAlign.Center,
                         )
+                        Spacer(Modifier.height(28.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            suggestions.forEach { s ->
+                                SuggestionChip(text = s, onClick = {
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                    sendMessage(s, emptyList())
+                                })
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -480,12 +657,41 @@ fun AskNovieScreen(
                             Box(modifier = Modifier
                                 .fillMaxWidth()
                                 .animateItem()) {
-                                if (msg.role == Role.User) UserBubble(msg)
-                                else AssistantText(msg.text)
+                                if (msg.role == Role.User) {
+                                    UserBubble(msg)
+                                } else when (val b = msg.block) {
+                                    // agentic 富内容块
+                                    is ChatBlock.SkillStatus -> SkillStatusRow(b.label, b.working)
+                                    is ChatBlock.Quadrant -> QuadrantDiagram(b)
+                                    is ChatBlock.NoteResult -> NoteResultCard(b, onClick = {
+                                        Toast.makeText(context, "Opening note…", Toast.LENGTH_SHORT).show()
+                                    })
+                                    ChatBlock.CreateNoteCta -> CreateNoteCta(onClick = onCreateNoteRequested)
+                                    // 纯文本助手消息（收尾语带花标、状态行为灰字）
+                                    null -> when {
+                                        msg.showAvatar -> AssistantText(msg.text, showAvatar = true)
+                                        msg.dim -> Text(
+                                            msg.text,
+                                            color = TextSub,
+                                            fontSize = 14.sp,
+                                            lineHeight = 20.sp,
+                                        )
+                                        else -> AssistantText(msg.text)
+                                    }
+                                }
                             }
                         }
                         if (isResponding) {
                             item { Box(modifier = Modifier.animateItem()) { TypingIndicator() } }
+                        }
+                        // 会话已结束（非生成中）：末尾展示免责声明
+                        if (messages.isNotEmpty() && !isResponding && !isStreaming) {
+                            item {
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItem()
+                                    .padding(top = 4.dp)) { FooterDisclaimer() }
+                            }
                         }
                         // 底部占位：只填满本轮内容之外的剩余视口（仿 ChatGPT），整轮保留，
                         // 回复不足一屏时底部留白且文字位置不跳动。
@@ -545,44 +751,26 @@ fun AskNovieScreen(
                         .padding(horizontal = 16.dp)
                         .padding(bottom = 12.dp),
                 ) {
-                    // 建议 chips（横向滚动）
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        suggestions.forEach { s ->
-                            SuggestionChip(text = s, onClick = {
-                                // 快捷发送同样收起键盘并清焦点
-                                keyboardController?.hide()
-                                focusManager.clearFocus()
-                                sendMessage(s, emptyList())
-                            })
-                        }
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    // 输入框（已选附件预览置于输入框内部顶部）
+                    // 输入卡片（Figma：占位/文本在上，控件行在下；圆角 20）
                     Surface(
                         color = Card,
-                        shape = RoundedCornerShape(28.dp),
-                        shadowElevation = 1.dp
+                        shape = RoundedCornerShape(20.dp),
+                        shadowElevation = 1.dp,
                     ) {
                         // animateContentSize：附件增删导致的高度变化平滑过渡，避免突变
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateContentSize(),
+                                .animateContentSize()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
                         ) {
-                            // 已选附件预览（横向滚动），位于输入框内部上方
+                            // 已选附件预览（横向滚动），位于卡片内部上方
                             if (attachments.isNotEmpty()) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .horizontalScroll(rememberScrollState())
-                                        .padding(start = 14.dp, end = 14.dp, top = 12.dp),
+                                        .padding(bottom = 10.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     attachments.forEach { att ->
@@ -604,56 +792,76 @@ fun AskNovieScreen(
                                     }
                                 }
                             }
+
+                            // 首行：占位 / 输入
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterStart,
+                            ) {
+                                if (input.isEmpty()) {
+                                    Text(
+                                        "Message with Novie",
+                                        color = Hint,
+                                        fontSize = 16.sp,
+                                    )
+                                }
+                                BasicTextField(
+                                    value = input,
+                                    onValueChange = { input = it },
+                                    textStyle = TextStyle(
+                                        color = TextTitle,
+                                        fontSize = 16.sp,
+                                        lineHeight = 22.sp,
+                                    ),
+                                    cursorBrush = SolidColor(Dark),
+                                    // Figma：多行自增长（最多约 6 行后内部滚动），换行用回车，发送用按钮
+                                    singleLine = false,
+                                    maxLines = 6,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusRequester(inputFocusRequester),
+                                )
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            // 次行：左 [+][模型胶囊]，右 [麦克风][发送 / 停止]
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                BareIconButton(
-                                    R.drawable.ic_add,
-                                    "Add",
-                                    onClick = {
-                                        // 打开底部弹窗前先收起键盘，与笔记编辑页一致
-                                        keyboardController?.hide()
-                                        showAttachMenu = true
-                                    },
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(horizontal = 6.dp),
-                                    contentAlignment = Alignment.CenterStart,
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    if (input.isEmpty()) {
-                                        Text(
-                                            "Message with Novie",
-                                            color = TextSub,
-                                            fontSize = 15.sp
-                                        )
-                                    }
-                                    BasicTextField(
-                                        value = input,
-                                        onValueChange = { input = it },
-                                        textStyle = TextStyle(color = TextTitle, fontSize = 15.sp),
-                                        cursorBrush = SolidColor(Dark),
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                                        keyboardActions = KeyboardActions(onSend = { send() }),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .focusRequester(inputFocusRequester),
+                                    ComposerRoundButton(
+                                        R.drawable.ic_add,
+                                        "Add",
+                                        iconSize = 16.dp,
+                                        onClick = {
+                                            // 打开底部弹窗前先收起键盘，与笔记编辑页一致
+                                            keyboardController?.hide()
+                                            showAttachMenu = true
+                                        },
+                                    )
+                                    ModelPill(
+                                        selectedModel,
+                                        onClick = {
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus()
+                                            showModelPicker = true
+                                        },
                                     )
                                 }
 
-                                // 右侧按钮：回复生成中 → 停止；有内容 → 绿色发送；无内容 → 语音
-                                if (isResponding || isStreaming) {
-                                    StopButton(onClick = stopResponse)
-                                } else if (input.isNotBlank() || attachments.isNotEmpty()) {
-                                    SendButton(onClick = { send() })
-                                } else {
-                                    MicButton(
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    ComposerRoundButton(
+                                        R.drawable.ic_mic,
+                                        "Voice",
                                         onClick = {
                                             // 点麦克风：已授权直接录音，否则先申请权限
                                             if (PermissionUtils.hasAudioPermission(context)) {
@@ -665,6 +873,12 @@ fun AskNovieScreen(
                                             }
                                         },
                                     )
+                                    // 回复生成中 → 停止；否则 → 绿色发送（空内容点击为 no-op）
+                                    if (isResponding || isStreaming) {
+                                        StopButton(onClick = stopResponse)
+                                    } else {
+                                        SendButton(onClick = { send() })
+                                    }
                                 }
                             }
                         }
@@ -732,17 +946,7 @@ fun AskNovieScreen(
             onDismiss = { showHistory = false },
             onNewChat = {
                 showHistory = false
-                // 先保存当前会话（含实时 / 部分回复），再取消生成并清空
-                persistCurrentSession()
-                responseJob?.cancel(); responseJob = null
-                isResponding = false
-                isStreaming = false
-                messages = emptyList()
-                input = ""
-                attachments = emptyList()
-                customTitle = null
-                keepBottomSpace = false
-                sessionId = UUID.randomUUID().toString()
+                startNewChat()
             },
             onSelectSession = { s ->
                 showHistory = false
@@ -800,6 +1004,41 @@ fun AskNovieScreen(
                 onDelete()
             },
             onDismiss = { showDeleteConfirm = false },
+        )
+    }
+
+    // 模型选择底部弹窗（点击「模型胶囊」弹出）
+    if (showModelPicker) {
+        ModelPickerSheet(
+            selected = selectedModel,
+            onSelect = { selectedModel = it; showModelPicker = false },
+            onDismiss = { showModelPicker = false },
+        )
+    }
+
+    // 澄清问题弹窗（agentic 工具流）
+    if (showClarify) {
+        ClarifyQuestionSheet(
+            question = "What does CS look like at Nova today?",
+            options = listOf(
+                "Mostly onboarding",
+                "Ongoing account work",
+                "Reactive support",
+                "Mix",
+            ),
+            onSelect = { _, opt -> onClarifyAnswered(opt) },
+            onSubmitOther = { onClarifyAnswered(it) },
+            onDismiss = { showClarify = false },
+        )
+    }
+
+    // 生成笔记弹窗（agentic 工具流）
+    if (showCreateNote) {
+        CreateNoteSheet(
+            initialTitle = createNoteTitle,
+            folderName = "Team meetings",
+            onCreate = { onNoteCreated(it) },
+            onDismiss = { showCreateNote = false },
         )
     }
 }

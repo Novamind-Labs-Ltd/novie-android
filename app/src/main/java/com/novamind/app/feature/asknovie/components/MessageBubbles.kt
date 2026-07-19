@@ -191,25 +191,51 @@ internal fun UserBubble(msg: ChatMessage) {
     }
 }
 
-/** 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/翻译）。 */
+/**
+ * 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/朗读）。
+ * [showAvatar] 为 true 时（收尾/追问语气）在左侧显示花标、且不带操作行。
+ */
 @Composable
-internal fun AssistantText(text: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SelectionContainer {
-            Text(
-                text = text,
-                color = TextTitle,
-                fontSize = 15.sp,
-                lineHeight = 22.sp,
-                modifier = Modifier.fillMaxWidth(),
+internal fun AssistantText(text: String, showAvatar: Boolean = false) {
+    if (showAvatar) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_novie_flower),
+                contentDescription = null,
+                tint = TextTitle,
+                modifier = Modifier.size(22.dp),
             )
+            SelectionContainer {
+                Text(
+                    text = text,
+                    color = TextTitle,
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
-        Spacer(Modifier.height(10.dp))
-        AssistantActions(text = text)
+    } else {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            SelectionContainer {
+                Text(
+                    text = text,
+                    color = TextTitle,
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            AssistantActions(text = text)
+        }
     }
 }
 
-/** 助手回复下方的操作行：复制 / 分享 / 翻译。 */
+/** 助手回复下方的操作行：复制 / 分享 / 朗读。 */
 @Composable
 private fun AssistantActions(text: String) {
     val context = LocalContext.current
@@ -226,9 +252,9 @@ private fun AssistantActions(text: String) {
             }
             context.startActivity(Intent.createChooser(intent, "Share"))
         }
-        ActionIcon(R.drawable.ic_translate, "Translate") {
-            // TODO: 接入翻译服务（如 ML Kit / 翻译 API）
-            Toast.makeText(context, "Translation coming soon", Toast.LENGTH_SHORT).show()
+        ActionIcon(R.drawable.ic_volume, "Read aloud") {
+            // TODO: 接入 TTS 朗读（如 Android TextToSpeech）
+            Toast.makeText(context, "Read aloud coming soon", Toast.LENGTH_SHORT).show()
         }
     }
 }
