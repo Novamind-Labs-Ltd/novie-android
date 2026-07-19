@@ -51,7 +51,7 @@ import com.novamind.app.R
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.components.LoadingIndicator
 import com.novamind.app.ui.components.LoadingOverlay
-import com.novamind.app.feature.create.components.BorderColorSheet
+import com.novamind.app.feature.create.components.BorderColorDialog
 import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
@@ -619,9 +619,9 @@ fun CreateScreen(
         }
 
         if (uiState.showColorPicker) {
-            BorderColorSheet(
+            BorderColorDialog(
                 selectedColor = uiState.borderColor,
-                onSelect = { onEvent(CreateEvent.BorderColorSelected(it)) },
+                onApply = { onEvent(CreateEvent.BorderColorSelected(it)) },
                 onDismiss = { onEvent(CreateEvent.DismissColorPicker) },
             )
         }

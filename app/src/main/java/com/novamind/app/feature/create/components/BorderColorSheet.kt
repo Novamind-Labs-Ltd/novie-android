@@ -1,24 +1,28 @@
 package com.novamind.app.feature.create.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,94 +31,167 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
-import androidx.core.graphics.toColorInt
 
 /**
  * 笔记边框颜色调色板。第一项为 null = 默认（灰）边框，其余直接取自设计系统 [Palette] 的基础色。
  * 渲染时直接用 Color，仅在选中入库时转成 #RRGGBB，不来回转换。
  * 这些是用户选定的强调色，深浅模式下保持一致（红就是红），故为绝对色，不随主题翻转。
+ * 顺序与配色对齐 Figma「Note border」弹窗（默认灰 → 绿 / 橙 / 蓝灰 / 红 / 青）。
  */
 val NoteBorderColors: List<Color?> = listOf(
     null,                 // 默认（灰）
-    Palette.forrest600,   // 品牌绿
-    Palette.fern500,      // 柔绿
-    Palette.green500,     // 橄榄绿
-    Palette.teal500,      // 青
-    Palette.slate600,     // 蓝灰
-    Palette.orange600,    // 橙
-    Palette.red500,       // 红
-    Palette.sand700,      // 灰褐
-    Palette.neutral600,   // 灰
+    Palette.forrest500,   // 绿  #257550
+    Palette.orange600,    // 橙  #ff8c00
+    Palette.slate600,     // 蓝灰 #708090
+    Palette.red500,       // 红  #c8391a
+    Palette.teal400,      // 青  #32b4d9
 )
+
 /**
- * 「Select border colour」底部弹窗：一排可选色圈，当前选中项显示对勾。
- * 点击某色即回调 [onSelect]（null 表示恢复默认边框）。
+ * 「Note border」选色弹窗（居中 Alert Dialog，对齐 Figma）：
+ * 标题 + 说明 + 6 色圈网格（当前选中显示深色描边 + 对勾）+ Cancel / Apply。
+ *
+ * 两段式：点色圈仅更新本地选中态，点 [onApply] 才提交（回传 null 表示恢复默认边框）；
+ * [onDismiss]（Cancel / 点外部）不改动颜色。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BorderColorSheet(
+fun BorderColorDialog(
     selectedColor: Color?,
-    onSelect: (Color?) -> Unit,
+    onApply: (Color?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
+    // 本地选中态：进入时取当前颜色，点 Apply 才回传
+    var selected by remember(selectedColor) { mutableStateOf(selectedColor) }
+    Dialog(
         onDismissRequest = onDismiss,
-        containerColor = BackgroundColors.Surface.elevated.current(),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        BorderColorContent(selectedColor = selectedColor, onSelect = onSelect)
+        BorderColorDialogContent(
+            selected = selected,
+            onSelect = { selected = it },
+            onApply = { onApply(selected) },
+            onCancel = onDismiss,
+        )
     }
 }
 
-/** 选色内容（与 sheet 容器解耦，便于 @Preview / 复用）。 */
+/** 弹窗内容（与 Dialog 容器解耦，便于 @Preview / 复用）。 */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun BorderColorContent(
-    selectedColor: Color?,
+private fun BorderColorDialogContent(
+    selected: Color?,
     onSelect: (Color?) -> Unit,
+    onApply: () -> Unit,
+    onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cardShape = RoundedCornerShape(24.dp)
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .padding(top = 4.dp, bottom = 40.dp),
+            .fillMaxWidth(0.88f)
+            .widthIn(max = 360.dp)
+            .shadow(elevation = 16.dp, shape = cardShape)
+            .clip(cardShape)
+            .background(BackgroundColors.Interactive.tertiary.current())   // #fcfaf6
+            .padding(top = 40.dp, bottom = 24.dp)
+            .padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Text(
-            text = "Select border colour",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextColors.Primary.default.current(),   // 标题随主题
+            text = "Note border",
+            modifier = Modifier.fillMaxWidth(),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextColors.Primary.default.current(),
+            textAlign = TextAlign.Center,
         )
-        // 「默认」色圈用语义边框色（随主题）
+        Text(
+            text = "Choose a colour for this note.",
+            modifier = Modifier.fillMaxWidth(),
+            fontSize = 14.sp,
+            color = TextColors.Primary.secondary.current(),
+            textAlign = TextAlign.Center,
+        )
+
+        // 「默认」色圈用语义边框色（随主题）；其余为绝对强调色
         val defaultSwatch = BorderColors.Default.default.current()
-        Row(
+        FlowRow(
             modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .width(204.dp)
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            maxItemsInEachRow = 3,
         ) {
             NoteBorderColors.forEach { color ->
                 ColorSwatch(
                     color = color ?: defaultSwatch,
-                    selected = color == selectedColor,
+                    selected = color == selected,
                     onClick = { onSelect(color) },
                 )
             }
         }
+
+        // CTAs：Cancel | 竖分隔线 | Apply（均为文字按钮）
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DialogTextButton(text = "Cancel", modifier = Modifier.weight(1f), onClick = onCancel)
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(18.dp)
+                    .background(BorderColors.Default.default.current()),
+            )
+            DialogTextButton(text = "Apply", modifier = Modifier.weight(1f), onClick = onApply)
+        }
+    }
+}
+
+@Composable
+private fun DialogTextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            )
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextColors.Primary.default.current(),
+        )
     }
 }
 
@@ -124,14 +201,14 @@ private fun ColorSwatch(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    // 细描边随主题：浅色时偏深、深色时偏浅，保证色圈与背景有分隔
-    val ring = TextColors.Primary.default.current().copy(alpha = 0.12f)
+    // 选中：黑色描边（Figma border/outline/primary）+ 对勾；未选中：与自身同色描边（不可见）
+    val ring = if (selected) BorderColors.Outline.primary.current() else color
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .background(color)
-            .border(1.dp, ring, CircleShape)
+            .border(if (selected) 2.dp else 1.dp, ring, CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -142,8 +219,23 @@ private fun ColorSwatch(
         if (selected) {
             // 对勾颜色取决于「色圈本身」明暗（绝对色，与主题无关）：浅底深勾、深底白勾
             val checkColor = if (color.luminance() > 0.6f) Palette.gray900 else Color.White
-            Text(text = "✓", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = checkColor)
+            Checkmark(color = checkColor, modifier = Modifier.size(18.dp))
         }
+    }
+}
+
+/** 对勾（两段圆头折线，对齐 Figma tick）。 */
+@Composable
+private fun Checkmark(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = w * 0.13f
+        val p1 = Offset(w * 0.20f, h * 0.52f)
+        val p2 = Offset(w * 0.42f, h * 0.72f)
+        val p3 = Offset(w * 0.78f, h * 0.30f)
+        drawLine(color, p1, p2, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color, p2, p3, strokeWidth = stroke, cap = StrokeCap.Round)
     }
 }
 
@@ -152,16 +244,20 @@ private fun Color.luminance(): Float = 0.299f * red + 0.587f * green + 0.114f * 
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, backgroundColor = 0xFFF7F6F2)
+@Preview(showBackground = true, backgroundColor = 0xFF8A8A8A)
 @Composable
-private fun BorderColorContentPreview() {
-    var selected by remember { mutableStateOf(NoteBorderColors[1]) }
+private fun BorderColorDialogPreview() {
+    var selected by remember { mutableStateOf(NoteBorderColors[0]) }
     AppTheme {
-        Surface(color = BackgroundColors.Surface.elevated.current()) {
-            BorderColorContent(
-                selectedColor = selected,
-                onSelect = { selected = it },
-            )
+        Surface(color = Color(0x80000000)) {
+            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                BorderColorDialogContent(
+                    selected = selected,
+                    onSelect = { selected = it },
+                    onApply = {},
+                    onCancel = {},
+                )
+            }
         }
     }
 }
