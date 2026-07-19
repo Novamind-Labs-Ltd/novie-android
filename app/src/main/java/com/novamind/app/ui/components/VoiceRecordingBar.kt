@@ -1,7 +1,13 @@
 package com.novamind.app.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,9 +38,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.ReadOnlyComposable
@@ -41,6 +53,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
@@ -48,19 +61,32 @@ import com.novamind.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
-// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
-private val BarBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Primary.default.current()
-private val OnBar: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
-private val ControlBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
-private val ControlIcon: Color
+// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）。
+// 视觉参考 Figma「new conversation · Dialog main」：浅色底部卡片 + 深色麦克风主按钮 + 品牌绿发送。
+private val CardBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Interactive.tertiary.current()   // #fcfaf6
+private val CardTitle: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()               // 标题 / 计时 / 波形
+private val CardLabel: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()               // 中间状态提示语
+private val DividerColor: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()             // 提示语两侧分隔线
+private val CancelBorder: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.strong.current()              // 取消按钮描边 #a3a3a3
+private val CancelIcon: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
+private val MicBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Primary.default.current()         // 深色麦克风主按钮
+private val MicIcon: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Inverse.default.current()
 private val SendBg: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Success.background.current()
+    @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()               // 品牌绿 #1b6b45
 private val SendIcon: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()
+    @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()                // 恒定白
+private val RecordingDot: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Error.default.current()            // 录音中红点
+private val PausedDot: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()               // 暂停灰点
 private val DialogBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
 private val DialogTitle: Color
@@ -71,24 +97,37 @@ private val DialogButtonBg: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
 private val DialogButtonText: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
-private const val WAVE_BARS = 48
+// 与设计稿一致：308dp 宽内 45 根竖线，中心距约 7dp（见 Figma new conversation · recording 波形）
+private const val WAVE_BARS = 45
+private val WAVE_WIDTH = 308.dp
+private val WAVE_HEIGHT = 42.dp
+private val WAVE_BAR_WIDTH = 2.dp
 private const val WAVE_BASELINE = 0.06f
 // 峰值振幅低于此值（0..32767）视为「没有声音」（集中配置见 AppConfig.Media）
 private const val NO_VOICE_THRESHOLD = AppConfig.Media.NO_VOICE_THRESHOLD
 // 录音时长不足此秒数时禁止发送（集中配置见 AppConfig.Media）
 private const val MIN_RECORD_SECONDS = AppConfig.Media.MIN_RECORD_SECONDS
 
-/** 录音条阶段：录制中 / 上传中（Send 后等待结果）/ 上传失败（可重试）。 */
-private enum class RecordingBarPhase { Recording, Sending, UploadFailed }
+/**
+ * 录音卡片阶段：
+ * - [Idle] 未开始（「Tap the mic to start」，点中间麦克风开始）
+ * - [Recording] 录制中（可暂停 / 继续）
+ * - [Sending] 上传中（Send 后等待结果）
+ * - [UploadFailed] 上传失败（可重试）
+ */
+private enum class RecordingBarPhase { Idle, Recording, Sending, UploadFailed }
 
 /**
- * 录音条（点击工具栏「Voice」后出现）。
+ * 录音卡片（点击工具栏「Voice」后从底部升起）。
  *
  * 计时 / 暂停 / 振幅等真实状态由前台服务 [com.novamind.app.common.audio.RecordingService]
  * 持有并回写到 [com.novamind.app.common.audio.RecordingController]，因此锁屏 / 切后台时
  * 录音不中断，且会在通知栏 / 锁屏常驻一条录音通知。本组件只负责观察状态、下发指令。
  *
- * @param onCancel 取消录音（丢弃）
+ * 交互（对齐 Figma）：进入即为空闲态，点中间麦克风开始录音；录音中中间按钮切换为暂停 / 继续，
+ * 左侧「×」丢弃，右侧品牌绿「↑」发送。
+ *
+ * @param onCancel 取消录音（丢弃 / 空闲态直接关闭）
  * @param onConfirm 完成录音（上传成功后）回传路径与时长（秒）
  * @param onUpload 可选上传步骤：录音落盘后调用，返回 false 进入失败态（绿色重试按钮，
  *   可重传同一文件）；为 null 时跳过上传直接 [onConfirm]（当前 CreateScreen 本地插入即此路径）。
@@ -107,6 +146,7 @@ fun VoiceRecordingBar(
     val paused = snapshot.paused
     val elapsed = snapshot.elapsedSeconds
 
+    // 是否已点麦克风开始录音（false = 空闲态「Tap the mic to start」）
     var started by remember { mutableStateOf(false) }
     var showNoVoice by remember { mutableStateOf(false) }
     // 点 Send 后的上传中状态：停止指令已下发、等待服务回写结果 / 上传中。期间全部控件禁用。
@@ -132,11 +172,23 @@ fun VoiceRecordingBar(
     // 是否因弹确认而主动暂停（用于「Keep recording」时恢复；本就暂停则保持暂停）
     var pausedForConfirm by remember { mutableStateOf(false) }
 
-    // 进入即启动前台录音服务；若离开页面时仍在录音（用户直接返回）则取消丢弃
-    androidx.compose.runtime.DisposableEffect(Unit) {
+    // 波形振幅：定时读取服务上报的最大振幅，滚动推入
+    var levels by remember { mutableStateOf(List(WAVE_BARS) { WAVE_BASELINE }) }
+
+    // 点中间麦克风开始（或「Try again」重新）录音
+    fun startRecording() {
+        levels = List(WAVE_BARS) { WAVE_BASELINE }
+        showNoVoice = false
+        sending = false
+        pendingUpload = null
         com.novamind.app.common.audio.RecordingController.reset()
         com.novamind.app.common.audio.RecordingService.start(context)
         started = true
+    }
+
+    // 进入即复位为空闲态（计时归零、不自动录音）；离开页面时若仍在录音（用户直接返回）则取消丢弃
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.novamind.app.common.audio.RecordingController.reset()
         onDispose {
             if (com.novamind.app.common.audio.RecordingController.state.value.active) {
                 com.novamind.app.common.audio.RecordingService.cancel(context)
@@ -171,8 +223,7 @@ fun VoiceRecordingBar(
         }
     }
 
-    // 波形振幅：定时读取服务上报的最大振幅，滚动推入
-    var levels by remember { mutableStateOf(List(WAVE_BARS) { WAVE_BASELINE }) }
+    // 波形振幅：定时读取服务上报的最大振幅，滚动推入（仅录音中）
     LaunchedEffect(started, paused, showNoVoice) {
         while (started && !paused && !showNoVoice) {
             kotlinx.coroutines.delay(70)
@@ -183,19 +234,10 @@ fun VoiceRecordingBar(
         }
     }
 
-    // 重新录制（「Try again」）
-    fun restartRecording() {
-        levels = List(WAVE_BARS) { WAVE_BASELINE }
-        showNoVoice = false
-        sending = false
-        pendingUpload = null
-        com.novamind.app.common.audio.RecordingController.reset()
-        com.novamind.app.common.audio.RecordingService.start(context)
-    }
-
     val phase = when {
         pendingUpload != null -> RecordingBarPhase.UploadFailed
         sending -> RecordingBarPhase.Sending
+        !started -> RecordingBarPhase.Idle
         else -> RecordingBarPhase.Recording
     }
     RecordingBarContent(
@@ -205,18 +247,27 @@ fun VoiceRecordingBar(
         phase = phase,
         sendEnabled = elapsed >= MIN_RECORD_SECONDS,   // 不足 3 秒禁止发送
         onCancelClick = {
-            // 点删除：先暂停录音（失败态录音已停止，无需暂停），再弹二次确认
-            if (phase == RecordingBarPhase.Recording && !paused) {
-                com.novamind.app.common.audio.RecordingService.pause(context)
-                pausedForConfirm = true
+            when (phase) {
+                // 空闲态：还没录，直接关闭（无需二次确认）
+                RecordingBarPhase.Idle -> onCancel()
+                // 录音中：先暂停再弹二次确认（本就暂停则保持）
+                RecordingBarPhase.Recording -> {
+                    if (!paused) {
+                        com.novamind.app.common.audio.RecordingService.pause(context)
+                        pausedForConfirm = true
+                    }
+                    showDiscardConfirm = true
+                }
+                // 失败态：录音已停止，弹确认后删除待重传文件
+                RecordingBarPhase.UploadFailed -> showDiscardConfirm = true
+                RecordingBarPhase.Sending -> Unit
             }
-            showDiscardConfirm = true
         },
-        onPauseResume = {
-            if (paused) {
-                com.novamind.app.common.audio.RecordingService.resume(context)
-            } else {
-                com.novamind.app.common.audio.RecordingService.pause(context)
+        onMic = {
+            when {
+                !started -> startRecording()                                              // 空闲 → 开始
+                paused -> com.novamind.app.common.audio.RecordingService.resume(context)  // 暂停 → 继续
+                else -> com.novamind.app.common.audio.RecordingService.pause(context)     // 录音 → 暂停
             }
         },
         onSend = {
@@ -236,7 +287,7 @@ fun VoiceRecordingBar(
     )
 
     if (showNoVoice) {
-        NoVoiceDialog(onTryAgain = { restartRecording() })
+        NoVoiceDialog(onTryAgain = { startRecording() })
     }
 
     // 删除录音二次确认（底部弹窗）：Discard 才真正取消（丢弃），Keep recording 继续录音
@@ -274,11 +325,13 @@ fun VoiceRecordingBar(
 }
 
 /**
- * 录音条的**无状态**内容层：波形 + 计时 + 取消/暂停-继续/完成。
+ * 录音卡片的**无状态**内容层（对齐 Figma「Dialog main」）：
+ * 标题行（Voice note · 计时）→ 状态行（提示语 / 波形，两侧分隔线）→ 操作行（×｜麦克风｜↑）。
  * 与录音服务解耦，供 [VoiceRecordingBar] 复用并可直接 @Preview。
  *
+ * @param onMic 中间麦克风主按钮：空闲开始 / 录音暂停 / 暂停继续，由调用方按状态分派。
  * @param phase [RecordingBarPhase.Sending] 上传中：发送按钮变 loading，全部控件禁用；
- *   [RecordingBarPhase.UploadFailed] 上传失败：中间变麦克风（录音已停止），右侧变绿色重试。
+ *   [RecordingBarPhase.UploadFailed] 上传失败：右侧变绿色重试（重传同一段录音）。
  */
 @Composable
 private fun RecordingBarContent(
@@ -287,101 +340,202 @@ private fun RecordingBarContent(
     paused: Boolean,
     sendEnabled: Boolean,
     onCancelClick: () -> Unit,
-    onPauseResume: () -> Unit,
+    onMic: () -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier,
-    phase: RecordingBarPhase = RecordingBarPhase.Recording,
+    phase: RecordingBarPhase = RecordingBarPhase.Idle,
     onRetry: () -> Unit = {},
 ) {
-    Box(
+    val cardShape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp)
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .shadow(elevation = 12.dp, shape = cardShape, clip = false)
+            .clip(cardShape)
+            .background(CardBg),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(BarBg)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp)
+                .padding(top = 24.dp, bottom = 24.dp)
+                .navigationBarsPadding(),
         ) {
-            // 顶部：波形铺满整行 + 计时（右）
+            // 标题行：状态（左，录音中为闪烁红点 + Recording） / 计时（右）
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Waveform(
-                    levels = levels,
-                    color = OnBar,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(26.dp),
-                )
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = formatTime(elapsed),
-                    color = OnBar,
-                    fontSize = 13.sp,
-                )
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            // 底部：取消 / 暂停-继续 / 完成
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RoundButton(
-                    iconRes = R.drawable.ic_close,
-                    desc = "Cancel",
-                    bg = ControlBg,
-                    tint = ControlIcon,
-                    enabled = phase != RecordingBarPhase.Sending,
-                    onClick = onCancelClick,
+                RecordingStatusLabel(phase = phase, paused = paused)
+                Text(
+                    text = formatTime(elapsed),
+                    color = CardTitle,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
                 )
-                if (phase == RecordingBarPhase.UploadFailed) {
-                    // 失败态：录音已结束，中间显示麦克风占位（不可点）
-                    RoundButton(
-                        iconRes = R.drawable.ic_mic,
-                        desc = "Recording ended",
-                        bg = ControlBg,
-                        tint = ControlIcon,
-                        enabled = false,
-                        onClick = {},
-                    )
-                    // 右侧：绿色重试（重传同一段录音）
-                    RoundButton(
-                        iconRes = R.drawable.ic_refresh,
-                        desc = "Retry upload",
-                        bg = SendBg,
-                        tint = SendIcon,
-                        onClick = onRetry,
+            }
+
+            Spacer(Modifier.height(22.dp))
+
+            // 状态行：录音中显示波形，其余显示提示语（两侧分隔线）
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (phase == RecordingBarPhase.Recording) {
+                    // 录音中：波形居中（宽度对齐设计稿 308dp）；暂停时波形冻结并略微变淡
+                    Waveform(
+                        levels = levels,
+                        color = CardTitle,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = WAVE_WIDTH)
+                            .height(WAVE_HEIGHT)
+                            .alpha(if (paused) 0.4f else 1f),
                     )
                 } else {
-                    val sending = phase == RecordingBarPhase.Sending
-                    RoundButton(
-                        iconRes = if (paused) R.drawable.ic_play else R.drawable.ic_pause,
-                        desc = if (paused) "Resume" else "Pause",
-                        bg = ControlBg,
-                        tint = ControlIcon,
-                        enabled = !sending,
-                        onClick = onPauseResume,
+                    val label = when (phase) {
+                        RecordingBarPhase.Idle -> "Tap the mic to start"
+                        RecordingBarPhase.Sending -> "Sending…"
+                        RecordingBarPhase.UploadFailed -> "Upload failed"
+                        RecordingBarPhase.Recording -> ""
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                    ) {
+                        Box(Modifier.weight(1f).height(1.dp).background(DividerColor))
+                        Text(
+                            text = label,
+                            color = CardLabel,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                        )
+                        Box(Modifier.weight(1f).height(1.dp).background(DividerColor))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(26.dp))
+
+            // 操作行：取消（×，描边）｜麦克风（深色主按钮）｜发送 / 重试（品牌绿）
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.BottomCenter) {
+                    CircleButton(
+                        iconRes = R.drawable.ic_close,
+                        desc = "Cancel",
+                        buttonSize = 64.dp,
+                        bg = null,
+                        borderColor = CancelBorder,
+                        tint = CancelIcon,
+                        enabled = phase != RecordingBarPhase.Sending,
+                        onClick = onCancelClick,
                     )
-                    RoundButton(
-                        iconRes = R.drawable.ic_arrow_up,
-                        desc = if (sending) "Uploading" else "Done",
-                        bg = SendBg,
-                        tint = SendIcon,
-                        enabled = sendEnabled && !sending,
-                        loading = sending,
-                        onClick = onSend,
-                    )
+                }
+
+                // 中间主按钮：空闲 / 暂停继续显示麦克风，录音中显示暂停
+                val micIcon = when {
+                    phase == RecordingBarPhase.Recording && !paused -> R.drawable.ic_pause
+                    phase == RecordingBarPhase.Recording && paused -> R.drawable.ic_play
+                    else -> R.drawable.ic_mic
+                }
+                CircleButton(
+                    iconRes = micIcon,
+                    desc = when {
+                        phase == RecordingBarPhase.Idle -> "Start recording"
+                        phase == RecordingBarPhase.Recording && !paused -> "Pause"
+                        phase == RecordingBarPhase.Recording && paused -> "Resume"
+                        else -> "Microphone"
+                    },
+                    buttonSize = 84.dp,
+                    iconSize = 32.dp,
+                    bg = MicBg,
+                    tint = MicIcon,
+                    elevated = true,
+                    enabled = phase == RecordingBarPhase.Idle || phase == RecordingBarPhase.Recording,
+                    onClick = onMic,
+                )
+
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.BottomCenter) {
+                    if (phase == RecordingBarPhase.UploadFailed) {
+                        CircleButton(
+                            iconRes = R.drawable.ic_refresh,
+                            desc = "Retry upload",
+                            buttonSize = 64.dp,
+                            bg = SendBg,
+                            tint = SendIcon,
+                            onClick = onRetry,
+                        )
+                    } else {
+                        val sending = phase == RecordingBarPhase.Sending
+                        CircleButton(
+                            iconRes = R.drawable.ic_arrow_up,
+                            desc = if (sending) "Uploading" else "Send",
+                            buttonSize = 64.dp,
+                            bg = SendBg,
+                            tint = SendIcon,
+                            enabled = sendEnabled && !sending,
+                            loading = sending,
+                            onClick = onSend,
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * 标题行左侧状态：录音中显示「红点 + Recording」，红点在录音时一闪一闪（暂停时静止变淡），
+ * 其余阶段仅显示文案（空闲 Voice note / 暂停 Paused / 上传中 Voice note …）。
+ */
+@Composable
+private fun RecordingStatusLabel(phase: RecordingBarPhase, paused: Boolean) {
+    val recording = phase == RecordingBarPhase.Recording
+    val transition = rememberInfiniteTransition(label = "rec-dot")
+    val blink by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "rec-dot-alpha",
+    )
+    val statusText = when {
+        recording && paused -> "Paused"
+        recording -> "Recording"
+        else -> "Voice note"
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (recording) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .alpha(if (paused) 1f else blink)     // 录音中红点闪烁；暂停灰点静止
+                    .clip(CircleShape)
+                    .background(if (paused) PausedDot else RecordingDot),
+            )
+        }
+        Text(
+            text = statusText,
+            color = CardTitle,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 
@@ -415,7 +569,7 @@ private fun NoVoiceDialog(onTryAgain: () -> Unit) {
                 "No voice detected",
                 color = DialogTitle,
                 fontSize = 20.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                fontWeight = FontWeight.Bold,
             )
             Spacer(Modifier.height(12.dp))
             Text(
@@ -424,7 +578,7 @@ private fun NoVoiceDialog(onTryAgain: () -> Unit) {
                 color = DialogBody,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(24.dp))
             Box(
@@ -444,7 +598,7 @@ private fun NoVoiceDialog(onTryAgain: () -> Unit) {
                     "Try again",
                     color = DialogButtonText,
                     fontSize = 16.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }
@@ -458,8 +612,9 @@ private fun Waveform(levels: List<Float>, color: Color, modifier: Modifier = Mod
     Canvas(modifier = modifier) {
         val barCount = levels.size
         if (barCount == 0) return@Canvas
-        val gap = 3.5f
-        val barWidth = (size.width - gap * (barCount - 1)) / barCount
+        // 细竖线固定宽度（~2dp），剩余空间均分为间距 → 中心距约 7dp，与设计稿一致
+        val barWidth = WAVE_BAR_WIDTH.toPx()
+        val gap = if (barCount > 1) (size.width - barWidth * barCount) / (barCount - 1) else 0f
         val maxH = size.height
         for (i in 0 until barCount) {
             val h = (maxH * levels[i]).coerceAtLeast(barWidth)
@@ -475,22 +630,48 @@ private fun Waveform(levels: List<Float>, color: Color, modifier: Modifier = Mod
     }
 }
 
+/**
+ * 圆形按钮：可填充背景（[bg]）或描边（[borderColor]），支持 [loading] 进行中态与 [elevated] 投影。
+ * [loading] 是「进行中」而非「禁用」：背景保持全亮，仅不可点击。
+ */
 @Composable
-private fun RoundButton(
+private fun CircleButton(
     iconRes: Int,
     desc: String,
-    bg: Color,
+    buttonSize: Dp,
+    bg: Color?,
     tint: Color,
+    modifier: Modifier = Modifier,
+    borderColor: Color? = null,
+    iconSize: Dp = 24.dp,
+    elevated: Boolean = false,
     enabled: Boolean = true,
     loading: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(
-        modifier = Modifier
-            .size(52.dp)
+        modifier = modifier
+            .size(buttonSize)
+            .then(if (elevated) Modifier.shadow(6.dp, CircleShape) else Modifier)
             .clip(CircleShape)
-            // loading 是「进行中」而非「禁用」：背景保持全亮，仅不可点击
-            .background(if (enabled || loading) bg else bg.copy(alpha = 0.4f))
+            .then(
+                if (bg != null) {
+                    Modifier.background(if (enabled || loading) bg else bg.copy(alpha = 0.4f))
+                } else {
+                    Modifier
+                },
+            )
+            .then(
+                if (borderColor != null) {
+                    Modifier.border(
+                        1.dp,
+                        if (enabled) borderColor else borderColor.copy(alpha = 0.4f),
+                        CircleShape,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -503,14 +684,14 @@ private fun RoundButton(
             CircularProgressIndicator(
                 color = tint,
                 strokeWidth = 2.5.dp,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(24.dp),
             )
         } else {
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = desc,
                 tint = if (enabled) tint else tint.copy(alpha = 0.5f),
-                modifier = Modifier.size(if (iconRes == R.drawable.ic_arrow_up) 24.dp else 22.dp),
+                modifier = Modifier.size(iconSize),
             )
         }
     }
@@ -519,7 +700,7 @@ private fun RoundButton(
 private fun formatTime(totalSeconds: Int): String {
     val m = totalSeconds / 60
     val s = totalSeconds % 60
-    return "$m:${s.toString().padStart(2, '0')}"
+    return "${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}"
 }
 
 // 预览用假波形：正弦叠加基线，模拟录音中的动态起伏。
@@ -528,7 +709,24 @@ private fun previewLevels(): List<Float> =
         (WAVE_BASELINE + 0.75f * kotlin.math.abs(kotlin.math.sin(i / 3.5f))).coerceAtMost(1f)
     }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Recording")
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Recording card · Idle (tap mic to start)")
+@Composable
+private fun RecordingBarIdlePreview() {
+    AppTheme {
+        RecordingBarContent(
+            levels = List(WAVE_BARS) { WAVE_BASELINE },
+            elapsed = 0,
+            paused = false,
+            sendEnabled = false,
+            phase = RecordingBarPhase.Idle,
+            onCancelClick = {},
+            onMic = {},
+            onSend = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Recording card · Recording")
 @Composable
 private fun RecordingBarRecordingPreview() {
     AppTheme {
@@ -537,14 +735,15 @@ private fun RecordingBarRecordingPreview() {
             elapsed = 23,
             paused = false,
             sendEnabled = true,
+            phase = RecordingBarPhase.Recording,
             onCancelClick = {},
-            onPauseResume = {},
+            onMic = {},
             onSend = {},
         )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Paused")
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Recording card · Paused")
 @Composable
 private fun RecordingBarPausedPreview() {
     AppTheme {
@@ -553,14 +752,15 @@ private fun RecordingBarPausedPreview() {
             elapsed = 75,
             paused = true,
             sendEnabled = true,
+            phase = RecordingBarPhase.Recording,
             onCancelClick = {},
-            onPauseResume = {},
+            onMic = {},
             onSend = {},
         )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Uploading")
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Recording card · Uploading")
 @Composable
 private fun RecordingBarSendingPreview() {
     AppTheme {
@@ -571,13 +771,13 @@ private fun RecordingBarSendingPreview() {
             sendEnabled = true,
             phase = RecordingBarPhase.Sending,
             onCancelClick = {},
-            onPauseResume = {},
+            onMic = {},
             onSend = {},
         )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Upload failed (retryable)")
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Recording card · Upload failed (retryable)")
 @Composable
 private fun RecordingBarUploadFailedPreview() {
     AppTheme {
@@ -588,25 +788,9 @@ private fun RecordingBarUploadFailedPreview() {
             sendEnabled = true,
             phase = RecordingBarPhase.UploadFailed,
             onCancelClick = {},
-            onPauseResume = {},
+            onMic = {},
             onSend = {},
             onRetry = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, name = "Recording bar · Just started (send disabled under 3s)")
-@Composable
-private fun RecordingBarJustStartedPreview() {
-    AppTheme {
-        RecordingBarContent(
-            levels = List(WAVE_BARS) { WAVE_BASELINE },
-            elapsed = 1,
-            paused = false,
-            sendEnabled = false,
-            onCancelClick = {},
-            onPauseResume = {},
-            onSend = {},
         )
     }
 }
