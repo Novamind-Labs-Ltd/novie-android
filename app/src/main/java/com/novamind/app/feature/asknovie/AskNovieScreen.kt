@@ -323,6 +323,33 @@ fun AskNovieScreen(
             attachments = attachments + Attachment(AttachType.Image, path, "photo.jpg")
         }
     }
+    // 启动系统相机（先建目标文件拿到可写 URI）
+    val launchCamera: () -> Unit = {
+        ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
+            pendingCapturePath = path
+            cameraLauncher?.launch(uri)
+        }
+    }
+    // 相机权限：清单声明了 CAMERA，运行时必须持有该权限才能启动拍照，否则系统抛 SecurityException
+    val cameraPermission = if (inPreview) null else rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            launchCamera()
+        } else {
+            Toast.makeText(
+                context, "Camera permission is required to take a photo", Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    // 点「拍照」：已授权直接启动相机，否则先申请相机权限
+    val takePhoto: () -> Unit = {
+        if (PermissionUtils.hasCameraPermission(context)) {
+            launchCamera()
+        } else {
+            cameraPermission?.launch(android.Manifest.permission.CAMERA)
+        }
+    }
     // 通知权限（Android 13+）：录音常驻通知需要它才能在通知栏 / 锁屏显示
     val notifPermission = if (inPreview) null else rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -929,12 +956,7 @@ fun AskNovieScreen(
                     ),
                 )
             },
-            onTakePhoto = {
-                ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
-                    pendingCapturePath = path
-                    cameraLauncher?.launch(uri)
-                }
-            },
+            onTakePhoto = takePhoto,
             onPickDocument = { filePicker?.launch(arrayOf("application/pdf")) },
             onDismiss = { showAttachMenu = false },
         )

@@ -73,6 +73,7 @@ import com.novamind.app.feature.create.editor.NoteEditorState
 import com.novamind.app.feature.create.editor.RichSpan
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.FileUtils
+import com.novamind.app.util.PermissionUtils
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -294,6 +295,29 @@ fun CreateScreen(
             emitContent()
             startUpload(block)
         }
+    }
+
+    // 拍照：清单声明了 CAMERA，运行时必须持有该权限才能启动 ACTION_IMAGE_CAPTURE，
+    // 否则系统会抛 SecurityException。先建目标文件再启动系统相机。
+    val launchCamera: () -> Unit = {
+        val target = ImageStore.createCaptureTarget(context)
+        if (target != null) {
+            pendingCapturePath = target.first
+            cameraLauncher.launch(target.second)
+        }
+    }
+    val cameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) launchCamera()
+        else Toast.makeText(
+            context, "Camera permission is required to take a photo", Toast.LENGTH_SHORT,
+        ).show()
+    }
+    // 点「拍照」：已授权直接启动相机，否则先申请相机权限
+    val takePhoto: () -> Unit = {
+        if (PermissionUtils.hasCameraPermission(context)) launchCamera()
+        else cameraPermission.launch(android.Manifest.permission.CAMERA)
     }
 
     // 文件选择器：md 作为 Markdown 块插入，其余（PDF 等）作为文件块
@@ -649,12 +673,7 @@ fun CreateScreen(
                     if (imagePickMax <= 1) singleImagePicker.launch(req)
                     else multiImagePicker.launch(req)
                 },
-                onTakePhoto = {
-                    ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
-                        pendingCapturePath = path
-                        cameraLauncher.launch(uri)
-                    }
-                },
+                onTakePhoto = takePhoto,
                 onPickDocument = { documentPicker.launch(AppConfig.Media.DOCUMENT_MIME_TYPES) },
                 onDismiss = { showAttachSheet = false },
             )

@@ -19,6 +19,14 @@ object PermissionUtils {
             PackageManager.PERMISSION_GRANTED
 
     /**
+     * 相机权限是否已授权。清单声明了 CAMERA，则拍照（ACTION_IMAGE_CAPTURE）必须在运行时
+     * 持有该权限，否则系统会抛 SecurityException。调用方应先判断再启动拍照。
+     */
+    fun hasCameraPermission(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+
+    /**
      * 通知权限是否已授权。Android 13（[Build.VERSION_CODES.TIRAMISU]）以下无需该权限，
      * 视为已授权。
      */
