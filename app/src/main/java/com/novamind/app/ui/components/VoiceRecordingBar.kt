@@ -290,13 +290,21 @@ fun VoiceRecordingBar(
         NoVoiceDialog(onTryAgain = { startRecording() })
     }
 
-    // 删除录音二次确认（底部弹窗）：Discard 才真正取消（丢弃），Keep recording 继续录音
+    // 删除录音二次确认（居中弹窗，复用通用 AppAlertDialog）：Discard 才真正丢弃，Keep 继续录音
     if (showDiscardConfirm) {
-        DeleteConfirmSheet(
+        AppAlertDialog(
+            // Keep / 点遮罩 / 返回键：若是为确认而暂停的，则恢复录音
+            onDismissRequest = {
+                showDiscardConfirm = false
+                if (pausedForConfirm) {
+                    com.novamind.app.common.audio.RecordingService.resume(context)
+                    pausedForConfirm = false
+                }
+            },
             title = "Discard recording?",
-            message = "This recording will be permanently deleted and cannot be recovered.",
+            message = "This recording will be permanently deleted.",
             confirmLabel = "Discard",
-            dismissLabel = "Keep recording",
+            dismissLabel = "Keep",
             onConfirm = {
                 showDiscardConfirm = false
                 pausedForConfirm = false
@@ -310,14 +318,6 @@ fun VoiceRecordingBar(
                 } else {
                     // Discard：取消录音（handleCancel → recorder.cancel 会删除录音源文件）
                     com.novamind.app.common.audio.RecordingService.cancel(context)
-                }
-            },
-            onDismiss = {
-                // Keep recording：若是为确认而暂停的，则恢复录音
-                showDiscardConfirm = false
-                if (pausedForConfirm) {
-                    com.novamind.app.common.audio.RecordingService.resume(context)
-                    pausedForConfirm = false
                 }
             },
         )
