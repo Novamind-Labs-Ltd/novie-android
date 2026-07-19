@@ -53,4 +53,23 @@ object NoteDocument {
             null
         }
     }
+
+    /** 取正文文档里第一张图片的服务端 fileId（本地路径失效时用它换签名 URL）；无则 null。 */
+    fun firstImageFileId(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        if (!raw.trimStart().startsWith("{")) return null
+        return try {
+            val arr = JSONObject(raw).getJSONArray("blocks")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                if (o.optString("type") == "image") {
+                    val fid = o.optString("fileId")
+                    if (fid.isNotBlank()) return fid
+                }
+            }
+            null
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

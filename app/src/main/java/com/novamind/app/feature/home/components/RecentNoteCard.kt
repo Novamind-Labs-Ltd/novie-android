@@ -2,10 +2,14 @@ package com.novamind.app.feature.home.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +50,8 @@ internal fun RecentNoteCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // 含图时用 IntrinsicSize.Min 让缩略图高度跟随左侧内容高度（Figma：图片充满卡片高度）
+                .then(if (note.imagePath != null) Modifier.height(IntrinsicSize.Min) else Modifier)
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -98,13 +104,17 @@ internal fun RecentNoteCard(
             }
 
             // 正文首图缩略图（本地路径，Coil 加载）；无图则不渲染。
+            // Figma：宽约 100dp、圆角 8、充满卡片高度（设最小高度避免内容过短时缩略图过小）。
             note.imagePath?.let { path ->
                 AsyncImage(
-                    model = File(path),
+                    // 本地文件路径用 File 加载；远端签名 URL（本地失效时的兜底）直接传字符串
+                    model = if (path.startsWith("http")) path else File(path),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(96.dp)
+                        .width(100.dp)
+                        .heightIn(min = 96.dp)
+                        .fillMaxHeight()
                         .clip(RoundedCornerShape(8.dp)),
                 )
             }

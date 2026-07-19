@@ -12,30 +12,39 @@ import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.fold
 import com.novamind.app.common.session.UserSessionManager
+import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.calendar.TodayAgendaUseCase
 import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.feature.calendar.CalendarBindingStore
+import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
+import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val notesRepository: RemoteNoteRepository,
+    private val attachmentsRepository: AttachmentsRepository,
     private val todayAgenda: TodayAgendaUseCase,
     private val tasksRepository: GoogleTasksRepository,
     private val authSource: GoogleCalendarAuthSource,
@@ -91,6 +100,7 @@ class HomeViewModel @Inject constructor(
                             errorMessage = null,
                         )
                     }
+                    resolveThumbnails(items)
                 },
                 onFail = { result ->
                     val message = when (result) {
@@ -232,6 +242,55 @@ class HomeViewModel @Inject constructor(
     }
 
     /** 列表项领域模型 → UI 模型。列表接口不含正文，故 description/tags 留空；正文在打开详情时另拉。 */
+    // ── 首页缩略图按需解析 ──────────────────────────────────────────────
+    // 列表接口（RemoteNoteSummary）不含图片信息，故按需拉正文取首图：本地文件优先，
+    // 失效则用 fileId 换签名下载 URL。结果按 id@updatedAt 缓存，避免回到首页/刷新时重复请求。
+    // 注：首屏最多 HOME_RECENT_NOTES_SIZE 条各一次 getNote（并发上限 4），为纯 UI 增强、失败静默。
+    private val thumbCache = mutableMapOf<String, String?>()
+    private val thumbSemaphore = Semaphore(4)
+
+    private fun resolveThumbnails(items: List<NoteItem>) {
+        items.forEach { item ->
+            val key = "${item.id}@${item.updatedAt}"
+            if (thumbCache.containsKey(key)) {
+                thumbCache[key]?.let { applyThumb(item.id, it) }   // 命中缓存直接回填
+                return@forEach
+            }
+            viewModelScope.launch {
+                val resolved = thumbSemaphore.withPermit { resolveThumb(item.id) }
+                thumbCache[key] = resolved
+                if (resolved != null) applyThumb(item.id, resolved)
+            }
+        }
+    }
+
+    private suspend fun resolveThumb(noteId: String): String? {
+        val note = when (val r = notesRepository.getNote(noteId)) {
+            is ApiResult.Success -> r.data
+            else -> null
+        } ?: return null
+        // 服务端 content 约定为 {"body": <文档 JSON 字符串>}，先解包出正文文档
+        val body = runCatching { JSONObject(note.content).optString("body", "") }
+            .getOrDefault("").ifBlank { note.content }
+        // 本地首图存在 → 直接用本地路径（即时、离线可看）
+        NoteDocument.firstImagePath(body)?.let { p ->
+            if (withContext(Dispatchers.IO) { File(p).exists() }) return p
+        }
+        // 本地失效 → 用首图 fileId 换签名下载 URL
+        val fid = NoteDocument.firstImageFileId(body) ?: return null
+        val atts = when (val r = attachmentsRepository.list(noteId)) {
+            is ApiResult.Success -> r.data
+            else -> null
+        } ?: return null
+        return atts.firstOrNull { it.fileId == fid }?.downloadUrl
+    }
+
+    private fun applyThumb(id: String, path: String) {
+        _uiState.update { s ->
+            s.copy(notes = s.notes.map { if (it.id == id && it.imagePath == null) it.copy(imagePath = path) else it })
+        }
+    }
+
     private fun RemoteNoteSummary.toNoteItem(): NoteItem = NoteItem(
         id = id,
         title = title.orEmpty(),
