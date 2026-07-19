@@ -257,11 +257,14 @@ fun CreateScreen(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) scope.launch {
-            // 导入（下采样+压缩+读宽高）放 IO 线程
-            val saved = withContext(Dispatchers.IO) { ImageStore.importImage(context, uri) }
-            saved?.let {
-                val block = editor.insertImage(it.path, it.width, it.height)
+            // 1) 快速原样暂存到固定本地路径（不解码）→ 立即用本地文件插入展示
+            val staged = withContext(Dispatchers.IO) { ImageStore.stageImage(context, uri) }
+            if (staged != null) {
+                val block = editor.insertImage(staged.path, staged.width, staged.height)
                 emitContent()
+                // 2) 就地压缩（路径不变 → 界面不重载、无灰闪），再上传
+                val saved = withContext(Dispatchers.IO) { ImageStore.finalizeCaptured(context, staged.path) }
+                editor.updateImage(block.id) { it.copy(width = saved.width, height = saved.height) }
                 startUpload(block)
             }
         }
@@ -273,11 +276,17 @@ fun CreateScreen(
             ActivityResultContracts.PickMultipleVisualMedia(imagePickMax.coerceAtLeast(2))
         ) { uris ->
             if (uris.isNotEmpty()) scope.launch {
-                val saved = uris.take(imagePickMax).mapNotNull { uri ->
-                    withContext(Dispatchers.IO) { ImageStore.importImage(context, uri) }
+                // 逐张：先快速暂存并插入本地文件（立即可见），再就地压缩上传（路径不变，无灰闪）
+                uris.take(imagePickMax).forEach { uri ->
+                    val staged = withContext(Dispatchers.IO) { ImageStore.stageImage(context, uri) }
+                    if (staged != null) {
+                        val block = editor.insertImage(staged.path, staged.width, staged.height)
+                        emitContent()
+                        val saved = withContext(Dispatchers.IO) { ImageStore.finalizeCaptured(context, staged.path) }
+                        editor.updateImage(block.id) { it.copy(width = saved.width, height = saved.height) }
+                        startUpload(block)
+                    }
                 }
-                saved.forEach { s -> startUpload(editor.insertImage(s.path, s.width, s.height)) }
-                if (saved.isNotEmpty()) emitContent()
             }
         }
     }
@@ -289,11 +298,15 @@ fun CreateScreen(
     ) { success ->
         val path = pendingCapturePath
         pendingCapturePath = null
-        if (success && path != null) scope.launch {
-            val saved = withContext(Dispatchers.IO) { ImageStore.finalizeCaptured(context, path) }
-            val block = editor.insertImage(saved.path, saved.width, saved.height)
-            emitContent()
-            startUpload(block)
+        if (success && path != null) {
+            // 拍照文件已就绪：立即插入展示，再后台压缩读宽高并上传
+            val block = editor.insertImage(path)
+            scope.launch {
+                val saved = withContext(Dispatchers.IO) { ImageStore.finalizeCaptured(context, path) }
+                editor.updateImage(block.id) { it.copy(width = saved.width, height = saved.height) }
+                emitContent()
+                startUpload(block)
+            }
         }
     }
 

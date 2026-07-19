@@ -66,8 +66,34 @@ object ImageStore {
     }
 
     /**
-     * 相机拍照后处理：把已写入 [path] 的原图就地解码下采样，再以 JPEG 覆盖写回，返回宽高。
-     * 解码失败则保留原图（宽高记 0）。建议在 IO 线程调用。
+     * 选图「暂存」：不解码，仅把原图**原样快速拷贝**到内部存储的固定 `.jpg` 路径，
+     * 同时只解析边界拿到宽高（供预留高度）。用于选图后立即用**本地文件**展示，
+     * 随后再由 [finalizeCaptured] 就地压缩——因路径不变，界面不会重载闪烁。建议在 IO 线程调用。
+     */
+    fun stageImage(context: Context, uri: Uri): SavedImage? = try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        }
+        val dir = File(context.filesDir, IMAGE_DIR).apply { mkdirs() }
+        val dest = File(dir, "${UUID.randomUUID()}.jpg")
+        val ok = context.contentResolver.openInputStream(uri)?.use { input ->
+            dest.outputStream().use { output -> input.copyTo(output) }
+            true
+        } ?: false
+        if (ok) SavedImage(dest.absolutePath, bounds.outWidth.coerceAtLeast(0), bounds.outHeight.coerceAtLeast(0))
+        else null
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * 就地压缩 [path]：解码下采样后以 JPEG 写「临时文件 + 原子改名」覆盖回 [path]，返回宽高。
+     *
+     * 用原子改名而非直接覆盖：选图/拍照后我们先用同一 path 展示图片，此时 Coil 可能正在并发读取；
+     * 若直接 `outputStream()` 截断重写，会读到写了一半的文件导致预览变灰/损坏。改名则保证读取方
+     * 始终看到完整文件（旧 inode 读完为止 / 新读取拿到压缩后文件），既不损坏也不闪烁。
+     * 解码或改名失败时保留原图（不截断正在被读取的文件）。建议在 IO 线程调用。
      */
     fun finalizeCaptured(context: Context, path: String): SavedImage {
         val file = File(path)
@@ -75,9 +101,11 @@ object ImageStore {
         return try {
             val w = bitmap.width
             val h = bitmap.height
-            file.outputStream().use { out ->
+            val tmp = File(file.parentFile, "${file.name}.tmp")
+            tmp.outputStream().use { out ->
                 bitmap.compress(Bitmap.CompressFormat.JPEG, AppConfig.Media.IMAGE_JPEG_QUALITY, out)
             }
+            if (!tmp.renameTo(file)) tmp.delete()   // 改名失败则放弃压缩，绝不截断正在被读取的原图
             SavedImage(path, w, h)
         } catch (_: Exception) {
             SavedImage(path, 0, 0)
