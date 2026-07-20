@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -22,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,28 +67,24 @@ fun CreateTopBar(
             onClick = onBack,
         )
 
-        // 只读态（回收站）：右侧 Restore | Delete 文字胶囊
+        // 只读态（回收站，Figma 879-27503）：右侧扁平图标 恢复 | 彻底删除
         if (readOnly) {
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = BackgroundColors.Surface.default.current(),
-                shadowElevation = 2.dp,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TopBarTextBtn(
-                        label = "Restore",
-                        color = TextColors.Primary.default.current(),
-                        onClick = onRestore,
-                    )
-                    TopBarTextBtn(
-                        label = "Delete",
-                        color = IconColors.Error.default.current(),
-                        onClick = onDeleteForever,
-                    )
-                }
+                TopBarIconBtn(
+                    icon = R.drawable.ic_restore,
+                    contentDescription = "Restore",
+                    enabled = true,
+                    onClick = onRestore,
+                )
+                TopBarIconBtn(
+                    icon = R.drawable.ic_trash_line,
+                    contentDescription = "Delete forever",
+                    enabled = true,
+                    onClick = onDeleteForever,
+                )
             }
             return@Row
         }
@@ -191,28 +185,6 @@ private fun TopBarIconBtn(
             modifier = Modifier.size(24.dp),
         )
     }
-}
-
-/** 只读态文字按钮（Restore / Delete）：圆角胶囊内的文字，带 ripple。 */
-@Composable
-private fun TopBarTextBtn(
-    label: String,
-    color: androidx.compose.ui.graphics.Color,
-    onClick: () -> Unit,
-) {
-    Text(
-        text = label,
-        fontSize = 15.sp,
-        color = color,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            )
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-    )
 }
 
 // ─── Preview ────────────────────────────────────────────────────────────────
