@@ -49,7 +49,7 @@ internal fun RecentNoteCard(
         color = BgCard,
         shadowElevation = 1.dp,
         // 自定义边框色（笔记设置后）才描边；未设置保持 Figma 的无边框白卡
-        border = note.borderColor?.let { BorderStroke(3.dp, it) },
+        border = note.borderColor?.let { BorderStroke(1.dp, it) },
     ) {
         Row(
             modifier = Modifier
