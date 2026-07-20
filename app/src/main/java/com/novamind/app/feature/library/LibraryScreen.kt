@@ -131,60 +131,49 @@ fun LibraryScreen(
             .statusBarsPadding()
             .padding(bottom = 100.dp),
     ) {
-        // 顶部工具条：左侧栏 / 搜索 / 创建
+        // 顶部应用栏（Figma top_info）：左侧「侧栏/返回 + Library 标题」内联一行，
+        // 右侧为上下文操作（Recent 页 → 视图切换；Folders 页 → 新建文件夹）。
+        // 新建笔记走底部导航中央 FAB，故此处不再放搜索/新建笔记按钮。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (onBack != null) {
-                // 作为子页进入（如首页 See all）：左上角返回键，通用组件（与 Create 等页统一）
-                BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
-            } else {
-                // 现状：侧栏入口 → 通知宿主打开抽屉
-                TopIconButton(
-                    iconRes = R.drawable.ic_panel_left,
-                    desc = "Sidebar",
-                    shape = RoundedCornerShape(12.dp),
-                    onClick = onOpenSidebar,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (onBack != null) {
+                    // 作为子页进入（如首页 See all）：返回键，通用组件（与 Create 等页统一）
+                    BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
+                } else {
+                    // 侧栏入口 → 通知宿主打开抽屉
+                    TopIconButton(
+                        iconRes = R.drawable.ic_panel_left,
+                        desc = "Sidebar",
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = onOpenSidebar,
+                    )
+                }
+                Text(
+                    text = "Library",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ColorTextTitle,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TopIconButton(R.drawable.ic_search, "Search", shape = CircleShape)
+            if (pagerState.currentPage == 0) {
+                ViewModeToggle(viewMode = uiState.viewMode, onClick = onToggleViewMode)
+            } else {
                 TopIconButton(
                     iconRes = R.drawable.ic_nav_create,
-                    desc = "Create",
-                    shape = CircleShape,
-                    // Folders 页 → 创建文件夹；Recent 页 → 新建笔记
-                    onClick = {
-                        if (pagerState.currentPage == 1) showCreateFolder = true else onCreateNote()
-                    },
+                    desc = "New folder",
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { showCreateFolder = true },
                 )
             }
-        }
-
-        // 标题行：左侧 Library 标题，右侧视图切换按钮（仅 Recent 页显示）
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Library",
-                fontSize = 34.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = ColorTextTitle,
-            )
-            // 仅 Recent 页可见，但始终占位（invisible 而非 gone），避免标题行间距跳动
-            ViewModeToggle(
-                viewMode = uiState.viewMode,
-                onClick = onToggleViewMode,
-                visible = pagerState.currentPage == 0,
-            )
         }
 
         SegmentedTabBar(
