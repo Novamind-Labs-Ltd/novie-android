@@ -1,24 +1,19 @@
 package com.novamind.app.feature.library
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -38,6 +33,7 @@ import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
+import java.util.Locale
 
 // LibraryNoteCard 配色：对齐设计系统语义令牌（ui/colors），随主题深浅自动解析
 private val BgCard: Color
@@ -48,87 +44,89 @@ private val ColorTextSub: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
 private val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+// 日期文案色（Figma orange-900 #603812）
+private val ColorDate: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Warning.onSurface.current()
 
-/** 网格态笔记卡片：日期 + 标题 + 内容（占剩余空间）+ 底部缩略图。 */
+/**
+ * 瀑布流笔记卡片（Figma）：随内容高度自适应。
+ * 顶部可选缩略图 → 可选标题 → 可选摘要 → 底部日期（AUG 1 · 10:00AM）。
+ * 仅在设置了自定义边框色时描边；否则为无边框白卡。
+ */
 @Composable
 internal fun LibraryNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
     Surface(
         onClick = onClick,
-        modifier = Modifier
-            .width(172.dp)
-            .height(180.dp)
-            .border(3.dp, note.borderColor ?: ColorBorder, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
         color = BgCard,
         shadowElevation = 1.dp,
+        border = note.borderColor?.let { BorderStroke(1.dp, it) },
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 日期
-            Text(
-                text = TimeUtils.smart(note.updatedAt),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = ColorTextSub,
-            )
-            // 标题为空时：用正文作标题（限 1 行），正文区显示标题没显示完的剩余内容
-            val hasTitle = note.title.isNotBlank()
-            // 标题 1 行实际渲染到的字符末尾位置，用于截取剩余正文
-            var titleEnd by remember(note.id, note.preview) { mutableStateOf(-1) }
-
-            Text(
-                text = if (hasTitle) note.title else note.preview,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = ColorTextTitle,
-                // 标题固定 1 行：有标题超出用省略号，正文作标题时直接截断（剩余内容接到下方正文区）
-                maxLines = 1,
-                overflow = if (hasTitle) TextOverflow.Ellipsis else TextOverflow.Clip,
-                onTextLayout = { layout ->
-                    if (!hasTitle) {
-                        val end = layout.getLineEnd(0, visibleEnd = true)
-                        if (titleEnd != end) titleEnd = end
-                    }
-                },
-            )
-
-            // 内容：占满标题与图片之外的剩余空间
-            val bodyText = when {
-                hasTitle -> note.preview
-                titleEnd in 0 until note.preview.length ->
-                    note.preview.substring(titleEnd).trimStart('\n', ' ')
-                else -> ""
-            }
-            if (bodyText.isNotBlank()) {
-                Text(
-                    text = bodyText,
-                    fontSize = 12.sp,
-                    color = ColorTextSub,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.weight(1f),
-                    maxLines = Int.MAX_VALUE,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            } else {
-                // 无正文但有图片时，用弹性留白把缩略图压到底部
-                Spacer(Modifier.weight(1f))
-            }
-            // 底部缩略图（有图才显示）
+            // 顶部缩略图（正文首图；无图不渲染）
             note.imagePath?.let { path ->
-                val thumbModifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                val imgModifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(8.dp))
                 if (LocalInspectionMode.current) {
-                    // 预览态：File 无法加载，用占位色块呈现「有图」效果
-                    Box(modifier = thumbModifier.background(ColorBorder))
+                    Box(modifier = imgModifier.background(ColorBorder))
                 } else {
                     AsyncImage(
-                        model = File(path),
+                        // 本地文件路径用 File 加载；远端签名 URL 直接传字符串
+                        model = if (path.startsWith("http")) path else File(path),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = thumbModifier,
+                        modifier = imgModifier,
+                    )
+                }
+            }
+
+            // 标题 + 摘要（各自可选）
+            if (note.title.isNotBlank() || note.preview.isNotBlank()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (note.title.isNotBlank()) {
+                        Text(
+                            text = note.title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ColorTextTitle,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (note.preview.isNotBlank()) {
+                        Text(
+                            text = note.preview,
+                            fontSize = 13.sp,
+                            color = ColorTextSub,
+                            lineHeight = 20.sp,
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            // 日期 · 时间（AUG 1 · 10:00AM）
+            val stamp = note.updatedAt.takeIf { it > 0L } ?: note.createdAt
+            if (stamp > 0L) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = TimeUtils.format(stamp, "MMM d", Locale.ENGLISH).uppercase(Locale.ENGLISH),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorDate,
+                    )
+                    Text(
+                        text = TimeUtils.format(stamp, "h:mma", Locale.ENGLISH),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorDate,
                     )
                 }
             }
@@ -140,33 +138,35 @@ internal fun LibraryNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
 @Composable
 private fun LibraryNoteCardPreview() {
     AppTheme {
-        LibraryNoteCard(
-            note = NoteItem(
-                id = "1",
-                title = "Product roadmap",
-                preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
-                tags = listOf("Work"),
-                folderName = "Work",
-                updatedAt = System.currentTimeMillis(),
-            ),
-        )
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFF4F2EC)
-@Composable
-private fun LibraryNoteCardWithImagePreview() {
-    AppTheme {
-        LibraryNoteCard(
-            note = NoteItem(
-                id = "2",
-                title = "Product roadmap",
-                preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
-                tags = listOf("Work"),
-                folderName = "Work",
-                updatedAt = System.currentTimeMillis(),
-                imagePath = "preview/sample.jpg",
-            ),
-        )
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            LibraryNoteCard(
+                note = NoteItem(
+                    id = "1",
+                    title = "",
+                    preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            LibraryNoteCard(
+                note = NoteItem(
+                    id = "2",
+                    title = "Q3 KPIs",
+                    preview = "",
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            LibraryNoteCard(
+                note = NoteItem(
+                    id = "3",
+                    title = "Pic notes",
+                    preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                    imagePath = "preview/sample.jpg",
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 }

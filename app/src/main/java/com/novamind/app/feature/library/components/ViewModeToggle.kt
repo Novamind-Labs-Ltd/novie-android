@@ -38,8 +38,9 @@ internal fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit, visi
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            painter = painterResource(if (isGrid) R.drawable.ic_grid else R.drawable.ic_format_list),
-            contentDescription = if (isGrid) "Grid view, tap to switch to list" else "List view, tap to switch to grid",
+            // 显示「将切换到的」目标视图图标（对齐 Figma：网格态显示列表图标，列表态显示网格图标）
+            painter = painterResource(if (isGrid) R.drawable.ic_format_list else R.drawable.ic_grid),
+            contentDescription = if (isGrid) "Switch to list view" else "Switch to grid view",
             tint = ColorTextTitle,
             modifier = Modifier.size(20.dp),
         )

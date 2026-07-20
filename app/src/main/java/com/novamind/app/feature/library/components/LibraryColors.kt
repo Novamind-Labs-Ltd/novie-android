@@ -24,3 +24,6 @@ internal val ColorAccent: Color
     @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
 internal val ColorIconBtn: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+// 笔记卡片日期文案色（Figma orange-900 #603812）
+internal val ColorDate: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Warning.onSurface.current()

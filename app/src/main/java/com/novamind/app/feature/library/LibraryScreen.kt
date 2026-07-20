@@ -28,9 +28,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -250,13 +250,14 @@ private fun RecentPage(
             EmptyState(onCreateNote = onCreateNote, modifier = Modifier.fillMaxSize())
 
         uiState.viewMode == LibraryViewMode.GRID ->
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+            // 双列瀑布流（Figma）：卡片按内容高度自适应、交错排列
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalItemSpacing = 14.dp,
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
             ) {
                 items(uiState.notes, key = { it.id }) { note ->
@@ -269,7 +270,7 @@ private fun RecentPage(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
             ) {
                 items(uiState.notes, key = { it.id }) { note ->
