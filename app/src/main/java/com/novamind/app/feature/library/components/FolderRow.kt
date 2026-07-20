@@ -38,7 +38,7 @@ import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.ColorUtils
 
 /** 无自定义色时：按文件夹名稳定地从配置色板取一种颜色。 */
-private fun folderAccentFor(name: String): Color {
+internal fun folderAccentFor(name: String): Color {
     val palette = AppConfig.Folder.COLORS
     if (palette.isEmpty()) return Palette.forrest600
     val idx = ((name.hashCode() % palette.size) + palette.size) % palette.size

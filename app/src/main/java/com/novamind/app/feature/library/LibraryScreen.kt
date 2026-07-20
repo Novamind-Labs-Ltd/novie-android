@@ -87,6 +87,7 @@ import com.novamind.app.feature.library.components.ColorAccent
 import com.novamind.app.feature.library.components.ColorIconBtn
 import com.novamind.app.feature.library.components.ColorTextSub
 import com.novamind.app.feature.library.components.ColorTextTitle
+import com.novamind.app.feature.library.components.CannotDeleteFolderDialog
 import com.novamind.app.feature.library.components.DeleteFolderDialog
 import com.novamind.app.feature.library.components.EmptyState
 import com.novamind.app.feature.library.components.FolderNoteRow
@@ -169,7 +170,7 @@ fun LibraryScreen(
                 ViewModeToggle(viewMode = uiState.viewMode, onClick = onToggleViewMode)
             } else {
                 TopIconButton(
-                    iconRes = R.drawable.ic_nav_create,
+                    iconRes = R.drawable.ic_folder_add,
                     desc = "New folder",
                     shape = RoundedCornerShape(12.dp),
                     onClick = { showCreateFolder = true },
@@ -327,6 +328,7 @@ private fun FoldersPage(
                     // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认（重命名态不参与拖拽）
                     FolderRenameRow(
                         initialName = folder.name,
+                        colorHex = folder.colorHex,
                         onConfirm = { newName ->
                             // 与其它已有文件夹重名（忽略大小写）→ 提示且不修改
                             val conflict = folders.any {
@@ -372,16 +374,21 @@ private fun FoldersPage(
         }
     }
 
-    // 删除二次确认弹窗
+    // 删除：文件夹内仍有笔记 → 提示不可删除；否则二次确认后删除
     deleteTarget?.let { target ->
-        DeleteFolderDialog(
-            folderName = target,
-            onConfirm = {
-                onDeleteFolder(target)
-                deleteTarget = null
-            },
-            onDismiss = { deleteTarget = null },
-        )
+        val hasNotes = (folders.firstOrNull { it.name == target }?.noteCount ?: 0) > 0
+        if (hasNotes) {
+            CannotDeleteFolderDialog(onDismiss = { deleteTarget = null })
+        } else {
+            DeleteFolderDialog(
+                folderName = target,
+                onConfirm = {
+                    onDeleteFolder(target)
+                    deleteTarget = null
+                },
+                onDismiss = { deleteTarget = null },
+            )
+        }
     }
 
     // 改颜色底部弹层

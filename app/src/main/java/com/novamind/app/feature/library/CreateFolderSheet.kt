@@ -102,16 +102,39 @@ private fun CreateFolderContent(
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = "Create new folder",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextDark,
-            modifier = Modifier.padding(top = 4.dp),
-        )
+        // 标题行：标题 + 右侧关闭
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Create new folder",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextDark,
+            )
+            Icon(
+                painter = painterResource(R.drawable.ic_close),
+                contentDescription = "Close",
+                tint = TextDark,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onCancel,
+                    ),
+            )
+        }
 
-        // 名称输入框（白底圆角，带清除按钮）
-        Surface(shape = RoundedCornerShape(12.dp), color = FieldBg, shadowElevation = 1.dp) {
+        // 名称输入框（描边圆角，带清除按钮）
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = FieldBg,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Border),
+        ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -187,7 +210,7 @@ private fun CreateFolderContent(
                     .height(54.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Create new folder", color = TextColors.Inverse.default.current(), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Create", color = TextColors.Inverse.default.current(), fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
         }
 
@@ -211,7 +234,7 @@ private fun CreateFolderContent(
                     .height(54.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Cancel", color = TextDark, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Cancel", color = TextDark, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -242,7 +265,7 @@ private fun FolderColorSwatch(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            painter = painterResource(R.drawable.ic_folder),
+            painter = painterResource(R.drawable.ic_folder_line),
             contentDescription = null,
             tint = color,
             modifier = Modifier.size(20.dp),
