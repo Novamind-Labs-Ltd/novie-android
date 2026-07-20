@@ -56,7 +56,7 @@ import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
 import com.novamind.app.ui.components.AttachmentSheet
-import com.novamind.app.ui.components.DeleteConfirmSheet
+import com.novamind.app.ui.components.AppAlertDialog
 import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.ui.components.ImagePreviewScreen
@@ -663,16 +663,26 @@ fun CreateScreen(
             )
         }
 
-        // 删除二次确认
+        // 删除二次确认（Figma 879-26332 同款居中弹窗：Cancel / 红色 Delete）
         if (showDeleteConfirm) {
-            DeleteConfirmSheet(
+            AppAlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = "Delete note?",
+                // 只读态（回收站）：彻底删除、不可恢复；编辑态：软删除，移入回收站
+                message = if (readOnly) {
+                    "This note will be permanently deleted and can't be restored."
+                } else {
+                    "This note will be moved to the Recycle Bin."
+                },
+                confirmLabel = "Delete",
+                dismissLabel = "Cancel",
+                destructive = true,
                 onConfirm = {
                     showDeleteConfirm = false
                     // 只读态（回收站）：彻底删除交宿主 RecycleBinViewModel 走服务端 DELETE + 重拉（单一来源，避免重复删）；
                     // 编辑态：软删除，移入回收站（PATCH {trashed:true}）
                     if (readOnly) onDeleteForever() else onEvent(CreateEvent.DeleteNote)
                 },
-                onDismiss = { showDeleteConfirm = false },
             )
         }
 
