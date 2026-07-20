@@ -16,9 +16,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,7 +44,7 @@ import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.recyclebin.components.RecycleBinNoteCard
 import com.novamind.app.feature.recyclebin.components.TopIconButton
 import com.novamind.app.ui.components.BackButton
-import com.novamind.app.ui.components.DeleteConfirmSheet
+import com.novamind.app.ui.components.AppAlertDialog
 import com.novamind.app.ui.components.LoadingOverlay
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.TextColors
@@ -159,16 +159,18 @@ fun RecycleBinScreen(
         // 标题 + 副标题
         Text(
             text = "Recycle Bin",
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
+            fontSize = 24.sp,
+            lineHeight = 28.sp,
+            fontWeight = FontWeight.Medium,
             color = TextColors.Primary.default.current(),
-            modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 4.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
         )
         Text(
             text = "Shows the days left until they're deleted forever.",
-            fontSize = 15.sp,
+            fontSize = 14.sp,
+            lineHeight = 21.sp,
             color = TextColors.Primary.secondary.current(),
-            modifier = Modifier.padding(start = 20.dp, end = 16.dp, top = 6.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
         )
 
         if (uiState.notes.isEmpty()) {
@@ -181,14 +183,14 @@ fun RecycleBinScreen(
                 )
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalItemSpacing = 14.dp,
+                contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
             ) {
                 items(uiState.notes, key = { it.id }) { note ->
                     RecycleBinNoteCard(note = note, onClick = { onOpenNote(note.id) })
@@ -200,17 +202,19 @@ fun RecycleBinScreen(
         LoadingOverlay(visible = uiState.isEmptying)
     }
 
-    // 清空回收站二次确认
+    // 清空回收站二次确认（Figma 879-27320：居中弹窗 + Cancel / 红色 Delete）
     if (showEmptyConfirm) {
-        DeleteConfirmSheet(
+        AppAlertDialog(
+            onDismissRequest = { showEmptyConfirm = false },
+            title = "Empty Recycle Bin",
+            message = "Are you sure you want to permanently delete these ${uiState.notes.size} notes? This action cannot be undone.",
+            confirmLabel = "Delete",
+            dismissLabel = "Cancel",
+            destructive = true,
             onConfirm = {
                 showEmptyConfirm = false
                 onEmptyAll()
             },
-            onDismiss = { showEmptyConfirm = false },
-            title = "Empty Recycle Bin",
-            message = "Are you sure you want to permanently delete these ${uiState.notes.size} notes? This action cannot be undone.",
-            confirmLabel = "Delete permanently",
         )
     }
 }
@@ -220,15 +224,35 @@ fun RecycleBinScreen(
 private val sampleDeleted = listOf(
     NoteItem(
         id = "1",
-        title = "Q3 marketing campaign",
-        preview = "Meeting Summary\nQ3 Strategy: Reviewed competitor analysis and finalized the budget for the upcoming product launch.",
+        title = "",
+        preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
         updatedAt = System.currentTimeMillis(),
     ),
     NoteItem(
         id = "2",
-        title = "Team retro",
-        preview = "Sprint retrospective notes.",
-        updatedAt = System.currentTimeMillis() - 5L * 86_400_000L,
+        title = "Q3 KPIs",
+        preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+        imagePath = "preview/sample.jpg",
+        updatedAt = System.currentTimeMillis() - 3L * 86_400_000L,
+    ),
+    NoteItem(
+        id = "3",
+        title = "Q3 KPIs",
+        preview = "",
+        updatedAt = System.currentTimeMillis() - 20L * 86_400_000L,
+    ),
+    NoteItem(
+        id = "4",
+        title = "Pic notes",
+        preview = "",
+        imagePath = "preview/sample.jpg",
+        updatedAt = System.currentTimeMillis() - 26L * 86_400_000L,
+    ),
+    NoteItem(
+        id = "5",
+        title = "Q3 KPIs",
+        preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+        updatedAt = System.currentTimeMillis() - 29L * 86_400_000L,
     ),
 )
 

@@ -1,15 +1,13 @@
 package com.novamind.app.feature.recyclebin.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,6 +42,9 @@ private val ColorTextSub: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
 private val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+// 剩余天数文案色（Figma orange-900 #603812），与 Library 卡片日期同色
+private val ColorDaysLeft: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Warning.onSurface.current()
 
 /** 软删后剩余天数（保留期 [AppConfig.RecycleBin.RETENTION_DAYS] 天，从软删时间 updatedAt 起算），范围 0..保留期。 */
 internal fun daysLeftUntilPurge(deletedAt: Long, now: Long = System.currentTimeMillis()): Int {
@@ -52,70 +53,78 @@ internal fun daysLeftUntilPurge(deletedAt: Long, now: Long = System.currentTimeM
     return (retentionDays - elapsedDays).coerceIn(0, retentionDays)
 }
 
-/** 回收站笔记卡片：顶部「剩余 N 天」+ 标题 + 内容（占剩余空间）+ 底部缩略图。 */
+/**
+ * 回收站瀑布流笔记卡片（Figma）：随内容高度自适应。
+ * 顶部可选缩略图 → 可选标题 → 可选摘要 → 底部「剩余 N 天」（orange-900）。
+ * 与 Library 卡片同款外观，仅把底部日期换成「距彻底删除还剩多少天」。
+ */
 @Composable
 internal fun RecycleBinNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
     Surface(
         onClick = onClick,
-        modifier = Modifier
-            .width(172.dp)
-            .height(180.dp)
-            .border(3.dp, note.borderColor ?: ColorBorder, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
         color = BgCard,
         shadowElevation = 1.dp,
+        border = note.borderColor?.let { BorderStroke(1.dp, it) },
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 剩余天数（替代日期）
-            val days = daysLeftUntilPurge(note.updatedAt)
-            Text(
-                text = "$days ${if (days == 1) "day" else "days"} left",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = ColorTextSub,
-            )
-            // 标题为空时用正文充当标题（限 1 行），与首页 / Library 卡片一致
-            val hasTitle = note.title.isNotBlank()
-            Text(
-                text = if (hasTitle) note.title else note.preview,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = ColorTextTitle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            // 内容：占满剩余空间，把缩略图压到底部
-            if (note.preview.isNotBlank()) {
-                Text(
-                    text = note.preview,
-                    fontSize = 12.sp,
-                    color = ColorTextSub,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.weight(1f),
-                    overflow = TextOverflow.Ellipsis,
-                )
-            } else {
-                Spacer(Modifier.weight(1f))
-            }
-            // 底部缩略图（有图才显示）
+            // 顶部缩略图（正文首图；无图不渲染）
             note.imagePath?.let { path ->
-                val thumbModifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                val imgModifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(8.dp))
                 if (LocalInspectionMode.current) {
-                    Box(modifier = thumbModifier.background(ColorBorder))
+                    Box(modifier = imgModifier.background(ColorBorder))
                 } else {
                     AsyncImage(
-                        model = File(path),
+                        // 本地文件路径用 File 加载；远端签名 URL 直接传字符串
+                        model = if (path.startsWith("http")) path else File(path),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = thumbModifier,
+                        modifier = imgModifier,
                     )
                 }
             }
+
+            // 标题 + 摘要（各自可选）
+            if (note.title.isNotBlank() || note.preview.isNotBlank()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (note.title.isNotBlank()) {
+                        Text(
+                            text = note.title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ColorTextTitle,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (note.preview.isNotBlank()) {
+                        Text(
+                            text = note.preview,
+                            fontSize = 13.sp,
+                            color = ColorTextSub,
+                            lineHeight = 20.sp,
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            // 底部：距彻底删除的剩余天数（副标题已说明「shows the days left」）
+            val days = daysLeftUntilPurge(note.updatedAt)
+            Text(
+                text = "$days ${if (days == 1) "day" else "days"} left",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = ColorDaysLeft,
+            )
         }
     }
 }
@@ -124,13 +133,35 @@ internal fun RecycleBinNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
 @Composable
 private fun RecycleBinNoteCardPreview() {
     AppTheme {
-        RecycleBinNoteCard(
-            note = NoteItem(
-                id = "1",
-                title = "Q3 marketing campaign",
-                preview = "Meeting Summary\nQ3 Strategy: Reviewed competitor analysis and finalized the budget for the upcoming product launch.",
-                updatedAt = System.currentTimeMillis(),
-            ),
-        )
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            RecycleBinNoteCard(
+                note = NoteItem(
+                    id = "1",
+                    title = "Q3 KPIs",
+                    preview = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            RecycleBinNoteCard(
+                note = NoteItem(
+                    id = "2",
+                    title = "Q3 KPIs",
+                    preview = "",
+                    updatedAt = System.currentTimeMillis() - 25L * 86_400_000L,
+                ),
+            )
+            RecycleBinNoteCard(
+                note = NoteItem(
+                    id = "3",
+                    title = "Pic notes",
+                    preview = "",
+                    imagePath = "preview/sample.jpg",
+                    updatedAt = System.currentTimeMillis() - 29L * 86_400_000L,
+                ),
+            )
+        }
     }
 }
