@@ -872,14 +872,15 @@ fun AskNovieScreen(
                                             showAttachMenu = true
                                         },
                                     )
-                                    ModelPill(
-                                        selectedModel,
-                                        onClick = {
-                                            keyboardController?.hide()
-                                            focusManager.clearFocus()
-                                            showModelPicker = true
-                                        },
-                                    )
+                                    // 模型选择暂时隐藏（后续接入真实模型切换时再放开）
+                                    // ModelPill(
+                                    //     selectedModel,
+                                    //     onClick = {
+                                    //         keyboardController?.hide()
+                                    //         focusManager.clearFocus()
+                                    //         showModelPicker = true
+                                    //     },
+                                    // )
                                 }
 
                                 Row(
