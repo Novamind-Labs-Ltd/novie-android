@@ -1,5 +1,6 @@
 package com.novamind.app.feature.home.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.novamind.app.feature.create.model.NoteItem
+import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
@@ -46,6 +48,8 @@ internal fun RecentNoteCard(
         shape = RoundedCornerShape(12.dp),
         color = BgCard,
         shadowElevation = 1.dp,
+        // 自定义边框色（笔记设置后）才描边；未设置保持 Figma 的无边框白卡
+        border = note.borderColor?.let { BorderStroke(3.dp, it) },
     ) {
         Row(
             modifier = Modifier
@@ -141,6 +145,10 @@ private fun RecentNoteCardShowcase() {
         )
         RecentNoteCard(
             NoteItem("4", "Pic notes", "Team offsite venue shortlist and logistics.", imagePath = "/preview/none.jpg", updatedAt = now),
+        )
+        // 自定义边框色示例
+        RecentNoteCard(
+            NoteItem("5", "Colored border", "Note with a custom border color.", borderColor = Palette.orange600, updatedAt = now),
         )
     }
 }

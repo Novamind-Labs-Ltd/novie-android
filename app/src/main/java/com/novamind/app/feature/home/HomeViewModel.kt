@@ -1,6 +1,7 @@
 package com.novamind.app.feature.home
 
 import android.content.Intent
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.R
@@ -100,7 +101,7 @@ class HomeViewModel @Inject constructor(
                             errorMessage = null,
                         )
                     }
-                    resolveThumbnails(items)
+                    resolveNoteExtras(items)
                 },
                 onFail = { result ->
                     val message = when (result) {
@@ -241,37 +242,41 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 列表项领域模型 → UI 模型。列表接口不含正文，故 description/tags 留空；正文在打开详情时另拉。 */
-    // ── 首页缩略图按需解析 ──────────────────────────────────────────────
-    // 列表接口（RemoteNoteSummary）不含图片信息，故按需拉正文取首图：本地文件优先，
-    // 失效则用 fileId 换签名下载 URL。结果按 id@updatedAt 缓存，避免回到首页/刷新时重复请求。
+    // ── 首页笔记「详情增强」按需解析 ────────────────────────────────────
+    // 列表接口（RemoteNoteSummary）既不含图片信息、也不含边框色，故列表加载后按需拉正文详情，
+    // 一次 getNote 同时解析出：① 首图缩略图（本地文件优先，失效则用 fileId 换签名 URL）；
+    // ② 边框色（详情返回 borderColorHex）。结果按 id@updatedAt 缓存（改色会 bump updatedAt → 自动失效）。
     // 注：首屏最多 HOME_RECENT_NOTES_SIZE 条各一次 getNote（并发上限 4），为纯 UI 增强、失败静默。
-    private val thumbCache = mutableMapOf<String, String?>()
+    private data class NoteExtras(val imagePath: String?, val borderColor: Color?)
+    private val extrasCache = mutableMapOf<String, NoteExtras>()
     private val thumbSemaphore = Semaphore(4)
 
-    private fun resolveThumbnails(items: List<NoteItem>) {
+    private fun resolveNoteExtras(items: List<NoteItem>) {
         items.forEach { item ->
             val key = "${item.id}@${item.updatedAt}"
-            if (thumbCache.containsKey(key)) {
-                thumbCache[key]?.let { applyThumb(item.id, it) }   // 命中缓存直接回填
-                return@forEach
-            }
+            extrasCache[key]?.let { applyExtras(item.id, it); return@forEach }   // 命中缓存直接回填
             viewModelScope.launch {
-                val resolved = thumbSemaphore.withPermit { resolveThumb(item.id) }
-                thumbCache[key] = resolved
-                if (resolved != null) applyThumb(item.id, resolved)
+                val extras = thumbSemaphore.withPermit { fetchNoteExtras(item.id) } ?: NoteExtras(null, null)
+                extrasCache[key] = extras
+                applyExtras(item.id, extras)
             }
         }
     }
 
-    private suspend fun resolveThumb(noteId: String): String? {
+    private suspend fun fetchNoteExtras(noteId: String): NoteExtras? {
         val note = when (val r = notesRepository.getNote(noteId)) {
             is ApiResult.Success -> r.data
             else -> null
         } ?: return null
+        val border = ColorUtils.parseHexColor(note.borderColorHex)
         // 服务端 content 约定为 {"body": <文档 JSON 字符串>}，先解包出正文文档
         val body = runCatching { JSONObject(note.content).optString("body", "") }
             .getOrDefault("").ifBlank { note.content }
+        val imagePath = resolveThumb(noteId, body)
+        return NoteExtras(imagePath, border)
+    }
+
+    private suspend fun resolveThumb(noteId: String, body: String): String? {
         // 本地首图存在 → 直接用本地路径（即时、离线可看）
         NoteDocument.firstImagePath(body)?.let { p ->
             if (withContext(Dispatchers.IO) { File(p).exists() }) return p
@@ -285,9 +290,20 @@ class HomeViewModel @Inject constructor(
         return atts.firstOrNull { it.fileId == fid }?.downloadUrl
     }
 
-    private fun applyThumb(id: String, path: String) {
+    private fun applyExtras(id: String, extras: NoteExtras) {
         _uiState.update { s ->
-            s.copy(notes = s.notes.map { if (it.id == id && it.imagePath == null) it.copy(imagePath = path) else it })
+            s.copy(
+                notes = s.notes.map {
+                    if (it.id == id) {
+                        it.copy(
+                            imagePath = it.imagePath ?: extras.imagePath,
+                            borderColor = it.borderColor ?: extras.borderColor,
+                        )
+                    } else {
+                        it
+                    }
+                },
+            )
         }
     }
 
