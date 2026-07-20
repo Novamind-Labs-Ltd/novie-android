@@ -1,12 +1,13 @@
 package com.novamind.app.feature.library.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -49,7 +50,6 @@ internal fun FolderRow(
     folder: LibraryFolder,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
-    elevation: androidx.compose.ui.unit.Dp = 1.dp,   // 拖拽态抬升以凸显
     onRename: () -> Unit = {},
     onChangeColor: () -> Unit = {},
     onDelete: () -> Unit = {},
@@ -57,40 +57,41 @@ internal fun FolderRow(
     // 文件夹颜色：有自定义色用之；否则按名称稳定地从色板取一种，使列表多彩且一致
     val accent = ColorUtils.parseHexColor(folder.colorHex) ?: folderAccentFor(folder.name)
     var menuExpanded by remember { mutableStateOf(false) }
+    // Figma：行为 #fcfaf6 淡填充、圆角 12、无描边无投影、固定 56 高
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            // 边框映射文件夹颜色
-            .border(1.dp, accent, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        color = BgCard,
-        shadowElevation = elevation,
+            .height(56.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = BgRow,
     ) {
         Row(
-            modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 点击图标 → 打开 Folder colour 弹窗（与「Change color」一致）
+            // 图标：36 圆形，文件夹色淡底 + 深色文件夹图标（颜色仅体现在圆底）；点击 → 改色
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(accent.copy(alpha = 0.12f))
+                    .background(accent.copy(alpha = 0.30f))
                     .clickable(onClick = onChangeColor),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_folder),
+                    painter = painterResource(R.drawable.ic_folder_line),
                     contentDescription = "Change colour",
-                    tint = accent,
+                    tint = ColorTextTitle,
                     modifier = Modifier.size(20.dp),
                 )
             }
             Text(
                 text = folder.name,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = ColorTextTitle,
                 maxLines = 1,
@@ -103,11 +104,11 @@ internal fun FolderRow(
                 fontSize = 14.sp,
                 color = ColorTextSub,
             )
-            // 更多：展开 Rename / Reorder / Delete
+            // 更多：展开 Rename / Change color / Delete
             Box {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
                         .clickable { menuExpanded = true },
                     contentAlignment = Alignment.Center,
@@ -116,7 +117,7 @@ internal fun FolderRow(
                         painter = painterResource(R.drawable.ic_more),
                         contentDescription = "More",
                         tint = ColorTextSub,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(16.dp),
                     )
                 }
                 FolderActionsMenu(

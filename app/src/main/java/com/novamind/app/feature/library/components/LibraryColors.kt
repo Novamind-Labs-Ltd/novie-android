@@ -14,6 +14,9 @@ internal val BgPage: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
 internal val BgCard: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+// 文件夹行底色（Figma background/page/default/secondary #fcfaf6）：比页面底色略浅的填充，无描边无投影
+internal val BgRow: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.secondary.current()
 internal val ColorTextTitle: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
 internal val ColorTextSub: Color

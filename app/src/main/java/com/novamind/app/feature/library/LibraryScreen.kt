@@ -92,6 +92,7 @@ import com.novamind.app.feature.library.components.EmptyState
 import com.novamind.app.feature.library.components.FolderNoteRow
 import com.novamind.app.feature.library.components.FolderRenameRow
 import com.novamind.app.feature.library.components.FolderRow
+import com.novamind.app.feature.library.components.FolderSwipeRow
 import com.novamind.app.feature.library.components.LibraryNoteRow
 import com.novamind.app.feature.library.components.SegmentedTabBar
 import com.novamind.app.feature.library.components.TopIconButton
@@ -345,20 +346,26 @@ private fun FoldersPage(
                         onCancel = { renameTarget = null },
                     )
                 } else {
-                    // 长按整行开始拖拽：把手挂在外层 Box，内部 FolderRow 的点击打开互不抢手势
+                    // 长按整行拖拽排序（外层把手）；横向左滑露出 编辑/删除（FolderSwipeRow）
                     Box(
                         modifier = Modifier.longPressDraggableHandle(
                             onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
                             onDragStopped = { onReorder(ordered.map { it.name }) },
                         ),
                     ) {
-                        FolderRow(
-                            folder = folder,
-                            onClick = { onOpenFolder(folder.name) },
-                            onRename = { renameTarget = folder.name },
-                            onChangeColor = { colorTarget = folder.name },
+                        FolderSwipeRow(
+                            onEdit = { renameTarget = folder.name },
                             onDelete = { deleteTarget = folder.name },
-                        )
+                        ) { isOpen, close ->
+                            FolderRow(
+                                folder = folder,
+                                // 展开态点击整行先收起，避免误入文件夹
+                                onClick = { if (isOpen) close() else onOpenFolder(folder.name) },
+                                onRename = { renameTarget = folder.name },
+                                onChangeColor = { colorTarget = folder.name },
+                                onDelete = { deleteTarget = folder.name },
+                            )
+                        }
                     }
                 }
             }

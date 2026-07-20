@@ -5,14 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,8 +47,6 @@ internal fun LibraryNoteRow(note: NoteItem, onClick: () -> Unit = {}) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // 含图时用 IntrinsicSize.Min 让缩略图高度跟随左侧内容
-                .then(if (note.imagePath != null) Modifier.height(IntrinsicSize.Min) else Modifier)
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -103,13 +97,11 @@ internal fun LibraryNoteRow(note: NoteItem, onClick: () -> Unit = {}) {
                 }
             }
 
-            // 右侧缩略图（正文首图；无图不渲染），约 100dp 宽、圆角 8、充满卡片高度
+            // 右侧缩略图（正文首图；无图不渲染）：固定 104×84 圆角块，垂直居中；卡片高度由左侧文案决定
             note.imagePath?.let { path ->
                 val imgModifier = Modifier
-                    .width(100.dp)
-                    .heightIn(min = 96.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(8.dp))
+                    .size(width = 104.dp, height = 84.dp)
+                    .clip(RoundedCornerShape(12.dp))
                 if (LocalInspectionMode.current) {
                     Box(modifier = imgModifier.background(ColorBorder))
                 } else {
