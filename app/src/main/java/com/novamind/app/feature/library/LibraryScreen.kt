@@ -36,11 +36,10 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DrawerValue
+import androidx.compose.animation.core.Animatable
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +53,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -551,32 +558,23 @@ fun LibraryRoute(
                 modifier = modifier,
             )
         } else {
-            // 抽屉宿主：点击左上角侧栏按钮或从左边缘右滑打开（仅底栏入口，非子页）
-            val drawerState = rememberDrawerState(DrawerValue.Closed)
+            // 抽屉宿主（push-reveal）：点击左上角侧栏按钮打开——主内容右移露出底层的文件夹菜单。
+            var drawerOpen by remember { mutableStateOf(false) }
             // 抽屉打开时通知宿主隐藏底部导航栏（盖住底栏）；离开时复位
-            val drawerOpen = drawerState.targetValue == DrawerValue.Open
             LaunchedEffect(drawerOpen) { onFullscreenChange(drawerOpen) }
             DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
-            // 先打开目标页（全屏覆盖层滑入），待其盖住后再关抽屉，
-            // 避免「抽屉关闭」与「新页滑入」同时进行造成动画断层。
-            fun closeDrawerThen(action: () -> Unit) {
-                action()
-                scope.launch {
-                    kotlinx.coroutines.delay(250)
-                    drawerState.close()
-                }
-            }
+            BackHandler(enabled = drawerOpen) { drawerOpen = false }
 
-            ModalNavigationDrawer(
-                drawerState = drawerState,
-                gesturesEnabled = onBack == null,
-                drawerContent = {
+            PushRevealDrawer(
+                open = drawerOpen,
+                onOpenChange = { drawerOpen = it },
+                drawer = {
                     LibraryDrawer(
                         folders = uiState.folders,
-                        onOpenFolder = { name -> closeDrawerThen { selectedFolder = name } },
-                        onOpenTagManager = { closeDrawerThen(onOpenTagManager) },
-                        onOpenSharedWithMe = { closeDrawerThen(onOpenSharedWithMe) },
-                        onOpenRecycleBin = { closeDrawerThen(onOpenRecycleBin) },
+                        onOpenFolder = { name -> drawerOpen = false; selectedFolder = name },
+                        onOpenTagManager = { drawerOpen = false; onOpenTagManager() },
+                        onOpenSharedWithMe = { drawerOpen = false; onOpenSharedWithMe() },
+                        onOpenRecycleBin = { drawerOpen = false; onOpenRecycleBin() },
                     )
                 },
             ) {
@@ -584,7 +582,7 @@ fun LibraryRoute(
                     uiState = uiState,
                     onCreateNote = onCreateNote,
                     onToggleViewMode = viewModel::toggleViewMode,
-                    onOpenSidebar = { scope.launch { drawerState.open() } },
+                    onOpenSidebar = { drawerOpen = true },
                     onOpenNote = onOpenNote,
                     onOpenFolder = { selectedFolder = it },
                     onCreateFolder = viewModel::createFolder,
@@ -597,6 +595,135 @@ fun LibraryRoute(
                     modifier = modifier,
                 )
             }
+        }
+    }
+}
+
+/** push-reveal 抽屉主内容右移比例（露出底层菜单的宽度占屏宽比）。 */
+private const val REVEAL_FRACTION = 0.70f
+
+/**
+ * Push-reveal 抽屉：底层为 [drawer]（文件夹菜单），[content] 为主内容。
+ * 打开时主内容整体右移 + 轻微缩小 + 圆角 + 投影 + 压暗，露出底层菜单。
+ *
+ * 手势跟手（nested scroll）：主内容**向右拖**——当内部 Pager 已在最左页无法再右滑时，
+ * 剩余的右向位移用来逐步拉开抽屉（进度跟手指走）；向左拖则收回。松手过 40% 吸附到开/关。
+ * 打开态还可直接点击露出的主内容关闭。[onOpenChange] 回报最终开合状态（供宿主隐藏底栏等）。
+ */
+@Composable
+private fun PushRevealDrawer(
+    open: Boolean,
+    onOpenChange: (Boolean) -> Unit,
+    drawer: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    // 进度 0（关）..1（开）。外部 open 变化时动画过渡；拖动时直接 snapTo 跟手。
+    val progress = remember { Animatable(if (open) 1f else 0f) }
+    var revealPx by remember { mutableFloatStateOf(1f) }
+    // 是否需要把底层抽屉纳入布局/命中测试：仅在打开或拖动中为 true。
+    // 完全关闭时不放抽屉，避免主内容空白处（如标题右侧）的点击透传到底层抽屉。
+    var revealed by remember { mutableStateOf(open) }
+    LaunchedEffect(open) {
+        if (open) revealed = true
+        progress.animateTo(if (open) 1f else 0f, tween(300))
+        if (!open) revealed = false
+    }
+
+    fun drag(deltaPx: Float) {
+        revealed = true
+        scope.launch { progress.snapTo((progress.value + deltaPx / revealPx).coerceIn(0f, 1f)) }
+    }
+    fun settle() {
+        val target = if (progress.value > 0.4f) 1f else 0f
+        scope.launch {
+            progress.animateTo(target, tween(220))
+            if (target == 0f) revealed = false
+        }
+        onOpenChange(target == 1f)
+    }
+
+    // 嵌套滚动：把 Pager/列表消费不掉的水平位移转成抽屉进度
+    val nested = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            // 抽屉已被拉开一部分：优先由抽屉消费水平位移（冻结内部 Pager，双向跟手）
+            return if (progress.value > 0f && available.x != 0f) {
+                drag(available.x); Offset(available.x, 0f)
+            } else {
+                Offset.Zero
+            }
+        }
+
+        override fun onPostScroll(
+            consumed: Offset,
+            available: Offset,
+            source: NestedScrollSource,
+        ): Offset {
+            // Pager 已到最左仍向右拖（available.x>0）：用剩余量拉开抽屉
+            return if (available.x > 0f) {
+                drag(available.x); Offset(available.x, 0f)
+            } else {
+                Offset.Zero
+            }
+        }
+
+        override suspend fun onPreFling(available: Velocity): Velocity {
+            // 拖动中途松手：吸附到开/关，并吃掉这段 fling 速度避免 Pager 续滑
+            return if (progress.value > 0f && progress.value < 1f) {
+                settle(); available
+            } else {
+                Velocity.Zero
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { revealPx = (it.width * REVEAL_FRACTION).coerceAtLeast(1f) },
+    ) {
+        // 底层：文件夹侧边菜单（仅在打开/拖动中放入布局，避免关闭态点击透传到抽屉）
+        if (revealed) {
+            drawer()
+        }
+        // 上层：主内容，随进度右移 / 缩小 / 圆角 / 投影（在 graphicsLayer 里读 progress，避免整页重组）
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(nested)
+                .graphicsLayer {
+                    val p = progress.value
+                    translationX = size.width * REVEAL_FRACTION * p
+                    val s = 1f - 0.10f * p
+                    scaleX = s
+                    scaleY = s
+                    shadowElevation = 24f * p
+                    shape = RoundedCornerShape(32.dp * p)
+                    clip = p > 0f
+                },
+        ) {
+            content()
+            // 压暗遮罩：alpha 随进度（draw 阶段读取，不触发重组）；仅打开态可拖/可点关闭
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 0.25f * progress.value }
+                    .background(Color.Black)
+                    .then(
+                        if (open) {
+                            Modifier
+                                .pointerInput(Unit) { detectTapGestures { onOpenChange(false) } }
+                                .pointerInput(Unit) {
+                                    detectHorizontalDragGestures(
+                                        onHorizontalDrag = { _, d -> drag(d) },
+                                        onDragEnd = { settle() },
+                                    )
+                                }
+                        } else {
+                            Modifier
+                        },
+                    ),
+            )
         }
     }
 }
