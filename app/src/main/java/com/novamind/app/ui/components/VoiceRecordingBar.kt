@@ -652,7 +652,8 @@ private fun CircleButton(
     Box(
         modifier = modifier
             .size(buttonSize)
-            .then(if (elevated) Modifier.shadow(6.dp, CircleShape) else Modifier)
+            // 禁用时不投影，与置灰的底色/图标一致，避免看起来仍是可用的悬浮按钮
+            .then(if (elevated && enabled) Modifier.shadow(6.dp, CircleShape) else Modifier)
             .clip(CircleShape)
             .then(
                 if (bg != null) {
