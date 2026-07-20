@@ -83,6 +83,12 @@ private val SendBg: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()               // 品牌绿 #1b6b45
 private val SendIcon: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()                // 恒定白
+// 禁用态填充按钮：中性灰底 + 中性灰图标（设计系统 button/primary/disabled），
+// 避免品牌绿按 alpha 淡化后仍偏绿、看不出「置灰」。
+private val DisabledBg: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.backgroundDisabled.current()   // neutral-200
+private val DisabledIcon: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.textDisabled.current()          // neutral-400
 private val RecordingDot: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Error.default.current()            // 录音中红点
 private val PausedDot: Color
@@ -657,7 +663,7 @@ private fun CircleButton(
             .clip(CircleShape)
             .then(
                 if (bg != null) {
-                    Modifier.background(if (enabled || loading) bg else bg.copy(alpha = 0.4f))
+                    Modifier.background(if (enabled || loading) bg else DisabledBg)
                 } else {
                     Modifier
                 },
@@ -691,7 +697,12 @@ private fun CircleButton(
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = desc,
-                tint = if (enabled) tint else tint.copy(alpha = 0.5f),
+                // 有底色的按钮禁用时用中性灰图标；描边/无底按钮维持原色淡化
+                tint = when {
+                    enabled -> tint
+                    bg != null -> DisabledIcon
+                    else -> tint.copy(alpha = 0.5f)
+                },
                 modifier = Modifier.size(iconSize),
             )
         }

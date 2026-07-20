@@ -900,11 +900,14 @@ fun AskNovieScreen(
                                             }
                                         },
                                     )
-                                    // 回复生成中 → 停止；否则 → 绿色发送（空内容点击为 no-op）
+                                    // 回复生成中 → 停止；否则 → 发送（无输入内容时置灰不可点）
                                     if (isResponding || isStreaming) {
                                         StopButton(onClick = stopResponse)
                                     } else {
-                                        SendButton(onClick = { send() })
+                                        SendButton(
+                                            enabled = input.isNotBlank() || attachments.isNotEmpty(),
+                                            onClick = { send() },
+                                        )
                                     }
                                 }
                             }

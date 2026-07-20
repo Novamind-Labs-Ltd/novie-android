@@ -56,15 +56,18 @@ internal fun BareIconButton(
     }
 }
 
-/** 发送按钮：绿色圆形，仅在有输入内容时显示。 */
+/** 发送按钮：品牌绿圆形；无输入内容（[enabled] = false）时置为中性灰且不可点击。 */
 @Composable
-internal fun SendButton(onClick: () -> Unit) {
+internal fun SendButton(enabled: Boolean = true, onClick: () -> Unit) {
+    val bg = if (enabled) SendGreen else DisabledBtnBg
+    val iconTint = if (enabled) OnSendGreen else DisabledBtnIcon
     Box(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
-            .background(SendGreen)
+            .background(bg)
             .clickable(
+                enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(bounded = false, color = OnSendGreen),
                 onClick = onClick,
@@ -74,7 +77,7 @@ internal fun SendButton(onClick: () -> Unit) {
         Icon(
             painter = painterResource(R.drawable.ic_arrow_up),
             contentDescription = "Send",
-            tint = OnSendGreen,
+            tint = iconTint,
             modifier = Modifier.size(22.dp),
         )
     }
