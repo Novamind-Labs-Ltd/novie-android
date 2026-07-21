@@ -88,7 +88,8 @@ private fun ChangeFolderColorContent(currentHex: String?, onPick: (String?) -> U
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_folder),
+                        // 与「创建文件夹」色板 / 文件夹行保持一致，统一用描边文件夹图标
+                        painter = painterResource(R.drawable.ic_folder_line),
                         contentDescription = null,
                         tint = color,
                         modifier = Modifier.size(20.dp),
