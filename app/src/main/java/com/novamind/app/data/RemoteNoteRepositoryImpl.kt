@@ -18,6 +18,9 @@ import com.novamind.app.feature.create.model.RemoteNotePage
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.feature.create.model.UpdateNoteOutcome
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -106,6 +109,22 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
             op = "setTrashed id=$id",
             transform = { it?.toDomain() },
             successLog = { "setTrashed 成功 id=$id trashed=$trashed rev=${it?.rev}" },
+        )
+    }
+
+    override suspend fun setFolder(id: String, folderId: String?): ApiResult<RemoteNote> {
+        AppLog.i(TAG) { "setFolder 开始 id=$id folderId=$folderId" }
+        // explicitNulls=false 会省略 null 字段,故用 JsonObject 显式传 folderId(null=移出未归档 / uuid=移入)
+        val body = buildJsonObject {
+            put("folderId", folderId?.let { JsonPrimitive(it) } ?: JsonNull)
+        }
+        return apiCall {
+            NetworkModule.notesApi.moveToFolder(id, body)
+        }.mapLogged(
+            tag = TAG,
+            op = "setFolder id=$id",
+            transform = { it?.toDomain() },
+            successLog = { "setFolder 成功 id=$id folderId=$folderId rev=${it?.rev}" },
         )
     }
 

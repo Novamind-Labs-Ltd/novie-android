@@ -50,6 +50,12 @@ interface RemoteNoteRepository {
     suspend fun setTrashed(id: String, trashed: Boolean): ApiResult<RemoteNote>
 
     /**
+     * 移动笔记到文件夹（PATCH `{folderId}`）。[folderId]=文件夹 uuid 移入；null=移出到未归档。
+     * 返回变更后的 [RemoteNote]（含新 rev）。
+     */
+    suspend fun setFolder(id: String, folderId: String?): ApiResult<RemoteNote>
+
+    /**
      * 永久删除（DELETE，两步制：须**已在回收站**）。成功无数据（HTTP 204）。
      * 仍是活跃笔记 → 业务错误 40906；转写进行中 → 40907（可重试）。
      */

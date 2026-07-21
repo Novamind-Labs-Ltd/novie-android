@@ -291,7 +291,8 @@ class CreateViewModel @Inject constructor(
 
             is CreateEvent.FolderSelected -> {
                 _uiState.update { it.copy(selectedFolder = event.folder, showFolderPicker = false) }
-                requestSave()
+                // 归属落库：PATCH /notes/{id} 的 folderId(null=移出未归档);新笔记先建档拿 id
+                viewModelScope.launch { applyFolder(event.folder?.id) }
             }
 
             is CreateEvent.NewFolderCreated -> {
@@ -312,13 +313,14 @@ class CreateViewModel @Inject constructor(
                                         st.copy(selectedFolder = Folder(id = folder.id, name = folder.name))
                                     } else st
                                 }
+                                // 归属落库：把当前笔记移入这个新建文件夹
+                                applyFolder(folder.id)
                             }
                             loadFolders()
                         },
                         onFail = { logApiError("createFolder", it) },
                     )
                 }
-                requestSave()
             }
 
             is CreateEvent.ShowTagPicker ->
@@ -514,6 +516,26 @@ class CreateViewModel @Inject constructor(
                     AppLog.i(TAG) { "setBorderColor 成功 id=$id hex=$hex rev=${note?.rev}" }
                 },
                 onFail = { notifyError("setBorderColor id=$id", it, "Failed to set colour", "Network error, colour not saved") },
+            )
+        }
+    }
+
+    /**
+     * 设置/清除笔记所属文件夹到服务端（`PATCH /notes/{id}` 的 folderId 分支）。与改色同理:
+     * 新笔记（尚无服务端 id）先 [saveNow] 建档拿 id 再移动；移动返回新 rev，同步到 [remoteRev]
+     * 以免后续 PUT 因版本落后被判过期。[folderId]=null 表示移出到未归档。
+     */
+    private suspend fun applyFolder(folderId: String?) {
+        // 先确保有服务端 id（saveNow 自身加锁，故在获取 saveMutex 前调用，避免非重入死锁）
+        if (_uiState.value.editingNoteId == null) saveNow()
+        val id = _uiState.value.editingNoteId ?: return
+        saveMutex.withLock {
+            notesRepository.setFolder(id, folderId).fold(
+                onSuccess = { note ->
+                    note?.rev?.let { remoteRev = it }
+                    AppLog.i(TAG) { "setFolder 成功 id=$id folderId=$folderId rev=${note?.rev}" }
+                },
+                onFail = { notifyError("setFolder id=$id", it, "Failed to move folder", "Network error, folder not saved") },
             )
         }
     }

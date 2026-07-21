@@ -3,6 +3,7 @@ package com.novamind.app.common.net
 import com.novamind.app.common.net.response.ApiResponse
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -62,6 +63,17 @@ interface NotesApi {
     suspend fun setTrashed(
         @Path("id") id: String,
         @Body body: TrashNoteRequestDto,
+    ): Response<ApiResponse<NoteDto>>
+
+    /**
+     * 移动笔记到文件夹（PATCH 多路之一）：body 必须恰好含 `folderId` 单个字段。
+     * `{"folderId":"<uuid>"}`=移入该文件夹；`{"folderId":null}`=移出到未归档。
+     * 因项目 `Json.explicitNulls=false` 会省略 null 字段，故用 [JsonObject] 显式构造以区分 null 与缺省。
+     */
+    @PATCH("api/v1.0/notes/{id}")
+    suspend fun moveToFolder(
+        @Path("id") id: String,
+        @Body body: JsonObject,
     ): Response<ApiResponse<NoteDto>>
 
     /**
