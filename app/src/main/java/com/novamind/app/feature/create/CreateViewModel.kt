@@ -191,13 +191,18 @@ class CreateViewModel @Inject constructor(
                 val body = bodyOf(note.content)
                 remoteRev = note.rev
                 savedSnapshot = TextSnapshot(title, body)
+                // 所属文件夹：优先用后端随 NoteView 返回的 folderName；缺名时回退本地已缓存的文件夹列表。
+                // folderId 为空 = 未归档，selectedFolder 置 null（Meta 行显示「Unassigned」）。
+                val folder = note.folderId?.let { fid ->
+                    Folder(id = fid, name = note.folderName ?: availableFolders.firstOrNull { it.id == fid }?.name.orEmpty())
+                }
                 _uiState.value = CreateUiState(
                     editingNoteId = note.id,
                     updatedAt = note.updatedAt.toEpochMillisOrNull(),
                     title = title,
                     body = body,
                     selectedTags = emptyList(),
-                    selectedFolder = null,
+                    selectedFolder = folder,
                     borderColor = ColorUtils.parseHexColor(note.borderColorHex),
                     availableFolders = availableFolders,
                     availableTags = availableTags,

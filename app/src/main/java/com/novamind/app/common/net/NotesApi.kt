@@ -108,6 +108,10 @@ data class NoteDto(
     val createdAt: String? = null,
     val updatedAt: String? = null,
     val borderColorHex: String? = null,
+    /** 所属文件夹 id；null=未归档。 */
+    val folderId: String? = null,
+    /** 所属文件夹名；null=未归档或文件夹无名。 */
+    val folderName: String? = null,
 )
 
 /** 笔记列表分页视图（NotePageView）：轻量条目 + 下一页游标。 */

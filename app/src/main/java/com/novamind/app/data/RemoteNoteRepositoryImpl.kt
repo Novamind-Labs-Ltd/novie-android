@@ -191,6 +191,8 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         borderColorHex = borderColorHex,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        folderId = folderId,
+        folderName = folderName,
     )
 
     private companion object {

@@ -17,6 +17,10 @@ data class RemoteNote(
     val borderColorHex: String?,
     val createdAt: String?,
     val updatedAt: String?,
+    /** 所属文件夹 id；null = 未归档。 */
+    val folderId: String? = null,
+    /** 所属文件夹名（后端随 NoteView 返回）；null = 未归档或文件夹无名。 */
+    val folderName: String? = null,
 )
 
 /**
