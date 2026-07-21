@@ -117,18 +117,94 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch { fetchFolders() }
     }
 
+    // Recent 分页游标：下一页 cursor（null=已到底或尚未加载）
+    private var notesCursor: String? = null
+
+    /** 拉取第一页笔记（刷新 / 首次进入）：重置分页游标并整表替换。 */
     private suspend fun fetchNotes() {
-        notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE).fold(
-            onSuccess = { serverNotes.value = it?.items.orEmpty() },
+        notesRepository.listNotes(
+            trashed = false,
+            limit = AppConfig.Paging.LIBRARY_RECENT_PAGE_SIZE,
+            cursor = null,
+        ).fold(
+            onSuccess = { page ->
+                serverNotes.value = page?.items.orEmpty()
+                notesCursor = page?.nextCursor
+                _uiState.update { it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false) }
+            },
             onFail = { logApiError("loadNotes", it) },
         )
     }
 
+    /** 上拉加载下一页：按游标取下 20 条并追加到现有列表（Recent 页触底时调用）。 */
+    fun loadMoreNotes() {
+        val cursor = notesCursor
+        // 无更多 / 正在加载 / 正在刷新 时不重复触发
+        if (cursor == null || _uiState.value.isLoadingMore || _uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isLoadingMore = true) }
+        viewModelScope.launch {
+            notesRepository.listNotes(
+                trashed = false,
+                limit = AppConfig.Paging.LIBRARY_RECENT_PAGE_SIZE,
+                cursor = cursor,
+            ).fold(
+                onSuccess = { page ->
+                    // 追加去重（按 id），避免游标边界重复
+                    val existing = serverNotes.value
+                    val seen = existing.mapTo(HashSet()) { it.id }
+                    serverNotes.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
+                    notesCursor = page?.nextCursor
+                    _uiState.update { it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false) }
+                },
+                onFail = {
+                    logApiError("loadMoreNotes", it)
+                    _uiState.update { it.copy(isLoadingMore = false) }
+                },
+            )
+        }
+    }
+
+    // Folders 分页游标：下一页 cursor（null=已到底或尚未加载）
+    private var foldersCursor: String? = null
+
+    /** 拉取第一页文件夹（刷新 / 首次进入）：重置分页游标并整表替换。 */
     private suspend fun fetchFolders() {
-        foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE).fold(
-            onSuccess = { serverFolders.value = it?.items.orEmpty() },
+        foldersRepository.listFolders(
+            limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
+            cursor = null,
+        ).fold(
+            onSuccess = { page ->
+                serverFolders.value = page?.items.orEmpty()
+                foldersCursor = page?.nextCursor
+                _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+            },
             onFail = { logApiError("loadFolders", it) },
         )
+    }
+
+    /** 上拉加载下一页文件夹：按游标取下 20 条并追加（Folders 页触底时调用）。 */
+    fun loadMoreFolders() {
+        val cursor = foldersCursor
+        if (cursor == null || _uiState.value.isLoadingMoreFolders || _uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isLoadingMoreFolders = true) }
+        viewModelScope.launch {
+            foldersRepository.listFolders(
+                limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
+                cursor = cursor,
+            ).fold(
+                onSuccess = { page ->
+                    val existing = serverFolders.value
+                    val seen = existing.mapTo(HashSet()) { it.id }
+                    serverFolders.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
+                    foldersCursor = page?.nextCursor
+                    _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+                },
+                onFail = {
+                    logApiError("loadMoreFolders", it)
+                    _uiState.update { it.copy(isLoadingMoreFolders = false) }
+                },
+            )
+        }
     }
 
     /** 新建文件夹：POST /folders；颜色本地保存（服务端无颜色字段），成功后重拉列表。 */

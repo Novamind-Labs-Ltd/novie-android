@@ -93,6 +93,12 @@ object AppConfig {
         /** 首页「Recent notes」展示条数上限（只影响首页，Library/回收站仍用 [NOTES_PAGE_SIZE]）。 */
         const val HOME_RECENT_NOTES_SIZE = 20
 
+        /** Library「Recent」页每次分页加载条数（上拉加载更多）。 */
+        const val LIBRARY_RECENT_PAGE_SIZE = 20
+
+        /** Library「Folders」页每次分页加载条数（上拉加载更多）。 */
+        const val LIBRARY_FOLDERS_PAGE_SIZE = 20
+
         /** 文件夹列表每页条数（GET /folders，后端硬上限 100）。 */
         const val FOLDERS_PAGE_SIZE = 100
     }

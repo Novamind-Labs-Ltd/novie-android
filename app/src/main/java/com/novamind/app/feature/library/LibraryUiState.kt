@@ -26,4 +26,12 @@ data class LibraryUiState(
     val viewMode: LibraryViewMode = LibraryViewMode.GRID,
     /** Recent 页正在下拉刷新（重拉笔记 + 文件夹期间为 true），驱动下拉刷新指示器。 */
     val isRefreshing: Boolean = false,
+    /** Recent 页是否还有下一页（分页游标非空）。 */
+    val hasMoreNotes: Boolean = false,
+    /** Recent 页正在上拉加载下一页，驱动列表底部加载指示器。 */
+    val isLoadingMore: Boolean = false,
+    /** Folders 页是否还有下一页（分页游标非空）。 */
+    val hasMoreFolders: Boolean = false,
+    /** Folders 页正在上拉加载下一页，驱动列表底部加载指示器。 */
+    val isLoadingMoreFolders: Boolean = false,
 )

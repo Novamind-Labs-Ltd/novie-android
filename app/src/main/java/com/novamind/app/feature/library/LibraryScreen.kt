@@ -30,19 +30,23 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.Animatable
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -111,6 +115,8 @@ fun LibraryScreen(
     onCreateNote: () -> Unit = {},
     onToggleViewMode: () -> Unit = {},
     onRefresh: () -> Unit = {},   // Recent 页下拉刷新 → 重拉笔记与文件夹
+    onLoadMore: () -> Unit = {},   // Recent 页上拉触底 → 加载下一页
+    onLoadMoreFolders: () -> Unit = {},   // Folders 页上拉触底 → 加载下一页
     onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
     onOpenNote: (String) -> Unit = {},   // 点击 Recent 笔记 → 进入笔记预览/编辑页
     onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
@@ -201,10 +207,16 @@ fun LibraryScreen(
                     onCreateNote = onCreateNote,
                     onOpenNote = onOpenNote,
                     onRefresh = onRefresh,
+                    onLoadMore = onLoadMore,
                 )
                 else -> FoldersPage(
                     folders = uiState.folders,
                     onOpenFolder = onOpenFolder,
+                    isRefreshing = uiState.isRefreshing,
+                    onRefresh = onRefresh,
+                    hasMoreFolders = uiState.hasMoreFolders,
+                    isLoadingMoreFolders = uiState.isLoadingMoreFolders,
+                    onLoadMoreFolders = onLoadMoreFolders,
                     onReorder = onReorderFolders,
                     onRenameFolder = onRenameFolder,
                     onDeleteFolder = onDeleteFolder,
@@ -242,7 +254,29 @@ private fun RecentPage(
     onCreateNote: () -> Unit,
     onOpenNote: (String) -> Unit,
     onRefresh: () -> Unit,
+    onLoadMore: () -> Unit = {},
 ) {
+    val gridState = rememberLazyStaggeredGridState()
+    val listState = rememberLazyListState()
+    val isGrid = uiState.viewMode == LibraryViewMode.GRID
+
+    // 触底检测：最后可见项接近末尾且还有下一页时触发加载（grid / list 各自的 layoutInfo）
+    val reachedEnd by remember {
+        derivedStateOf {
+            val (last, total) = if (isGrid) {
+                (gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to
+                    gridState.layoutInfo.totalItemsCount
+            } else {
+                (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1) to
+                    listState.layoutInfo.totalItemsCount
+            }
+            total > 0 && last >= total - 4
+        }
+    }
+    LaunchedEffect(reachedEnd, uiState.hasMoreNotes, uiState.isLoadingMore) {
+        if (reachedEnd && uiState.hasMoreNotes && !uiState.isLoadingMore) onLoadMore()
+    }
+
     AppPullToRefresh(
         isRefreshing = uiState.isRefreshing,
         onRefresh = onRefresh,
@@ -257,9 +291,10 @@ private fun RecentPage(
                     }
                 }
 
-            uiState.viewMode == LibraryViewMode.GRID ->
+            isGrid ->
                 // 双列瀑布流（Figma）：卡片按内容高度自适应、交错排列
                 LazyVerticalStaggeredGrid(
+                    state = gridState,
                     columns = StaggeredGridCells.Fixed(2),
                     modifier = Modifier
                         .fillMaxSize()
@@ -271,10 +306,14 @@ private fun RecentPage(
                     items(uiState.notes, key = { it.id }) { note ->
                         LibraryNoteCard(note = note, onClick = { onOpenNote(note.id) })
                     }
+                    if (uiState.isLoadingMore) {
+                        item(span = StaggeredGridItemSpan.FullLine) { LoadMoreFooter() }
+                    }
                 }
 
             else ->
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp),
@@ -284,8 +323,28 @@ private fun RecentPage(
                     items(uiState.notes, key = { it.id }) { note ->
                         LibraryNoteRow(note = note, onClick = { onOpenNote(note.id) })
                     }
+                    if (uiState.isLoadingMore) {
+                        item { LoadMoreFooter() }
+                    }
                 }
         }
+    }
+}
+
+/** 列表底部「加载中」指示器（上拉加载下一页时显示）。 */
+@Composable
+private fun LoadMoreFooter() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(24.dp),
+            strokeWidth = 2.dp,
+            color = ColorTextSub,
+        )
     }
 }
 
@@ -300,6 +359,9 @@ private fun FoldersPage(
     onOpenFolder: (String) -> Unit,
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
+    hasMoreFolders: Boolean = false,
+    isLoadingMoreFolders: Boolean = false,
+    onLoadMoreFolders: () -> Unit = {},
     onReorder: (List<String>) -> Unit = {},
     onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
@@ -323,6 +385,20 @@ private fun FoldersPage(
     }
     LaunchedEffect(folders, reorderState.isAnyItemDragging) {
         if (!reorderState.isAnyItemDragging) ordered = folders
+    }
+
+    // 触底检测：最后可见项接近末尾且还有下一页时加载更多（拖拽中不触发）
+    val reachedEnd by remember {
+        derivedStateOf {
+            val last = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val total = lazyListState.layoutInfo.totalItemsCount
+            total > 0 && last >= total - 3
+        }
+    }
+    LaunchedEffect(reachedEnd, hasMoreFolders, isLoadingMoreFolders) {
+        if (reachedEnd && hasMoreFolders && !isLoadingMoreFolders && !reorderState.isAnyItemDragging) {
+            onLoadMoreFolders()
+        }
     }
 
     AppPullToRefresh(
@@ -409,6 +485,9 @@ private fun FoldersPage(
                     }
                 }
             }
+            }
+            if (isLoadingMoreFolders) {
+                item { LoadMoreFooter() }
             }
         }
     }
@@ -626,6 +705,8 @@ fun LibraryRoute(
                     onCreateNote = onCreateNote,
                     onToggleViewMode = viewModel::toggleViewMode,
                     onRefresh = viewModel::onRefresh,
+                    onLoadMore = viewModel::loadMoreNotes,
+                    onLoadMoreFolders = viewModel::loadMoreFolders,
                     onOpenSidebar = { drawerOpen = true },
                     onOpenNote = onOpenNote,
                     onOpenFolder = { selectedFolder = it },
