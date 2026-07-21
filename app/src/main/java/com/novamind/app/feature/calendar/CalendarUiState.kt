@@ -96,6 +96,9 @@ sealed interface CalendarUiEvent {
     /** 点击会议/活动行进入详情页。Route 层拦截显示覆盖层，VM 不处理。 */
     data class EventClicked(val event: CalendarEvent) : CalendarUiEvent
 
+    /** 编辑会议页点 Save：把更新后的会议 PATCH 回 Google 日历（乐观更新，失败回滚）。 */
+    data class UpdateMeeting(val event: CalendarEvent) : CalendarUiEvent
+
     /** 编辑任务页点 Save：更新标题/描述/截止日期。 */
     data class UpdateTask(
         val task: CalendarTask,

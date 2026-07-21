@@ -1,12 +1,14 @@
 package com.novamind.app.data.calendar
 
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
- * Google Calendar REST API v3（只读）。Authorization 头由 [GoogleCalendarNetwork] 的拦截器统一注入。
- * baseUrl 为 https://www.googleapis.com/calendar/v3/。
+ * Google Calendar REST API v3。Authorization 头由 [GoogleCalendarNetwork] 的拦截器统一注入。
+ * baseUrl 为 https://www.googleapis.com/calendar/v3/。读用 [listEvents]，编辑用 [patchEvent]。
  */
 interface GoogleCalendarApi {
 
@@ -26,4 +28,17 @@ interface GoogleCalendarApi {
         @Query("orderBy") orderBy: String = "startTime",
         @Query("maxResults") maxResults: Int = 250,
     ): EventsResponse
+
+    /**
+     * 局部更新事件（PATCH 语义：只改请求体里出现的字段）。返回更新后的完整事件资源。
+     *
+     * @param calendarId 通常用 "primary"。
+     * @param eventId    事件 id（对应领域模型 [CalendarEvent.id]）。
+     */
+    @PATCH("calendars/{calendarId}/events/{eventId}")
+    suspend fun patchEvent(
+        @Path("calendarId") calendarId: String,
+        @Path("eventId") eventId: String,
+        @Body body: EventPatchDto,
+    ): EventDto
 }

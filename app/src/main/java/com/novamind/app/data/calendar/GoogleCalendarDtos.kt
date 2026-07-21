@@ -52,3 +52,17 @@ data class AttendeeDto(
 data class ConferenceDataDto(
     @SerialName("conferenceId") val conferenceId: String? = null,
 )
+
+/**
+ * `events.patch` 请求体（精简）：只提交可编辑字段。
+ * JSON 已配 explicitNulls=false，故 null 字段不序列化（PATCH 语义：不改该字段）；
+ * 传空串（如清空 location/description）会真正清空对应字段。
+ */
+@Serializable
+data class EventPatchDto(
+    val summary: String? = null,
+    val location: String? = null,
+    val description: String? = null,
+    val start: EventDateTimeDto? = null,
+    val end: EventDateTimeDto? = null,
+)

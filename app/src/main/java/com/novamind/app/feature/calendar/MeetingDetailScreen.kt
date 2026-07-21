@@ -2,10 +2,12 @@ package com.novamind.app.feature.calendar
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,9 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -65,6 +69,8 @@ fun MeetingDetailScreen(
     event: CalendarEvent,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 点击顶部铅笔进入编辑；为 null 时不显示编辑入口。 */
+    onEdit: (() -> Unit)? = null,
 ) {
     BackHandler(onBack = onBack)
 
@@ -84,7 +90,7 @@ fun MeetingDetailScreen(
             .statusBarsPadding()
             .verticalScroll(rememberScrollState()),
     ) {
-        // 顶部信息（Figma top_info）：返回按钮 + 大标题
+        // 顶部信息（Figma top_info）：返回按钮 +（右侧）编辑铅笔
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -92,6 +98,25 @@ fun MeetingDetailScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BackButton(onClick = onBack)
+            if (onEdit != null) {
+                Spacer(Modifier.weight(1f))
+                Surface(shape = CircleShape, color = ColorSurface, shadowElevation = 1.dp) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onEdit),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_pencil_line),
+                            contentDescription = "Edit meeting",
+                            tint = ColorTextTitle,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
         }
         Text(
             text = "Meetings",

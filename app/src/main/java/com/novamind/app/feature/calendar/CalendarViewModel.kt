@@ -9,6 +9,7 @@ import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.common.google.TokenOutcome
 import com.novamind.app.common.session.UserSessionManager
+import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.data.calendar.GoogleAuthExpiredException
 import com.novamind.app.data.calendar.GoogleAuthRevokedException
@@ -92,6 +93,7 @@ class CalendarViewModel @Inject constructor(
             CalendarUiEvent.AddTaskClicked -> Unit
             is CalendarUiEvent.TaskClicked -> Unit
             is CalendarUiEvent.EventClicked -> Unit
+            is CalendarUiEvent.UpdateMeeting -> updateMeeting(event.event)
             is CalendarUiEvent.CreateTask -> createTask(event.title, event.notes, event.due)
             is CalendarUiEvent.UpdateTask -> updateTask(event.task, event.title, event.notes, event.due)
             is CalendarUiEvent.SetTaskCompleted -> setTaskCompleted(event.task, event.completed)
@@ -293,6 +295,40 @@ class CalendarViewModel @Inject constructor(
                     AppLog.w(TAG, e) { "updateTask failed: id=${task.id}" }
                     _uiState.update {
                         it.copy(tasks = previous, errorMessage = "Couldn't update the task. Please retry.")
+                    }
+                }
+        }
+    }
+
+    /**
+     * 编辑会议（详情页 → 编辑页 Save，覆盖层已关闭）：先乐观替换列表中对应事件并按开始时间重排，
+     * 再 PATCH 回 Google 日历；成功用服务端返回覆盖，失败回滚原列表并提示。
+     */
+    private fun updateMeeting(event: CalendarEvent) {
+        val previous = _uiState.value.events
+        _uiState.update { state ->
+            state.copy(
+                events = state.events
+                    .map { if (it.id == event.id) event else it }
+                    .sortedBy { it.start },
+            )
+        }
+        viewModelScope.launch {
+            runCatching { repository.updateEvent(event) }
+                .onSuccess { saved ->
+                    _uiState.update { state ->
+                        state.copy(
+                            events = state.events
+                                .map { if (it.id == saved.id) saved else it }
+                                .sortedBy { it.start },
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    if (e is CancellationException) throw e
+                    AppLog.w(TAG, e) { "updateMeeting failed: id=${event.id}" }
+                    _uiState.update {
+                        it.copy(events = previous, errorMessage = "Couldn't update the meeting. Please retry.")
                     }
                 }
         }

@@ -54,8 +54,10 @@ fun CalendarRoute(
     // showDetail 控制显隐，selectedEvent 保留内容（关闭时不清，供退出动画期间继续渲染）。
     var showDetail by rememberSaveable { mutableStateOf(false) }
     var selectedEvent by remember { mutableStateOf<CalendarEvent?>(null) }
-    LaunchedEffect(showAddTask, showDetail) {
-        onFullscreenChange(showAddTask || showDetail)
+    // 编辑会议覆盖层（详情页铅笔打开）。
+    var showEditMeeting by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(showAddTask, showDetail, showEditMeeting) {
+        onFullscreenChange(showAddTask || showDetail || showEditMeeting)
     }
     // 覆盖层开着时切走 tab（本 Route 离开组合）→ 恢复底栏，避免 hideBottomNav 卡住。
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
@@ -106,10 +108,10 @@ fun CalendarRoute(
                         editingTask = event.task
                         showAddTask = true
                     }
-                    // 点击活动/会议行 → 打开会议详情覆盖层。
+                    // 点击活动/会议行 → 直接进入编辑页（跳过只读详情页）。
                     is CalendarUiEvent.EventClicked -> {
                         selectedEvent = event.event
-                        showDetail = true
+                        showEditMeeting = true
                     }
                     else -> viewModel.onEvent(event)
                 }
@@ -172,6 +174,29 @@ fun CalendarRoute(
                     MeetingDetailScreen(
                         event = event,
                         onBack = { showDetail = false },
+                        onEdit = { showEditMeeting = true },
+                    )
+                }
+            }
+        }
+
+        // 编辑会议页（全屏覆盖，压在详情页之上；Save 写回 Google，返回回到详情）
+        AnimatedVisibility(
+            visible = showEditMeeting,
+            enter = slideInHorizontally { it } + fadeIn(),
+            exit = slideOutHorizontally { it } + fadeOut(),
+        ) {
+            key(selectedEvent?.id) {
+                selectedEvent?.let { event ->
+                    EditMeetingScreen(
+                        event = event,
+                        onSave = { updated ->
+                            showEditMeeting = false
+                            showDetail = false
+                            selectedEvent = updated
+                            viewModel.onEvent(CalendarUiEvent.UpdateMeeting(updated))
+                        },
+                        onBack = { showEditMeeting = false },
                     )
                 }
             }

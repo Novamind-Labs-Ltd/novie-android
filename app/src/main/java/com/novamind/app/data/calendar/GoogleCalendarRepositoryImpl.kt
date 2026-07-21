@@ -39,6 +39,43 @@ class GoogleCalendarRepositoryImpl(
             }
         }
 
+    override suspend fun updateEvent(event: CalendarEvent): CalendarEvent =
+        withContext(Dispatchers.IO) {
+            // location/description 用空串而非 null 提交：允许「清空」；null 会被 explicitNulls=false 略过。
+            val body = EventPatchDto(
+                summary = event.title,
+                location = event.location.orEmpty(),
+                description = event.description.orEmpty(),
+                start = event.start.toApiDateTime(event.isAllDay),
+                // 全天事件 end.date 为排他次日；定时事件直接用结束时刻。
+                end = if (event.isAllDay) {
+                    event.end.toLocalDate().plusDays(1).toApiDate()
+                } else {
+                    event.end.toApiDateTime(false)
+                },
+            )
+            AppLog.d(TAG) { "patchEvent id=${event.id} body=$body" }
+            try {
+                api.patchEvent(calendarId = "primary", eventId = event.id, body = body)
+                    .toDomain() ?: event
+            } catch (e: HttpException) {
+                throw e.toAuthAware()
+            }
+        }
+
+    /** LocalDateTime → API 时间：定时事件带时区偏移的 RFC3339；全天事件取日期。 */
+    private fun LocalDateTime.toApiDateTime(allDay: Boolean): EventDateTimeDto =
+        if (allDay) {
+            toLocalDate().toApiDate()
+        } else {
+            EventDateTimeDto(
+                dateTime = atZone(zoneId).toOffsetDateTime().format(RFC3339),
+                timeZone = zoneId.id,
+            )
+        }
+
+    private fun LocalDate.toApiDate(): EventDateTimeDto = EventDateTimeDto(date = toString())
+
     /** 把鉴权类 HTTP 错误转成领域异常：401→过期可续期，403→被撤销需重新同意。其余原样抛出。 */
     private fun HttpException.toAuthAware(): Throwable = when (code()) {
         HttpURLConnection.HTTP_UNAUTHORIZED -> GoogleAuthExpiredException()
