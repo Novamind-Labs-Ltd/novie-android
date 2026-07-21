@@ -55,6 +55,7 @@ import com.novamind.app.feature.create.components.BorderColorDialog
 import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
 import com.novamind.app.feature.create.components.CreateTopBar
+import com.novamind.app.feature.create.components.NoteEditorSkeleton
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.AppAlertDialog
 import com.novamind.app.ui.components.VoiceRecordingBar
@@ -746,16 +747,16 @@ fun CreateScreen(
             )
         }
 
-        // 全局 loading：打开笔记加载中显示普通 loading；转写轮询中显示带文案的 loading。
-        // scrimAlpha=0 → 不加半透明蒙层，只保留居中 HUD（仍拦截误触）。
+        // 打开笔记加载中（非转写）：整页骨架图，避免闪出空标题 /「Unassigned」文件夹 / 默认时间等占位内容。
+        if (uiState.isLoading && !uiState.isTranscribing) {
+            NoteEditorSkeleton(modifier = Modifier.fillMaxSize())
+        }
+
+        // 转写轮询中：带文案的居中 loading（scrimAlpha=0 只留 HUD，仍拦截误触）。
         LoadingOverlay(
-            visible = uiState.isTranscribing || uiState.isLoading,
+            visible = uiState.isTranscribing,
             scrimAlpha = 0f,
-            message = if (uiState.isTranscribing) {
-                "Transcribing your audio… This usually takes 1–10 minutes. Please check back shortly."
-            } else {
-                null
-            },
+            message = "Transcribing your audio… This usually takes 1–10 minutes. Please check back shortly.",
         )
     }
 }

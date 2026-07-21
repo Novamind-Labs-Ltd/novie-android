@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -48,15 +49,26 @@ private val CardSoft: Color
     get() = BackgroundColors.Page.secondary.current()
 
 /**
- * 笔记编辑页加载 / AI「Polishing」骨架图：标题、正文行用扫光占位，
- * 底部卡片显示三点动画与「Polishing」文案。整页覆盖在内容之上即可。
+ * 笔记编辑页骨架图（整页覆盖在内容之上）：顶栏、标题、Meta 行（文件夹 + 时间）、正文行用扫光占位，
+ * 避免打开笔记时先闪出空标题 / 「Unassigned」文件夹 / 默认时间等占位内容。
+ *
+ * @param polishing true 时在底部展示 AI「Polishing」卡片（三点动画 + 文案）；
+ *   默认 false = 打开笔记的普通加载骨架，不显示该卡片。
  */
 @Composable
-fun NoteEditorSkeleton(modifier: Modifier = Modifier) {
+fun NoteEditorSkeleton(modifier: Modifier = Modifier, polishing: Boolean = false) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(BackgroundColors.Page.default.current())
+            // 吞掉所有触摸，避免加载期间误触到下方编辑器（聚焦标题弹键盘等）。
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent().changes.forEach { it.consume() }
+                    }
+                }
+            }
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 16.dp),
@@ -78,6 +90,18 @@ fun NoteEditorSkeleton(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(12.dp))
         SkeletonLine(widthFraction = 0.62f, height = 30.dp, corner = 16.dp)
 
+        Spacer(Modifier.height(20.dp))
+
+        // ── Meta 行占位：左「文件夹」胶囊 + 右「时间」占位（对应 CreateMetaRow 布局） ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ShimmerBlock(width = 120.dp, height = 32.dp, shape = RoundedCornerShape(16.dp))
+            ShimmerBlock(width = 84.dp, height = 16.dp, shape = RoundedCornerShape(8.dp))
+        }
+
         Spacer(Modifier.height(28.dp))
 
         // ── 正文行占位（不等宽，模拟段落） ──
@@ -88,30 +112,31 @@ fun NoteEditorSkeleton(modifier: Modifier = Modifier) {
             }
         }
 
-        Spacer(Modifier.weight(1f))
-
-        // ── 底部「Polishing」卡片 ──
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = CardSoft,
-            shadowElevation = 1.dp,
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+        // ── 底部「Polishing」卡片（仅 AI 润色时展示；普通加载不显示） ──
+        if (polishing) {
+            Spacer(Modifier.weight(1f))
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = CardSoft,
+                shadowElevation = 1.dp,
             ) {
-                PolishingDots()
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "Polishing",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextColors.Primary.default.current(),
-                )
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    PolishingDots()
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "Polishing",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextColors.Primary.default.current(),
+                    )
+                }
             }
         }
     }
