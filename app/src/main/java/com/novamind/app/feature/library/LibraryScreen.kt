@@ -288,6 +288,8 @@ private fun FoldersPage(
     var renameTarget by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
     var colorTarget by remember { mutableStateOf<String?>(null) }
+    // 当前左滑展开的文件夹名（同时最多一行展开；打开新行自动收起其它行）
+    var openSwipeName by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     if (folders.isEmpty()) {
@@ -356,6 +358,8 @@ private fun FoldersPage(
                         ),
                     ) {
                         FolderSwipeRow(
+                            open = openSwipeName == folder.name,
+                            onOpenChange = { opened -> openSwipeName = if (opened) folder.name else null },
                             onEdit = { renameTarget = folder.name },
                             onDelete = { deleteTarget = folder.name },
                         ) { isOpen, close ->

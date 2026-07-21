@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +47,8 @@ private val RevealWidth = ButtonSize * 2 + ButtonGap + EdgePad + ButtonGap
  */
 @Composable
 internal fun FolderSwipeRow(
+    open: Boolean,
+    onOpenChange: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
@@ -55,8 +58,16 @@ internal fun FolderSwipeRow(
     val revealPx = with(density) { RevealWidth.toPx() }
     val offsetX = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    val close: () -> Unit = { scope.launch { offsetX.animateTo(0f) } }
+    val close: () -> Unit = {
+        scope.launch { offsetX.animateTo(0f) }
+        onOpenChange(false)
+    }
     val isOpen = offsetX.value < -revealPx / 2f
+
+    // 外部要求关闭（打开了其它行）时自动收起本行——保证同时最多一行展开
+    LaunchedEffect(open) {
+        if (!open && offsetX.value != 0f) offsetX.animateTo(0f)
+    }
 
     Box(modifier = modifier.fillMaxWidth()) {
         // 背景操作层：右对齐、垂直居中，随内容左移逐渐露出
@@ -97,8 +108,9 @@ internal fun FolderSwipeRow(
                             scope.launch { offsetX.snapTo(target) }
                         },
                         onDragEnd = {
-                            val settle = if (offsetX.value < -revealPx / 2f) -revealPx else 0f
-                            scope.launch { offsetX.animateTo(settle) }
+                            val opened = offsetX.value < -revealPx / 2f
+                            scope.launch { offsetX.animateTo(if (opened) -revealPx else 0f) }
+                            onOpenChange(opened)   // 通知宿主：本行成为唯一展开行 / 收起
                         },
                     )
                 },
