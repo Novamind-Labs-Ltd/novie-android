@@ -326,7 +326,7 @@ fun CalendarScreen(
         if (!uiState.loginRequired && uiState.isConnected) {
             if (uiState.showEventsSection) {
                 AgendaSection(
-                    label = "Events",
+                    label = "Meetings",
                     count = uiState.eventCount,
                     empty = uiState.events.isEmpty(),
                     emptyText = "No events",
@@ -337,7 +337,7 @@ fun CalendarScreen(
             }
             if (uiState.showTasksSection) {
                 AgendaSection(
-                    label = "Tasks",
+                    label = "To-dos",
                     count = uiState.taskCount,
                     empty = uiState.tasks.isEmpty(),
                     emptyText = "No tasks",

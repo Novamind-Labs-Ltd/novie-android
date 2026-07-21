@@ -30,10 +30,10 @@ internal fun AgendaSection(
             .padding(top = 4.dp, bottom = 8.dp),
     ) {
         Text(
-            "$label ($count)",
-            fontSize = 13.sp,
+            label,
+            fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
-            color = ColorTextSub,
+            color = ColorTextTitle,
             modifier = Modifier.padding(vertical = 6.dp),
         )
         if (empty) {

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,9 +47,9 @@ internal fun StatCard(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
-            .then(if (selected) Modifier.border(2.dp, ColorDark, RoundedCornerShape(8.dp)) else Modifier)
+            .then(if (selected) Modifier.border(2.dp, ColorPrimary, RoundedCornerShape(8.dp)) else Modifier)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .height(88.dp)
+            .heightIn(min = 84.dp)   // 高度随内容自适应，避免字体放大时标签被裁
             .clipToBounds(),
     ) {
         // 右侧插画：略微倾斜、部分出血（超出被卡片圆角裁掉）
@@ -62,9 +62,18 @@ internal fun StatCard(
                 .size(96.dp)
                 .rotate(-10.5f),
         )
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(count, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = ColorTextTitle)
-            Text(label, fontSize = 12.sp, color = ColorTextTitle)
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                count,
+                fontSize = 28.sp,
+                lineHeight = 32.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = ColorTextTitle,
+            )
+            Text(label, fontSize = 12.sp, lineHeight = 16.sp, color = ColorTextTitle)
         }
     }
 }
