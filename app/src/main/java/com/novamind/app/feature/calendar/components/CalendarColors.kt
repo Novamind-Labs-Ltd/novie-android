@@ -30,6 +30,12 @@ internal val ColorTextError: Color
     @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
 internal val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
+// 已完成条目圆形描边（Figma border/default/strong #a3a3a3）
+internal val ColorBorderStrong: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Default.strong.current()
+// 统计卡选中描边（Figma border/focus/default 黑色）
+internal val ColorBorderFocus: Color
+    @Composable @ReadOnlyComposable get() = BorderColors.Focus.default.current()
 internal val ColorPrimary: Color
     @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
 internal val ColorPrimaryBg: Color
@@ -44,6 +50,9 @@ internal val ColorOnPrimary: Color
 // 统计卡底色（Figma：会议 green-100 #E6EDD6 / 待办 gray-200 #E5E5E5）
 internal val MeetingBg: Color = Palette.green100
 internal val TodoBg: Color = Palette.gray200
+// 议程行圆形底色：会议 green-100（同 MeetingBg）；待办 slate #d4d9de（background/scenario/slate）
+internal val TodoCircleBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Scenario.slate.current()
 // 事件/任务行图标色（供 EventRow / TaskRow / CalendarIllustration 复用）
 internal val MeetingIcon: Color
     @Composable @ReadOnlyComposable get() = IconColors.BrandSecondary.default.current()

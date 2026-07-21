@@ -332,7 +332,9 @@ fun CalendarScreen(
                     emptyText = "No events",
                     loading = uiState.isLoading,
                 ) {
-                    uiState.events.forEach { EventRow(it) }
+                    uiState.events.forEach { event ->
+                        EventRow(event, onClick = { onEvent(CalendarUiEvent.EventClicked(event)) })
+                    }
                 }
             }
             if (uiState.showTasksSection) {

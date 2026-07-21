@@ -46,7 +46,7 @@ internal fun AgendaSection(
                 )
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { content() }
         }
     }
 }

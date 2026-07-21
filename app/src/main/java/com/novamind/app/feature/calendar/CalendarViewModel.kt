@@ -88,9 +88,10 @@ class CalendarViewModel @Inject constructor(
                 // 再次点击已选过滤 → 回到全部。
                 it.copy(filter = if (it.filter == event.filter) AgendaFilter.ALL else event.filter)
             }
-            // AddTaskClicked / TaskClicked 仅切换 UI 覆盖层，由 Route 拦截，VM 不处理。
+            // AddTaskClicked / TaskClicked / EventClicked 仅切换 UI 覆盖层，由 Route 拦截，VM 不处理。
             CalendarUiEvent.AddTaskClicked -> Unit
             is CalendarUiEvent.TaskClicked -> Unit
+            is CalendarUiEvent.EventClicked -> Unit
             is CalendarUiEvent.CreateTask -> createTask(event.title, event.notes, event.due)
             is CalendarUiEvent.UpdateTask -> updateTask(event.task, event.title, event.notes, event.due)
             is CalendarUiEvent.SetTaskCompleted -> setTaskCompleted(event.task, event.completed)

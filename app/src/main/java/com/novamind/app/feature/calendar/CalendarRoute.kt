@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.tasks.CalendarTask
 import kotlinx.coroutines.launch
 
@@ -49,7 +50,13 @@ fun CalendarRoute(
     // 正在编辑的任务；null = 新增模式。CalendarTask 非 Parcelable，进程重建后
     // 覆盖层可能退化为新增模式，可接受（编辑内容本就未保存）。
     var editingTask by remember { mutableStateOf<CalendarTask?>(null) }
-    LaunchedEffect(showAddTask) { onFullscreenChange(showAddTask) }
+    // 会议详情覆盖层（点活动行打开）；CalendarEvent 非 Parcelable，进程重建后覆盖层关闭，可接受（只读页）。
+    // showDetail 控制显隐，selectedEvent 保留内容（关闭时不清，供退出动画期间继续渲染）。
+    var showDetail by rememberSaveable { mutableStateOf(false) }
+    var selectedEvent by remember { mutableStateOf<CalendarEvent?>(null) }
+    LaunchedEffect(showAddTask, showDetail) {
+        onFullscreenChange(showAddTask || showDetail)
+    }
     // 覆盖层开着时切走 tab（本 Route 离开组合）→ 恢复底栏，避免 hideBottomNav 卡住。
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
     // 系统返回由 AddTaskScreen 内部的 BackHandler 接管（含未保存变更的放弃确认），
@@ -99,6 +106,11 @@ fun CalendarRoute(
                         editingTask = event.task
                         showAddTask = true
                     }
+                    // 点击活动/会议行 → 打开会议详情覆盖层。
+                    is CalendarUiEvent.EventClicked -> {
+                        selectedEvent = event.event
+                        showDetail = true
+                    }
                     else -> viewModel.onEvent(event)
                 }
             },
@@ -144,6 +156,24 @@ fun CalendarRoute(
                         }
                     },
                 )
+            }
+        }
+
+        // 会议详情页（全屏覆盖，自带返回；与其他子页一致的左右滑动转场）
+        AnimatedVisibility(
+            visible = showDetail,
+            enter = slideInHorizontally { it } + fadeIn(),
+            exit = slideOutHorizontally { it } + fadeOut(),
+        ) {
+            // key：切换到另一个活动时强制重建。关闭时仅置 showDetail=false，
+            // 保留 selectedEvent 供退出动画期间继续渲染（与 AddTaskScreen 一致）。
+            key(selectedEvent?.id) {
+                selectedEvent?.let { event ->
+                    MeetingDetailScreen(
+                        event = event,
+                        onBack = { showDetail = false },
+                    )
+                }
             }
         }
     }

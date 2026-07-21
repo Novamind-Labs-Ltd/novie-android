@@ -47,7 +47,7 @@ internal fun StatCard(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
-            .then(if (selected) Modifier.border(2.dp, ColorPrimary, RoundedCornerShape(8.dp)) else Modifier)
+            .then(if (selected) Modifier.border(1.5.dp, ColorBorderFocus, RoundedCornerShape(8.dp)) else Modifier)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .heightIn(min = 84.dp)   // 高度随内容自适应，避免字体放大时标签被裁
             .clipToBounds(),

@@ -1,0 +1,14 @@
+<!-- Figma My-Novie 959-62071 · 会议详情「时间」图标（描边时钟）。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF333333"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M11.9999,7.9997V11.9997L14.6666,13.333M18.6666,11.9997C18.6666,15.6816 15.6818,18.6663 11.9999,18.6663C8.31802,18.6663 5.33325,15.6816 5.33325,11.9997C5.33325,8.3178 8.31802,5.333 11.9999,5.333C15.6818,5.333 18.6666,8.3178 18.6666,11.9997Z" />
+</vector>
