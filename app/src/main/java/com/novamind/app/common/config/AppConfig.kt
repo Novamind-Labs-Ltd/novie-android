@@ -181,8 +181,17 @@ object AppConfig {
         /** 录音可发送的最短时长（秒）。 */
         const val MIN_RECORD_SECONDS = 3
 
-        /** 峰值振幅低于此值（0..32767）视为「没有声音」。 */
-        const val NO_VOICE_THRESHOLD = 1800
+        /**
+         * 判为「有声」的单个采样窗口（[com.novamind.app.common.audio.RecordingService] 100ms 轮询）
+         * 最小振幅（0..32767）：高于麦克风底噪、低于常见说话电平。实测本机静音底噪峰值约 4000~6000。
+         */
+        const val VOICE_LEVEL = 8000
+
+        /**
+         * 累计「有声」时长达到此值（毫秒）才视为录到人声；否则判「没有声音」弹提示。
+         * 用累计有声时长而非整段峰值：抗底噪、不随时长漂移、单次瞬态（碰撞/咳嗽）不会误判为有声。
+         */
+        const val MIN_VOICED_MS = 400L
 
         init {
             // 不变式：单次录音最大体积必须小于后端单文件上限，否则上传必失败。

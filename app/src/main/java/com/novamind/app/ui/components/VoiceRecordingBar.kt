@@ -109,8 +109,8 @@ private val WAVE_WIDTH = 308.dp
 private val WAVE_HEIGHT = 42.dp
 private val WAVE_BAR_WIDTH = 2.dp
 private const val WAVE_BASELINE = 0.06f
-// 峰值振幅低于此值（0..32767）视为「没有声音」（集中配置见 AppConfig.Media）
-private const val NO_VOICE_THRESHOLD = AppConfig.Media.NO_VOICE_THRESHOLD
+// 累计「有声」时长低于此值（毫秒）视为「没有声音」（集中配置见 AppConfig.Media）
+private const val MIN_VOICED_MS = AppConfig.Media.MIN_VOICED_MS
 // 录音时长不足此秒数时禁止发送（集中配置见 AppConfig.Media）
 private const val MIN_RECORD_SECONDS = AppConfig.Media.MIN_RECORD_SECONDS
 
@@ -215,7 +215,7 @@ fun VoiceRecordingBar(
                     sending = false
                     onCancel()
                 }
-                result.peakAmplitude >= NO_VOICE_THRESHOLD ->
+                result.voicedMs >= MIN_VOICED_MS ->
                     uploadAndConfirm(result.path, result.durationSeconds)
                 else -> {
                     runCatching { java.io.File(result.path).delete() }

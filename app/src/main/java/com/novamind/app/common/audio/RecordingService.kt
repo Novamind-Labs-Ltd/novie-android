@@ -1,5 +1,6 @@
 package com.novamind.app.common.audio
 
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import android.app.Notification
 import android.app.NotificationChannel
@@ -42,6 +43,7 @@ class RecordingService : Service() {
 
     private var elapsed = 0
     private var peak = 0
+    private var voicedTicks = 0   // 振幅超过说话电平的采样窗口数（× TICK_MS = 有声时长）
     private var paused = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -84,6 +86,7 @@ class RecordingService : Service() {
             }
             elapsed = 0
             peak = 0
+            voicedTicks = 0
             paused = false
             RecordingController.update { RecordingSnapshot(active = true, paused = false) }
             startLoop()
@@ -112,7 +115,7 @@ class RecordingService : Service() {
         if (!RecordingController.state.value.active) return
         loop?.cancel()
         val path = recorder.stop()
-        val result = path?.let { RecordingResult(it, elapsed, peak) }
+        val result = path?.let { RecordingResult(it, elapsed, peak, voicedMs = voicedTicks * TICK_MS) }
         RecordingController.update {
             it.copy(active = false, paused = false, result = result, cancelled = result == null)
         }
@@ -139,8 +142,15 @@ class RecordingService : Service() {
                 elapsed = (accMillis / 1000).toInt()
                 val amp = recorder.maxAmplitude()
                 if (amp > peak) peak = amp
+                // 该窗口振幅超过说话电平 → 记一次有声（暂停时 continue 已跳过,不计入）
+                if (amp >= AppConfig.Media.VOICE_LEVEL) voicedTicks++
                 RecordingController.update {
-                    it.copy(elapsedSeconds = elapsed, amplitude = amp, peakAmplitude = peak)
+                    it.copy(
+                        elapsedSeconds = elapsed,
+                        amplitude = amp,
+                        peakAmplitude = peak,
+                        voicedMs = voicedTicks * TICK_MS,
+                    )
                 }
                 if (elapsed != lastSec) {
                     lastSec = elapsed

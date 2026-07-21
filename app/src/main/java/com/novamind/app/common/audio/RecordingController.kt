@@ -9,6 +9,11 @@ data class RecordingResult(
     val path: String,
     val durationSeconds: Int,
     val peakAmplitude: Int,
+    /**
+     * 「有声」累计时长（毫秒）：录音过程中振幅超过说话电平的采样窗口累计时长。
+     * 比整段峰值更抗底噪、不随时长漂移,用于「没有声音」判定。
+     */
+    val voicedMs: Long = 0,
 )
 
 /**
@@ -26,8 +31,10 @@ data class RecordingSnapshot(
     val elapsedSeconds: Int = 0,
     /** 最近一次最大振幅（0..32767）。 */
     val amplitude: Int = 0,
-    /** 整段录音的峰值振幅，用于「没有声音」判定。 */
+    /** 整段录音的峰值振幅。 */
     val peakAmplitude: Int = 0,
+    /** 累计「有声」时长（毫秒），用于「没有声音」判定。 */
+    val voicedMs: Long = 0,
     /** 一次性事件：录音完成。 */
     val result: RecordingResult? = null,
     /** 一次性事件：录音被取消 / 启动失败。 */
