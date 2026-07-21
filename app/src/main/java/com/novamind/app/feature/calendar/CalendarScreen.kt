@@ -1,5 +1,6 @@
 package com.novamind.app.feature.calendar
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -30,10 +31,10 @@ import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.feature.calendar.components.AgendaSection
 import com.novamind.app.feature.calendar.components.BgPage
 import com.novamind.app.feature.calendar.components.CalendarIllustration
-import com.novamind.app.feature.calendar.components.ColorOnPrimary
+import com.novamind.app.feature.calendar.components.ColorBorder
+import com.novamind.app.feature.calendar.components.ColorCardBg
+import com.novamind.app.feature.calendar.components.ColorDark
 import com.novamind.app.feature.calendar.components.ColorPrimary
-import com.novamind.app.feature.calendar.components.ColorPrimaryBg
-import com.novamind.app.feature.calendar.components.ColorSurface
 import com.novamind.app.feature.calendar.components.ColorTextError
 import com.novamind.app.feature.calendar.components.ColorTextInverse
 import com.novamind.app.feature.calendar.components.ColorTextSub
@@ -41,24 +42,21 @@ import com.novamind.app.feature.calendar.components.ColorTextTitle
 import com.novamind.app.feature.calendar.components.DayCell
 import com.novamind.app.feature.calendar.components.EventRow
 import com.novamind.app.feature.calendar.components.MeetingBg
-import com.novamind.app.feature.calendar.components.MeetingIcon
 import com.novamind.app.feature.calendar.components.NavArrow
 import com.novamind.app.feature.calendar.components.PillIcon
 import com.novamind.app.feature.calendar.components.StatCard
 import com.novamind.app.feature.calendar.components.TaskRow
 import com.novamind.app.feature.calendar.components.TodoBg
-import com.novamind.app.feature.calendar.components.TodoIcon
 import com.novamind.app.ui.components.AppPullToRefresh
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
-private val weekLetters = listOf("M", "T", "W", "T", "F", "S", "S")
+private val weekLetters = listOf("S", "M", "T", "W", "T", "F", "S")
 
 // 周条 pager：足够大的页数模拟"无限"前后翻周，中间页为锚点周（本周）。
 private const val WEEK_PAGE_COUNT = 20_000
@@ -77,9 +75,9 @@ fun CalendarScreen(
     modifier: Modifier = Modifier,
 ) {
     val selectedDate = uiState.selectedDate
-    val monday = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val dayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-    val dateStr = selectedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH))
+    // 周起始改为周日（Figma：S M T W T F S）
+    val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
+    val dateLabel = selectedDate.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH))
 
     // 下拉刷新：与首页一致的自定义平级刷新（非系统 PullToRefreshBox）+ status-loading 图标；
     // 仅已连接时真正触发拉取（未连接/游客态下 Refresh 为 no-op）。
@@ -104,7 +102,7 @@ fun CalendarScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 100.dp),
             ) {
-        // 顶部标题 + 操作 pill
+        // 顶部标题 + 新建（Figma：仅标题 + ＋）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -113,118 +111,136 @@ fun CalendarScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Calendar", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = ColorTextTitle)
+            Text("Calendar", fontSize = 28.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
+            PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
+        }
+
+        // 日期卡（Figma 959-60167）：日期 + 箭头 + Today 药丸；分隔线；星期表头；周条
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(ColorCardBg)
+                .padding(top = 12.dp, bottom = 16.dp),
+        ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 「Today」：非今天时显示，点击立刻回到今天（周条 pager 会自动跟随）。
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(dateLabel, fontSize = 20.sp, color = ColorTextTitle)
+                    NavArrow(left = true) { onEvent(CalendarUiEvent.PrevDay) }
+                    NavArrow(left = false) { onEvent(CalendarUiEvent.NextDay) }
+                }
+                // Today 药丸（描边）：仅当选中日期非今天时显示，点击回到今天
                 if (selectedDate != LocalDate.now()) {
-                    Surface(shape = RoundedCornerShape(50), color = ColorSurface, shadowElevation = 1.dp) {
+                    Surface(
+                        shape = RoundedCornerShape(100),
+                        color = BgPage,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ColorBorder),
+                    ) {
                         Text(
                             text = "Today",
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = ColorPrimary,
+                            fontWeight = FontWeight.Medium,
+                            color = ColorTextTitle,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(50))
+                                .clip(RoundedCornerShape(100))
                                 .clickable { onEvent(CalendarUiEvent.DateSelected(LocalDate.now())) }
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                .padding(horizontal = 18.dp, vertical = 8.dp),
                         )
                     }
                 }
-                Surface(shape = RoundedCornerShape(50), color = ColorSurface, shadowElevation = 1.dp) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
-                        PillIcon(R.drawable.ic_search, "Search")
-                        PillIcon(R.drawable.ic_more, "More") { onEvent(CalendarUiEvent.Refresh) }
+            }
+
+            // 分隔线
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .height(1.dp)
+                    .background(ColorBorder),
+            )
+
+            // 星期表头（静态）：S M T W T F S
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                weekLetters.forEach { letter ->
+                    Text(
+                        text = letter,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = ColorTextTitle,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            // 周条：HorizontalPager 支持左右滑动切周。锚点 = 本周周日。
+            val anchorSunday = remember { LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY)) }
+            val weekPage = WEEK_INITIAL_PAGE + ChronoUnit.WEEKS.between(anchorSunday, weekStart).toInt()
+            val weekPagerState = rememberPagerState(initialPage = weekPage) { WEEK_PAGE_COUNT }
+
+            // 滑动翻页停定 → 切换选中日期（保持星期几不变）。周日为第 0 天。
+            LaunchedEffect(weekPagerState.settledPage) {
+                val newStart = anchorSunday.plusWeeks((weekPagerState.settledPage - WEEK_INITIAL_PAGE).toLong())
+                if (newStart != weekStart) {
+                    onEvent(
+                        CalendarUiEvent.DateSelected(
+                            newStart.plusDays((selectedDate.dayOfWeek.value % 7).toLong()),
+                        ),
+                    )
+                }
+            }
+            // 外部改日期跨周时 pager 动画跟随；滑动中不打断手势。
+            LaunchedEffect(weekPage) {
+                if (weekPagerState.currentPage != weekPage && !weekPagerState.isScrollInProgress) {
+                    weekPagerState.animateScrollToPage(weekPage)
+                }
+            }
+
+            HorizontalPager(
+                state = weekPagerState,
+                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            ) { page ->
+                val pageStart = anchorSunday.plusWeeks((page - WEEK_INITIAL_PAGE).toLong())
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                    (0..6).forEach { i ->
+                        val date = pageStart.plusDays(i.toLong())
+                        DayCell(
+                            day = date.dayOfMonth,
+                            selected = date == selectedDate,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onEvent(CalendarUiEvent.DateSelected(date)) },
+                        )
                     }
                 }
             }
         }
 
-        // 日期导航：‹ 周四 / 18 June 2026 ›
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            NavArrow(left = true) { onEvent(CalendarUiEvent.PrevDay) }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(dayName, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
-                Text(dateStr, fontSize = 13.sp, color = ColorTextSub)
-            }
-            NavArrow(left = false) { onEvent(CalendarUiEvent.NextDay) }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // 周条：HorizontalPager 支持左右滑动切周。
-        // 锚点 = 本周周一，页号 = 锚点周 ± 偏移；只在 Screen 内换算，周切换仍通过 DateSelected 上报。
-        val anchorMonday = remember { LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
-        val weekPage = WEEK_INITIAL_PAGE + ChronoUnit.WEEKS.between(anchorMonday, monday).toInt()
-        val weekPagerState = rememberPagerState(initialPage = weekPage) { WEEK_PAGE_COUNT }
-
-        // 滑动翻页停定 → 切换选中日期（保持星期几不变）。初始与同周停定为 no-op。
-        LaunchedEffect(weekPagerState.settledPage) {
-            val newMonday = anchorMonday.plusWeeks((weekPagerState.settledPage - WEEK_INITIAL_PAGE).toLong())
-            if (newMonday != monday) {
-                onEvent(
-                    CalendarUiEvent.DateSelected(
-                        newMonday.plusDays((selectedDate.dayOfWeek.value - 1).toLong()),
-                    ),
-                )
-            }
-        }
-        // 外部改日期（箭头/点日期）跨周时，pager 动画跟随；滑动中不打断手势。
-        LaunchedEffect(weekPage) {
-            if (weekPagerState.currentPage != weekPage && !weekPagerState.isScrollInProgress) {
-                weekPagerState.animateScrollToPage(weekPage)
-            }
-        }
-
-        HorizontalPager(
-            state = weekPagerState,
-            modifier = Modifier.fillMaxWidth(),
-        ) { page ->
-            val pageMonday = anchorMonday.plusWeeks((page - WEEK_INITIAL_PAGE).toLong())
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
-                (0..6).forEach { i ->
-                    val date = pageMonday.plusDays(i.toLong())
-                    DayCell(
-                        letter = weekLetters[i],
-                        day = date.dayOfMonth,
-                        selected = date == selectedDate,
-                        weekend = i >= 5,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onEvent(CalendarUiEvent.DateSelected(date)) },
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(8.dp))
 
         // 统计卡片（游客拦截态不展示）
         if (!uiState.loginRequired) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 StatCard(
-                    uiState.eventCount.toString(), "Events", MeetingBg, R.drawable.ic_nav_calendar, MeetingIcon,
+                    uiState.eventCount.toString(), "Meetings", MeetingBg, R.drawable.illus_stat_meetings,
                     Modifier.weight(1f),
                     selected = uiState.filter == AgendaFilter.EVENTS,
                     onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.EVENTS)) },
                 )
                 StatCard(
-                    uiState.taskCount.toString(), "Tasks", TodoBg, R.drawable.ic_check_circle, TodoIcon,
+                    uiState.taskCount.toString(), "To-dos", TodoBg, R.drawable.illus_stat_todos,
                     Modifier.weight(1f),
                     selected = uiState.filter == AgendaFilter.TASKS,
                     onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.TASKS)) },
@@ -265,35 +281,40 @@ fun CalendarScreen(
             }
             Spacer(Modifier.height(20.dp))
         } else if (!uiState.isConnected) {
-            // 未连接：连接 Google 日历空状态
+            // 未连接（Figma 959-60308）：插画 + 说明 + 深色「Connect to google calendar」按钮
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 36.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                CalendarIllustration()
-                Spacer(Modifier.height(20.dp))
-                Text("Connect to Google Calendar", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(24.dp))
+                Image(
+                    painter = painterResource(R.drawable.illus_calendar_empty),
+                    contentDescription = null,
+                    modifier = Modifier.width(181.dp).height(137.dp),
+                )
+                Spacer(Modifier.height(24.dp))
                 Text(
                     "Link your account to sync your events and keep your calendar up-to-date.",
                     fontSize = 14.sp,
+                    fontWeight = FontWeight.Light,
                     color = ColorTextSub,
                     lineHeight = 20.sp,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(24.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(50))
-                        .background(ColorPrimaryBg)
-                        .clickable { onEvent(CalendarUiEvent.Connect) }
-                        .padding(vertical = 16.dp),
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(ColorDark)
+                        .clickable { onEvent(CalendarUiEvent.Connect) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(painterResource(R.drawable.ic_nav_calendar), null, tint = ColorOnPrimary, modifier = Modifier.size(18.dp))
-                        Text("Connect to google calendar", color = ColorTextInverse, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(painterResource(R.drawable.ic_nav_calendar), null, tint = ColorTextInverse, modifier = Modifier.size(16.dp))
+                        Text("Connect to google calendar", color = ColorTextInverse, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }

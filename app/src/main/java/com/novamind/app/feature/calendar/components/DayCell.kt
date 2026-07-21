@@ -2,16 +2,15 @@ package com.novamind.app.feature.calendar.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,33 +20,38 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.ui.theme.AppTheme
 
-/** 周条单日格：星期字母 + 日号，选中日号带品牌色圆底，周末字母置灰。 */
+/**
+ * 周条单日格（Figma 959-60214）：仅日号（星期字母为卡片内独立表头行，不在此）。
+ * 选中日号为深色圆底 + 白字（[ColorDark]），未选中为普通文字。
+ */
 @Composable
 internal fun DayCell(
-    letter: String,
     day: Int,
     selected: Boolean,
-    weekend: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Column(
-        modifier = modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+    Box(
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(vertical = 2.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(letter, fontSize = 12.sp, color = if (weekend) ColorTextFaint else ColorTextSub)
         Box(
             modifier = Modifier
-                .size(34.dp)
+                .size(40.dp)
                 .clip(CircleShape)
-                .then(if (selected) Modifier.background(ColorPrimary) else Modifier),
+                .then(if (selected) Modifier.background(ColorDark) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = day.toString(),
-                fontSize = 15.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal,
                 color = if (selected) ColorTextInverse else ColorTextTitle,
             )
         }
@@ -59,9 +63,9 @@ internal fun DayCell(
 private fun DayCellPreview() {
     AppTheme {
         Row {
-            DayCell(letter = "M", day = 1, selected = false, weekend = false, modifier = Modifier.weight(1f)) {}
-            DayCell(letter = "T", day = 2, selected = true, weekend = false, modifier = Modifier.weight(1f)) {}
-            DayCell(letter = "S", day = 6, selected = false, weekend = true, modifier = Modifier.weight(1f)) {}
+            DayCell(day = 7, selected = false, modifier = Modifier.weight(1f)) {}
+            DayCell(day = 10, selected = true, modifier = Modifier.weight(1f)) {}
+            DayCell(day = 13, selected = false, modifier = Modifier.weight(1f)) {}
         }
     }
 }
