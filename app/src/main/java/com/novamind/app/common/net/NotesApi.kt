@@ -134,6 +134,11 @@ data class NoteListItemDto(
     val trashed: Boolean = false,
     /** 移入回收站时间；null=活跃。 */
     val deletedAt: String? = null,
+    /**
+     * 缩略图预签名下载 URL（后端 NOV-3644：取最早一张非 FAILED 的 IMAGE 附件、320px JPEG）。
+     * null = 无图片附件 / 缩略图尚未生成或失败 / 预签名失败。始终返回该字段，值常为 null。
+     */
+    val thumbnailUrl: String? = null,
 )
 
 /** 创建笔记请求体：`title` 可选(≤255)，`content` 必填，`preview` 可选（纯文本摘要，null=不设）。 */

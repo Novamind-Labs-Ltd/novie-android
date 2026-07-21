@@ -12,7 +12,10 @@ data class NoteItem(
     val tags: List<String> = emptyList(),
     /** 自定义边框颜色；null = 默认边框（hex 仅在数据层转换） */
     val borderColor: Color? = null,
-    /** 正文里的第一张图片路径；null = 无图片 */
+    /**
+     * 缩略图来源：列表接口的缩略图签名 URL（http…）或正文首图本地文件路径；null = 无图。
+     * 卡片按 `startsWith("http")` 区分远端 URL 与本地 File 加载。
+     */
     val imagePath: String? = null,
     /** 所属文件夹名；null = 未归档（Unfiled）。Library 按此聚合/筛选。 */
     val folderName: String? = null,

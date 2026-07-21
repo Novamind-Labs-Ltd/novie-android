@@ -242,17 +242,19 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    // ── 首页笔记「详情增强」按需解析 ────────────────────────────────────
-    // 列表接口（RemoteNoteSummary）既不含图片信息、也不含边框色，故列表加载后按需拉正文详情，
-    // 一次 getNote 同时解析出：① 首图缩略图（本地文件优先，失效则用 fileId 换签名 URL）；
-    // ② 边框色（详情返回 borderColorHex）。结果按 id@updatedAt 缓存（改色会 bump updatedAt → 自动失效）。
-    // 注：首屏最多 HOME_RECENT_NOTES_SIZE 条各一次 getNote（并发上限 4），为纯 UI 增强、失败静默。
+    // ── 首页笔记缩略图「兜底」按需解析 ────────────────────────────────────
+    // 边框色与缩略图现已随列表接口（RemoteNoteSummary.borderColorHex / thumbnailUrl）直接返回，
+    // 一般无需再拉详情。此处仅为**兜底**：列表未给缩略图（thumbnailUrl=null，如缩略图尚在生成）时，
+    // 拉一次 getNote 用正文首图解析（本地文件优先，失效则用 fileId 换签名 URL）。
+    // 因此只对 imagePath 仍为空的条目发起请求，避免每次进首页 N+1 次 getNote。
+    // 结果按 id@updatedAt 缓存（改动会 bump updatedAt → 自动失效），纯 UI 增强、失败静默。
     private data class NoteExtras(val imagePath: String?, val borderColor: Color?)
     private val extrasCache = mutableMapOf<String, NoteExtras>()
     private val thumbSemaphore = Semaphore(4)
 
     private fun resolveNoteExtras(items: List<NoteItem>) {
-        items.forEach { item ->
+        // 列表已带缩略图的条目跳过（imagePath 非空即来自 thumbnailUrl）。
+        items.filter { it.imagePath == null }.forEach { item ->
             val key = "${item.id}@${item.updatedAt}"
             extrasCache[key]?.let { applyExtras(item.id, it); return@forEach }   // 命中缓存直接回填
             viewModelScope.launch {
@@ -313,6 +315,8 @@ class HomeViewModel @Inject constructor(
         preview = preview.orEmpty(),
         tags = emptyList(),
         borderColor = ColorUtils.parseHexColor(borderColorHex),
+        // 列表接口已直接返回缩略图签名 URL（http…），卡片 AsyncImage 直接加载，无需再取详情。
+        imagePath = thumbnailUrl,
         createdAt = createdAt.toEpochMillisOrZero(),
         updatedAt = updatedAt.toEpochMillisOrZero(),
     )

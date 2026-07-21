@@ -21,6 +21,8 @@ data class RemoteNoteSummary(
     val trashed: Boolean,
     /** 移入回收站时间；null = 活跃。 */
     val deletedAt: String?,
+    /** 缩略图预签名下载 URL（后端 thumbnailUrl，320px JPEG）；null = 无图 / 未生成。 */
+    val thumbnailUrl: String? = null,
 )
 
 /**

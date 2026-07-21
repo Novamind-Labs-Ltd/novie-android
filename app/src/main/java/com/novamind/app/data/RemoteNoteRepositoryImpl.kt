@@ -178,6 +178,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         folderId = folderId,
         trashed = trashed,
         deletedAt = deletedAt,
+        thumbnailUrl = thumbnailUrl,
     )
 
     private fun NoteDto.toDomain(): RemoteNote = RemoteNote(
