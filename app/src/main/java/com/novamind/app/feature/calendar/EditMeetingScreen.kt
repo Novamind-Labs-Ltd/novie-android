@@ -1,9 +1,6 @@
 package com.novamind.app.feature.calendar
 
-import android.content.res.Configuration
-import android.os.LocaleList
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,32 +21,21 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -62,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventType
+import com.novamind.app.feature.calendar.components.AppDatePickerDialog
 import com.novamind.app.feature.calendar.components.BgPage
 import com.novamind.app.feature.calendar.components.ColorBorder
 import com.novamind.app.feature.calendar.components.ColorPrimary
@@ -70,14 +57,10 @@ import com.novamind.app.feature.calendar.components.ColorTextFaint
 import com.novamind.app.feature.calendar.components.ColorTextSub
 import com.novamind.app.feature.calendar.components.ColorTextTitle
 import com.novamind.app.feature.calendar.components.TimeWheelPickerDialog
-import com.novamind.app.ui.colors.ButtonColors
-import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
-import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -317,84 +300,16 @@ fun EditMeetingScreen(
         )
     }
 
-    // 日期选择（强制英文 US，与 AddTaskScreen 一致）
+    // 日期选择（Figma 959-62386，统一组件；强制英文 US、选中日回写 epochDay）
     if (showDatePicker) {
-        val baseConfig = LocalConfiguration.current
-        val baseContext = LocalContext.current
-        val enConfig = remember(baseConfig) {
-            Configuration(baseConfig).apply { setLocales(LocaleList(Locale.US)) }
-        }
-        val enContext = remember(baseContext, enConfig) { baseContext.createConfigurationContext(enConfig) }
-        CompositionLocalProvider(
-            LocalConfiguration provides enConfig,
-            LocalContext provides enContext,
-        ) {
-            val pickerState = rememberDatePickerState(
-                initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-            )
-            val ctaBg = ButtonColors.Primary.background.current()
-            val onCta = ButtonColors.Primary.text.current()
-            val pickerColors = DatePickerDefaults.colors(
-                containerColor = ColorSurface,
-                headlineContentColor = ColorTextTitle,
-                weekdayContentColor = ColorTextSub,
-                subheadContentColor = ColorPrimary,
-                navigationContentColor = ColorPrimary,
-                yearContentColor = ColorTextSub,
-                currentYearContentColor = ColorTextTitle,
-                selectedYearContentColor = onCta,
-                selectedYearContainerColor = ctaBg,
-                dayContentColor = ColorTextTitle,
-                selectedDayContentColor = onCta,
-                selectedDayContainerColor = ctaBg,
-                todayContentColor = ColorPrimary,
-                todayDateBorderColor = ColorPrimary,
-                dividerColor = ColorBorder,
-            )
-            DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                colors = pickerColors,
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            pickerState.selectedDateMillis?.let { millis ->
-                                dateEpochDay = Instant.ofEpochMilli(millis)
-                                    .atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
-                            }
-                            showDatePicker = false
-                        },
-                        shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(containerColor = ctaBg, contentColor = onCta),
-                    ) { Text("Ok", fontWeight = FontWeight.SemiBold) }
-                },
-                dismissButton = {
-                    OutlinedButton(
-                        onClick = { showDatePicker = false },
-                        shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, ButtonColors.Secondary.border.current()),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = ButtonColors.Secondary.text.current(),
-                        ),
-                    ) { Text("Cancel", fontWeight = FontWeight.SemiBold) }
-                },
-            ) {
-                DatePicker(
-                    state = pickerState,
-                    colors = pickerColors,
-                    title = null,
-                    headline = {
-                        val millis = pickerState.selectedDateMillis
-                        Text(
-                            text = millis?.let {
-                                Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                                    .format(editDateFormatter)
-                            }.orEmpty(),
-                            modifier = Modifier.padding(start = 24.dp, end = 12.dp),
-                        )
-                    },
-                )
-            }
-        }
+        AppDatePickerDialog(
+            initialDate = date,
+            onConfirm = { picked ->
+                dateEpochDay = picked.toEpochDay()
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false },
+        )
     }
 }
 

@@ -1,9 +1,6 @@
 package com.novamind.app.feature.calendar
 
-import android.content.res.Configuration
-import android.os.LocaleList
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,25 +19,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,8 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -60,16 +46,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.feature.calendar.components.AppDatePickerDialog
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
-import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -92,20 +76,8 @@ private val ColorSuccess: Color
     @Composable @ReadOnlyComposable get() = IconColors.Success.default.current()
 private val ColorError: Color
     @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
-// 主要 CTA（黑底白字胶囊，对应设计稿 Ok 按钮 / 选中日）
-private val ColorCtaBg: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
-private val ColorCtaText: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
-// 次级按钮（描边胶囊，对应设计稿 Cancel 按钮）
-private val ColorSecBorder: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Secondary.border.current()
-private val ColorSecText: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Secondary.text.current()
 
 private val dueFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
-// 选择器头部日期（设计稿「Mon, Jan 17」）：固定英文，绕开 Material 头部本地化的不确定性。
-private val pickerHeadlineFormatter = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH)
 
 /**
  * 新增/编辑任务（To-do）页：标题 + 截止日期 + 描述（对应 Google Tasks 的 title/due/notes）。
@@ -419,99 +391,16 @@ fun AddTaskScreen(
         )
     }
 
-    // 日期选择弹窗：DatePicker 用 UTC 毫秒，转换固定走 ZoneOffset.UTC 避免时区偏一天。
+    // 日期选择弹窗（Figma 959-62386，统一组件；强制英文 US、选中日回写 epochDay）
     if (showDatePicker) {
-        // 强制英文（US）区域：与全 App 英文文案及设计稿一致（月份/星期英文、周日起始）。
-        // 必须包裹到 rememberDatePickerState —— 内部 CalendarModel（月份标签「July 2026」、
-        // 星期名与起始日）在建 state 时即按区域定型，仅包裹 DatePicker 无效。
-        // 同时覆盖 LocalContext：部分 Material 内部按 context.resources 取区域，只改
-        // LocalConfiguration 不够，需提供 en-US 的 configuration context 一并生效。
-        val baseConfig = LocalConfiguration.current
-        val baseContext = LocalContext.current
-        val enConfig = remember(baseConfig) {
-            Configuration(baseConfig).apply { setLocales(LocaleList(Locale.US)) }
-        }
-        val enContext = remember(baseContext, enConfig) {
-            baseContext.createConfigurationContext(enConfig)
-        }
-        CompositionLocalProvider(
-            LocalConfiguration provides enConfig,
-            LocalContext provides enContext,
-        ) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = due.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-        )
-        // 显式配色还原设计稿：主题走系统动态取色，不显式指定会取到壁纸色而非品牌绿/黑。
-        // 品牌绿用于月份选择与「今天」；选中日 / 选中年为黑底白字（对应 CTA）。
-        val brandGreen = ColorPrimary
-        val ctaBg = ColorCtaBg
-        val onCta = ColorCtaText
-        val pickerColors = DatePickerDefaults.colors(
-            containerColor = ColorSurface,
-            headlineContentColor = ColorTextTitle,
-            weekdayContentColor = ColorTextSub,
-            // 月份标签「2026年7月」+ 上/下月箭头共用 navigationContentColor（M3 无法分开），
-            // 设计稿以绿色月份为品牌重点，故整行取品牌绿。
-            subheadContentColor = brandGreen,
-            navigationContentColor = brandGreen,
-            yearContentColor = ColorTextSub,
-            currentYearContentColor = ColorTextTitle,
-            selectedYearContentColor = onCta,
-            selectedYearContainerColor = ctaBg,
-            dayContentColor = ColorTextTitle,
-            selectedDayContentColor = onCta,
-            selectedDayContainerColor = ctaBg,
-            todayContentColor = brandGreen,
-            todayDateBorderColor = brandGreen,
-            dividerColor = ColorBorder,
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            colors = pickerColors,
-            confirmButton = {
-                Button(
-                    onClick = {
-                        pickerState.selectedDateMillis?.let { millis ->
-                            dueEpochDay = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneOffset.UTC).toLocalDate().toEpochDay()
-                        }
-                        showDatePicker = false
-                    },
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ctaBg,
-                        contentColor = onCta,
-                    ),
-                ) { Text("Ok", fontWeight = FontWeight.SemiBold) }
+        AppDatePickerDialog(
+            initialDate = due,
+            onConfirm = { picked ->
+                dueEpochDay = picked.toEpochDay()
+                showDatePicker = false
             },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showDatePicker = false },
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, ColorSecBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ColorSecText),
-                ) { Text("Cancel", fontWeight = FontWeight.SemiBold) }
-            },
-        ) {
-            DatePicker(
-                state = pickerState,
-                colors = pickerColors,
-                // 头部只显示日期，无「Select date」小标题（title=null）。
-                title = null,
-                // 自定义 headline：固定英文格式「Mon, Jan 17」，随选中日更新（读 selectedDateMillis）。
-                headline = {
-                    val millis = pickerState.selectedDateMillis
-                    Text(
-                        text = millis?.let {
-                            Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                                .format(pickerHeadlineFormatter)
-                        }.orEmpty(),
-                        modifier = Modifier.padding(start = 24.dp, end = 12.dp),
-                    )
-                },
-            )
-        }
-        }
+            onDismiss = { showDatePicker = false },
+        )
     }
 }
 
