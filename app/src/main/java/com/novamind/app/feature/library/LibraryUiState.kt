@@ -24,4 +24,6 @@ data class LibraryUiState(
     val notes: List<NoteItem> = emptyList(),
     val folders: List<LibraryFolder> = emptyList(),
     val viewMode: LibraryViewMode = LibraryViewMode.GRID,
+    /** Recent 页正在下拉刷新（重拉笔记 + 文件夹期间为 true），驱动下拉刷新指示器。 */
+    val isRefreshing: Boolean = false,
 )

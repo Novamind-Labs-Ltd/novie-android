@@ -100,6 +100,7 @@ import com.novamind.app.feature.library.components.TopIconButton
 import com.novamind.app.feature.library.components.ViewModeToggle
 import com.novamind.app.feature.library.components.sampleFolders
 import com.novamind.app.feature.library.components.sampleNotes
+import com.novamind.app.ui.components.AppPullToRefresh
 import com.novamind.app.ui.components.BackButton
 import com.novamind.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
@@ -109,6 +110,7 @@ fun LibraryScreen(
     uiState: LibraryUiState,
     onCreateNote: () -> Unit = {},
     onToggleViewMode: () -> Unit = {},
+    onRefresh: () -> Unit = {},   // Recent 页下拉刷新 → 重拉笔记与文件夹
     onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
     onOpenNote: (String) -> Unit = {},   // 点击 Recent 笔记 → 进入笔记预览/编辑页
     onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
@@ -198,6 +200,7 @@ fun LibraryScreen(
                     uiState = uiState,
                     onCreateNote = onCreateNote,
                     onOpenNote = onOpenNote,
+                    onRefresh = onRefresh,
                 )
                 else -> FoldersPage(
                     folders = uiState.folders,
@@ -229,56 +232,74 @@ fun LibraryScreen(
     }
 }
 
-/** Recent 页：无笔记显示空状态；有笔记按 viewMode 显示双列网格或单列列表。点击笔记进入预览/编辑页。 */
+/**
+ * Recent 页：无笔记显示空状态；有笔记按 viewMode 显示双列网格或单列列表。点击笔记进入预览/编辑页。
+ * 整页包裹下拉刷新（与首页一致）：下拉重拉笔记与文件夹；空态也置于可滚动容器内以支持下拉。
+ */
 @Composable
 private fun RecentPage(
     uiState: LibraryUiState,
     onCreateNote: () -> Unit,
     onOpenNote: (String) -> Unit,
+    onRefresh: () -> Unit,
 ) {
-    when {
-        uiState.notes.isEmpty() ->
-            EmptyState(onCreateNote = onCreateNote, modifier = Modifier.fillMaxSize())
-
-        uiState.viewMode == LibraryViewMode.GRID ->
-            // 双列瀑布流（Figma）：卡片按内容高度自适应、交错排列
-            LazyVerticalStaggeredGrid(
-                columns = StaggeredGridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalItemSpacing = 14.dp,
-                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-            ) {
-                items(uiState.notes, key = { it.id }) { note ->
-                    LibraryNoteCard(note = note, onClick = { onOpenNote(note.id) })
+    AppPullToRefresh(
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        when {
+            uiState.notes.isEmpty() ->
+                // 空态放进 LazyColumn（单项撑满视口），既能居中显示、又能下拉刷新
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    item {
+                        EmptyState(onCreateNote = onCreateNote, modifier = Modifier.fillParentMaxSize())
+                    }
                 }
-            }
 
-        else ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-            ) {
-                items(uiState.notes, key = { it.id }) { note ->
-                    LibraryNoteRow(note = note, onClick = { onOpenNote(note.id) })
+            uiState.viewMode == LibraryViewMode.GRID ->
+                // 双列瀑布流（Figma）：卡片按内容高度自适应、交错排列
+                LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalItemSpacing = 14.dp,
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                ) {
+                    items(uiState.notes, key = { it.id }) { note ->
+                        LibraryNoteCard(note = note, onClick = { onOpenNote(note.id) })
+                    }
                 }
-            }
+
+            else ->
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                ) {
+                    items(uiState.notes, key = { it.id }) { note ->
+                        LibraryNoteRow(note = note, onClick = { onOpenNote(note.id) })
+                    }
+                }
+        }
     }
 }
 
 /**
  * Folders 页：按文件夹聚合的列表，空则显示提示。
  * 支持长按某行拖拽排序；松手后通过 [onReorder] 回传新的名称顺序。
+ * 整页包裹下拉刷新（与首页 / Recent 页一致）：下拉重拉笔记与文件夹；空态也置于可滚动容器内以支持下拉。
  */
 @Composable
 private fun FoldersPage(
     folders: List<LibraryFolder>,
     onOpenFolder: (String) -> Unit,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
     onReorder: (List<String>) -> Unit = {},
     onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
@@ -292,18 +313,6 @@ private fun FoldersPage(
     var openSwipeName by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
-    if (folders.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                text = "No folders yet.",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                color = ColorTextSub,
-            )
-        }
-        return
-    }
-
     // 拖拽换序：sh.calvin.reorderable（长按整行拖动）。ordered 为本地顺序副本：拖动中由 onMove 改写、
     // 非拖拽时从服务端 folders 同步；抬起（onDragStopped）时把顺序（文件夹名序列）提交给 onReorder。
     val haptics = LocalHapticFeedback.current
@@ -316,15 +325,40 @@ private fun FoldersPage(
         if (!reorderState.isAnyItemDragging) ordered = folders
     }
 
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+    AppPullToRefresh(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize(),
     ) {
-        items(ordered, key = { it.name }) { folder ->
+        if (folders.isEmpty()) {
+            // 空态放进 LazyColumn（单项撑满视口），既能居中显示、又能下拉刷新
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillParentMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "No folders yet.",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = ColorTextSub,
+                        )
+                    }
+                }
+            }
+            return@AppPullToRefresh
+        }
+
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+        ) {
+            items(ordered, key = { it.name }) { folder ->
             ReorderableItem(reorderState, key = folder.name) { _ ->
                 if (folder.name == renameTarget) {
                     // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认（重命名态不参与拖拽）
@@ -374,6 +408,7 @@ private fun FoldersPage(
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -590,6 +625,7 @@ fun LibraryRoute(
                     uiState = uiState,
                     onCreateNote = onCreateNote,
                     onToggleViewMode = viewModel::toggleViewMode,
+                    onRefresh = viewModel::onRefresh,
                     onOpenSidebar = { drawerOpen = true },
                     onOpenNote = onOpenNote,
                     onOpenFolder = { selectedFolder = it },
@@ -802,6 +838,7 @@ private fun RecentPageGridPreview() {
             uiState = LibraryUiState(notes = sampleNotes, viewMode = LibraryViewMode.GRID),
             onCreateNote = {},
             onOpenNote = {},
+            onRefresh = {},
         )
     }
 }
@@ -814,6 +851,7 @@ private fun RecentPageListPreview() {
             uiState = LibraryUiState(notes = sampleNotes, viewMode = LibraryViewMode.LIST),
             onCreateNote = {},
             onOpenNote = {},
+            onRefresh = {},
         )
     }
 }

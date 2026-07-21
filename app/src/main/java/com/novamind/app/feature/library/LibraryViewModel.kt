@@ -94,24 +94,41 @@ class LibraryViewModel @Inject constructor(
         loadFolders()
     }
 
+    /** 下拉刷新（Recent 页）：重拉笔记与文件夹，两者都结束后再关闭刷新态（与首页一致）。 */
+    fun onRefresh() {
+        if (_uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isRefreshing = true) }
+        viewModelScope.launch {
+            val notesJob = launch { fetchNotes() }
+            val foldersJob = launch { fetchFolders() }
+            notesJob.join()
+            foldersJob.join()
+            _uiState.update { it.copy(isRefreshing = false) }
+        }
+    }
+
     /** 拉取服务端笔记列表（活跃视图，GET /notes）。 */
     private fun loadNotes() {
-        viewModelScope.launch {
-            notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE).fold(
-                onSuccess = { serverNotes.value = it?.items.orEmpty() },
-                onFail = { logApiError("loadNotes", it) },
-            )
-        }
+        viewModelScope.launch { fetchNotes() }
     }
 
     /** 拉取服务端文件夹列表（GET /folders），刷新 [serverFolders]。 */
     fun loadFolders() {
-        viewModelScope.launch {
-            foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE).fold(
-                onSuccess = { serverFolders.value = it?.items.orEmpty() },
-                onFail = { logApiError("loadFolders", it) },
-            )
-        }
+        viewModelScope.launch { fetchFolders() }
+    }
+
+    private suspend fun fetchNotes() {
+        notesRepository.listNotes(trashed = false, limit = AppConfig.Paging.NOTES_PAGE_SIZE).fold(
+            onSuccess = { serverNotes.value = it?.items.orEmpty() },
+            onFail = { logApiError("loadNotes", it) },
+        )
+    }
+
+    private suspend fun fetchFolders() {
+        foldersRepository.listFolders(limit = AppConfig.Paging.FOLDERS_PAGE_SIZE).fold(
+            onSuccess = { serverFolders.value = it?.items.orEmpty() },
+            onFail = { logApiError("loadFolders", it) },
+        )
     }
 
     /** 新建文件夹：POST /folders；颜色本地保存（服务端无颜色字段），成功后重拉列表。 */
