@@ -70,6 +70,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.feature.asknovie.data.AskNovieChat
+import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import com.novamind.app.feature.asknovie.components.AssistantText
 import com.novamind.app.feature.asknovie.components.AttachmentChip
 import com.novamind.app.feature.asknovie.components.BareIconButton
@@ -405,36 +407,57 @@ fun AskNovieScreen(
                     }
                 }
             } else {
+                // 真实对话：SSE 流式（mode=chat）。text 增量追加到助手消息；出错以回复文本呈现。
+                // 「停止」取消 responseJob → 关闭底层连接，已输出的部分文本保留。
                 isResponding = true
                 responseJob = scope.launch {
-                    try {
-                        delay(450)            // 思考中（显示三点）
-                    val basis = prompt.ifBlank { atts.firstOrNull()?.name ?: "" }
-                    val full = mockReply(basis)
-                    // 开始逐字输出
-                    isResponding = false
-                    isStreaming = true
                     val replyIndex = messages.size
-                    messages = messages + ChatMessage(Role.Assistant, "")
-                    val sb = StringBuilder()
-                    full.forEachIndexed { i, ch ->
-                        sb.append(ch)
-                        val text = sb.toString()
-                        messages = messages.toMutableList().also { list ->
-                            if (replyIndex < list.size) list[replyIndex] =
-                                list[replyIndex].copy(text = text)
+                    var appended = false
+                    fun ensureBubble() {
+                        if (!appended) {
+                            isResponding = false
+                            isStreaming = true
+                            messages = messages + ChatMessage(Role.Assistant, "")
+                            appended = true
                         }
-                        // 每隔几个字符来一次轻触感
-                        if (i % 3 == 0) {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }
-                        delay(24)
                     }
-                } finally {
-                    // 正常结束或被「停止」取消都在此复位（已输出的部分文本保留）
-                    isResponding = false
-                    isStreaming = false
-                }
+                    fun setReplyText(text: String) {
+                        messages = messages.toMutableList().also { list ->
+                            if (replyIndex < list.size) list[replyIndex] = list[replyIndex].copy(text = text)
+                        }
+                    }
+                    try {
+                        AskNovieChat.streamChat(
+                            mode = "chat",
+                            conversationId = sessionId,
+                            input = prompt,
+                        ).collect { ev ->
+                            when (ev) {
+                                is ChatStreamEvent.TextDelta -> {
+                                    val first = !appended
+                                    ensureBubble()
+                                    val current = messages.getOrNull(replyIndex)?.text.orEmpty()
+                                    setReplyText(current + ev.delta)
+                                    if (first) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                }
+                                is ChatStreamEvent.Failure -> {
+                                    ensureBubble()
+                                    setReplyText(
+                                        ev.message
+                                            ?: "Something went wrong (${ev.code ?: "error"}). Please try again.",
+                                    )
+                                }
+                                // MVP：卡片 / 状态暂不渲染；done 让流自然结束
+                                is ChatStreamEvent.Card,
+                                is ChatStreamEvent.Status,
+                                is ChatStreamEvent.Done,
+                                -> Unit
+                            }
+                        }
+                    } finally {
+                        isResponding = false
+                        isStreaming = false
+                    }
                 }
             }
         }

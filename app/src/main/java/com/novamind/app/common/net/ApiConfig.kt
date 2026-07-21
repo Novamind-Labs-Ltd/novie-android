@@ -51,6 +51,9 @@ object ApiConfig {
     /** 当前环境的 api 域名。 */
     val apiBaseUrl: String get() = TABLE.getValue(_env.value)
 
+    /** ask-novie agent 域名：与 [apiBaseUrl] 同域（SSE 聊天走同一网关，路径 v1/chat）。 */
+    val agentBaseUrl: String get() = apiBaseUrl
+
     /** 在 Application.onCreate 调用（需在 MMKV.initialize 之后），载入已持久化的环境选择。 */
     fun init(@Suppress("UNUSED_PARAMETER") context: Context) {
         store = MmkvStore(PREFS_NAME)
