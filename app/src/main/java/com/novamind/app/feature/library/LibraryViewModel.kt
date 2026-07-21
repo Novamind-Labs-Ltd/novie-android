@@ -58,6 +58,8 @@ class LibraryViewModel @Inject constructor(
     private val serverFolders = MutableStateFlow<List<RemoteFolder>>(emptyList())
     // 按需解析的笔记「详情增强」（首图缩略图），key = "id@updatedAt"；纳入合流，解析完成后自动回填
     private val noteExtras = MutableStateFlow<Map<String, NoteExtras>>(emptyMap())
+    // 文件夹详情页：当前文件夹内笔记快照（按 folderId 独立拉取，与 Recent 解耦）
+    private val folderNotesRaw = MutableStateFlow<List<RemoteNoteSummary>>(emptyList())
 
     init {
         // 四源合流：服务端笔记（列表 + 计数）× 本地文件夹（颜色兜底）× 服务端文件夹（存在性 / id / 排序）× 详情增强（缩略图）
@@ -82,6 +84,17 @@ class LibraryViewModel @Inject constructor(
             .onEach { (noteItems, folders) ->
                 _uiState.update { it.copy(notes = noteItems, folders = folders) }
                 resolveNoteExtras(noteItems)   // 按需拉正文详情解析首图（已缓存的跳过）
+            }
+            .launchIn(viewModelScope)
+
+        // 文件夹详情笔记合流：原始快照 × 服务端文件夹（名称映射）× 详情增强（缩略图）
+        combine(folderNotesRaw, serverFolders, noteExtras) { raw, remote, extras ->
+            val folderNameById = remote.associate { it.id to it.name }
+            raw.map { it.toNoteItem(folderNameById[it.folderId], extras) }
+        }
+            .onEach { items ->
+                _uiState.update { it.copy(folderNotes = items) }
+                resolveNoteExtras(items)
             }
             .launchIn(viewModelScope)
 
@@ -205,6 +218,83 @@ class LibraryViewModel @Inject constructor(
                 },
             )
         }
+    }
+
+    // ── 文件夹详情：按 folderId 独立拉取文件夹内笔记（分页，与 Recent 解耦）──────────
+    private var folderNotesCursor: String? = null
+    private var currentFolderId: String? = null
+
+    /** 打开文件夹详情：按名称解析 folderId（Unfiled → "none"），拉取第一页笔记。 */
+    fun openFolder(folderName: String) {
+        val fid = if (folderName == "Unfiled") {
+            "none"
+        } else {
+            serverFolders.value.firstOrNull { it.name == folderName }?.id
+        }
+        currentFolderId = fid
+        folderNotesCursor = null
+        folderNotesRaw.value = emptyList()
+        _uiState.update {
+            it.copy(folderNotes = emptyList(), folderNotesHasMore = false, folderNotesLoading = fid != null)
+        }
+        if (fid == null) {
+            AppLog.w(TAG) { "openFolder 找不到服务端文件夹 name=$folderName" }
+            return
+        }
+        viewModelScope.launch {
+            notesRepository.listNotes(
+                trashed = false,
+                folderId = fid,
+                limit = AppConfig.Paging.LIBRARY_RECENT_PAGE_SIZE,
+                cursor = null,
+            ).fold(
+                onSuccess = { page ->
+                    folderNotesRaw.value = page?.items.orEmpty()
+                    folderNotesCursor = page?.nextCursor
+                    _uiState.update { it.copy(folderNotesHasMore = page?.nextCursor != null, folderNotesLoading = false) }
+                },
+                onFail = {
+                    logApiError("openFolder id=$fid", it)
+                    _uiState.update { it.copy(folderNotesLoading = false) }
+                },
+            )
+        }
+    }
+
+    /** 文件夹详情上拉加载下一页。 */
+    fun loadMoreFolderNotes() {
+        val cursor = folderNotesCursor
+        val fid = currentFolderId
+        if (fid == null || cursor == null || _uiState.value.folderNotesLoading) return
+        _uiState.update { it.copy(folderNotesLoading = true) }
+        viewModelScope.launch {
+            notesRepository.listNotes(
+                trashed = false,
+                folderId = fid,
+                limit = AppConfig.Paging.LIBRARY_RECENT_PAGE_SIZE,
+                cursor = cursor,
+            ).fold(
+                onSuccess = { page ->
+                    val existing = folderNotesRaw.value
+                    val seen = existing.mapTo(HashSet()) { it.id }
+                    folderNotesRaw.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
+                    folderNotesCursor = page?.nextCursor
+                    _uiState.update { it.copy(folderNotesHasMore = page?.nextCursor != null, folderNotesLoading = false) }
+                },
+                onFail = {
+                    logApiError("loadMoreFolderNotes id=$fid", it)
+                    _uiState.update { it.copy(folderNotesLoading = false) }
+                },
+            )
+        }
+    }
+
+    /** 关闭文件夹详情：清空该文件夹笔记快照与游标。 */
+    fun closeFolder() {
+        currentFolderId = null
+        folderNotesCursor = null
+        folderNotesRaw.value = emptyList()
+        _uiState.update { it.copy(folderNotes = emptyList(), folderNotesHasMore = false, folderNotesLoading = false) }
     }
 
     /** 新建文件夹：POST /folders；颜色本地保存（服务端无颜色字段），成功后重拉列表。 */

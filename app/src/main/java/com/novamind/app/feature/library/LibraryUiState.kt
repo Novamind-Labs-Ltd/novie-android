@@ -34,4 +34,10 @@ data class LibraryUiState(
     val hasMoreFolders: Boolean = false,
     /** Folders 页正在上拉加载下一页，驱动列表底部加载指示器。 */
     val isLoadingMoreFolders: Boolean = false,
+    /** 文件夹详情页：当前文件夹内的笔记（按 folderId 独立拉取，与 Recent 解耦）。 */
+    val folderNotes: List<NoteItem> = emptyList(),
+    /** 文件夹详情页是否还有下一页。 */
+    val folderNotesHasMore: Boolean = false,
+    /** 文件夹详情页正在上拉加载下一页。 */
+    val folderNotesLoading: Boolean = false,
 )

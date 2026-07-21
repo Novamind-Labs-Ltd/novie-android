@@ -533,11 +533,21 @@ internal fun FolderDetailScreen(
     notes: List<NoteItem>,
     onBack: () -> Unit,
     onOpenNote: (String) -> Unit = {},
+    hasMore: Boolean = false,
+    isLoadingMore: Boolean = false,
+    onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var descending by rememberSaveable(folderName) { mutableStateOf(true) }
-    val sorted = remember(notes, descending) { if (descending) notes else notes.asReversed() }
-
+    val gridState = rememberLazyStaggeredGridState()
+    val reachedEnd by remember {
+        derivedStateOf {
+            val last = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            gridState.layoutInfo.totalItemsCount > 0 && last >= gridState.layoutInfo.totalItemsCount - 4
+        }
+    }
+    LaunchedEffect(reachedEnd, hasMore, isLoadingMore) {
+        if (reachedEnd && hasMore && !isLoadingMore) onLoadMore()
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -545,84 +555,48 @@ internal fun FolderDetailScreen(
             .statusBarsPadding()
             .padding(bottom = 100.dp),
     ) {
-        // 顶部工具条：返回 / 搜索 / 更多
+        // 顶部：仅返回键（Figma 879-26983）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TopIconButton(R.drawable.ic_search, "Search", shape = CircleShape)
-                TopIconButton(R.drawable.ic_more, "More", shape = CircleShape, bg = Color.Transparent)
-            }
         }
 
-        // 标题区：文件夹图标 + 名称 + 排序按钮
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(ColorAccent.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_folder),
-                    contentDescription = null,
-                    tint = ColorAccent,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = folderName,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = ColorTextTitle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            // 排序按钮：切换正序 / 倒序
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { descending = !descending },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_sort),
-                    contentDescription = if (descending) "Sort ascending" else "Sort descending",
-                    tint = ColorTextTitle,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-        }
+        // 标题：文件夹名
+        Text(
+            text = folderName,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = ColorTextTitle,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 16.dp),
+        )
 
-        if (sorted.isEmpty()) {
+        if (notes.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No notes in this folder.", fontSize = 15.sp, color = ColorTextSub)
             }
         } else {
-            LazyColumn(
+            // 与 Recent 网格同款瀑布流卡片
+            LazyVerticalStaggeredGrid(
+                state = gridState,
+                columns = StaggeredGridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalItemSpacing = 14.dp,
                 contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
             ) {
-                items(sorted, key = { it.id }) { note ->
-                    FolderNoteRow(note = note, onClick = { onOpenNote(note.id) })
+                items(notes, key = { it.id }) { note ->
+                    LibraryNoteCard(note = note, onClick = { onOpenNote(note.id) })
+                }
+                if (isLoadingMore) {
+                    item(span = StaggeredGridItemSpan.FullLine) { LoadMoreFooter() }
                 }
             }
         }
@@ -650,7 +624,7 @@ fun LibraryRoute(
     // 分段标签状态提升到这里：进入文件夹详情再返回时仍停留在 Folders 页（不回到 Recent）
     val pagerState = rememberPagerState(pageCount = { 2 })
 
-    BackHandler(enabled = selectedFolder != null) { selectedFolder = null }
+    BackHandler(enabled = selectedFolder != null) { selectedFolder = null; viewModel.closeFolder() }
 
     AnimatedContent(
         targetState = selectedFolder,
@@ -668,15 +642,16 @@ fun LibraryRoute(
         label = "library_folder_detail",
     ) { folder ->
         if (folder != null) {
-            // 该文件夹下的笔记：Unfiled 对应无文件夹的笔记
-            val folderNotes = uiState.notes.filter {
-                if (folder == "Unfiled") it.folderName == null else it.folderName == folder
-            }
+            // 进入文件夹详情时按 folderId 独立拉取该文件夹内笔记（与 Recent 分页解耦）
+            LaunchedEffect(folder) { viewModel.openFolder(folder) }
             FolderDetailScreen(
                 folderName = folder,
-                notes = folderNotes,
-                onBack = { selectedFolder = null },
+                notes = uiState.folderNotes,
+                onBack = { selectedFolder = null; viewModel.closeFolder() },
                 onOpenNote = onOpenNote,
+                hasMore = uiState.folderNotesHasMore,
+                isLoadingMore = uiState.folderNotesLoading,
+                onLoadMore = viewModel::loadMoreFolderNotes,
                 modifier = modifier,
             )
         } else {
