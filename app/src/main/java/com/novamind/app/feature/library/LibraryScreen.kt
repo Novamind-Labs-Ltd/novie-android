@@ -404,7 +404,14 @@ private fun FoldersPage(
     AppPullToRefresh(
         isRefreshing = isRefreshing,
         onRefresh = onRefresh,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                // 点击空白区域收起已展开的左滑行：点在行 / 编辑删除按钮上的手势会被子级消费，
+                // detectTapGestures 仅在手势未被消费（即真正的空白处）时触发，故不影响正常点击、
+                // 左滑与列表滚动。收起本身交给 openSwipeName=null → 行内 LaunchedEffect(open) 回弹。
+                detectTapGestures { if (openSwipeName != null) openSwipeName = null }
+            },
     ) {
         if (folders.isEmpty()) {
             // 空态放进 LazyColumn（单项撑满视口），既能居中显示、又能下拉刷新
