@@ -699,6 +699,7 @@ fun LibraryRoute(
                         onOpenTagManager = { drawerOpen = false; onOpenTagManager() },
                         onOpenSharedWithMe = { drawerOpen = false; onOpenSharedWithMe() },
                         onOpenRecycleBin = { drawerOpen = false; onOpenRecycleBin() },
+                        onClose = { drawerOpen = false },   // 点击抽屉空白处收起
                     )
                 },
             ) {

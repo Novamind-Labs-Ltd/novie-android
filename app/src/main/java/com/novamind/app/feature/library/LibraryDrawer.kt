@@ -2,6 +2,7 @@ package com.novamind.app.feature.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,11 +66,22 @@ internal fun LibraryDrawer(
     onOpenTagManager: () -> Unit,
     onOpenSharedWithMe: () -> Unit,
     onOpenRecycleBin: () -> Unit,
+    onClose: () -> Unit = {},   // 点击抽屉空白处收起抽屉（文件夹项 / 回收站项各自消费点击，不会触发）
     modifier: Modifier = Modifier,
 ) {
     // 侧边菜单基底（push-reveal 的底层）：铺满屏幕、#fcfaf6 底；
     // 内容占左侧约 72%，右侧由被推开的主内容卡片盖住。
-    Box(modifier = modifier.fillMaxSize().background(BgSheet)) {
+    // 空白处点击收起抽屉：无涟漪（indication=null），子项 clickable 会消费点击故不透传。
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(BgSheet)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClose,
+            ),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxHeight()
