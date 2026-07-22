@@ -31,10 +31,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
-import com.novamind.app.common.config.AppConfig
+import com.novamind.app.feature.library.components.folderAccentFor
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
-import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
@@ -50,14 +49,6 @@ private val ColorTextSub: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
 private val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
-
-/** 无自定义色时：按文件夹名稳定地从配置色板取一种颜色（与 FolderRow 一致）。 */
-private fun folderAccentFor(name: String): Color {
-    val palette = AppConfig.Folder.COLORS
-    if (palette.isEmpty()) return Palette.forrest600
-    val idx = ((name.hashCode() % palette.size) + palette.size) % palette.size
-    return palette[idx]
-}
 
 /**
  * 左侧抽屉（Figma「Side menu」）：顶部「Folders」标题 + 文件夹列表（彩色文件夹图标 +
@@ -127,18 +118,19 @@ private fun DrawerFolderItem(folder: LibraryFolder, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // 与文件夹列表 / 重命名行统一：文件夹色 30% 淡底圆 + 深色描边文件夹图标（颜色只体现在圆底）。
         Box(
             modifier = Modifier
-                .size(34.dp)
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(accent.copy(alpha = 0.12f)),
+                .background(accent.copy(alpha = 0.30f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_folder),
+                painter = painterResource(R.drawable.ic_folder_line),
                 contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(18.dp),
+                tint = ColorTextTitle,
+                modifier = Modifier.size(20.dp),
             )
         }
         Text(
