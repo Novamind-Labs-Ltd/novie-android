@@ -3,7 +3,9 @@ package com.novamind.app.feature.library.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
@@ -101,18 +104,37 @@ internal fun FolderSwipeRow(
                 .fillMaxWidth()
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { change, drag ->
-                            change.consume()
-                            val target = (offsetX.value + drag).coerceIn(-revealPx, 0f)
-                            scope.launch { offsetX.snapTo(target) }
-                        },
-                        onDragEnd = {
-                            val opened = offsetX.value < -revealPx / 2f
-                            scope.launch { offsetX.animateTo(if (opened) -revealPx else 0f) }
-                            onOpenChange(opened)   // 通知宿主：本行成为唯一展开行 / 收起
-                        },
-                    )
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val closedAtStart = offsetX.value == 0f
+                        var current = offsetX.value
+                        var claimed = false
+                        val slop = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+                            if (!(closedAtStart && over > 0f)) {
+                                change.consume()
+                                claimed = true
+                                current = (current + over).coerceIn(-revealPx, 0f)
+                                scope.launch { offsetX.snapTo(current) }
+                            }
+                        }
+                        if (slop == null || !claimed) return@awaitEachGesture
+                        // 手动拖拽循环（比 horizontalDrag 稳：合成/快速事件下 horizontalDrag 会立即取消，
+                        // 导致只应用了 slop 那一点点位移就收尾）。逐事件消费、累加位移、跟手。
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == slop.id } ?: break
+                            if (!change.pressed) break   // 抬起结束
+                            val dx = change.positionChange().x
+                            if (dx != 0f) {
+                                change.consume()
+                                current = (current + dx).coerceIn(-revealPx, 0f)
+                                scope.launch { offsetX.snapTo(current) }
+                            }
+                        }
+                        val opened = current < -revealPx / 2f
+                        scope.launch { offsetX.animateTo(if (opened) -revealPx else 0f) }
+                        onOpenChange(opened)
+                    }
                 },
         ) {
             content(isOpen, close)
