@@ -38,6 +38,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.current
@@ -117,7 +118,8 @@ internal fun FolderRenameRow(
                 }
                 BasicTextField(
                     value = value,
-                    onValueChange = { value = it },
+                    // 限制文件夹名最大长度（超出即不接受新增字符）
+                    onValueChange = { if (it.text.length <= AppConfig.Folder.NAME_MAX_CHARS) value = it },
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 14.sp, color = ColorTextTitle),
                     cursorBrush = SolidColor(ColorTextTitle),

@@ -11,6 +11,9 @@ object AppConfig {
 
     /** 文件夹相关配置。 */
     object Folder {
+        /** 文件夹名最大字数：创建/新建输入超过即不再接受输入。 */
+        const val NAME_MAX_CHARS = 50
+
         /** 可选文件夹颜色：每个色系取一种代表色，取自 [Palette]。 */
         val COLORS: List<Color> = listOf(
             Palette.forrest600,

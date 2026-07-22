@@ -141,7 +141,8 @@ private fun CreateFolderContent(
             ) {
                 BasicTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    // 限制文件夹名最大长度（超出即不接受新增字符）
+                    onValueChange = { if (it.length <= AppConfig.Folder.NAME_MAX_CHARS) name = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 16.sp, color = TextDark),
