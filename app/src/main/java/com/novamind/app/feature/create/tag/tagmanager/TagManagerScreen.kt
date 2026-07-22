@@ -2,6 +2,7 @@ package com.novamind.app.feature.create.tag.tagmanager
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,9 +31,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -103,6 +107,12 @@ fun TagManagerScreen(
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    // 列表底边到窗口底边的真实距离（底栏让位 + 系统栏等，实测得出，避免写死）：由 onGloballyPositioned 填。
+    val windowInfo = LocalWindowInfo.current
+    var listBottomInsetPx by remember { mutableIntStateOf(0) }
+    // 行间距：LazyColumn 行距与「键盘上方留白」共用同一值，避免散落魔法数
+    val rowSpacing = 10.dp
+    val rowSpacingPx = with(density) { rowSpacing.roundToPx() }
 
     val existingNames = uiState.tags.map { it.name }
 
@@ -150,8 +160,13 @@ fun TagManagerScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 16.dp)
+                // 实测列表底边到窗口底的距离（键盘对位据此换算，避免写死底栏/系统栏让位高度）
+                .onGloballyPositioned {
+                    listBottomInsetPx =
+                        (windowInfo.containerSize.height - it.boundsInWindow().bottom.toInt()).coerceAtLeast(0)
+                },
+            verticalArrangement = Arrangement.spacedBy(rowSpacing),
             contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp + imeBottomDp),
         ) {
             items(ordered, key = { it.id }) { tag ->
@@ -191,14 +206,27 @@ fun TagManagerScreen(
         }
     }
 
-    // 进入行内重命名且键盘弹出后，把编辑项滚到可视区。
-    // 以 imeBottomPx（而非「>0」布尔）为 key：键盘高度从 0 动画到最终值，每变一帧就重滚，
-    // 收敛到键盘完全弹起后的正确位置（否则只在动画首帧滚一次，底部行会滚不到位）。
+    // 进入行内重命名且键盘弹出后，把编辑项**底边贴到键盘上沿**，并全程跟随键盘平滑上移。
+    // 以 imeBottomPx 为 key：键盘高度从 0 动画到最终值，每变一帧重算一次。
+    // 关键（防抖动）：每帧只做**一次瞬时** scrollBy 把行对到目标位，绝不用 scrollToItem 硬跳、也不用
+    // animateScrollBy（上一帧的补间会被下一帧取消再重启，来回抽搐）。逐帧瞬时对位 = 跟着键盘平滑滑上来。
+    // 键盘上沿在列表本地坐标 = viewport 高 − imeBottomPx + 列表底边到窗口底的距离([listBottomInsetPx]，
+    // 实测非写死）。行底边再上抬一个行距([rowSpacingPx]) 留白，不紧贴键盘。行只上移不下压（delta>0）。
     LaunchedEffect(renameTarget, imeBottomPx) {
         if (imeBottomPx <= 0) return@LaunchedEffect
         renameTarget?.let { name ->
             val idx = uiState.tags.indexOfFirst { it.name == name }
-            if (idx >= 0) listState.animateScrollToItem(idx)
+            if (idx < 0) return@let
+            // 该行若已滚出可视区才无动画定位（只在必要时跳，避免每帧硬跳）；正常刚点开时它是可见的
+            if (listState.layoutInfo.visibleItemsInfo.none { it.index == idx }) {
+                listState.scrollToItem(idx)
+            }
+            val info = listState.layoutInfo
+            val item = info.visibleItemsInfo.firstOrNull { it.index == idx } ?: return@let
+            val keyboardTopLocal = info.viewportSize.height - imeBottomPx + listBottomInsetPx
+            val desiredTop = keyboardTopLocal - item.size - rowSpacingPx
+            val delta = item.offset - desiredTop   // >0 表示行在目标下方（被键盘盖住），需上移
+            if (delta > 0) listState.scrollBy(delta.toFloat())
         }
     }
 
