@@ -20,7 +20,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,6 +48,7 @@ import com.novamind.app.R
 import com.novamind.app.feature.calendar.components.AppDatePickerDialog
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
@@ -109,16 +109,13 @@ fun AddTaskScreen(
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
     var title by rememberSaveable { mutableStateOf(initialTitle) }
-    var notes by rememberSaveable { mutableStateOf(initialNotes) }
     // LocalDate 非 Bundle 类型，以 epochDay(Long) 持久化，进程重建后可恢复。
     var dueEpochDay by rememberSaveable { mutableStateOf(initialDue.toEpochDay()) }
     val due = LocalDate.ofEpochDay(dueEpochDay)
-    // 编辑已有描述时直接展开输入框。
-    var showNotesField by rememberSaveable { mutableStateOf(initialNotes.isNotBlank()) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
 
-    // 内容是否有变更：驱动 Save 可用性与返回时的放弃确认。
-    val dirty = title != initialTitle || notes != initialNotes || dueEpochDay != initialDue.toEpochDay()
+    // 内容是否有变更：驱动 Save 可用性与返回时的放弃确认（本页只编辑标题与截止日）。
+    val dirty = title != initialTitle || dueEpochDay != initialDue.toEpochDay()
     // 标题非空且有变更才可保存（内容没变时 Save 置灰）。
     val canSave = title.isNotBlank() && dirty
 
@@ -145,80 +142,65 @@ fun AddTaskScreen(
             .background(BgPage)
             .statusBarsPadding(),
     ) {
-        // 顶栏：返回 / 标题 / Save
+        // 顶栏（Figma top_info）：返回（左）+ 删除垃圾桶（右，仅编辑模式）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(shape = CircleShape, color = ColorSurface, shadowElevation = 1.dp) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(onClick = attemptClose),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_arrow_back),
-                        contentDescription = "Back",
-                        tint = ColorTextTitle,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.size(12.dp))
-            Text("To-do", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
+            CircleIconButton(
+                iconRes = R.drawable.ic_arrow_back,
+                desc = "Back",
+                onClick = attemptClose,
+            )
             Spacer(Modifier.weight(1f))
-            Surface(shape = RoundedCornerShape(50), color = ColorSurface, shadowElevation = 1.dp) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .clickable(enabled = canSave) {
-                            hideKeyboard()
-                            onSave(title.trim(), notes.trim().ifBlank { null }, due)
-                        }
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
-                ) {
-                    Text(
-                        "Save",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (canSave) ColorTextTitle else ColorTextFaint,
-                    )
-                }
+            if (onDelete != null) {
+                CircleIconButton(
+                    iconRes = R.drawable.ic_delete,
+                    desc = "Delete task",
+                    onClick = { hideKeyboard(); showDeleteConfirm = true },
+                )
             }
         }
 
-        // 表单卡片
+        // 大标题「To-do」（Figma 32sp Medium）
+        Text(
+            text = "To-do",
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Medium,
+            color = ColorTextTitle,
+            modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 16.dp),
+        )
+
+        // 表单卡片：仅标题 + 截止日期。
+        // Google Tasks 不支持时间段/提醒/描述/附件，故设计稿中的这些行均不呈现。
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(ColorSurface)
-                .padding(20.dp),
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             // 标题输入
             BasicTextField(
                 value = title,
                 onValueChange = { title = it },
-                textStyle = TextStyle(fontSize = 18.sp, color = ColorTextTitle),
+                textStyle = TextStyle(fontSize = 16.sp, color = ColorTextTitle),
                 cursorBrush = SolidColor(ColorPrimary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
                     if (title.isEmpty()) {
-                        Text("Add a title", fontSize = 18.sp, color = ColorTextFaint)
+                        Text("Add a title", fontSize = 16.sp, color = ColorTextFaint)
                     }
                     inner()
                 },
             )
 
-            Spacer(Modifier.height(24.dp))
-
-            // 截止日期（Google Tasks 仅支持日期，无具体时间）
+            // 截止日期（Google Tasks 仅支持日期，无具体时间/时间段）
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -227,7 +209,7 @@ fun AddTaskScreen(
                         hideKeyboard()
                         showDatePicker = true
                     }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -245,48 +227,6 @@ fun AddTaskScreen(
                     fontWeight = FontWeight.Medium,
                     color = ColorTextTitle,
                 )
-            }
-
-            HorizontalDivider(
-                color = ColorBorder,
-                modifier = Modifier.padding(vertical = 12.dp),
-            )
-
-            // 描述：默认显示入口行，点击展开输入框（存入 Google Tasks notes）
-            if (showNotesField) {
-                BasicTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    textStyle = TextStyle(fontSize = 15.sp, color = ColorTextTitle, lineHeight = 22.sp),
-                    cursorBrush = SolidColor(ColorPrimary),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    decorationBox = { inner ->
-                        if (notes.isEmpty()) {
-                            Text("Description", fontSize = 15.sp, color = ColorTextFaint)
-                        }
-                        inner()
-                    },
-                )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { showNotesField = true }
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_document),
-                        contentDescription = null,
-                        tint = ColorTextSub,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Text("Add description", fontSize = 15.sp, color = ColorTextSub)
-                }
             }
         }
 
@@ -322,36 +262,27 @@ fun AddTaskScreen(
             }
         }
 
-        // 删除任务（仅编辑模式）：不可恢复，需二次确认。
-        if (onDelete != null) {
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(ColorSurface)
-                    .clickable {
-                        hideKeyboard()
-                        showDeleteConfirm = true
-                    }
-                    .padding(vertical = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_delete),
-                    contentDescription = null,
-                    tint = ColorError,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = "Delete task",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = ColorError,
-                )
-            }
+        // 底部主操作（Figma）：整宽黑色胶囊 Save，标题非空且有改动才可点。
+        Spacer(Modifier.height(24.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .clip(RoundedCornerShape(100))
+                .background(if (canSave) ButtonColors.Primary.background.current() else ColorBorder)
+                .clickable(enabled = canSave) {
+                    hideKeyboard()
+                    onSave(title.trim(), initialNotes.trim().ifBlank { null }, due)
+                }
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "Save",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (canSave) ButtonColors.Primary.text.current() else ColorTextFaint,
+            )
         }
     }
 
@@ -401,6 +332,27 @@ fun AddTaskScreen(
             },
             onDismiss = { showDatePicker = false },
         )
+    }
+}
+
+/** 顶栏圆形图标按钮（白底圆 + 轻投影），返回 / 删除共用。 */
+@Composable
+private fun CircleIconButton(iconRes: Int, desc: String, onClick: () -> Unit) {
+    Surface(shape = CircleShape, color = ColorSurface, shadowElevation = 1.dp) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = desc,
+                tint = ColorTextTitle,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
