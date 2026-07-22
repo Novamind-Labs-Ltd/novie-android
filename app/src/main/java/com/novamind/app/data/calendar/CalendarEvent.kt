@@ -24,7 +24,49 @@ data class CalendarEvent(
     val isMeeting: Boolean = false,
     /** 事件描述（Google Calendar description）；可能含 HTML/富文本，UI 层按需清洗。放末尾避免影响位置参数调用。 */
     val description: String? = null,
+    /** 参会者列表（Google Calendar attendees）；供会议详情/列表展示，含本人（self=true）。默认空表无参会者。 */
+    val attendees: List<CalendarAttendee> = emptyList(),
 )
+
+/** 会议参会者（Google Calendar attendee 的领域投影，与 API DTO 解耦）。 */
+data class CalendarAttendee(
+    /** 邮箱；资源型参会者（会议室等）可能为 null。 */
+    val email: String?,
+    /** 显示名；缺省时 UI 可回退到邮箱。 */
+    val displayName: String?,
+    /** 是否为当前用户本人。 */
+    val self: Boolean,
+    /** 应答状态。 */
+    val responseStatus: AttendeeResponse,
+)
+
+/** 参会者应答状态（Google Calendar responseStatus）。 */
+enum class AttendeeResponse {
+    /** 已接受。 */
+    ACCEPTED,
+
+    /** 已拒绝。 */
+    DECLINED,
+
+    /** 待定（可能出席）。 */
+    TENTATIVE,
+
+    /** 尚未响应。 */
+    NEEDS_ACTION,
+
+    /** 未知 / 未识别（前向兼容）。 */
+    UNKNOWN;
+
+    companion object {
+        fun fromApi(raw: String?): AttendeeResponse = when (raw) {
+            "accepted" -> ACCEPTED
+            "declined" -> DECLINED
+            "tentative" -> TENTATIVE
+            "needsAction" -> NEEDS_ACTION
+            else -> UNKNOWN
+        }
+    }
+}
 
 /**
  * 事件是否已结束（视为「已完成」）。日历事件本身没有完成状态，此处以结束时间是否早于当前时间近似。

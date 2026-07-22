@@ -44,6 +44,7 @@ data class EventDateTimeDto(
 @Serializable
 data class AttendeeDto(
     val email: String? = null,
+    val displayName: String? = null,
     val self: Boolean = false,
     val responseStatus: String? = null,
 )

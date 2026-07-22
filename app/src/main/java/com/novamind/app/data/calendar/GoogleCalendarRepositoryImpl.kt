@@ -109,6 +109,14 @@ class GoogleCalendarRepositoryImpl(
             description = description?.takeIf { it.isNotBlank() },
             eventType = domainType,
             isMeeting = domainType == CalendarEventType.DEFAULT && (hasInvitees || hasMeetingLink),
+            attendees = attendees.map {
+                CalendarAttendee(
+                    email = it.email,
+                    displayName = it.displayName,
+                    self = it.self,
+                    responseStatus = AttendeeResponse.fromApi(it.responseStatus),
+                )
+            },
         )
         // 映射结果（字段对应）：
         // id<-id, title<-summary, isAllDay<-(start.dateTime==null&&start.date!=null),
@@ -117,7 +125,7 @@ class GoogleCalendarRepositoryImpl(
         // isMeeting<-eventType==default&&(attendees 有他人||hangoutLink/conferenceId 非空)
         AppLog.d(TAG) { "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
                     "start=${event.start} end=${event.end} location=${event.location} " +
-                    "eventType=${event.eventType} isMeeting=${event.isMeeting}" }
+                    "eventType=${event.eventType} isMeeting=${event.isMeeting} attendees=${event.attendees.size}" }
         return event
     }
 
