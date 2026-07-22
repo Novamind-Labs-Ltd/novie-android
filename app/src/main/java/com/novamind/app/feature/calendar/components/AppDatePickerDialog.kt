@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.current
@@ -76,8 +78,13 @@ internal fun AppDatePickerDialog(
         val pickerState = rememberDatePickerState(
             initialSelectedDateMillis = initialDate.toUtcMillis(),
         )
+        // 弹窗宽度按屏占比（Figma：左右各留 ~16dp）。M3 DatePicker 日历内容固定 360dp，故不低于此值，
+        // 且封顶避免平板上过宽；配 usePlatformDefaultWidth=false 覆盖 M3 默认固定宽。
+        val dialogWidth = (enConfig.screenWidthDp - 32).dp.coerceIn(360.dp, 420.dp)
         val ctaBg = ButtonColors.Primary.background.current()
         val onCta = ButtonColors.Primary.text.current()
+        // 选中日/年圆底：Figma button/primary/background-secondary(#242424)，比 Ok 按钮(纯黑)略浅
+        val selectionBg = ButtonColors.Primary.backgroundSecondary.current()
         val pickerColors = DatePickerDefaults.colors(
             containerColor = BackgroundColors.Interactive.tertiary.current(),
             headlineContentColor = ColorTextTitle,
@@ -88,16 +95,19 @@ internal fun AppDatePickerDialog(
             yearContentColor = ColorTextSub,
             currentYearContentColor = ColorTextTitle,
             selectedYearContentColor = onCta,
-            selectedYearContainerColor = ctaBg,
+            selectedYearContainerColor = selectionBg,
             dayContentColor = ColorTextTitle,
             selectedDayContentColor = onCta,
-            selectedDayContainerColor = ctaBg,
+            selectedDayContainerColor = selectionBg,
             todayContentColor = ColorPrimary,
             todayDateBorderColor = ColorPrimary,
             dividerColor = ColorBorder,
         )
         DatePickerDialog(
             onDismissRequest = onDismiss,
+            modifier = Modifier.width(dialogWidth),
+            // 覆盖平台默认宽（约束到较窄），改用上面按屏占比算出的宽度
+            properties = DialogProperties(usePlatformDefaultWidth = false),
             colors = pickerColors,
             shape = RoundedCornerShape(24.dp),
             // 两个等宽 CTA 并排（Figma）：全放 confirmButton 槽自定义布局，dismissButton 置空。
