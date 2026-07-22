@@ -191,8 +191,10 @@ fun TagManagerScreen(
         }
     }
 
-    // 进入行内重命名且键盘弹出后，把编辑项滚到可视区
-    LaunchedEffect(renameTarget, imeBottomPx > 0) {
+    // 进入行内重命名且键盘弹出后，把编辑项滚到可视区。
+    // 以 imeBottomPx（而非「>0」布尔）为 key：键盘高度从 0 动画到最终值，每变一帧就重滚，
+    // 收敛到键盘完全弹起后的正确位置（否则只在动画首帧滚一次，底部行会滚不到位）。
+    LaunchedEffect(renameTarget, imeBottomPx) {
         if (imeBottomPx <= 0) return@LaunchedEffect
         renameTarget?.let { name ->
             val idx = uiState.tags.indexOfFirst { it.name == name }

@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -72,6 +74,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -374,6 +377,11 @@ private fun FoldersPage(
     // 当前左滑展开的文件夹名（同时最多一行展开；打开新行自动收起其它行）
     var openSwipeName by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    // 键盘适配：Activity 为 adjustNothing（窗口不重排），行内重命名弹键盘时需 Compose 侧
+    // 自行让出空间——列表底部预留 IME 高度，并把被编辑行滚到键盘之上（同 TagManagerScreen）。
+    val density = LocalDensity.current
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val imeBottomDp = with(density) { imeBottomPx.toDp() }
 
     // 拖拽换序：sh.calvin.reorderable（长按整行拖动）。ordered 为本地顺序副本：拖动中由 onMove 改写、
     // 非拖拽时从服务端 folders 同步；抬起（onDragStopped）时把顺序（文件夹名序列）提交给 onReorder。
@@ -398,6 +406,18 @@ private fun FoldersPage(
     LaunchedEffect(reachedEnd, hasMoreFolders, isLoadingMoreFolders) {
         if (reachedEnd && hasMoreFolders && !isLoadingMoreFolders && !reorderState.isAnyItemDragging) {
             onLoadMoreFolders()
+        }
+    }
+
+    // 进入行内重命名且键盘弹出后，把被编辑行滚到可视区（键盘之上）。
+    // 键盘高度是从 0 动画到最终值的：这里以 imeBottomPx（而非「>0」布尔）为 key，
+    // 高度每变一帧就重滚一次——每次重启会取消上一次动画、按当前可滚范围重新对齐，
+    // 最终收敛到键盘完全弹起后的正确位置（否则只在动画刚开始那一帧滚一次，底部行会滚不到位）。
+    LaunchedEffect(renameTarget, imeBottomPx) {
+        if (imeBottomPx <= 0) return@LaunchedEffect
+        renameTarget?.let { name ->
+            val idx = ordered.indexOfFirst { it.name == name }
+            if (idx >= 0) lazyListState.animateScrollToItem(idx)
         }
     }
 
@@ -439,7 +459,7 @@ private fun FoldersPage(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp + imeBottomDp),
         ) {
             items(ordered, key = { it.name }) { folder ->
             ReorderableItem(reorderState, key = folder.name) { _ ->
