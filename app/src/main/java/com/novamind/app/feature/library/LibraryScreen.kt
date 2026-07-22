@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +68,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.zIndex
@@ -76,6 +80,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -377,11 +382,17 @@ private fun FoldersPage(
     // 当前左滑展开的文件夹名（同时最多一行展开；打开新行自动收起其它行）
     var openSwipeName by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
-    // 键盘适配：Activity 为 adjustNothing（窗口不重排），行内重命名弹键盘时需 Compose 侧
-    // 自行让出空间——列表底部预留 IME 高度，并把被编辑行滚到键盘之上（同 TagManagerScreen）。
+    // 键盘适配：Activity 为 adjustNothing（窗口不重排），行内重命名弹键盘时需 Compose 侧自行让出空间——
+    // 列表底部预留 IME 高度作滚动余量，并把被编辑行**逐帧瞬时**贴到键盘上沿（见下方 LaunchedEffect）。
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    // 列表底边到窗口底边的真实距离（底栏让位 + 系统栏等，实测得出，避免写死 100dp）：由 onGloballyPositioned 填。
+    val windowInfo = LocalWindowInfo.current
+    var listBottomInsetPx by remember { mutableIntStateOf(0) }
+    // 行间距：LazyColumn 行距与「键盘上方留白」共用同一值，避免散落魔法数
+    val rowSpacing = 10.dp
+    val rowSpacingPx = with(density) { rowSpacing.roundToPx() }
 
     // 拖拽换序：sh.calvin.reorderable（长按整行拖动）。ordered 为本地顺序副本：拖动中由 onMove 改写、
     // 非拖拽时从服务端 folders 同步；抬起（onDragStopped）时把顺序（文件夹名序列）提交给 onReorder。
@@ -409,15 +420,28 @@ private fun FoldersPage(
         }
     }
 
-    // 进入行内重命名且键盘弹出后，把被编辑行滚到可视区（键盘之上）。
-    // 键盘高度是从 0 动画到最终值的：这里以 imeBottomPx（而非「>0」布尔）为 key，
-    // 高度每变一帧就重滚一次——每次重启会取消上一次动画、按当前可滚范围重新对齐，
-    // 最终收敛到键盘完全弹起后的正确位置（否则只在动画刚开始那一帧滚一次，底部行会滚不到位）。
+    // 进入行内重命名且键盘弹出后，把被编辑行**底边贴到键盘上沿**，并全程跟随键盘平滑上移。
+    // 以 imeBottomPx 为 key：键盘高度从 0 动画到最终值，每变一帧重算一次。
+    // 关键（防抖动）：每帧只做**一次瞬时** scrollBy 把行对到目标位，绝不用 scrollToItem 硬跳、也不用
+    // animateScrollBy（上一帧的补间会被下一帧取消再重启，来回抽搐）。逐帧瞬时对位 = 跟着键盘平滑滑上来。
+    // 键盘上沿在列表本地坐标 = viewport 高 − imeBottomPx + 列表底边到窗口底的距离([listBottomInsetPx]，
+    // 实测非写死）；即键盘对列表的实际遮挡 = imeBottomPx − listBottomInsetPx。行底边再上抬一个行距
+    // ([rowSpacingPx]) 留白，不紧贴键盘。行只上移不下压（delta>0）。
     LaunchedEffect(renameTarget, imeBottomPx) {
         if (imeBottomPx <= 0) return@LaunchedEffect
         renameTarget?.let { name ->
             val idx = ordered.indexOfFirst { it.name == name }
-            if (idx >= 0) lazyListState.animateScrollToItem(idx)
+            if (idx < 0) return@let
+            // 该行若已滚出可视区才无动画定位（只在必要时跳，避免每帧硬跳）；正常刚点开时它是可见的
+            if (lazyListState.layoutInfo.visibleItemsInfo.none { it.index == idx }) {
+                lazyListState.scrollToItem(idx)
+            }
+            val info = lazyListState.layoutInfo
+            val item = info.visibleItemsInfo.firstOrNull { it.index == idx } ?: return@let
+            val keyboardTopLocal = info.viewportSize.height - imeBottomPx + listBottomInsetPx
+            val desiredTop = keyboardTopLocal - item.size - rowSpacingPx
+            val delta = item.offset - desiredTop   // >0 表示行在目标下方（被键盘盖住），需上移
+            if (delta > 0f) lazyListState.scrollBy(delta.toFloat())
         }
     }
 
@@ -457,8 +481,14 @@ private fun FoldersPage(
             state = lazyListState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 16.dp)
+                // 实测列表底边到窗口底的距离（键盘对位据此换算，避免写死底栏让位高度）
+                .onGloballyPositioned {
+                    listBottomInsetPx =
+                        (windowInfo.containerSize.height - it.boundsInWindow().bottom.toInt()).coerceAtLeast(0)
+                },
+            verticalArrangement = Arrangement.spacedBy(rowSpacing),
+            // 底部预留 IME 高度作滚动余量，使末行也能被上移到键盘之上（不改变视口高度，故无布局反馈抖动）
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp + imeBottomDp),
         ) {
             items(ordered, key = { it.name }) { folder ->
