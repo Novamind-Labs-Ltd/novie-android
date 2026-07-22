@@ -17,14 +17,11 @@ fun ProfileRoute(
     userName: String? = null,
     userEmail: String? = null,
     isGuest: Boolean = false,
-    appVersion: String = "",
     onEditAvatar: () -> Unit = {},
     onOpenPermissions: () -> Unit = {},
     onAbout: () -> Unit = {},
     onLogout: () -> Unit = {},
     onLogin: () -> Unit = {},
-    onLogoutLocal: () -> Unit = {},
-    onLogoutFederated: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -41,9 +38,6 @@ fun ProfileRoute(
         onAbout = onAbout,
         onLogout = onLogout,
         onLogin = onLogin,
-        onLogoutLocal = onLogoutLocal,
-        onLogoutFederated = onLogoutFederated,
-        appVersion = appVersion,
         modifier = modifier,
     )
 }

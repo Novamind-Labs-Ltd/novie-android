@@ -290,14 +290,11 @@ class MainActivity : FragmentActivity() {
                                 userName = userSession.profile?.displayName,
                                 userEmail = userSession.profile?.email ?: userSession.userKey,
                                 isGuest = authState.isGuest,
-                                appVersion = "v${BuildConfig.VERSION_NAME}",
                                 onOpenPermissions = { showProfilePermissions = true },
                                 onAbout = { showAbout = true },
-                                onLogout = { authViewModel.logout(this@MainActivity) },
+                                // Sign out 使用彻底登出：打开浏览器命中 /v2/logout，清除 Auth0 SSO 会话
+                                onLogout = { authViewModel.logoutFederated(this@MainActivity) },
                                 onLogin = { authViewModel.exitGuest() },
-                                // DEBUG：对比两种登出行为
-                                onLogoutLocal = { authViewModel.logout(this@MainActivity) },
-                                onLogoutFederated = { authViewModel.logoutFederated(this@MainActivity) },
                             )
                         }
                         }
