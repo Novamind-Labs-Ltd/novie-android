@@ -175,7 +175,9 @@ fun CalendarRoute(
                     MeetingDetailScreen(
                         event = event,
                         onBack = { showDetail = false },
-                        onEdit = { showEditMeeting = true },
+                        // 暂隐藏编辑入口：不传 onEdit（默认 null）→ 详情页不显示右上角铅笔。
+                        // 编辑会议流程（showEditMeeting）保留以便日后恢复。
+                        onEdit = null,
                     )
                 }
             }
