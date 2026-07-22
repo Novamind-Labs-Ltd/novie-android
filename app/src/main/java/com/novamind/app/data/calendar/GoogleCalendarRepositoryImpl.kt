@@ -104,7 +104,12 @@ class GoogleCalendarRepositoryImpl(
         // 会议判定：常规事件 且（有除自己外的邀请人 或 有会议链接）。
         // 仅有自己（self）在 attendees 里的独立事件不算会议；链接看 hangoutLink 或 conferenceData。
         val hasInvitees = attendees.any { !it.self }
-        val hasMeetingLink = !hangoutLink.isNullOrBlank() ||
+        // 会议链接：优先 hangoutLink，其次 conferenceData 里 video 类型入口的 uri。
+        val meetingUrl = hangoutLink?.takeIf { it.isNotBlank() }
+            ?: conferenceData?.entryPoints
+                ?.firstOrNull { it.entryPointType == "video" && !it.uri.isNullOrBlank() }
+                ?.uri
+        val hasMeetingLink = !meetingUrl.isNullOrBlank() ||
                 !conferenceData?.conferenceId.isNullOrBlank()
         // 生效提醒：无 reminders 视为无；useDefault=true 用日历默认；否则用事件自身 overrides。
         val effectiveReminders = when {
@@ -131,6 +136,7 @@ class GoogleCalendarRepositoryImpl(
                 )
             },
             reminders = effectiveReminders,
+            meetingUrl = meetingUrl,
         )
         // 映射结果（字段对应）：
         // id<-id, title<-summary, isAllDay<-(start.dateTime==null&&start.date!=null),
@@ -140,7 +146,8 @@ class GoogleCalendarRepositoryImpl(
         AppLog.d(TAG) { "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
                     "start=${event.start} end=${event.end} location=${event.location} " +
                     "eventType=${event.eventType} isMeeting=${event.isMeeting} attendees=${event.attendees.size} " +
-                    "reminders=${event.reminders.joinToString { "${it.minutesBefore}m/${it.method}" }}" }
+                    "reminders=${event.reminders.joinToString { "${it.minutesBefore}m/${it.method}" }} " +
+                    "meetingUrl=${event.meetingUrl}" }
         return event
     }
 

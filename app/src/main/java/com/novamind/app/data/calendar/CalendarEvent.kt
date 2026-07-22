@@ -29,6 +29,11 @@ data class CalendarEvent(
     val attendees: List<CalendarAttendee> = emptyList(),
     /** 生效提醒列表（已把「用日历默认」展开为日历级默认提醒）；供会议详情展示。默认空表无提醒。 */
     val reminders: List<CalendarReminder> = emptyList(),
+    /**
+     * 会议链接（视频通话入口）：优先取 Google Meet 的 hangoutLink，其次 conferenceData 中
+     * entryPointType=="video" 的 uri。无视频入口时为 null。供会议详情「Join」入口打开。
+     */
+    val meetingUrl: String? = null,
 )
 
 /** 会议参会者（Google Calendar attendee 的领域投影，与 API DTO 解耦）。 */

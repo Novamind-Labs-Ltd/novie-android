@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -83,7 +84,9 @@ fun MeetingDetailScreen(
             "${event.start.format(detailTimeFormatter)} → ${event.end.format(detailTimeFormatter)}"
     }
     val location = event.location?.takeIf { it.isNotBlank() }
+    val meetingUrl = event.meetingUrl?.takeIf { it.isNotBlank() }
     val description = event.description?.stripHtml()?.takeIf { it.isNotBlank() }
+    val uriHandler = LocalUriHandler.current
     // 提醒（Figma 铃铛行「1 hour」）：多条用逗号连接，如「1 hour, 10 minutes」；无提醒则不显示该行。
     val reminderText = event.reminders.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.leadLabel() }
     // 参会人员摘要（Figma「Jerry & 50 others」）：优先取非本人的参会者做代表名，其余计入 "& N others"。
@@ -159,7 +162,9 @@ fun MeetingDetailScreen(
 
             DetailRow(iconRes = R.drawable.ic_clock, primary = timeText)
 
-            if (location != null || reminderText != null || inviteesText != null || description != null) {
+            if (meetingUrl != null || location != null || reminderText != null ||
+                inviteesText != null || description != null
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -168,6 +173,15 @@ fun MeetingDetailScreen(
                 )
             }
 
+            // 会议链接（Google Meet 等）：可点击整行，用系统浏览器/对应 App 打开视频通话入口。
+            meetingUrl?.let { url ->
+                DetailRow(
+                    iconRes = R.drawable.ic_link,
+                    primary = "Join meeting",
+                    secondary = url.meetingLinkLabel(),
+                    onClick = { uriHandler.openUri(url) },
+                )
+            }
             location?.let { DetailRow(iconRes = R.drawable.ic_location, primary = it) }
             reminderText?.let { DetailRow(iconRes = R.drawable.ic_notification, primary = it) }
             inviteesText?.let { DetailRow(iconRes = R.drawable.ic_meeting_people, primary = it) }
@@ -182,16 +196,23 @@ fun MeetingDetailScreen(
 private fun CalendarAttendee.label(): String =
     displayName?.takeIf { it.isNotBlank() } ?: email?.takeIf { it.isNotBlank() } ?: "Guest"
 
-/** 详情行：圆形留白内的小图标 + 主文案（可选副文案），与 Figma 各信息行一致。 */
+/** 会议链接展示文案：去掉 scheme 与末尾斜杠，如 https://meet.google.com/abc/ → meet.google.com/abc。 */
+private fun String.meetingLinkLabel(): String =
+    substringAfter("://").trimEnd('/')
+
+/** 详情行：圆形留白内的小图标 + 主文案（可选副文案），与 Figma 各信息行一致。整行可选点击（[onClick]）。 */
 @Composable
 private fun DetailRow(
     iconRes: Int,
     primary: String,
     secondary: String? = null,
     multiline: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = if (multiline) Alignment.Top else Alignment.CenterVertically,
     ) {
@@ -230,6 +251,7 @@ private fun MeetingDetailScreenPreview() {
                 location = "Novamind Labs, 34 Triton Drive, Rosedale, Auckland 0632",
                 eventType = CalendarEventType.DEFAULT,
                 isMeeting = true,
+                meetingUrl = "https://meet.google.com/abc-defg-hij",
                 description = "Time to coordinate team workflows, align on priorities, " +
                     "and uncover project roadblocks.",
                 attendees = listOf(

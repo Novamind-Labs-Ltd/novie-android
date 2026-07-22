@@ -70,6 +70,17 @@ data class AttendeeDto(
 @Serializable
 data class ConferenceDataDto(
     @SerialName("conferenceId") val conferenceId: String? = null,
+    /** 各接入方式（视频/电话/SIP 等）；取 entryPointType=="video" 的 uri 作为会议链接。 */
+    val entryPoints: List<ConferenceEntryPointDto> = emptyList(),
+)
+
+@Serializable
+data class ConferenceEntryPointDto(
+    /** "video" / "phone" / "sip" / "more"。 */
+    val entryPointType: String? = null,
+    val uri: String? = null,
+    /** 展示用标签（如 "meet.google.com/abc-defg-hij"）。 */
+    val label: String? = null,
 )
 
 /**

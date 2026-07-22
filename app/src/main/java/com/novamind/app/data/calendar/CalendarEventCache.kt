@@ -58,6 +58,7 @@ class CalendarEventCache(
         val isMeeting: Boolean = false,
         val attendees: List<CachedAttendee> = emptyList(),
         val reminders: List<CachedReminder> = emptyList(),
+        val meetingUrl: String? = null,
     ) {
         fun toDomain() = CalendarEvent(
             id = id,
@@ -71,6 +72,7 @@ class CalendarEventCache(
             description = description,
             attendees = attendees.map { it.toDomain() },
             reminders = reminders.map { it.toDomain() },
+            meetingUrl = meetingUrl,
         )
 
         companion object {
@@ -86,6 +88,7 @@ class CalendarEventCache(
                 isMeeting = e.isMeeting,
                 attendees = e.attendees.map { CachedAttendee.fromDomain(it) },
                 reminders = e.reminders.map { CachedReminder.fromDomain(it) },
+                meetingUrl = e.meetingUrl,
             )
         }
     }
