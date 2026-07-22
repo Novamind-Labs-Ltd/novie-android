@@ -107,6 +107,7 @@ import com.novamind.app.feature.library.components.FolderRenameRow
 import com.novamind.app.feature.library.components.FolderRow
 import com.novamind.app.feature.library.components.FolderSwipeRow
 import com.novamind.app.feature.library.components.LibraryNoteRow
+import com.novamind.app.feature.library.components.LibraryRecentSkeleton
 import com.novamind.app.feature.library.components.SegmentedTabBar
 import com.novamind.app.feature.library.components.TopIconButton
 import com.novamind.app.feature.library.components.ViewModeToggle
@@ -291,6 +292,10 @@ private fun RecentPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         when {
+            // 首屏加载：先出骨架图（贴合网格/列表两态），数据到位后自动切到真实内容/空态
+            uiState.isInitialLoading ->
+                LibraryRecentSkeleton(viewMode = uiState.viewMode, modifier = Modifier.fillMaxSize())
+
             uiState.notes.isEmpty() ->
                 // 空态放进 LazyColumn（单项撑满视口），既能居中显示、又能下拉刷新
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -889,13 +894,17 @@ private fun PushRevealDrawer(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun LibraryEmptyPreview() {
-    AppTheme { LibraryScreen(uiState = LibraryUiState(notes = emptyList())) }
+    AppTheme { LibraryScreen(uiState = LibraryUiState(notes = emptyList(), isInitialLoading = false)) }
 }
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 private fun LibraryPopulatedPreview() {
-    AppTheme { LibraryScreen(uiState = LibraryUiState(notes = sampleNotes, folders = sampleFolders)) }
+    AppTheme {
+        LibraryScreen(
+            uiState = LibraryUiState(notes = sampleNotes, folders = sampleFolders, isInitialLoading = false),
+        )
+    }
 }
 
 @Preview(showBackground = true, showSystemUi = true)
@@ -907,6 +916,7 @@ private fun LibraryListModePreview() {
                 notes = sampleNotes,
                 folders = sampleFolders,
                 viewMode = LibraryViewMode.LIST,
+                isInitialLoading = false,
             )
         )
     }
@@ -917,7 +927,7 @@ private fun LibraryListModePreview() {
 private fun LibraryFoldersPreview() {
     AppTheme {
         LibraryScreen(
-            uiState = LibraryUiState(notes = sampleNotes, folders = sampleFolders),
+            uiState = LibraryUiState(notes = sampleNotes, folders = sampleFolders, isInitialLoading = false),
             // 初始停在 Folders 标签页
             pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 }),
         )
@@ -949,7 +959,7 @@ private fun FoldersPagePreview() {
 private fun RecentPageGridPreview() {
     AppTheme {
         RecentPage(
-            uiState = LibraryUiState(notes = sampleNotes, viewMode = LibraryViewMode.GRID),
+            uiState = LibraryUiState(notes = sampleNotes, viewMode = LibraryViewMode.GRID, isInitialLoading = false),
             onCreateNote = {},
             onOpenNote = {},
             onRefresh = {},
@@ -962,7 +972,7 @@ private fun RecentPageGridPreview() {
 private fun RecentPageListPreview() {
     AppTheme {
         RecentPage(
-            uiState = LibraryUiState(notes = sampleNotes, viewMode = LibraryViewMode.LIST),
+            uiState = LibraryUiState(notes = sampleNotes, viewMode = LibraryViewMode.LIST, isInitialLoading = false),
             onCreateNote = {},
             onOpenNote = {},
             onRefresh = {},

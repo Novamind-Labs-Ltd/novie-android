@@ -143,9 +143,15 @@ class LibraryViewModel @Inject constructor(
             onSuccess = { page ->
                 serverNotes.value = page?.items.orEmpty()
                 notesCursor = page?.nextCursor
-                _uiState.update { it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false) }
+                _uiState.update {
+                    it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false, isInitialLoading = false)
+                }
             },
-            onFail = { logApiError("loadNotes", it) },
+            // 首次拉取无论成败都结束首屏加载态：失败则由骨架切到（空）内容/空态，不再卡骨架
+            onFail = {
+                logApiError("loadNotes", it)
+                _uiState.update { it.copy(isInitialLoading = false) }
+            },
         )
     }
 
