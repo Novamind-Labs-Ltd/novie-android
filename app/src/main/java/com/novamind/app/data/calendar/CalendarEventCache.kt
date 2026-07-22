@@ -52,9 +52,12 @@ class CalendarEventCache(
         val start: String,
         val end: String,
         val location: String?,
+        // 旧缓存无以下字段 → 默认空/false，网络刷新后回正。
+        val description: String? = null,
         val eventType: CalendarEventType = CalendarEventType.DEFAULT,
-        // 旧缓存无此字段 → 默认 false，网络刷新后回正。
         val isMeeting: Boolean = false,
+        val attendees: List<CachedAttendee> = emptyList(),
+        val reminders: List<CachedReminder> = emptyList(),
     ) {
         fun toDomain() = CalendarEvent(
             id = id,
@@ -65,6 +68,9 @@ class CalendarEventCache(
             location = location,
             eventType = eventType,
             isMeeting = isMeeting,
+            description = description,
+            attendees = attendees.map { it.toDomain() },
+            reminders = reminders.map { it.toDomain() },
         )
 
         companion object {
@@ -75,9 +81,41 @@ class CalendarEventCache(
                 start = e.start.toString(),
                 end = e.end.toString(),
                 location = e.location,
+                description = e.description,
                 eventType = e.eventType,
                 isMeeting = e.isMeeting,
+                attendees = e.attendees.map { CachedAttendee.fromDomain(it) },
+                reminders = e.reminders.map { CachedReminder.fromDomain(it) },
             )
+        }
+    }
+
+    /** 缓存参会者（与 [CalendarAttendee] 一一对应）。 */
+    @Serializable
+    private data class CachedAttendee(
+        val email: String? = null,
+        val displayName: String? = null,
+        val self: Boolean = false,
+        val responseStatus: AttendeeResponse = AttendeeResponse.UNKNOWN,
+    ) {
+        fun toDomain() = CalendarAttendee(email, displayName, self, responseStatus)
+
+        companion object {
+            fun fromDomain(a: CalendarAttendee) =
+                CachedAttendee(a.email, a.displayName, a.self, a.responseStatus)
+        }
+    }
+
+    /** 缓存提醒（与 [CalendarReminder] 一一对应）。 */
+    @Serializable
+    private data class CachedReminder(
+        val minutesBefore: Int = 0,
+        val method: ReminderMethod = ReminderMethod.UNKNOWN,
+    ) {
+        fun toDomain() = CalendarReminder(minutesBefore, method)
+
+        companion object {
+            fun fromDomain(r: CalendarReminder) = CachedReminder(r.minutesBefore, r.method)
         }
     }
 

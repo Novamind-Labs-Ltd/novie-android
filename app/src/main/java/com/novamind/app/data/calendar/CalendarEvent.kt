@@ -44,6 +44,7 @@ data class CalendarAttendee(
 )
 
 /** 参会者应答状态（Google Calendar responseStatus）。 */
+@Serializable
 enum class AttendeeResponse {
     /** 已接受。 */
     ACCEPTED,
