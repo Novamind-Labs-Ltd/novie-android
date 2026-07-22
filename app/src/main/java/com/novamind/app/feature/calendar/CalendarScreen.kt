@@ -14,6 +14,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,7 @@ import com.novamind.app.feature.calendar.components.PillIcon
 import com.novamind.app.feature.calendar.components.StatCard
 import com.novamind.app.feature.calendar.components.TaskRow
 import com.novamind.app.feature.calendar.components.TodoBg
+import com.novamind.app.feature.calendar.components.animatePlacement
 import com.novamind.app.ui.components.AppPullToRefresh
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
@@ -346,11 +348,14 @@ fun CalendarScreen(
                     loading = uiState.isLoading,
                 ) {
                     uiState.tasks.forEach { task ->
-                        TaskRow(
-                            task = task,
-                            onComplete = { onEvent(CalendarUiEvent.SetTaskCompleted(it, completed = true)) },
-                            onClick = { onEvent(CalendarUiEvent.TaskClicked(it)) },
-                        )
+                        key(task.id) {
+                            TaskRow(
+                                task = task,
+                                onToggleComplete = { onEvent(CalendarUiEvent.SetTaskCompleted(it, completed = !it.isCompleted)) },
+                                onClick = { onEvent(CalendarUiEvent.TaskClicked(it)) },
+                                modifier = Modifier.animatePlacement(),
+                            )
+                        }
                     }
                 }
             }
