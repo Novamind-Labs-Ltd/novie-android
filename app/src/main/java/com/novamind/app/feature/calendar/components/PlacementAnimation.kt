@@ -3,7 +3,8 @@ package com.novamind.app.feature.calendar.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +38,12 @@ internal fun Modifier.animatePlacement(): Modifier = composed {
             val anim = animatable
                 ?: Animatable(targetOffset, IntOffset.VectorConverter).also { animatable = it }
             if (anim.targetValue != targetOffset) {
-                scope.launch { anim.animateTo(targetOffset, spring()) }
+                scope.launch {
+                    anim.animateTo(
+                        targetOffset,
+                        tween(durationMillis = 550, easing = FastOutSlowInEasing),
+                    )
+                }
             }
             anim.value - targetOffset
         }
