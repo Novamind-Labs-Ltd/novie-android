@@ -1,21 +1,12 @@
-<!-- Figma home_final · nav / add（描边圆头加号）。viewport 38 与设计一致，任意尺寸等比缩放。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="38dp"
-    android:height="38dp"
-    android:viewportWidth="38"
-    android:viewportHeight="38">
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
     <path
+        android:pathData="M4 12C4 12 13.7516 12 20 12M12 4C12 10.2484 12 20 12 20"
         android:fillColor="#00000000"
         android:strokeColor="#FF000000"
-        android:strokeWidth="2.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M9.5,19H28.5" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FF000000"
-        android:strokeWidth="2.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M19,28.5V9.5" />
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
 </vector>
