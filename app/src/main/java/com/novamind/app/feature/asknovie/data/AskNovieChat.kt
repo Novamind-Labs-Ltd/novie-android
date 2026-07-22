@@ -3,6 +3,7 @@ package com.novamind.app.feature.asknovie.data
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.NetworkModule
+import com.novamind.app.common.net.TokenProvider
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -81,8 +82,16 @@ object AskNovieChat {
         action: String? = null,
     ): Flow<ChatStreamEvent> = flow {
         val payload = json.encodeToString(ChatRequest(mode, conversationId, input, action))
+        val url = ApiConfig.agentBaseUrl + "v1/chat"
+        // 请求前日志：不打 input 原文（用户内容，PII），只记长度与关键路由/鉴权状态，便于排查
+        // 开流前错误（如 401 invalid_token / 403 not_registered）。hasToken 反映是否会带 Bearer。
+        AppLog.i(TAG) {
+            "chat 请求前 url=$url env=${ApiConfig.env.label} mode=$mode conv=$conversationId " +
+                "action=${action ?: "-"} inputLen=${input.length} " +
+                "hasToken=${!TokenProvider.accessToken.isNullOrBlank()}"
+        }
         val request = Request.Builder()
-            .url(ApiConfig.agentBaseUrl + "v1/chat")
+            .url(url)
             .header("Accept", "text/event-stream")
             // Authorization（Auth0 Bearer）由 AuthInterceptor 统一附带，不在此手动设置
             .post(payload.toRequestBody("application/json".toMediaType()))
