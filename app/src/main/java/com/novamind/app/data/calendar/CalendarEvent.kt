@@ -1,5 +1,6 @@
 package com.novamind.app.data.calendar
 
+import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -26,6 +27,8 @@ data class CalendarEvent(
     val description: String? = null,
     /** 参会者列表（Google Calendar attendees）；供会议详情/列表展示，含本人（self=true）。默认空表无参会者。 */
     val attendees: List<CalendarAttendee> = emptyList(),
+    /** 生效提醒列表（已把「用日历默认」展开为日历级默认提醒）；供会议详情展示。默认空表无提醒。 */
+    val reminders: List<CalendarReminder> = emptyList(),
 )
 
 /** 会议参会者（Google Calendar attendee 的领域投影，与 API DTO 解耦）。 */
@@ -65,6 +68,47 @@ enum class AttendeeResponse {
             "needsAction" -> NEEDS_ACTION
             else -> UNKNOWN
         }
+    }
+}
+
+/** 会议提醒（Google Calendar reminder）：[minutesBefore] = 事件开始前多少分钟触发。 */
+data class CalendarReminder(
+    val minutesBefore: Int,
+    val method: ReminderMethod,
+)
+
+/** 提醒方式（Google Calendar reminder method）。 */
+@Serializable
+enum class ReminderMethod {
+    /** 弹窗 / 通知。 */
+    POPUP,
+
+    /** 邮件。 */
+    EMAIL,
+
+    /** 未知 / 未识别（前向兼容）。 */
+    UNKNOWN;
+
+    companion object {
+        fun fromApi(raw: String?): ReminderMethod = when (raw) {
+            "popup" -> POPUP
+            "email" -> EMAIL
+            else -> UNKNOWN
+        }
+    }
+}
+
+/**
+ * 提醒的人类可读提前量文案（会议详情提醒行用），如 60→「1 hour」、10→「10 minutes」、1440→「1 day」。
+ * 0（或负）→「At start」。
+ */
+fun CalendarReminder.leadLabel(): String {
+    val m = minutesBefore
+    return when {
+        m <= 0 -> "At start"
+        m % 1440 == 0 -> "${m / 1440} day${if (m / 1440 > 1) "s" else ""}"
+        m % 60 == 0 -> "${m / 60} hour${if (m / 60 > 1) "s" else ""}"
+        else -> "$m minute${if (m > 1) "s" else ""}"
     }
 }
 

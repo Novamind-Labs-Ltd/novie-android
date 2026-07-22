@@ -108,10 +108,11 @@ fun CalendarRoute(
                         editingTask = event.task
                         showAddTask = true
                     }
-                    // 点击活动/会议行 → 直接进入编辑页（跳过只读详情页）。
+                    // 点击活动/会议行 → 打开只读详情页（Figma 1032-42662，含提醒/邀请人等）；
+                    // 详情页点右上角铅笔再进编辑页（详情→编辑的连接见下方 MeetingDetailScreen.onEdit）。
                     is CalendarUiEvent.EventClicked -> {
                         selectedEvent = event.event
-                        showEditMeeting = true
+                        showDetail = true
                     }
                     else -> viewModel.onEvent(event)
                 }

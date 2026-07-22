@@ -14,6 +14,8 @@ import kotlinx.serialization.Serializable
 data class EventsResponse(
     val items: List<EventDto> = emptyList(),
     val nextPageToken: String? = null,
+    /** 日历级默认提醒：事件 reminders.useDefault=true 时的实际提醒时间来源（Google 在响应顶层给出）。 */
+    val defaultReminders: List<ReminderOverrideDto> = emptyList(),
 )
 
 @Serializable
@@ -29,6 +31,22 @@ data class EventDto(
     val end: EventDateTimeDto? = null,
     val attendees: List<AttendeeDto> = emptyList(),
     val conferenceData: ConferenceDataDto? = null,
+    /** 提醒：useDefault=true 用日历默认（见 [EventsResponse.defaultReminders]）；否则用 overrides。 */
+    val reminders: EventRemindersDto? = null,
+)
+
+@Serializable
+data class EventRemindersDto(
+    val useDefault: Boolean = true,
+    val overrides: List<ReminderOverrideDto> = emptyList(),
+)
+
+@Serializable
+data class ReminderOverrideDto(
+    /** "popup" / "email"。 */
+    val method: String? = null,
+    /** 开始前多少分钟触发。 */
+    val minutes: Int? = null,
 )
 
 /**

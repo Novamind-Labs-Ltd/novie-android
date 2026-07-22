@@ -26,15 +26,22 @@ class GoogleCalendarRepositoryImpl(
         withContext(Dispatchers.IO) {
             val timeMin = date.atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
             val timeMax = date.plusDays(1).atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
+            AppLog.d(TAG) { "eventsOn 请求: calendarId=primary date=$date zone=$zoneId timeMin=$timeMin timeMax=$timeMax" }
             try {
-                api.listEvents(calendarId = "primary", timeMin = timeMin, timeMax = timeMax)
-                    .items
-                    .filter { it.status != "cancelled" }
-                    .mapNotNull { it.toDomain() }
-                    // 仅展示常规活动与专注时间，其余类型（外出/工作地点/生日/Gmail 等）不进列表。
-                    .filter { it.isMeeting }
-                    .sortedBy { it.start }
+                val resp = api.listEvents(calendarId = "primary", timeMin = timeMin, timeMax = timeMax)
+                // 日历级默认提醒：事件 reminders.useDefault=true 时的实际提醒来源。
+                val calendarDefaults = resp.defaultReminders.mapNotNull { it.toDomainReminder() }
+                val items = resp.items
+                val active = items.filter { it.status != "cancelled" }
+                val mapped = active.mapNotNull { it.toDomain(calendarDefaults) }
+                // 仅展示常规活动与专注时间，其余类型（外出/工作地点/生日/Gmail 等）不进列表。
+                val shown = mapped.filter { it.isMeeting }.sortedBy { it.start }
+                // 各过滤阶段计数，便于定位「Google 有数据但列表空」是被哪一步过滤掉的。
+                AppLog.d(TAG) { "eventsOn 结果: date=$date raw=${items.size} active=${active.size} " +
+                        "mapped=${mapped.size} shown(isMeeting)=${shown.size}" }
+                shown
             } catch (e: HttpException) {
+                AppLog.w(TAG, e) { "eventsOn HTTP 错误: date=$date code=${e.code()}" }
                 throw e.toAuthAware()
             }
         }
@@ -83,7 +90,7 @@ class GoogleCalendarRepositoryImpl(
         else -> this
     }
 
-    private fun EventDto.toDomain(): CalendarEvent? {
+    private fun EventDto.toDomain(calendarDefaults: List<CalendarReminder> = emptyList()): CalendarEvent? {
         // 打印 EventDto 原始字段，便于核对与 CalendarEvent 的映射对应关系。
         AppLog.d(TAG) { "EventDto raw: id=$id status=$status summary=$summary location=$location " +
                     "eventType=$eventType hangoutLink=$hangoutLink start=$start end=$end " +
@@ -99,6 +106,12 @@ class GoogleCalendarRepositoryImpl(
         val hasInvitees = attendees.any { !it.self }
         val hasMeetingLink = !hangoutLink.isNullOrBlank() ||
                 !conferenceData?.conferenceId.isNullOrBlank()
+        // 生效提醒：无 reminders 视为无；useDefault=true 用日历默认；否则用事件自身 overrides。
+        val effectiveReminders = when {
+            reminders == null -> emptyList()
+            reminders.useDefault -> calendarDefaults
+            else -> reminders.overrides.mapNotNull { it.toDomainReminder() }
+        }
         val event = CalendarEvent(
             id = id,
             title = summary?.takeIf { it.isNotBlank() } ?: "(No title)",
@@ -117,6 +130,7 @@ class GoogleCalendarRepositoryImpl(
                     responseStatus = AttendeeResponse.fromApi(it.responseStatus),
                 )
             },
+            reminders = effectiveReminders,
         )
         // 映射结果（字段对应）：
         // id<-id, title<-summary, isAllDay<-(start.dateTime==null&&start.date!=null),
@@ -125,7 +139,8 @@ class GoogleCalendarRepositoryImpl(
         // isMeeting<-eventType==default&&(attendees 有他人||hangoutLink/conferenceId 非空)
         AppLog.d(TAG) { "  -> CalendarEvent: id=${event.id} title=${event.title} isAllDay=${event.isAllDay} " +
                     "start=${event.start} end=${event.end} location=${event.location} " +
-                    "eventType=${event.eventType} isMeeting=${event.isMeeting} attendees=${event.attendees.size}" }
+                    "eventType=${event.eventType} isMeeting=${event.isMeeting} attendees=${event.attendees.size} " +
+                    "reminders=${event.reminders.joinToString { "${it.minutesBefore}m/${it.method}" }}" }
         return event
     }
 
@@ -137,6 +152,10 @@ class GoogleCalendarRepositoryImpl(
         date != null -> LocalDate.parse(date).atStartOfDay()
         else -> null
     }
+
+    /** 提醒 DTO → 领域模型；minutes 缺省则丢弃该条。 */
+    private fun ReminderOverrideDto.toDomainReminder(): CalendarReminder? =
+        minutes?.let { CalendarReminder(minutesBefore = it, method = ReminderMethod.fromApi(method)) }
 
     private companion object {
         const val TAG = "CalendarRepo"

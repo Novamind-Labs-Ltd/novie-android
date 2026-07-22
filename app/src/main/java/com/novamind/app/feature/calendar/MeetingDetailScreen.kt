@@ -31,8 +31,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.data.calendar.CalendarAttendee
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventType
+import com.novamind.app.data.calendar.leadLabel
 import com.novamind.app.feature.calendar.components.BgPage
 import com.novamind.app.feature.calendar.components.ColorBorder
 import com.novamind.app.feature.calendar.components.ColorSurface
@@ -59,8 +61,8 @@ private fun String.stripHtml(): String =
         .trim()
 
 /**
- * 会议详情页（Figma My-Novie 959-62071）：顶部返回 + 「Meetings」标题；下方白色卡片依次展示
- * 事件名、时间、地点、描述。字段随 [CalendarEvent] 有值时才渲染（领域模型暂无提醒/邀请人/附件）。
+ * 会议详情页（Figma My-Novie 959-62071 / 1032-42662）：顶部返回 + 「Meetings」标题；下方白色卡片依次
+ * 展示事件名、时间、地点、提醒、邀请人、描述。各字段随 [CalendarEvent] 有值时才渲染（附件暂未接入）。
  *
  * 无状态：仅消费 [event] 与 [onBack]，作为全屏覆盖层由 [CalendarRoute] 编排。
  */
@@ -82,6 +84,18 @@ fun MeetingDetailScreen(
     }
     val location = event.location?.takeIf { it.isNotBlank() }
     val description = event.description?.stripHtml()?.takeIf { it.isNotBlank() }
+    // 提醒（Figma 铃铛行「1 hour」）：多条用逗号连接，如「1 hour, 10 minutes」；无提醒则不显示该行。
+    val reminderText = event.reminders.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.leadLabel() }
+    // 参会人员摘要（Figma「Jerry & 50 others」）：优先取非本人的参会者做代表名，其余计入 "& N others"。
+    val attendees = event.attendees
+    val inviteesText = when {
+        attendees.isEmpty() -> null
+        attendees.size == 1 -> attendees.first().label()
+        else -> {
+            val primary = attendees.firstOrNull { !it.self } ?: attendees.first()
+            "${primary.label()} & ${attendees.size - 1} others"
+        }
+    }
 
     Column(
         modifier = modifier
@@ -145,7 +159,7 @@ fun MeetingDetailScreen(
 
             DetailRow(iconRes = R.drawable.ic_clock, primary = timeText)
 
-            if (location != null || description != null) {
+            if (location != null || reminderText != null || inviteesText != null || description != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -155,12 +169,18 @@ fun MeetingDetailScreen(
             }
 
             location?.let { DetailRow(iconRes = R.drawable.ic_location, primary = it) }
+            reminderText?.let { DetailRow(iconRes = R.drawable.ic_notification, primary = it) }
+            inviteesText?.let { DetailRow(iconRes = R.drawable.ic_meeting_people, primary = it) }
             description?.let {
                 DetailRow(iconRes = R.drawable.ic_format_list, primary = it, multiline = true)
             }
         }
     }
 }
+
+/** 参会者展示名：昵称优先，其次邮箱，最后兜底 "Guest"（资源型参会者可能都为空）。 */
+private fun CalendarAttendee.label(): String =
+    displayName?.takeIf { it.isNotBlank() } ?: email?.takeIf { it.isNotBlank() } ?: "Guest"
 
 /** 详情行：圆形留白内的小图标 + 主文案（可选副文案），与 Figma 各信息行一致。 */
 @Composable
@@ -212,6 +232,11 @@ private fun MeetingDetailScreenPreview() {
                 isMeeting = true,
                 description = "Time to coordinate team workflows, align on priorities, " +
                     "and uncover project roadblocks.",
+                attendees = listOf(
+                    CalendarAttendee("me@novamind.ai", "Me", self = true, responseStatus = com.novamind.app.data.calendar.AttendeeResponse.ACCEPTED),
+                    CalendarAttendee("jerry@novamind.ai", "Jerry", self = false, responseStatus = com.novamind.app.data.calendar.AttendeeResponse.ACCEPTED),
+                    CalendarAttendee("alice@novamind.ai", "Alice", self = false, responseStatus = com.novamind.app.data.calendar.AttendeeResponse.TENTATIVE),
+                ),
             ),
             onBack = {},
         )
