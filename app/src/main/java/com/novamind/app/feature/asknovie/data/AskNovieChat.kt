@@ -52,8 +52,8 @@ sealed interface ChatStreamEvent {
  * Ask Novie 聊天 SSE 客户端。前端带 Auth0 token 直连 agent 服务（[ApiConfig.agentBaseUrl]），
  * `POST /v1/chat` 返回 `text/event-stream`，本类逐行解析 SSE 帧发为 [ChatStreamEvent] 流。
  *
- * agent 与 api 同域，直接复用应用主客户端（证书固定 / 通用头 / AuthInterceptor 自动附带 Auth0
- * token / 401 刷新），仅把读超时覆盖为 0（SSE 长连不超时）。
+ * agent 走独立 agents 子域（[ApiConfig.agentBaseUrl]），直接复用应用主客户端（通用头 /
+ * AuthInterceptor 自动附带 Auth0 token / 401 刷新），仅把读超时覆盖为 0（SSE 长连不超时）。
  */
 object AskNovieChat {
     private const val TAG = "AskNovieChat"

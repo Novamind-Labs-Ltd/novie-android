@@ -29,6 +29,12 @@ object ApiConfig {
         Env.PROD to "https://api.novamind-labs.co/",
     )
 
+    /** 每套环境的 ask-novie agent 域名（以 "/" 结尾）。与 api 独立部署，走 agents 子域。 */
+    private val AGENT_TABLE: Map<Env, String> = mapOf(
+        Env.TEST to "https://agents.mynovie.novamind-labs.co.nz/",
+        Env.PROD to "https://agents.novamind-labs.co/",
+    )
+
     /** flavor 注入的默认环境；脏值回退 test。 */
     private val DEFAULT: Env =
         Env.entries.firstOrNull { it.name == BuildConfig.DEFAULT_ENV } ?: Env.TEST
@@ -51,8 +57,8 @@ object ApiConfig {
     /** 当前环境的 api 域名。 */
     val apiBaseUrl: String get() = TABLE.getValue(_env.value)
 
-    /** ask-novie agent 域名：与 [apiBaseUrl] 同域（SSE 聊天走同一网关，路径 v1/chat）。 */
-    val agentBaseUrl: String get() = apiBaseUrl
+    /** 当前环境的 ask-novie agent 域名（SSE 聊天，路径 v1/chat）。走独立 agents 子域。 */
+    val agentBaseUrl: String get() = AGENT_TABLE.getValue(_env.value)
 
     /** 在 Application.onCreate 调用（需在 MMKV.initialize 之后），载入已持久化的环境选择。 */
     fun init(@Suppress("UNUSED_PARAMETER") context: Context) {
