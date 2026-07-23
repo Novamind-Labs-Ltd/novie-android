@@ -10,6 +10,10 @@ import com.novamind.app.common.config.AppConfig
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,12 +24,14 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -50,7 +56,6 @@ import androidx.compose.ui.res.painterResource
 import com.novamind.app.R
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.components.LoadingIndicator
-import com.novamind.app.ui.components.LoadingOverlay
 import com.novamind.app.feature.create.components.BorderColorDialog
 import com.novamind.app.feature.create.components.ShareAccessScreen
 import com.novamind.app.feature.create.components.CreateMetaRow
@@ -120,7 +125,6 @@ fun CreateScreen(
         TimeUtils.smart(uiState.updatedAt ?: System.currentTimeMillis())
     }
     val timeLabel = when {
-        uiState.isTranscribing -> "Transcribing…"
         uiState.isSaving -> "Saving…"
         else -> savedTimeLabel
     }
@@ -462,6 +466,9 @@ fun CreateScreen(
                     state = editor,
                     onContentChanged = emitContent,
                     readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中：正文不可编辑、不弹键盘
+                    bodyContent = if (uiState.isTranscribing) {
+                        { AudioTranscriptionContent() }
+                    } else null,
                     bodyCharLimit = maxInputChars,   // 正文上限独立，不再扣减标题字数
                     // 字数达/超上限：红色提示条吸顶，随正文向上滚动常驻顶部（回收站只读态不展示）
                     stickyBanner = if (!readOnly && totalChars >= maxInputChars) {
@@ -516,7 +523,7 @@ fun CreateScreen(
                             decorationBox = { inner ->
                                 if (titleFieldValue.text.isEmpty()) {
                                     Text(
-                                        "Untitled",
+                                        if (uiState.isTranscribing) "Untitled..." else "Untitled",
                                         fontSize = 24.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = TextColors.Primary.tertiary.current()
@@ -545,7 +552,15 @@ fun CreateScreen(
                             readOnly = readOnly,
                         )
                     },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (uiState.isTranscribing) {
+                                Modifier.background(BackgroundColors.Page.secondary.current())
+                            } else {
+                                Modifier
+                            },
+                        ),
                 )
             }
         }
@@ -752,12 +767,75 @@ fun CreateScreen(
             NoteEditorSkeleton(modifier = Modifier.fillMaxSize())
         }
 
-        // 转写轮询中：带文案的居中 loading（scrimAlpha=0 只留 HUD，仍拦截误触）。
-        LoadingOverlay(
-            visible = uiState.isTranscribing,
-            scrimAlpha = 0f,
-            message = "Transcribing your audio… This usually takes 1–10 minutes. Please check back shortly.",
+    }
+}
+
+/**
+ * 云端音频转写中的正文状态，按 Figma「new conversation」页面呈现：
+ * 保留标题和元信息，仅在正文区域显示处理提示。
+ */
+@Composable
+private fun AudioTranscriptionContent(
+    modifier: Modifier = Modifier,
+) {
+    val loadingTransition = rememberInfiniteTransition(label = "audio-transcription-loading")
+    val loadingAlpha by loadingTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "audio-transcription-alpha",
+    )
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 40.dp),
+        horizontalArrangement = Arrangement.spacedBy(26.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.audio_processing_indicator),
+            contentDescription = null,
+            modifier = Modifier
+                .size(24.dp)
+                .graphicsLayer { alpha = loadingAlpha },
         )
+        Column(
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(
+                text = "Processing audio...",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 20.sp,
+                color = TextColors.Primary.default.current(),
+            )
+            Text(
+                text = "Stay on this screen for just a moment, and it\nwill be ready shortly.",
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = TextColors.Primary.default.current(),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row {
+                Text(
+                    text = "Estimated time: ",
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    color = TextColors.Primary.default.current(),
+                )
+                Text(
+                    text = "Less than 2 minutes",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 20.sp,
+                    color = TextColors.Primary.default.current(),
+                )
+            }
+        }
     }
 }
 

@@ -59,7 +59,11 @@ fun CreateMetaRow(
                 label = selectedFolder?.name ?: "Unassigned",
                 onClick = if (readOnly) null else onShowFolderPicker,
             )
-            // 标签入口暂隐藏（保留参数与选中态,后续可恢复）
+            MetaChip(
+                iconResId = R.drawable.ic_tag,
+                label = "Tags",
+                onClick = if (readOnly) null else onShowTagPicker,
+            )
 
         }
         // 日期时间：非胶囊，图标 16 + 文字 12

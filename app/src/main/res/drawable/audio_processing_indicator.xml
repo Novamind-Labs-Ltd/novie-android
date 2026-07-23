@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="25dp"
+    android:viewportWidth="23.9766"
+    android:viewportHeight="24.5391">
+
+    <!-- Converted from the Figma SVG asset; transparent background keeps the page color visible. -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M20.7071,0.1536A3.2695,3.2695 0,1 0,20.7071 6.6927A3.2695,3.2695 0,1 0,20.7071 0.1536Z" />
+    <path
+        android:fillColor="#80333333"
+        android:pathData="M12.168,0.1536A3.2695,3.2695 0,1 0,12.168 6.6927A3.2695,3.2695 0,1 0,12.168 0.1536Z" />
+    <path
+        android:fillColor="#4D333333"
+        android:pathData="M3.6289,0.1536A3.2695,3.2695 0,1 0,3.6289 6.6927A3.2695,3.2695 0,1 0,3.6289 0.1536Z" />
+    <path
+        android:fillColor="#80333333"
+        android:pathData="M3.3294,8.8464A3.3294,3.4232 0,1 0,3.3294 15.6927A3.3294,3.4232 0,1 0,3.3294 8.8464Z" />
+    <path
+        android:fillColor="#333333"
+        android:pathData="M11.9883,8.8464A3.3294,3.4232 0,1 0,11.9883 15.6927A3.3294,3.4232 0,1 0,11.9883 8.8464Z" />
+    <path
+        android:fillColor="#80333333"
+        android:pathData="M20.6472,8.8464A3.3294,3.4232 0,1 0,20.6472 15.6927A3.3294,3.4232 0,1 0,20.6472 8.8464Z" />
+    <path
+        android:fillColor="#333333"
+        android:pathData="M3.3294,17.6927A3.3294,3.4232 0,1 0,3.3294 24.5391A3.3294,3.4232 0,1 0,3.3294 17.6927Z" />
+    <path
+        android:fillColor="#80333333"
+        android:pathData="M11.9883,17.6927A3.3294,3.4232 0,1 0,11.9883 24.5391A3.3294,3.4232 0,1 0,11.9883 17.6927Z" />
+    <path
+        android:fillColor="#4D333333"
+        android:pathData="M20.6472,17.6927A3.3294,3.4232 0,1 0,20.6472 24.5391A3.3294,3.4232 0,1 0,20.6472 17.6927Z" />
+</vector>

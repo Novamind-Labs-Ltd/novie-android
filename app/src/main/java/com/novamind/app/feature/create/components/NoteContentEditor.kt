@@ -48,6 +48,7 @@ fun NoteContentEditor(
     onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
     onImageRetry: (ImageBlock) -> Unit = {},    // 图片上传失败后点击重试
     header: (@Composable () -> Unit)? = null,   // 随正文一起滚动的头部（标题 / folder / tags 等）
+    bodyContent: (@Composable () -> Unit)? = null, // 替换正文块的临时状态（如音频转写中）
     stickyBanner: (@Composable () -> Unit)? = null,  // 吸顶提示条（如字数超限）：跟随头部后、向上滚动时常驻顶部
     readOnly: Boolean = false,                  // 录音期间等场景：正文不可编辑、点击不弹键盘
     bodyCharLimit: Int = Int.MAX_VALUE,         // 正文可输入字数上限（= 总上限 − 标题字数）
@@ -95,8 +96,13 @@ fun NoteContentEditor(
             item(key = "__tip__") { stickyBanner() }
         }
 
-        items(state.blocks, key = { it.id }) { block ->
-            when (block) {
+        if (bodyContent != null) {
+            item(key = "__body_content__") {
+                bodyContent()
+            }
+        } else {
+            items(state.blocks, key = { it.id }) { block ->
+                when (block) {
                 is TextBlock -> TextBlockField(
                     block = block,
                     showPlaceholder = singleEmpty,
@@ -159,26 +165,27 @@ fun NoteContentEditor(
                         onContentChanged()
                     },
                 )
+                }
             }
-        }
 
-        // 末尾：导航栏 + 键盘/工具栏留白，且作为「点击空白聚焦末尾文本块」的热区
-        item(key = "__tail__") {
-            Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(bottomPad)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        enabled = !readOnly,   // 录音期间禁用点击空白聚焦/弹键盘
-                        onClick = {
-                            state.focusLastTextBlock()
-                            keyboard?.show()
-                        },
-                    ),
-            )
+            // 末尾：导航栏 + 键盘/工具栏留白，且作为「点击空白聚焦末尾文本块」的热区
+            item(key = "__tail__") {
+                Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(bottomPad)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            enabled = !readOnly,   // 录音期间禁用点击空白聚焦/弹键盘
+                            onClick = {
+                                state.focusLastTextBlock()
+                                keyboard?.show()
+                            },
+                        ),
+                )
+            }
         }
     }
 
