@@ -54,6 +54,8 @@ internal fun RecentNoteCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // 预留最小卡片高度：刷新后缩略图异步补齐时不再把整页内容向下撑开。
+                .heightIn(min = 96.dp)
                 // 含图时用 IntrinsicSize.Min 让缩略图高度跟随左侧内容高度（Figma：图片充满卡片高度）
                 .then(if (note.imagePath != null) Modifier.height(IntrinsicSize.Min) else Modifier)
                 .padding(horizontal = 20.dp, vertical = 12.dp),

@@ -15,6 +15,7 @@ import com.novamind.app.common.net.response.fold
 import com.novamind.app.common.session.UserSessionManager
 import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.RemoteNoteRepository
+import com.novamind.app.data.calendar.TodayAgenda
 import com.novamind.app.data.calendar.TodayAgendaUseCase
 import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
@@ -31,7 +32,10 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -74,9 +78,65 @@ class HomeViewModel @Inject constructor(
 
     /** 下拉刷新：重新拉取云端笔记与今日日历。 */
     fun onRefresh() {
-        if (_uiState.value.isRefreshing) return
-        loadNotes(isRefresh = true)
-        loadUpcoming()
+        // 首屏请求尚未完成时不再并发发起一套刷新请求，避免两个响应按不同顺序覆盖页面。
+        if (_uiState.value.isRefreshing || _uiState.value.isLoading) return
+        _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+
+        viewModelScope.launch {
+            // 笔记与 Up next 并行请求，但等两者都完成后再结束 isRefreshing，
+            // 这样下拉容器回弹时页面内容高度已经稳定。
+            val (notesResult, agenda) = coroutineScope {
+                val notesRequest = async {
+                    notesRepository.listNotes(
+                        trashed = false,
+                        limit = AppConfig.Paging.HOME_RECENT_NOTES_SIZE,
+                    )
+                }
+                val agendaRequest = async {
+                    try {
+                        todayAgenda()
+                    } catch (c: CancellationException) {
+                        throw c
+                    } catch (_: Exception) {
+                        TodayAgenda()
+                    }
+                }
+                notesRequest.await() to agendaRequest.await()
+            }
+
+            notesResult.fold(
+                onSuccess = { page ->
+                    val previousById = _uiState.value.notes.associateBy { it.id }
+                    val items = page?.items.orEmpty().map { summary ->
+                        val fresh = summary.toNoteItem()
+                        val previous = previousById[fresh.id]
+                        if (previous == null) {
+                            fresh
+                        } else {
+                            // 刷新接口暂时没有缩略图时保留旧图，避免卡片先缩短、再被详情图撑高。
+                            fresh.copy(
+                                imagePath = fresh.imagePath ?: previous.imagePath,
+                                borderColor = fresh.borderColor ?: previous.borderColor,
+                            )
+                        }
+                    }
+                    _uiState.update {
+                        it.copy(notes = items, errorMessage = null)
+                    }
+                    resolveNoteExtras(items)
+                },
+                onFail = { result ->
+                    val message = when (result) {
+                        is ApiResult.BizError -> result.message ?: "Failed to load notes (${result.code})"
+                        else -> "网络异常，请重试"
+                    }
+                    _uiState.update { it.copy(errorMessage = message) }
+                },
+            )
+
+            applyAgenda(agenda)
+            _uiState.update { it.copy(isRefreshing = false) }
+        }
     }
 
     /**
@@ -124,45 +184,49 @@ class HomeViewModel @Inject constructor(
      */
     private fun loadUpcoming() {
         viewModelScope.launch {
-            val agenda = todayAgenda()   // 静默授权 + 拉今日会议/任务（尽力而为，失败返回空）
-            val items = buildList {
-                // 会议（有时间，按开始时间；仓库已按 start 排序）
-                agenda.events.filterNot { it.isPast }.forEach { e ->
-                    add(
-                        UpcomingItem(
-                            id = "evt_${e.id}",
-                            title = e.title,
-                            // 描述优先（压掉多余空白/换行），无描述回退地点
-                            subtitle = (e.description?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
-                                ?: e.location).orEmpty(),
-                            iconResId = R.drawable.ic_upcoming_meeting,
-                            time = if (e.isAllDay) "" else e.start.format(TIME_FMT),
-                            isMeeting = true,   // 会议卡：带 Start notes
-                        )
+            applyAgenda(todayAgenda())
+        }
+    }
+
+    /** 将同一份议程结果一次性映射到 Up next，避免刷新期间分段改变页面高度。 */
+    private fun applyAgenda(agenda: TodayAgenda) {
+        val items = buildList {
+            // 会议（有时间，按开始时间；仓库已按 start 排序）
+            agenda.events.filterNot { it.isPast }.forEach { e ->
+                add(
+                    UpcomingItem(
+                        id = "evt_${e.id}",
+                        title = e.title,
+                        // 描述优先（压掉多余空白/换行），无描述回退地点
+                        subtitle = (e.description?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
+                            ?: e.location).orEmpty(),
+                        iconResId = R.drawable.ic_upcoming_meeting,
+                        time = if (e.isAllDay) "" else e.start.format(TIME_FMT),
+                        isMeeting = true,   // 会议卡：带 Start notes
                     )
-                }
-                // 任务（date-only，无具体时间）
-                agenda.tasks.filterNot { it.isCompleted }.forEach { t ->
-                    add(
-                        UpcomingItem(
-                            id = "task_${t.id}",
-                            title = t.title,
-                            subtitle = t.notes.orEmpty(),
-                            iconResId = R.drawable.ic_upcoming_report,
-                            time = "",
-                        )
-                    )
-                }
-            }
-            // 记住展示中的原始任务，供点击进入详情/编辑取回完整字段（listId/notes/due 等）
-            _uiState.update {
-                it.copy(
-                    upcomingItems = items,
-                    todayTasks = agenda.tasks.filterNot { t -> t.isCompleted },
-                    // 有可连接账号但未静默授权 → Up next 展示「连接日历」入口
-                    calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
                 )
             }
+            // 任务（date-only，无具体时间）
+            agenda.tasks.filterNot { it.isCompleted }.forEach { t ->
+                add(
+                    UpcomingItem(
+                        id = "task_${t.id}",
+                        title = t.title,
+                        subtitle = t.notes.orEmpty(),
+                        iconResId = R.drawable.ic_upcoming_report,
+                        time = "",
+                    )
+                )
+            }
+        }
+        // 记住展示中的原始任务，供点击进入详情/编辑取回完整字段（listId/notes/due 等）
+        _uiState.update {
+            it.copy(
+                upcomingItems = items,
+                todayTasks = agenda.tasks.filterNot { t -> t.isCompleted },
+                // 有可连接账号但未静默授权 → Up next 展示「连接日历」入口
+                calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
+            )
         }
     }
 

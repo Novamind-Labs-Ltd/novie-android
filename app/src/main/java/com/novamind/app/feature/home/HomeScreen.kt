@@ -200,15 +200,17 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     uiState.notes.forEach { note ->
-                        RecentNoteCard(
-                            note = note,
-                            onClick = {
-                                AppLog.d(TAG) { "note clicked: id=${note.id} title=\"${note.title}\" " +
-                                        "tags=${note.tags} folder=${note.folderName} " +
-                                        "updatedAt=${note.updatedAt} hasImage=${note.imagePath != null}" }
-                                onNoteClick(note.id)
-                            },
-                        )
+                        key(note.id) {
+                            RecentNoteCard(
+                                note = note,
+                                onClick = {
+                                    AppLog.d(TAG) { "note clicked: id=${note.id} title=\"${note.title}\" " +
+                                            "tags=${note.tags} folder=${note.folderName} " +
+                                            "updatedAt=${note.updatedAt} hasImage=${note.imagePath != null}" }
+                                    onNoteClick(note.id)
+                                },
+                            )
+                        }
                     }
                 }
             }
