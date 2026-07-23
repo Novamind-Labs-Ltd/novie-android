@@ -4,6 +4,7 @@ import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.TokenProvider
+import com.novamind.app.util.TimeUtils
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -134,7 +135,13 @@ object AskNovieChat {
                             val rawData = data.toString()
                             // 记录服务端原始帧，包含文本增量与状态/done，便于还原 SSE 返回。
                             // AppLog 会在写入各 Sink 前统一做 PII 脱敏。
-                            AppLog.i(TAG) { "chat SSE 收到 event=$name data=$rawData" }
+                            val receivedAt = TimeUtils.format(
+                                System.currentTimeMillis(),
+                                "yyyy-MM-dd HH:mm:ss.SSS",
+                            )
+                            AppLog.i(TAG) {
+                                "chat SSE 收到 time=$receivedAt event=$name data=$rawData"
+                            }
                             val ev = parseFrame(name, rawData)
                             if (ev != null) emit(ev)
                             if (ev is ChatStreamEvent.Done) return@flow
