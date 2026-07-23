@@ -617,6 +617,9 @@ fun AskNovieScreen(
                         R.drawable.ic_history,
                         "History",
                         onClick = {
+                            // 打开历史前释放输入框焦点，避免弹窗切换期间光标继续闪烁。
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
                             // 流式回复进行中也先写入当前快照，历史列表打开即可看到并可安全切换。
                             persistCurrentSession()
                             showHistory = true
@@ -1009,10 +1012,14 @@ fun AskNovieScreen(
         ChatHistorySheet(
             onDismiss = { showHistory = false },
             onNewChat = {
+                keyboardController?.hide()
+                focusManager.clearFocus()
                 showHistory = false
                 startNewChat()
             },
             onSelectSession = { s ->
+                keyboardController?.hide()
+                focusManager.clearFocus()
                 showHistory = false
                 // 仅切换展示会话：旧会话的 SSE 继续在后台接收并保存。
                 persistCurrentSession()
