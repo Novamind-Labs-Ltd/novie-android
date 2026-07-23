@@ -5,7 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -25,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -431,9 +431,7 @@ fun AskNovieScreen(
             input = ""
             attachments = emptyList()
             sendMessage(prompt, atts)
-            // 发送后收起键盘并清焦点
-            keyboardController?.hide()
-            focusManager.clearFocus()
+            // 保留输入框焦点和键盘，保持 ChatGPT 式连续发送交互。
         }
     }
 
@@ -777,11 +775,10 @@ fun AskNovieScreen(
                         shape = RoundedCornerShape(20.dp),
                         shadowElevation = 1.dp,
                     ) {
-                        // animateContentSize：附件增删导致的高度变化平滑过渡，避免突变
+                        // 输入卡片不做整体尺寸动画，避免文本测量时出现先变高再回缩的抖动。
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .animateContentSize()
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                         ) {
                             // 已选附件预览（横向滚动），位于卡片内部上方
@@ -815,7 +812,9 @@ fun AskNovieScreen(
 
                             // 首行：占位 / 输入
                             Box(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 22.dp),
                                 contentAlignment = Alignment.CenterStart,
                             ) {
                                 if (input.isEmpty()) {
@@ -823,6 +822,7 @@ fun AskNovieScreen(
                                         "Message with Novie",
                                         color = Hint,
                                         fontSize = 16.sp,
+                                        lineHeight = 22.sp,
                                     )
                                 }
                                 BasicTextField(
@@ -836,6 +836,7 @@ fun AskNovieScreen(
                                     cursorBrush = SolidColor(Dark),
                                     // Figma：多行自增长（最多约 6 行后内部滚动），换行用回车，发送用按钮
                                     singleLine = false,
+                                    minLines = 1,
                                     maxLines = 6,
                                     modifier = Modifier
                                         .fillMaxWidth()
