@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,12 +45,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -497,6 +500,13 @@ fun AskNovieScreen(
         if (sendTick > 0) listState.animateScrollToItem(anchorIndex)
     }
 
+    // 切换历史会话后，等待新消息列表完成一次布局，再定位到最后一个实际 item。
+    LaunchedEffect(sessionId) {
+        withFrameNanos { }
+        val lastIndex = listState.layoutInfo.totalItemsCount - 1
+        if (lastIndex >= 0) listState.scrollToItem(lastIndex)
+    }
+
     // 底部留白只服务于本轮回复生成过程；回复完成后立即移除，避免空白一直保留。
     LaunchedEffect(isResponding, isStreaming) {
         if (!isResponding && !isStreaming) keepBottomSpace = false
@@ -645,64 +655,72 @@ fun AskNovieScreen(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            horizontal = 16.dp,
-                            vertical = 12.dp,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        items(messages) { msg ->
-                            // animateItem：新消息淡入 + 位置平滑过渡，发送时不突兀
-                            Box(modifier = Modifier
-                                .fillMaxWidth()
-                                .animateItem()) {
-                                if (msg.role == Role.User) {
-                                    UserBubble(msg)
-                                } else when (val b = msg.block) {
-                                    // agentic 富内容块
-                                    is ChatBlock.SkillStatus -> SkillStatusRow(b.label, b.working)
-                                    is ChatBlock.Quadrant -> QuadrantDiagram(b)
-                                    is ChatBlock.NoteResult -> NoteResultCard(b, onClick = {
-                                        Toast.makeText(context, "Opening note…", Toast.LENGTH_SHORT).show()
-                                    })
-                                    ChatBlock.CreateNoteCta -> CreateNoteCta(onClick = onCreateNoteRequested)
-                                    // 纯文本助手消息（收尾语带花标、状态行为灰字）
-                                    null -> when {
-                                        msg.showAvatar -> AssistantText(msg.text, showAvatar = true)
-                                        msg.dim -> Text(
-                                            msg.text,
-                                            color = TextSub,
-                                            fontSize = 14.sp,
-                                            lineHeight = 20.sp,
-                                        )
-                                        else -> AssistantText(msg.text)
+                    // 会话切换时重建 LazyColumn，取消旧会话的 animateItem 动画，避免新旧内容重影。
+                    key(sessionId) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                horizontal = 16.dp,
+                                vertical = 12.dp,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            itemsIndexed(
+                                items = messages,
+                                key = { index, _ -> "message-$index" },
+                            ) { _, msg ->
+                                // animateItem：新消息淡入 + 位置平滑过渡，发送时不突兀
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItem()) {
+                                    if (msg.role == Role.User) {
+                                        UserBubble(msg)
+                                    } else when (val b = msg.block) {
+                                        // agentic 富内容块
+                                        is ChatBlock.SkillStatus -> SkillStatusRow(b.label, b.working)
+                                        is ChatBlock.Quadrant -> QuadrantDiagram(b)
+                                        is ChatBlock.NoteResult -> NoteResultCard(b, onClick = {
+                                            Toast.makeText(context, "Opening note…", Toast.LENGTH_SHORT).show()
+                                        })
+                                        ChatBlock.CreateNoteCta -> CreateNoteCta(onClick = onCreateNoteRequested)
+                                        // 纯文本助手消息（收尾语带花标、状态行为灰字）
+                                        null -> when {
+                                            msg.showAvatar -> AssistantText(msg.text, showAvatar = true)
+                                            msg.dim -> Text(
+                                                msg.text,
+                                                color = TextSub,
+                                                fontSize = 14.sp,
+                                                lineHeight = 20.sp,
+                                            )
+                                            else -> AssistantText(msg.text)
+                                        }
                                     }
                                 }
                             }
-                        }
-                        if (isResponding) {
-                            item { Box(modifier = Modifier.animateItem()) { TypingIndicator() } }
-                        }
-                        // 会话已结束（非生成中）：末尾展示免责声明
-                        if (messages.isNotEmpty() && !isResponding && !isStreaming) {
-                            item {
-                                Box(modifier = Modifier
-                                    .fillMaxWidth()
-                                    .animateItem()
-                                    .padding(top = 4.dp)) { FooterDisclaimer() }
-                            }
-                        }
-                        // 底部占位：只填满本轮内容之外的剩余视口（仿 ChatGPT），整轮保留，
-                        // 回复不足一屏时底部留白且文字位置不跳动。
-                        if (bottomSpacerPx > 0) {
-                            item {
-                                val spacerH = with(LocalDensity.current) {
-                                    bottomSpacerPx.toDp()
+                            if (isResponding) {
+                                item(key = "typing") {
+                                    Box(modifier = Modifier.animateItem()) { TypingIndicator() }
                                 }
-                                Spacer(Modifier.height(spacerH))
+                            }
+                            // 会话已结束（非生成中）：末尾展示免责声明
+                            if (messages.isNotEmpty() && !isResponding && !isStreaming) {
+                                item(key = "disclaimer") {
+                                    Box(modifier = Modifier
+                                        .fillMaxWidth()
+                                        .animateItem()
+                                        .padding(top = 4.dp)) { FooterDisclaimer() }
+                                }
+                            }
+                            // 底部占位：只填满本轮内容之外的剩余视口（仿 ChatGPT），整轮保留，
+                            // 回复不足一屏时底部留白且文字位置不跳动。
+                            if (bottomSpacerPx > 0) {
+                                item(key = "bottom-spacer") {
+                                    val spacerH = with(LocalDensity.current) {
+                                        bottomSpacerPx.toDp()
+                                    }
+                                    Spacer(Modifier.height(spacerH))
+                                }
                             }
                         }
                     }
