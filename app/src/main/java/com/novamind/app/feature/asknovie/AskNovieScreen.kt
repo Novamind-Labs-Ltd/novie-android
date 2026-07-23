@@ -104,7 +104,9 @@ import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.PermissionUtils
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -407,12 +409,17 @@ fun AskNovieScreen(
                     }
                 }
             } else {
-                // 真实对话：SSE 流式（mode=chat）。text 增量追加到助手消息；出错以回复文本呈现。
-                // 「停止」取消 responseJob → 关闭底层连接，已输出的部分文本保留。
+                // 真实对话：SSE 流式（mode=chat）。SSE 增量先累积到 target，再由打字机协程按节奏
+                // 逐段吐字到气泡，形成打字效果——不受后端一次性大块下发的影响。
+                // 「停止」取消 responseJob → 关闭底层连接，已「显示」的部分文本保留。
                 isResponding = true
                 responseJob = scope.launch {
                     val replyIndex = messages.size
                     var appended = false
+                    val target = StringBuilder()   // 已收到的完整文本（SSE 累积）
+                    var shown = 0                  // 已显示字符数（打字机指针）
+                    var streamEnded = false        // SSE 收流结束（target 不再增长）
+                    var firstShown = false
                     fun ensureBubble() {
                         if (!appended) {
                             isResponding = false
@@ -427,32 +434,51 @@ fun AskNovieScreen(
                         }
                     }
                     try {
-                        AskNovieChat.streamChat(
-                            mode = "chat",
-                            conversationId = sessionId,
-                            input = prompt,
-                        ).collect { ev ->
-                            when (ev) {
-                                is ChatStreamEvent.TextDelta -> {
-                                    val first = !appended
-                                    ensureBubble()
-                                    val current = messages.getOrNull(replyIndex)?.text.orEmpty()
-                                    setReplyText(current + ev.delta)
-                                    if (first) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        coroutineScope {
+                            // 打字机：落后越多吐得越快、收尾放慢，形成自然节奏（~60fps）。
+                            val typer = launch {
+                                while (isActive) {
+                                    if (shown < target.length) {
+                                        ensureBubble()
+                                        val step = ((target.length - shown) / 20).coerceIn(1, 8)
+                                        shown = (shown + step).coerceAtMost(target.length)
+                                        setReplyText(target.substring(0, shown))
+                                        if (!firstShown) {
+                                            firstShown = true
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                    } else if (streamEnded) {
+                                        break // 已全部吐完且收流结束
+                                    }
+                                    delay(16)
                                 }
-                                is ChatStreamEvent.Failure -> {
-                                    ensureBubble()
-                                    setReplyText(
-                                        ev.message
-                                            ?: "Something went wrong (${ev.code ?: "error"}). Please try again.",
-                                    )
-                                }
-                                // MVP：卡片 / 状态暂不渲染；done 让流自然结束
-                                is ChatStreamEvent.Card,
-                                is ChatStreamEvent.Status,
-                                is ChatStreamEvent.Done,
-                                -> Unit
                             }
+                            AskNovieChat.streamChat(
+                                mode = "chat",
+                                conversationId = sessionId,
+                                input = prompt,
+                            ).collect { ev ->
+                                when (ev) {
+                                    is ChatStreamEvent.TextDelta -> target.append(ev.delta)
+                                    is ChatStreamEvent.Failure -> {
+                                        // 出错：直接呈现错误文案（不走打字机），随后收流
+                                        ensureBubble()
+                                        val msg = ev.message
+                                            ?: "Something went wrong (${ev.code ?: "error"}). Please try again."
+                                        target.setLength(0)
+                                        target.append(msg)
+                                        shown = target.length
+                                        setReplyText(msg)
+                                    }
+                                    // MVP：卡片 / 状态暂不渲染；done 让流自然结束
+                                    is ChatStreamEvent.Card,
+                                    is ChatStreamEvent.Status,
+                                    is ChatStreamEvent.Done,
+                                    -> Unit
+                                }
+                            }
+                            streamEnded = true
+                            typer.join() // 等打字机把剩余文本吐完
                         }
                     } finally {
                         isResponding = false
