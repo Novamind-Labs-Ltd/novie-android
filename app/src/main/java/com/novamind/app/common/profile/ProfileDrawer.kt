@@ -66,10 +66,8 @@ fun ProfileDrawerContent(
     onViewAvatar: () -> Unit = onChangeAvatar,
     onOpenPermissions: () -> Unit = {},
     onLogout: () -> Unit = {},
-    showLogout: Boolean = true,   // 游客模式无 Auth0 会话，隐藏退出登录
-    onLogin: () -> Unit = {},     // 游客切换到登录
-    showLogin: Boolean = false,   // 游客模式显示「登录 / 注册」入口
-    showBiometricToggle: Boolean = false,        // 设备支持生物识别且非游客时显示指纹开关
+    showLogout: Boolean = true,
+    showBiometricToggle: Boolean = false,        // 设备支持生物识别时显示指纹开关
     biometricEnabled: Boolean = false,           // 指纹登录是否已开启
     onToggleBiometric: (Boolean) -> Unit = {},   // 切换指纹登录
     modifier: Modifier = Modifier,
@@ -149,17 +147,12 @@ fun ProfileDrawerContent(
             }
             ProfileMenuItem(R.drawable.ic_more, "Settings")
 
-            // 账户出口：真实登录显示「退出登录」，游客显示「登录 / 注册」
-            if (showLogout || showLogin) {
+            // 账户出口：退出登录
+            if (showLogout) {
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
                 Spacer(Modifier.height(8.dp))
-                if (showLogout) {
-                    ProfileMenuItem(R.drawable.ic_arrow_back, "Log Out", onClick = onLogout)
-                }
-                if (showLogin) {
-                    ProfileMenuItem(R.drawable.ic_arrow_back, "Log In / Sign Up", onClick = onLogin)
-                }
+                ProfileMenuItem(R.drawable.ic_arrow_back, "Log Out", onClick = onLogout)
             }
         }
     }

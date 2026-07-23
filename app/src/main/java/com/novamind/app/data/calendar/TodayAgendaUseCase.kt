@@ -18,7 +18,7 @@ data class TodayAgenda(
     val tasks: List<CalendarTask> = emptyList(),
     /** 是否已静默授权成功（拿到可用 token，议程数据来自日历）。 */
     val authorized: Boolean = false,
-    /** 是否有可用于连接的账号（非游客且有登录邮箱）——决定是否展示「连接日历」入口。 */
+    /** 是否有可用于连接的账号（有登录邮箱）——决定是否展示「连接日历」入口。 */
     val accountAvailable: Boolean = false,
 )
 
@@ -28,7 +28,7 @@ data class TodayAgenda(
  * 抽出日历页的「静默授权 + 取数」核心逻辑，供首页 Up next 等复用，避免各处重复实现，
  * 也让首页获得与日历页一致的静默续期能力（token 过期自动重取一次）。
  *
- * 只读、尽力而为：游客 / 未连接 / 未授权 / 网络错误一律返回空议程，不抛异常，
+ * 只读、尽力而为：未连接 / 未授权 / 网络错误一律返回空议程，不抛异常，
  * 也**不修改**连接绑定状态（建立/切换绑定仍由 Calendar 页负责）。
  */
 @Singleton
@@ -39,8 +39,6 @@ class TodayAgendaUseCase @Inject constructor(
     private val bindingStore: CalendarBindingStore,
 ) {
     suspend operator fun invoke(): TodayAgenda {
-        // 游客不可用日历
-        if (UserSessionManager.current.isGuest) return TodayAgenda()
         // 账号：优先已绑定账号，否则探测当前登录账户（只读，不建立绑定）
         val account = (bindingStore.accountEmail?.takeIf { bindingStore.isConnected }
             ?: UserSessionManager.current.userKey)?.takeIf { it.isNotBlank() }

@@ -54,10 +54,8 @@ fun HomeRoute(
     onStartNotes: () -> Unit = {},                 // Up next 首卡「Start notes」动作
     onFullscreenChange: (Boolean) -> Unit = {},   // 子页/抽屉打开 → 宿主隐藏底部导航
     onLogout: () -> Unit = {},                     // 退出登录（由宿主交给 AuthViewModel 处理）
-    onSwitchToLogin: () -> Unit = {},              // 游客切换到登录页
-    userName: String? = null,                      // 显示昵称（来自全局 UserSession.profile，游客为空）
-    userEmail: String? = null,                     // 登录邮箱（来自 UserSession.profile/userKey，游客为空）
-    isGuest: Boolean = false,                      // 游客模式（无 Auth0 会话，隐藏退出登录）
+    userName: String? = null,                      // 显示昵称（来自全局 UserSession.profile）
+    userEmail: String? = null,                     // 登录邮箱（来自 UserSession.profile/userKey）
     biometricAvailable: Boolean = false,           // 设备是否支持生物识别（已录入）
     biometricEnabled: Boolean = false,             // 是否已开启指纹登录
     onToggleBiometric: (Boolean) -> Unit = {},     // 切换指纹登录开关
@@ -117,7 +115,7 @@ fun HomeRoute(
         drawerContent = {
             ProfileDrawerContent(
                 avatarPath = avatarPath,
-                name = userName?.takeIf { it.isNotBlank() } ?: "Guest",
+                name = userName?.takeIf { it.isNotBlank() } ?: "",
                 email = userEmail.orEmpty(),
                 onChangeAvatar = { openAvatar() },
                 onViewAvatar = { openAvatar() },
@@ -129,14 +127,8 @@ fun HomeRoute(
                 },
                 // 点退出登录先弹二次确认，确认后才真正登出
                 onLogout = { showLogoutConfirm = true },
-                showLogout = !isGuest,
-                onLogin = {
-                    scope.launch { drawerState.close() }
-                    onSwitchToLogin()
-                },
-                showLogin = isGuest,
-                // 指纹登录开关：仅真实登录用户、且设备支持生物识别时显示
-                showBiometricToggle = biometricAvailable && !isGuest,
+                // 指纹登录开关：设备支持生物识别时显示
+                showBiometricToggle = biometricAvailable,
                 biometricEnabled = biometricEnabled,
                 onToggleBiometric = onToggleBiometric,
             )

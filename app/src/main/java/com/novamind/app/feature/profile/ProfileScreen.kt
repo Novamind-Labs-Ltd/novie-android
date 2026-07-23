@@ -63,7 +63,6 @@ fun ProfileScreen(
     name: String,
     email: String,
     avatarPath: String?,
-    isGuest: Boolean,
     onEditAvatar: () -> Unit = {},
     onNotificationPreferences: () -> Unit = {},
     onConnectors: () -> Unit = {},
@@ -76,7 +75,6 @@ fun ProfileScreen(
     onCheckForUpdates: () -> Unit = {},
     onPrivacyPolicy: () -> Unit = {},
     onLogout: () -> Unit = {},
-    onLogin: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -152,19 +150,19 @@ fun ProfileScreen(
 
         Spacer(Modifier.height(24.dp))
 
-        // ── 底部主操作：整宽黑色胶囊（游客态改为登录入口）───────────────────────
+        // ── 底部主操作：整宽黑色胶囊「退出登录」───────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .clip(RoundedCornerShape(100.dp))
                 .background(BtnBg)
-                .clickable(onClick = if (isGuest) onLogin else onLogout)
+                .clickable(onClick = onLogout)
                 .padding(vertical = 14.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = if (isGuest) "Log in / Sign up" else "Sign out",
+                text = "Sign out",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = BtnText,
@@ -238,20 +236,6 @@ private fun ProfileScreenPreview() {
             name = "Jam",
             email = "jam@novamind-labs.ai",
             avatarPath = null,
-            isGuest = false,
-        )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true, name = "Profile · Guest")
-@Composable
-private fun ProfileScreenGuestPreview() {
-    AppTheme {
-        ProfileScreen(
-            name = "",
-            email = "",
-            avatarPath = null,
-            isGuest = true,
         )
     }
 }

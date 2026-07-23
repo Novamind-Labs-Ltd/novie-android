@@ -75,11 +75,6 @@ object UserSessionManager {
         _session.update { it.copy(status = AuthStatus.AUTHENTICATED, userKey = email) }
     }
 
-    /** 进入游客态：清档案，不落缓存。 */
-    fun onGuest() {
-        _session.value = UserSession(AuthStatus.GUEST)
-    }
-
     /** 判定无会话：迁未登录，清缓存。 */
     fun onLoggedOut() {
         reset()

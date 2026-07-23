@@ -242,10 +242,8 @@ class MainActivity : FragmentActivity() {
                                 onAskNovie = { showAskNovie = true },
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
-                                onSwitchToLogin = { authViewModel.exitGuest() },
                                 userName = userSession.profile?.displayName,
                                 userEmail = userSession.profile?.email ?: userSession.userKey,
-                                isGuest = authState.isGuest,
                                 biometricAvailable = authState.biometricAvailable,
                                 biometricEnabled = authState.biometricEnabled,
                                 onToggleBiometric = { authViewModel.setBiometricEnabled(it) },
@@ -289,12 +287,10 @@ class MainActivity : FragmentActivity() {
                             BottomNavDestination.Profile.route -> ProfileRoute(
                                 userName = userSession.profile?.displayName,
                                 userEmail = userSession.profile?.email ?: userSession.userKey,
-                                isGuest = authState.isGuest,
                                 onOpenPermissions = { showProfilePermissions = true },
                                 onAbout = { showAbout = true },
                                 // Sign out 使用彻底登出：打开浏览器命中 /v2/logout，清除 Auth0 SSO 会话
                                 onLogout = { authViewModel.logoutFederated(this@MainActivity) },
-                                onLogin = { authViewModel.exitGuest() },
                             )
                         }
                         }

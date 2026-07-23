@@ -48,7 +48,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun forceLogout() {
         val state = _uiState.value
-        if (!state.isAuthenticated || state.isGuest) return
+        if (!state.isAuthenticated) return
         AppLog.w(TAG) { "session expired -> force logout" }
         authManager.logoutLocal()
         clearCalendarSession()
@@ -83,7 +83,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                         it.copy(
                             isCheckingSession = false,
                             isAuthenticated = true,
-                            isGuest = false,
                             needsBiometricUnlock = false,
                         )
                     }
@@ -106,7 +105,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                         it.copy(
                             isLoading = false,
                             isAuthenticated = true,
-                            isGuest = false,
                             needsBiometricUnlock = false,
                         )
                     }
@@ -150,7 +148,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         if (enteredBackgroundAt == 0L) return // 冷启动首次前台，无需处理
 
         val state = _uiState.value
-        if (!state.isAuthenticated || state.isGuest) return
+        if (!state.isAuthenticated) return
 
         // 回前台先静默续期一次（无生物识别提示），保持内存 access token 新鲜，
         // 再节流刷新档案：登录态下距上次成功刷新 ≥ 阈值才实际拉 /me（节流在 manager 内判定）。
@@ -190,7 +188,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                         it.copy(
                             isLoading = false,
                             isAuthenticated = true,
-                            isGuest = false,
                             needsBiometricUnlock = false,
                         )
                     }
@@ -199,22 +196,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                 .onFailure { e ->
                     _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "Sign-in failed") }
                 }
-        }
-    }
-
-    /** 免登录（游客模式）：不经过 Auth0，直接进入应用。游客不可用日历。 */
-    fun loginAsGuest() {
-        if (_uiState.value.isLoading) return
-        // 先清掉可能残留的日历会话，再标记为游客（日历页将拦截显示「登录后使用」）。
-        (getApplication() as NovieApplication).clearCalendarLocalSession()
-        UserSessionManager.onGuest()
-        _uiState.update {
-            it.copy(
-                isLoading = false,
-                isAuthenticated = true,
-                isGuest = true,
-                errorMessage = null,
-            )
         }
     }
 
@@ -248,12 +229,6 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 游客切换到登录：重置为未登录状态，宿主门控会显示登录页。 */
-    fun exitGuest() {
-        clearCalendarSession()
-        _uiState.update { loggedOutState() }
-    }
-
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
@@ -268,7 +243,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * 清除日历本地会话并清空全局用户会话。所有登出 / 退出游客路径调用：
+     * 清除日历本地会话并清空全局用户会话。所有登出路径调用：
      * 退出登录 → 清日历；不 revoke Google grant（重新登录同账号可静默恢复）。
      */
     private fun clearCalendarSession() {

@@ -31,7 +31,6 @@ import com.novamind.app.data.calendar.CalendarEventType
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.feature.calendar.components.AgendaSection
 import com.novamind.app.feature.calendar.components.BgPage
-import com.novamind.app.feature.calendar.components.CalendarIllustration
 import com.novamind.app.feature.calendar.components.ColorBorder
 import com.novamind.app.feature.calendar.components.ColorCardBg
 import com.novamind.app.feature.calendar.components.ColorDark
@@ -229,25 +228,23 @@ fun CalendarScreen(
 
         Spacer(Modifier.height(8.dp))
 
-        // 统计卡片（游客拦截态不展示）
-        if (!uiState.loginRequired) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                StatCard(
-                    uiState.eventCount.toString(), "Meetings", MeetingBg, R.drawable.illus_stat_meetings,
-                    Modifier.weight(1f),
-                    selected = uiState.filter == AgendaFilter.EVENTS,
-                    onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.EVENTS)) },
-                )
-                StatCard(
-                    uiState.taskCount.toString(), "To-dos", TodoBg, R.drawable.illus_stat_todos,
-                    Modifier.weight(1f),
-                    selected = uiState.filter == AgendaFilter.TASKS,
-                    onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.TASKS)) },
-                )
-            }
+        // 统计卡片
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            StatCard(
+                uiState.eventCount.toString(), "Meetings", MeetingBg, R.drawable.illus_stat_meetings,
+                Modifier.weight(1f),
+                selected = uiState.filter == AgendaFilter.EVENTS,
+                onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.EVENTS)) },
+            )
+            StatCard(
+                uiState.taskCount.toString(), "To-dos", TodoBg, R.drawable.illus_stat_todos,
+                Modifier.weight(1f),
+                selected = uiState.filter == AgendaFilter.TASKS,
+                onClick = { onEvent(CalendarUiEvent.SelectAgendaFilter(AgendaFilter.TASKS)) },
+            )
         }
 
         Spacer(Modifier.height(if (uiState.isConnected) 12.dp else 24.dp))
@@ -263,26 +260,7 @@ fun CalendarScreen(
             )
         }
 
-        // 游客（免登录）：不展示日历，提示登录后使用。
-        if (uiState.loginRequired) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                CalendarIllustration()
-                Spacer(Modifier.height(20.dp))
-                Text("Sign in to use Calendar", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = ColorTextTitle)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Calendar is unavailable in guest mode. Sign in with your account to connect and sync events.",
-                    fontSize = 14.sp,
-                    color = ColorTextSub,
-                    lineHeight = 20.sp,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            Spacer(Modifier.height(20.dp))
-        } else if (!uiState.isConnected) {
+        if (!uiState.isConnected) {
             // 未连接（Figma 959-60308）：插画 + 说明 + 深色「Connect to google calendar」按钮
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 36.dp, vertical = 12.dp),
@@ -323,9 +301,9 @@ fun CalendarScreen(
             Spacer(Modifier.height(20.dp))
         }
 
-        // 议程：活动、任务分两个区块（各带小标题）；按 filter 决定显示哪块（游客拦截态不展示）。
+        // 议程：活动、任务分两个区块（各带小标题）；按 filter 决定显示哪块。
         // 外层已无全局横滑手势，议程区天然不响应左右滑动；任务行右滑完成不受影响。
-        if (!uiState.loginRequired && uiState.isConnected) {
+        if (uiState.isConnected) {
             if (uiState.showEventsSection) {
                 AgendaSection(
                     label = "Meetings",
@@ -449,17 +427,6 @@ private fun CalendarScreenDisconnectedPreview() {
     AppTheme {
         CalendarScreen(
             uiState = CalendarUiState(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED),
-            onEvent = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true, name = "Calendar · Guest blocked")
-@Composable
-private fun CalendarScreenLoginRequiredPreview() {
-    AppTheme {
-        CalendarScreen(
-            uiState = CalendarUiState(connectionStatus = CalendarConnectionStatus.LOGIN_REQUIRED),
             onEvent = {},
         )
     }

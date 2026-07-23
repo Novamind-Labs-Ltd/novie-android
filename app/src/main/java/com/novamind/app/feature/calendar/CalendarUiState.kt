@@ -36,9 +36,6 @@ data class CalendarUiState(
     /** 正在同步（拉取事件）。 */
     val isLoading: Boolean get() = connectionStatus == CalendarConnectionStatus.SYNCING
 
-    /** 游客会话，不可用日历——显示「登录后使用」拦截态。 */
-    val loginRequired: Boolean get() = connectionStatus == CalendarConnectionStatus.LOGIN_REQUIRED
-
     /** 需要用户重新授权（撤销后）。 */
     val needsReconnect: Boolean get() = connectionStatus == CalendarConnectionStatus.PERMISSION_REVOKED
 

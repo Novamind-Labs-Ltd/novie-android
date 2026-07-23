@@ -63,13 +63,12 @@ class CalendarViewModel @Inject constructor(
     val consentRequest = _consentRequest.asSharedFlow()
 
     init {
-        // 响应式联动 App 会话：登录/登出/游客切换时重新评估，避免 VM 被保留后状态停滞
-        // （如游客进过日历页后登录，仍显示「登录后使用」）。StateFlow 会立即发射当前值。
+        // 响应式联动 App 会话：登录/登出时重新评估，避免 VM 被保留后状态停滞。StateFlow 会立即发射当前值。
         viewModelScope.launch {
-            // 仅对「登录身份」变化（userKey / 游客位）响应，忽略 /me 档案刷新引起的 session 变化，
+            // 仅对「登录身份」变化（userKey）响应，忽略 /me 档案刷新引起的 session 变化，
             // 保持与旧 AppSession 相同的触发语义，避免头像/昵称刷新时误触发日历重载。
             UserSessionManager.session
-                .map { it.userKey to it.isGuest }
+                .map { it.userKey }
                 .distinctUntilChanged()
                 .collect { refreshAuthAndLoad() }
         }
@@ -113,12 +112,6 @@ class CalendarViewModel @Inject constructor(
      *   未授权才显示首次连接卡片（[CalendarConnectionStatus.NOT_CONNECTED]）。
      */
     private fun refreshAuthAndLoad() {
-        // 游客（免登录）不可用日历：拦截为「登录后使用」，不触发任何授权/拉取。
-        if (UserSessionManager.current.isGuest) {
-            AppLog.d(TAG) { "refreshAuthAndLoad: guest -> LOGIN_REQUIRED" }
-            _uiState.update { CalendarUiState(connectionStatus = CalendarConnectionStatus.LOGIN_REQUIRED) }
-            return
-        }
         val currentUser = UserSessionManager.current.userKey
 
         if (bindingStore.isConnected) {

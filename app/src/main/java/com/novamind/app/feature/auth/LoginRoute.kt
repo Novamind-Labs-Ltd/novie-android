@@ -25,7 +25,6 @@ fun LoginRoute(
     LoginScreen(
         uiState = uiState,
         onLogin = { context.findActivity()?.let(viewModel::login) },
-        onSkipLogin = viewModel::loginAsGuest,
         onDismissError = viewModel::dismissError,
         modifier = modifier,
     )

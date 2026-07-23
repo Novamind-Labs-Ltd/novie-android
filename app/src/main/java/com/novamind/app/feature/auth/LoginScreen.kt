@@ -15,7 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
@@ -53,7 +52,6 @@ private val ErrorColor: Color
 fun LoginScreen(
     uiState: AuthUiState,
     onLogin: () -> Unit,
-    onSkipLogin: () -> Unit = {},
     onDismissError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -113,17 +111,6 @@ fun LoginScreen(
                 } else {
                     Text("Sign in / Sign up", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = OnAccent)
                 }
-            }
-
-            Spacer(8)
-
-            // 免登录（游客模式）：不登录直接进入应用
-            TextButton(
-                onClick = onSkipLogin,
-                enabled = !uiState.isLoading,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-            ) {
-                Text("Continue without signing in", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextSub)
             }
 
             if (uiState.errorMessage != null) {
