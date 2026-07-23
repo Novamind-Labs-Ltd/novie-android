@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,9 +38,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -196,7 +199,18 @@ internal fun UserBubble(msg: ChatMessage) {
  * [showAvatar] 为 true 时（收尾/追问语气）在左侧显示花标、且不带操作行。
  */
 @Composable
-internal fun AssistantText(text: String, showAvatar: Boolean = false) {
+internal fun AssistantText(
+    text: String,
+    showAvatar: Boolean = false,
+    isTyping: Boolean = false,
+) {
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(text, isTyping) {
+        if (isTyping && text.isNotEmpty()) {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+
     if (showAvatar) {
         Row(
             modifier = Modifier.fillMaxWidth(),

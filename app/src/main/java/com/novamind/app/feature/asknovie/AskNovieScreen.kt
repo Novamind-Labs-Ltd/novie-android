@@ -667,11 +667,13 @@ fun AskNovieScreen(
                             itemsIndexed(
                                 items = messages,
                                 key = { index, _ -> "message-$index" },
-                            ) { _, msg ->
+                            ) { index, msg ->
                                 // animateItem：新消息淡入 + 位置平滑过渡，发送时不突兀
                                 Box(modifier = Modifier
                                     .fillMaxWidth()
                                     .animateItem()) {
+                                    val isTypingAssistant =
+                                        isStreaming && index == messages.lastIndex && msg.role == Role.Assistant
                                     if (msg.role == Role.User) {
                                         UserBubble(msg)
                                     } else when (val b = msg.block) {
@@ -684,14 +686,21 @@ fun AskNovieScreen(
                                         ChatBlock.CreateNoteCta -> CreateNoteCta(onClick = onCreateNoteRequested)
                                         // 纯文本助手消息（收尾语带花标、状态行为灰字）
                                         null -> when {
-                                            msg.showAvatar -> AssistantText(msg.text, showAvatar = true)
+                                            msg.showAvatar -> AssistantText(
+                                                msg.text,
+                                                showAvatar = true,
+                                                isTyping = isTypingAssistant,
+                                            )
                                             msg.dim -> Text(
                                                 msg.text,
                                                 color = TextSub,
                                                 fontSize = 14.sp,
                                                 lineHeight = 20.sp,
                                             )
-                                            else -> AssistantText(msg.text)
+                                            else -> AssistantText(
+                                                msg.text,
+                                                isTyping = isTypingAssistant,
+                                            )
                                         }
                                     }
                                 }
