@@ -8,7 +8,11 @@ import com.novamind.app.feature.asknovie.data.AskNovieChat
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import java.util.UUID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val DISPLAY_CHUNK_SIZE = 2
+private const val DISPLAY_INTERVAL_MS = 32L
 
 /**
  * Ask Novie 的 Activity 级会话状态。
@@ -68,10 +72,16 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                     when (event) {
                         is ChatStreamEvent.TextDelta -> {
                             ensureBubble()
-                            updateSessionMessages(targetSessionId) { current ->
-                                current.toMutableList().also { list ->
-                                    list[list.lastIndex] = list.last().copy(text = list.last().text + event.delta)
+                            // SSE 可能一次带回整段文本；展示层按固定节奏追加，保持打字效果。
+                            event.delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
+                                updateSessionMessages(targetSessionId) { current ->
+                                    current.toMutableList().also { list ->
+                                        list[list.lastIndex] = list.last().copy(
+                                            text = list.last().text + chunk,
+                                        )
+                                    }
                                 }
+                                delay(DISPLAY_INTERVAL_MS)
                             }
                         }
                         is ChatStreamEvent.Failure -> {
@@ -178,4 +188,24 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
             ChatSession(targetSessionId, title, System.currentTimeMillis(), sessionMessages),
         )
     }
+}
+
+/** 按 Unicode code point 分块，避免在动画过程中把 emoji 拆成半个 surrogate。 */
+private fun String.displayChunks(chunkSize: Int): List<String> {
+    if (isEmpty()) return emptyList()
+    val chunks = ArrayList<String>((length + chunkSize - 1) / chunkSize)
+    var chunkStart = 0
+    var index = 0
+    var codePointCount = 0
+    while (index < length) {
+        index += Character.charCount(codePointAt(index))
+        codePointCount++
+        if (codePointCount == chunkSize) {
+            chunks += substring(chunkStart, index)
+            chunkStart = index
+            codePointCount = 0
+        }
+    }
+    if (chunkStart < length) chunks += substring(chunkStart)
+    return chunks
 }
