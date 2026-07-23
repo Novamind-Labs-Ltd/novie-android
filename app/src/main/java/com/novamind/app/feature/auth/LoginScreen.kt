@@ -1,18 +1,21 @@
 package com.novamind.app.feature.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,11 +24,15 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.novamind.app.R
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.TextColors
@@ -58,80 +65,150 @@ fun LoginScreen(
     // 错误出现后短暂展示，这里简单地在下次点击登录时清除（由 Route 决定具体策略）
     LaunchedEffect(uiState.errorMessage) { /* 预留：可接 Snackbar */ }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Bg),
-        contentAlignment = Alignment.Center,
     ) {
+        Image(
+            painter = painterResource(R.drawable.login_globe_grid),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(maxWidth * (238f / 412f)),
+        )
+        Image(
+            painter = painterResource(R.drawable.login_globe_arcs),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(maxWidth * (211f / 412f)),
+        )
+        Image(
+            painter = painterResource(R.drawable.login_novie_logo),
+            contentDescription = "Novie",
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier
+                .offset(
+                    x = maxWidth * (279f / 412f),
+                    y = maxHeight * (737f / 917f),
+                )
+                .size(
+                    width = maxWidth * (86f / 412f),
+                    height = maxWidth * (28f / 412f),
+                ),
+        )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(120.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.58f to Bg,
+                        1f to Bg,
+                    ),
+                ),
+        )
+
         Column(
             modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = (-56.5).dp)
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(64.dp),
         ) {
-            // Logo 占位
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(Accent),
-                contentAlignment = Alignment.Center,
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(36.dp),
             ) {
-                Text("N", color = OnAccent, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(20)
-            Text("Welcome to Novamind", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextTitle)
-            Spacer(8)
-            Text(
-                "Sign in to sync your notes and settings",
-                fontSize = 14.sp,
-                color = TextSub,
-            )
-
-            Spacer(40)
-
-            Button(
-                onClick = onLogin,
-                enabled = !uiState.isLoading,
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Accent),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        color = OnAccent,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(22.dp),
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Automatic",
+                        fontSize = 24.sp,
+                        lineHeight = 36.sp,
+                        color = TextSub,
                     )
-                } else {
-                    Text("Sign in / Sign up", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = OnAccent)
+                    Text(
+                        text = "Agent Flow",
+                        fontSize = 24.sp,
+                        lineHeight = 36.sp,
+                        color = TextTitle,
+                    )
                 }
+                Text(
+                    text = "Let’s Do The\nUnthinkable",
+                    fontSize = 48.sp,
+                    lineHeight = 44.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextTitle,
+                )
+                Text(
+                    text = "Novie uses Simulation-Driven Development to align your team before a single line of code is written — turning specifications into working prototypes in minutes.",
+                    fontSize = 14.sp,
+                    lineHeight = 21.sp,
+                    color = TextTitle,
+                )
             }
 
-            if (uiState.errorMessage != null) {
-                Spacer(16)
-                Text(
-                    text = uiState.errorMessage,
-                    color = ErrorColor,
-                    fontSize = 13.sp,
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ErrorColor.copy(alpha = 0.08f))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                )
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp)
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Accent)
+                        .clickable(
+                            enabled = !uiState.isLoading,
+                            onClick = {
+                                if (uiState.errorMessage != null) onDismissError()
+                                onLogin()
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            color = OnAccent,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    } else {
+                        Text(
+                            text = "Get started",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = OnAccent,
+                        )
+                    }
+                }
+
+                if (uiState.errorMessage != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = uiState.errorMessage,
+                        color = ErrorColor,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(ErrorColor.copy(alpha = 0.08f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
             }
         }
     }
-}
-
-@Composable
-private fun Spacer(dp: Int) {
-    androidx.compose.foundation.layout.Spacer(Modifier.height(dp.dp))
 }
 
 @Preview(showBackground = true)
