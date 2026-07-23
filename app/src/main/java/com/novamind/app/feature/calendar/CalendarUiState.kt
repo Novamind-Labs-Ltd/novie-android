@@ -25,6 +25,8 @@ data class CalendarUiState(
     val filter: AgendaFilter = AgendaFilter.ALL,
     /** 一次性错误提示文案，UI 消费后调用 [CalendarUiEvent.ErrorShown] 清除。 */
     val errorMessage: String? = null,
+    /** 仅用户手势触发的下拉刷新状态；进入页面自动同步不显示下拉位移动画。 */
+    val isPullRefreshing: Boolean = false,
 ) {
     /** 已连接：仅「同步中/已连接/过期续期中/同步失败」视为已连接，可展示事件区域。 */
     val isConnected: Boolean

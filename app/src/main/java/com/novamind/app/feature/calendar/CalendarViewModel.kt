@@ -100,7 +100,7 @@ class CalendarViewModel @Inject constructor(
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
             CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
             CalendarUiEvent.NextDay -> selectDate(_uiState.value.selectedDate.plusDays(1))
-            CalendarUiEvent.Refresh -> if (_uiState.value.isConnected) loadEvents()
+            CalendarUiEvent.Refresh -> if (_uiState.value.isConnected) loadEvents(showPullRefresh = true)
             CalendarUiEvent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
         }
     }
@@ -408,7 +408,7 @@ class CalendarViewModel @Inject constructor(
     }
 
     /** 拉取选中日期事件：进入同步态、先渲染缓存，再请求网络。 */
-    private fun loadEvents() {
+    private fun loadEvents(showPullRefresh: Boolean = false) {
         val date = _uiState.value.selectedDate
         val accountId = _uiState.value.account?.email
         viewModelScope.launch {
@@ -419,6 +419,7 @@ class CalendarViewModel @Inject constructor(
                     connectionStatus = CalendarConnectionStatus.SYNCING,
                     events = cached ?: it.events,
                     errorMessage = null,
+                    isPullRefreshing = showPullRefresh,
                 )
             }
             fetchInto(date, accountId, allowSilentRetry = true)
@@ -471,6 +472,7 @@ class CalendarViewModel @Inject constructor(
                         connectionStatus = CalendarConnectionStatus.CONNECTED,
                         events = events,
                         tasks = tasks,
+                        isPullRefreshing = false,
                     )
                 }
             }
@@ -492,6 +494,7 @@ class CalendarViewModel @Inject constructor(
                                 it.copy(
                                     connectionStatus = CalendarConnectionStatus.PERMISSION_REVOKED,
                                     errorMessage = "Google authorization expired, please reconnect",
+                                    isPullRefreshing = false,
                                 )
                             }
                         }
@@ -502,6 +505,7 @@ class CalendarViewModel @Inject constructor(
                             it.copy(
                                 connectionStatus = CalendarConnectionStatus.PERMISSION_REVOKED,
                                 errorMessage = "Google authorization revoked, please reconnect",
+                                isPullRefreshing = false,
                             )
                         }
                     }
@@ -509,6 +513,7 @@ class CalendarViewModel @Inject constructor(
                         it.copy(
                             connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
                             errorMessage = e.message ?: "Failed to load calendar",
+                            isPullRefreshing = false,
                         )
                     }
                 }

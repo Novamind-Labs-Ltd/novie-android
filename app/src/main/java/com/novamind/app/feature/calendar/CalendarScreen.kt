@@ -89,7 +89,9 @@ fun CalendarScreen(
             .statusBarsPadding(),
     ) {
         AppPullToRefresh(
-            isRefreshing = uiState.isLoading,
+            // 进入页面的自动同步只更新内容，不让页面跟随下拉指示器位移；
+            // 只有用户实际下拉触发 Refresh 时才显示下拉刷新动画。
+            isRefreshing = uiState.isPullRefreshing,
             onRefresh = { onEvent(CalendarUiEvent.Refresh) },
             modifier = Modifier
                 .weight(1f)
