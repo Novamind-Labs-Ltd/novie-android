@@ -21,10 +21,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -51,6 +53,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -104,6 +107,7 @@ import com.novamind.app.util.PermissionUtils
 import com.novamind.app.util.TimeUtils
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
@@ -236,6 +240,37 @@ fun AskNovieScreen(
     // 全屏图片预览：当前图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+
+    // adjustNothing + imePadding 会让 LazyColumn 的视口在键盘收起时变大；如果列表正处于底部，
+    // Compose 会默认把内容跟着新的底边向下带。记录键盘可见期间的首项位置，收起后恢复该位置，
+    // 让内容保持原来的视觉位置，不因键盘动画自动下拉。
+    var imeWasVisible by remember { mutableStateOf(false) }
+    var imeAnchorIndex by remember { mutableIntStateOf(listState.firstVisibleItemIndex) }
+    var imeAnchorOffset by remember { mutableIntStateOf(listState.firstVisibleItemScrollOffset) }
+    LaunchedEffect(imeVisible) {
+        if (imeVisible) {
+            imeWasVisible = true
+            snapshotFlow {
+                listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+            }.collect { (index, offset) ->
+                imeAnchorIndex = index
+                imeAnchorOffset = offset
+            }
+        } else if (imeWasVisible) {
+            withFrameNanos { }
+            val totalItems = listState.layoutInfo.totalItemsCount
+            if (totalItems > 0) {
+                listState.scrollToItem(
+                    imeAnchorIndex.coerceIn(0, totalItems - 1),
+                    imeAnchorOffset,
+                )
+            }
+            imeWasVisible = false
+        }
+    }
+
     // 「回到底部」按钮显隐：仅当最后一条真实消息超出视口下方时显示，忽略底部占位 Spacer。
     val showScrollDown by remember {
         derivedStateOf {
