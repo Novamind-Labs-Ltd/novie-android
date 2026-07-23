@@ -285,7 +285,8 @@ fun AskNovieScreen(
                 // 剩余空白 = 视口 − 本轮内容 − 占位于上一项之间的间距（回复越长，空白越少，直至为 0）
                 (vp - contentH - listItemSpacingPx).coerceAtLeast(0)
             } else {
-                vp   // 测不到时退化为整屏（极少）
+                // 无法确认锚点/最后一条消息的位置时不要填充整屏，避免测量瞬态制造巨型空白。
+                0
             }
         }
     }
@@ -494,6 +495,11 @@ fun AskNovieScreen(
     // 发送后：把刚发送的用户消息平滑滚到顶部（仿 ChatGPT「新一页」，底部占位腾出空间供回复生成）。
     LaunchedEffect(sendTick) {
         if (sendTick > 0) listState.animateScrollToItem(anchorIndex)
+    }
+
+    // 底部留白只服务于本轮回复生成过程；回复完成后立即移除，避免空白一直保留。
+    LaunchedEffect(isResponding, isStreaming) {
+        if (!isResponding && !isStreaming) keepBottomSpace = false
     }
 
     // 保存当前会话到本地（含实时 / 部分回复）。切断或切换会话前调用，避免丢失正在生成的内容。
