@@ -99,7 +99,7 @@ import com.novamind.app.feature.asknovie.components.TypingIndicator
 import com.novamind.app.feature.asknovie.components.UserBubble
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
-import com.novamind.app.ui.components.DeleteConfirmSheet
+import com.novamind.app.ui.components.AppAlertDialog
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.ui.theme.AppTheme
@@ -1050,9 +1050,13 @@ fun AskNovieScreen(
 
     // 删除会话二次确认
     if (showDeleteConfirm) {
-        DeleteConfirmSheet(
+        AppAlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
             title = "Delete conversation?",
             message = "This will permanently delete this conversation.",
+            confirmLabel = "Delete",
+            dismissLabel = "Cancel",
+            destructive = true,
             onConfirm = {
                 chatVm.deleteCurrentSession()
                 input = ""
@@ -1061,7 +1065,6 @@ fun AskNovieScreen(
                 showDeleteConfirm = false
                 onDelete()
             },
-            onDismiss = { showDeleteConfirm = false },
         )
     }
 
