@@ -341,6 +341,8 @@ class MainActivity : FragmentActivity() {
                         exit = slideOutHorizontally { it } + fadeOut(),
                     ) {
                         AskNovieScreen(
+                            // 问候语用当前登录用户昵称（全局 UserSession），不写死。
+                            userName = userSession.profile?.displayName,
                             onBack = { showAskNovie = false },
                             modifier = Modifier.fillMaxSize(),
                         )

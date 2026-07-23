@@ -114,6 +114,7 @@ object AskNovieChat {
                 emit(ChatStreamEvent.Done("error"))
                 return@flow
             }
+            AppLog.i(TAG) { "chat 开流成功 http=${resp.code} message=${resp.message}" }
             val source = resp.body?.source()
             if (source == null) {
                 emit(ChatStreamEvent.Failure("empty_body", null))
@@ -130,7 +131,11 @@ object AskNovieChat {
                         // 空行 = 一帧结束，分发
                         val name = eventName
                         if (name != null) {
-                            val ev = parseFrame(name, data.toString())
+                            val rawData = data.toString()
+                            // 记录服务端原始帧，包含文本增量与状态/done，便于还原 SSE 返回。
+                            // AppLog 会在写入各 Sink 前统一做 PII 脱敏。
+                            AppLog.i(TAG) { "chat SSE 收到 event=$name data=$rawData" }
+                            val ev = parseFrame(name, rawData)
                             if (ev != null) emit(ev)
                             if (ev is ChatStreamEvent.Done) return@flow
                         }

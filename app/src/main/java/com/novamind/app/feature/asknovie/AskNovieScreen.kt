@@ -55,12 +55,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -70,8 +68,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
-import com.novamind.app.feature.asknovie.data.AskNovieChat
-import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import com.novamind.app.feature.asknovie.components.AssistantText
 import com.novamind.app.feature.asknovie.components.AttachmentChip
 import com.novamind.app.feature.asknovie.components.BareIconButton
@@ -103,12 +99,9 @@ import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.PermissionUtils
 import com.novamind.app.util.TimeUtils
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
 
@@ -186,14 +179,14 @@ private val DEMO_QUADRANT = ChatBlock.Quadrant(
 /**
  * Ask Novie 聊天入口页：顶部返回/历史/更多，中部问候或对话列表，底部快捷建议 + 输入框。
  *
- * @param userName 问候语显示的名字
+ * @param userName 问候语显示的名字（用户昵称，来自全局 UserSession）；为空/空白时问候语退化为「Hi there」。
  * @param onBack 返回上一页
  * @param onSend 发送消息回调
  * @param initial* 仅供 @Preview 注入初始状态；生产调用用默认值（空），不影响行为
  */
 @Composable
 fun AskNovieScreen(
-    userName: String = "Jerry",
+    userName: String? = null,
     onBack: () -> Unit = {},
     onSend: (String) -> Unit = {},
     onShare: () -> Unit = {},
@@ -210,16 +203,22 @@ fun AskNovieScreen(
     var isRecording by remember { mutableStateOf(false) }        // 麦克风录音状态
     var showMoreMenu by remember { mutableStateOf(false) }       // 右上角「更多」菜单
     var showHistory by remember { mutableStateOf(false) }        // 聊天历史弹窗
-    var messages by remember { mutableStateOf(initialMessages) }
-    var isResponding by remember { mutableStateOf(initialResponding) }  // 助手正在回复
-    // 当前会话 id（用于保存到会话历史）
-    var sessionId by rememberSaveable {
-        mutableStateOf(UUID.randomUUID().toString())
+    // 会话状态存放在 Activity 作用域的 VM，切走页面（AnimatedVisibility 移出 composition）
+    // 再回来不丢；流式回复亦跑在其 viewModelScope 上，切走不取消、SSE 数据继续累积。
+    val chatVm: AskNovieChatViewModel = viewModel()
+    // 首次进入用初始/预览参数播种；之后保留既有会话（回到页面不重置）。
+    remember {
+        if (!chatVm.seeded) {
+            chatVm.messages.value = initialMessages
+            chatVm.isResponding.value = initialResponding
+            chatVm.markSeeded()
+        }
+        true
     }
-    // 手动重命名的标题（为空则用第一句话）
-    var customTitle by rememberSaveable {
-        mutableStateOf<String?>(null)
-    }
+    var messages by chatVm.messages
+    var isResponding by chatVm.isResponding            // 助手正在回复
+    var sessionId by chatVm.sessionId                  // 当前会话 id（保存到会话历史）
+    var customTitle by chatVm.customTitle              // 手动重命名的标题（为空则用第一句话）
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     // 底部模型胶囊：当前模型 + 选择弹窗
@@ -257,10 +256,9 @@ fun AskNovieScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val inputFocusRequester = remember { FocusRequester() }
-    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    var isStreaming by remember { mutableStateOf(false) }   // 逐字输出中（流式期间不写存储）
-    var responseJob by remember { mutableStateOf<Job?>(null) }   // 当前回复协程（供「停止」取消）
+    var isStreaming by chatVm.isStreaming   // 逐字输出中（流式期间不写存储）
+    var responseJob by chatVm.responseJob   // 当前回复协程（供「停止」取消）
     // 仿 ChatGPT：刚发送的用户消息滚到顶部（自增以触发滚动，即使位置相同）
     var sendTick by remember { mutableIntStateOf(0) }
     var anchorIndex by remember { mutableIntStateOf(0) }
@@ -409,92 +407,15 @@ fun AskNovieScreen(
                     }
                 }
             } else {
-                // 真实对话：SSE 流式（mode=chat）。SSE 增量先累积到 target，再由打字机协程按节奏
-                // 逐段吐字到气泡，形成打字效果——不受后端一次性大块下发的影响。
-                // 「停止」取消 responseJob → 关闭底层连接，已「显示」的部分文本保留。
-                isResponding = true
-                responseJob = scope.launch {
-                    val replyIndex = messages.size
-                    var appended = false
-                    val target = StringBuilder()   // 已收到的完整文本（SSE 累积）
-                    var shown = 0                  // 已显示字符数（打字机指针）
-                    var streamEnded = false        // SSE 收流结束（target 不再增长）
-                    var firstShown = false
-                    fun ensureBubble() {
-                        if (!appended) {
-                            isResponding = false
-                            isStreaming = true
-                            messages = messages + ChatMessage(Role.Assistant, "")
-                            appended = true
-                        }
-                    }
-                    fun setReplyText(text: String) {
-                        messages = messages.toMutableList().also { list ->
-                            if (replyIndex < list.size) list[replyIndex] = list[replyIndex].copy(text = text)
-                        }
-                    }
-                    try {
-                        coroutineScope {
-                            // 打字机：落后越多吐得越快、收尾放慢，形成自然节奏（~60fps）。
-                            val typer = launch {
-                                while (isActive) {
-                                    if (shown < target.length) {
-                                        ensureBubble()
-                                        val step = ((target.length - shown) / 20).coerceIn(1, 8)
-                                        shown = (shown + step).coerceAtMost(target.length)
-                                        setReplyText(target.substring(0, shown))
-                                        if (!firstShown) {
-                                            firstShown = true
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        }
-                                    } else if (streamEnded) {
-                                        break // 已全部吐完且收流结束
-                                    }
-                                    delay(16)
-                                }
-                            }
-                            AskNovieChat.streamChat(
-                                mode = "chat",
-                                conversationId = sessionId,
-                                input = prompt,
-                            ).collect { ev ->
-                                when (ev) {
-                                    is ChatStreamEvent.TextDelta -> target.append(ev.delta)
-                                    is ChatStreamEvent.Failure -> {
-                                        // 出错：直接呈现错误文案（不走打字机），随后收流
-                                        ensureBubble()
-                                        val msg = ev.message
-                                            ?: "Something went wrong (${ev.code ?: "error"}). Please try again."
-                                        target.setLength(0)
-                                        target.append(msg)
-                                        shown = target.length
-                                        setReplyText(msg)
-                                    }
-                                    // MVP：卡片 / 状态暂不渲染；done 让流自然结束
-                                    is ChatStreamEvent.Card,
-                                    is ChatStreamEvent.Status,
-                                    is ChatStreamEvent.Done,
-                                    -> Unit
-                                }
-                            }
-                            streamEnded = true
-                            typer.join() // 等打字机把剩余文本吐完
-                        }
-                    } finally {
-                        isResponding = false
-                        isStreaming = false
-                    }
-                }
+                // SSE 由 Activity 级 ViewModel 消费，切走页面或切换 App 窗口不会丢失服务端增量。
+                chatVm.startStreamingReply(prompt)
             }
         }
     }
 
     // 停止当前回复生成（保留已输出的部分内容）
     val stopResponse: () -> Unit = {
-        responseJob?.cancel()
-        responseJob = null
-        isResponding = false
-        isStreaming = false
+        chatVm.stopStreamingReply()
     }
 
     // 输入框发送：取当前文本 + 附件，发送后清空
@@ -594,15 +515,10 @@ fun AskNovieScreen(
     // 顶部「+」与历史弹窗「New chat」共用。
     val startNewChat: () -> Unit = {
         persistCurrentSession()
-        responseJob?.cancel(); responseJob = null
-        isResponding = false
-        isStreaming = false
-        messages = emptyList()
+        chatVm.startNewSession()
         input = ""
         attachments = emptyList()
-        customTitle = null
         keepBottomSpace = false
-        sessionId = UUID.randomUUID().toString()
     }
 
     // 会话持久化：消息或标题变化即存储（流式期间不写，结束后保存一次）
@@ -651,7 +567,11 @@ fun AskNovieScreen(
                     BareIconButton(
                         R.drawable.ic_history,
                         "History",
-                        onClick = { showHistory = true },
+                        onClick = {
+                            // 流式回复进行中也先写入当前快照，历史列表打开即可看到并可安全切换。
+                            persistCurrentSession()
+                            showHistory = true
+                        },
                     )
                     Box {
                         BareIconButton(
@@ -696,7 +616,7 @@ fun AskNovieScreen(
                         )
                         Spacer(Modifier.height(20.dp))
                         Text(
-                            text = "Hi, $userName",
+                            text = userName?.takeIf { it.isNotBlank() }?.let { "Hi, $it" } ?: "Hi there",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextTitle,
@@ -1025,14 +945,9 @@ fun AskNovieScreen(
             },
             onSelectSession = { s ->
                 showHistory = false
-                // 先保存当前会话（含实时 / 部分回复），再取消生成并切换
+                // 仅切换展示会话：旧会话的 SSE 继续在后台接收并保存。
                 persistCurrentSession()
-                responseJob?.cancel(); responseJob = null
-                isResponding = false
-                isStreaming = false
-                messages = s.messages
-                sessionId = s.id
-                customTitle = s.title
+                chatVm.selectSession(s)
                 input = ""
                 attachments = emptyList()
                 keepBottomSpace = false
@@ -1063,18 +978,10 @@ fun AskNovieScreen(
             title = "Delete conversation?",
             message = "This will permanently delete this conversation.",
             onConfirm = {
-                ChatSessionStore.delete(context, sessionId)
-                // 取消正在生成的回复，避免其内容串入新会话
-                responseJob?.cancel(); responseJob = null
-                isResponding = false
-                isStreaming = false
-                // 删除后重置为新会话
-                messages = emptyList()
+                chatVm.deleteCurrentSession()
                 input = ""
                 attachments = emptyList()
-                customTitle = null
                 keepBottomSpace = false
-                sessionId = UUID.randomUUID().toString()
                 showDeleteConfirm = false
                 onDelete()
             },
