@@ -51,7 +51,7 @@ internal fun UpNextConnectCard(
                 color = ColorTextTitle,
             )
             Text(
-                text = "Link your account to see today's meetings and tasks here.",
+                text = "Link your account to see today's meetings here.",
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 color = ColorTextSub,

@@ -177,9 +177,8 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * 拉取今日 Up next：Google 日历「会议」+ Google Tasks「任务」，仅取当天数据。
-     * - 会议：今日主日历事件中尚未结束的（[isPast] 为 false）；
-     * - 任务：今日截止且未完成的。
+     * 拉取今日 Up next：仅展示 Google 日历中今日尚未结束的会议（[isPast] 为 false）。
+     * Google Tasks 仍由共享议程用例读取，但不映射到首页 Up next；任务请从日历页查看。
      * 尽力而为：未连接 Google / 授权过期 / 网络错误都视为「无数据」，交由 UI 显示空状态。
      */
     private fun loadUpcoming() {
@@ -206,20 +205,8 @@ class HomeViewModel @Inject constructor(
                     )
                 )
             }
-            // 任务（date-only，无具体时间）
-            agenda.tasks.filterNot { it.isCompleted }.forEach { t ->
-                add(
-                    UpcomingItem(
-                        id = "task_${t.id}",
-                        title = t.title,
-                        subtitle = t.notes.orEmpty(),
-                        iconResId = R.drawable.ic_upcoming_report,
-                        time = "",
-                    )
-                )
-            }
         }
-        // 记住展示中的原始任务，供点击进入详情/编辑取回完整字段（listId/notes/due 等）
+        // 保留今日任务原始数据，供后续需要时使用；首页 Up next 不展示任务卡。
         _uiState.update {
             it.copy(
                 upcomingItems = items,

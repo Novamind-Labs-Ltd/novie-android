@@ -18,7 +18,7 @@ data class HomeUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val upcomingItems: List<UpcomingItem> = emptyList(),
-    /** Up next 中「任务」对应的原始 Google Tasks（用于点击进入详情/编辑）。 */
+    /** 今日 Google Tasks 原始数据（首页 Up next 不展示任务卡，保留供后续功能使用）。 */
     val todayTasks: List<CalendarTask> = emptyList(),
     val notes: List<NoteItem> = emptyList(),
     /** Up next 未授权 Google 日历：展示「连接日历」入口（有可连接账号但未授权时）。 */

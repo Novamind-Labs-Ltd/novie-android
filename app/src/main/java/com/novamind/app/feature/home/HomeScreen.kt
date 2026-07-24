@@ -76,6 +76,8 @@ fun HomeScreen(
     calendarConnecting: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val meetingItems = uiState.upcomingItems.filter { it.isMeeting }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -126,8 +128,8 @@ fun HomeScreen(
                     onConnect = onConnectCalendar,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
-            } else if (uiState.upcomingItems.isEmpty()) {
-                // 今日无会议/任务：空状态
+            } else if (meetingItems.isEmpty()) {
+                // 首页 Up next 只展示会议；任务由日历页查看。
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -135,7 +137,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "No meetings or tasks today",
+                        text = "No meetings today",
                         fontSize = 13.sp,
                         color = ColorTextHint,
                     )
@@ -145,15 +147,12 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    // 会议卡带「Start notes」按钮；任务卡整卡可点，进入任务详情
-                    uiState.upcomingItems.forEach { item ->
+                    // 首页 Up next 只展示会议卡，并提供「Start notes」入口。
+                    meetingItems.forEach { item ->
                         UpcomingCard(
                             item = item,
                             showAction = item.isMeeting,
                             onAction = onStartNotes,
-                            onClick = if (!item.isMeeting) {
-                                { onTaskClick(item.id) }
-                            } else null,
                         )
                     }
                 }
@@ -228,8 +227,6 @@ private fun previewUpcoming(): List<UpcomingItem> = listOf(
     // 会议卡（带 Start notes）
     UpcomingItem("1", "Monthly report sharing", "Team project progress tracking", R.drawable.ic_upcoming_meeting, time = "10:00", isMeeting = true),
     UpcomingItem("2", "Board meeting", "Internal stakeholder alignment", R.drawable.ic_upcoming_meeting, time = "11:30", isMeeting = true),
-    // 任务卡（不带按钮，Google Tasks 无具体时间）
-    UpcomingItem("3", "Finalize Q3 report", "", R.drawable.ic_upcoming_report, time = "", isMeeting = false),
 )
 
 private fun previewNotes(count: Int): List<NoteItem> {
