@@ -206,9 +206,10 @@ class HomeViewModel @Inject constructor(
 
     /** 将同一份议程结果一次性映射到 Up next，避免刷新期间分段改变页面高度。 */
     private fun applyAgenda(agenda: TodayAgenda) {
+        val events = agenda.events.filterNot { it.isPast }
         val items = buildList {
             // 会议（有时间，按开始时间；仓库已按 start 排序）
-            agenda.events.filterNot { it.isPast }.forEach { e ->
+            events.forEach { e ->
                 add(
                     UpcomingItem(
                         id = "evt_${e.id}",
@@ -229,6 +230,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 upcomingItems = items,
+                upcomingEvents = events,
                 todayTasks = agenda.tasks.filterNot { t -> t.isCompleted },
                 // 有可连接账号但未静默授权 → Up next 展示「连接日历」入口
                 calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
@@ -239,7 +241,7 @@ class HomeViewModel @Inject constructor(
     private fun applyRangeAgenda(agenda: TodayAgenda) {
         val start = LocalDate.now()
         val endExclusive = start.plusDays(14)
-        val items = agenda.events
+        val events = agenda.events
             .asSequence()
             .filterNot { it.isPast }
             .filter { event ->
@@ -247,6 +249,8 @@ class HomeViewModel @Inject constructor(
                 !date.isBefore(start) && date.isBefore(endExclusive)
             }
             .sortedBy { it.start }
+            .toList()
+        val items = events
             .map { event ->
                 UpcomingItem(
                     id = "evt_${event.id}",
@@ -265,6 +269,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 upcomingRangeItems = items,
+                upcomingRangeEvents = events,
                 upcomingRangeLoading = false,
                 calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
             )

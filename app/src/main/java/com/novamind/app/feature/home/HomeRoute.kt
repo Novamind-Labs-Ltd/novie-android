@@ -30,8 +30,10 @@ import java.time.LocalDate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.BuildConfig
+import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.feature.calendar.AddTaskScreen
+import com.novamind.app.feature.calendar.MeetingDetailScreen
 import com.novamind.app.common.notifications.NotificationListScreen
 import com.novamind.app.common.notifications.sampleNotifications
 import com.novamind.app.common.notifications.unreadCount
@@ -43,7 +45,7 @@ import com.novamind.app.ui.components.DeleteConfirmSheet
 import kotlinx.coroutines.launch
 
 /** Home 下的子页面 */
-private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Avatar, About, TaskDetail }
+private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Avatar, About, TaskDetail, MeetingDetail }
 
 @Composable
 fun HomeRoute(
@@ -92,6 +94,10 @@ fun HomeRoute(
     }
     // 当前打开详情的任务（TaskDetail 覆盖层用）
     var selectedTask by remember { mutableStateOf<CalendarTask?>(null) }
+    // 当前打开详情的会议（MeetingDetail 覆盖层用）
+    var selectedUpcomingEvent by remember { mutableStateOf<CalendarEvent?>(null) }
+    // 会议详情返回来源：从首页 Up next 返回首页，从 Upcoming 返回 Upcoming。
+    var meetingDetailReturnOverlay by remember { mutableStateOf(HomeOverlay.None) }
     // 退出登录二次确认弹窗
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
@@ -142,7 +148,10 @@ fun HomeRoute(
             targetState = overlay,
             modifier = modifier,
             transitionSpec = {
-                val forward = targetState != HomeOverlay.None
+                // 会议详情既可能从首页也可能从 Upcoming 打开；返回时目标状态仍是一个
+                // 子页，因此不能只用 targetState != None 判断，否则 Back 会播放进入动画。
+                val forward = targetState != HomeOverlay.None &&
+                    initialState != HomeOverlay.MeetingDetail
                 if (forward) {
                     (slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f))
                         .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut())
@@ -166,6 +175,15 @@ fun HomeRoute(
                             overlay = HomeOverlay.TaskDetail
                         }
                     },
+                    onMeetingClick = { itemId ->
+                        uiState.upcomingEvents
+                            .firstOrNull { event -> "evt_${event.id}" == itemId }
+                            ?.let { event ->
+                                selectedUpcomingEvent = event
+                                meetingDetailReturnOverlay = HomeOverlay.None
+                                overlay = HomeOverlay.MeetingDetail
+                            }
+                    },
                     onNotificationsClick = { overlay = HomeOverlay.Notifications },
                     onAskNovie = onAskNovie,
                     onStartNotes = onStartNotes,
@@ -188,12 +206,33 @@ fun HomeRoute(
                 HomeOverlay.Upcoming -> UpcomingListScreen(
                     items = uiState.upcomingRangeItems,
                     onBack = { overlay = HomeOverlay.None },
+                    onItemClick = { item ->
+                        uiState.upcomingRangeEvents
+                            .firstOrNull { event -> "evt_${event.id}" == item.id }
+                            ?.let { event ->
+                                selectedUpcomingEvent = event
+                                meetingDetailReturnOverlay = HomeOverlay.Upcoming
+                                overlay = HomeOverlay.MeetingDetail
+                            }
+                    },
                     onStartNotes = onStartNotes,
                     isLoading = uiState.upcomingRangeLoading,
                     calendarNeedsAuth = uiState.calendarNeedsAuth,
                     calendarConnecting = uiState.calendarConnecting,
                     onConnectCalendar = viewModel::connectCalendar,
                 )
+
+                HomeOverlay.MeetingDetail -> {
+                    selectedUpcomingEvent?.let { event ->
+                        key(event.id) {
+                            MeetingDetailScreen(
+                                event = event,
+                                onBack = { overlay = meetingDetailReturnOverlay },
+                                onEdit = null,
+                            )
+                        }
+                    }
+                }
 
                 HomeOverlay.Permissions -> PermissionManagerScreen(
                     onBack = { overlay = HomeOverlay.None },

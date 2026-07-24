@@ -69,6 +69,7 @@ private data class UpcomingDisplayItem(
 fun UpcomingListScreen(
     items: List<UpcomingItem>,
     onBack: () -> Unit,
+    onItemClick: (UpcomingItem) -> Unit = {},
     onStartNotes: () -> Unit = {},
     isLoading: Boolean = false,
     calendarNeedsAuth: Boolean = false,
@@ -99,7 +100,11 @@ fun UpcomingListScreen(
                             UpcomingSectionHeader("This week")
                         }
                         item(key = "this-week-content") {
-                            UpcomingCardGroup(thisWeek, onStartNotes = onStartNotes)
+                            UpcomingCardGroup(
+                                items = thisWeek,
+                                onItemClick = onItemClick,
+                                onStartNotes = onStartNotes,
+                            )
                         }
                     }
                     if (nextWeek.isNotEmpty()) {
@@ -107,7 +112,10 @@ fun UpcomingListScreen(
                             UpcomingSectionHeader("Next week")
                         }
                         item(key = "next-week-content") {
-                            UpcomingCardGroup(nextWeek)
+                            UpcomingCardGroup(
+                                items = nextWeek,
+                                onItemClick = onItemClick,
+                            )
                         }
                     }
                 } else {
@@ -332,6 +340,7 @@ private fun UpcomingSectionHeader(title: String) {
 @Composable
 private fun UpcomingCardGroup(
     items: List<UpcomingDisplayItem>,
+    onItemClick: (UpcomingItem) -> Unit = {},
     onStartNotes: () -> Unit = {},
 ) {
     Column(
@@ -344,6 +353,7 @@ private fun UpcomingCardGroup(
         items.forEach { displayItem ->
             UpcomingFullCard(
                 displayItem = displayItem,
+                onItemClick = onItemClick,
                 onStartNotes = onStartNotes,
             )
         }
@@ -353,9 +363,11 @@ private fun UpcomingCardGroup(
 @Composable
 private fun UpcomingFullCard(
     displayItem: UpcomingDisplayItem,
+    onItemClick: (UpcomingItem) -> Unit,
     onStartNotes: () -> Unit,
 ) {
     Surface(
+        onClick = { onItemClick(displayItem.item) },
         shape = RoundedCornerShape(12.dp),
         color = BgCard,
         shadowElevation = 1.dp,

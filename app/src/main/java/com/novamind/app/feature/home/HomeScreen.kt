@@ -63,6 +63,7 @@ fun HomeScreen(
     onNotesSeeAll: () -> Unit,
     onNoteClick: (noteId: String) -> Unit = {},
     onTaskClick: (itemId: String) -> Unit = {},
+    onMeetingClick: (itemId: String) -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAskNovie: () -> Unit = {},
@@ -153,6 +154,7 @@ fun HomeScreen(
                             item = item,
                             showAction = item.isMeeting,
                             onAction = onStartNotes,
+                            onClick = { onMeetingClick(item.id) },
                         )
                     }
                 }
