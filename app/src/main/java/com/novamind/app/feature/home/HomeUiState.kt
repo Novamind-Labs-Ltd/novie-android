@@ -2,6 +2,7 @@ package com.novamind.app.feature.home
 
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.feature.create.model.NoteItem
+import java.time.LocalDate
 
 data class UpcomingItem(
     val id: String,
@@ -12,12 +13,19 @@ data class UpcomingItem(
     val time: String = "",
     /** 是否为会议：true=会议卡（带「Start notes」按钮），false=任务卡（不带）。 */
     val isMeeting: Boolean = false,
+    /** Google Calendar 事件开始日期；示例数据可为空。 */
+    val date: LocalDate? = null,
+    /** 是否为全天事件。 */
+    val isAllDay: Boolean = false,
 )
 
 data class HomeUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val upcomingItems: List<UpcomingItem> = emptyList(),
+    /** Upcoming 页面未来两周的会议；与首页今日 Up next 分开，避免首页混入未来日期。 */
+    val upcomingRangeItems: List<UpcomingItem> = emptyList(),
+    val upcomingRangeLoading: Boolean = false,
     /** 今日 Google Tasks 原始数据（首页 Up next 不展示任务卡，保留供后续功能使用）。 */
     val todayTasks: List<CalendarTask> = emptyList(),
     val notes: List<NoteItem> = emptyList(),

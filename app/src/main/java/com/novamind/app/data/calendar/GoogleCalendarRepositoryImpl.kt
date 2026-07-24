@@ -22,11 +22,15 @@ class GoogleCalendarRepositoryImpl(
     private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) : GoogleCalendarRepository {
 
-    override suspend fun eventsOn(date: LocalDate): List<CalendarEvent> =
+    override suspend fun eventsOn(date: LocalDate): List<CalendarEvent> = eventsBetween(date, date.plusDays(1))
+
+    override suspend fun eventsBetween(start: LocalDate, endExclusive: LocalDate): List<CalendarEvent> =
         withContext(Dispatchers.IO) {
-            val timeMin = date.atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
-            val timeMax = date.plusDays(1).atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
-            AppLog.d(TAG) { "eventsOn 请求: calendarId=primary date=$date zone=$zoneId timeMin=$timeMin timeMax=$timeMax" }
+            if (!endExclusive.isAfter(start)) return@withContext emptyList()
+            val timeMin = start.atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
+            val timeMax = endExclusive.atStartOfDay(zoneId).toOffsetDateTime().format(RFC3339)
+            AppLog.d(TAG) { "eventsBetween 请求: calendarId=primary start=$start endExclusive=$endExclusive " +
+                    "zone=$zoneId timeMin=$timeMin timeMax=$timeMax" }
             try {
                 val resp = api.listEvents(calendarId = "primary", timeMin = timeMin, timeMax = timeMax)
                 // 日历级默认提醒：事件 reminders.useDefault=true 时的实际提醒来源。
@@ -37,11 +41,11 @@ class GoogleCalendarRepositoryImpl(
                 // 仅展示常规活动与专注时间，其余类型（外出/工作地点/生日/Gmail 等）不进列表。
                 val shown = mapped.filter { it.isMeeting }.sortedBy { it.start }
                 // 各过滤阶段计数，便于定位「Google 有数据但列表空」是被哪一步过滤掉的。
-                AppLog.d(TAG) { "eventsOn 结果: date=$date raw=${items.size} active=${active.size} " +
+                AppLog.d(TAG) { "eventsBetween 结果: start=$start endExclusive=$endExclusive raw=${items.size} active=${active.size} " +
                         "mapped=${mapped.size} shown(isMeeting)=${shown.size}" }
                 shown
             } catch (e: HttpException) {
-                AppLog.w(TAG, e) { "eventsOn HTTP 错误: date=$date code=${e.code()}" }
+                AppLog.w(TAG, e) { "eventsBetween HTTP 错误: start=$start endExclusive=$endExclusive code=${e.code()}" }
                 throw e.toAuthAware()
             }
         }

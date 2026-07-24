@@ -187,6 +187,23 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Upcoming 页面进入时拉取未来两周（今天含、14 天后不含）的 Google Calendar 会议。 */
+    fun loadUpcomingRange() {
+        if (_uiState.value.upcomingRangeLoading) return
+        _uiState.update { it.copy(upcomingRangeLoading = true) }
+        viewModelScope.launch {
+            val start = LocalDate.now()
+            val agenda = try {
+                todayAgenda.eventsBetween(start, start.plusDays(14))
+            } catch (c: CancellationException) {
+                throw c
+            } catch (_: Exception) {
+                TodayAgenda()
+            }
+            applyRangeAgenda(agenda)
+        }
+    }
+
     /** 将同一份议程结果一次性映射到 Up next，避免刷新期间分段改变页面高度。 */
     private fun applyAgenda(agenda: TodayAgenda) {
         val items = buildList {
@@ -202,6 +219,8 @@ class HomeViewModel @Inject constructor(
                         iconResId = R.drawable.ic_upcoming_meeting,
                         time = if (e.isAllDay) "" else e.start.format(TIME_FMT),
                         isMeeting = true,   // 会议卡：带 Start notes
+                        date = e.start.toLocalDate(),
+                        isAllDay = e.isAllDay,
                     )
                 )
             }
@@ -212,6 +231,41 @@ class HomeViewModel @Inject constructor(
                 upcomingItems = items,
                 todayTasks = agenda.tasks.filterNot { t -> t.isCompleted },
                 // 有可连接账号但未静默授权 → Up next 展示「连接日历」入口
+                calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
+            )
+        }
+    }
+
+    private fun applyRangeAgenda(agenda: TodayAgenda) {
+        val start = LocalDate.now()
+        val endExclusive = start.plusDays(14)
+        val items = agenda.events
+            .asSequence()
+            .filterNot { it.isPast }
+            .filter { event ->
+                val date = event.start.toLocalDate()
+                !date.isBefore(start) && date.isBefore(endExclusive)
+            }
+            .sortedBy { it.start }
+            .map { event ->
+                UpcomingItem(
+                    id = "evt_${event.id}",
+                    title = event.title,
+                    subtitle = (event.description?.replace(Regex("\\s+"), " ")?.trim()
+                        ?.takeIf { it.isNotEmpty() } ?: event.location).orEmpty(),
+                    iconResId = R.drawable.ic_upcoming_meeting,
+                    time = if (event.isAllDay) "" else event.start.format(TIME_FMT),
+                    isMeeting = true,
+                    date = event.start.toLocalDate(),
+                    isAllDay = event.isAllDay,
+                )
+            }
+            .toList()
+
+        _uiState.update {
+            it.copy(
+                upcomingRangeItems = items,
+                upcomingRangeLoading = false,
                 calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
             )
         }
@@ -252,7 +306,8 @@ class HomeViewModel @Inject constructor(
                 GoogleTokenProvider.accessToken = outcome.token
                 bindingStore.bind(account, UserSessionManager.current.userKey)
                 _uiState.update { it.copy(calendarConnecting = false, calendarNeedsAuth = false) }
-                loadUpcoming()   // 刷新今日会议/任务
+                loadUpcoming()       // 刷新今日会议/任务
+                loadUpcomingRange()  // 刷新 Upcoming 未来两周
             }
             is TokenOutcome.NeedsConsent -> {
                 AppLog.d(TAG) { "connectCalendar needs consent -> request UI" }

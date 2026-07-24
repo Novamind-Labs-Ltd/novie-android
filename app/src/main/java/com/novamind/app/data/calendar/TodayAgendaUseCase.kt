@@ -12,7 +12,7 @@ import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** 今日议程：会议(events) + 任务(tasks)，附带授权状态。 */
+/** 日历议程：会议(events) + 任务(tasks)，附带授权状态。 */
 data class TodayAgenda(
     val events: List<CalendarEvent> = emptyList(),
     val tasks: List<CalendarTask> = emptyList(),
@@ -23,7 +23,7 @@ data class TodayAgenda(
 )
 
 /**
- * 共享用例：静默确保 Google 授权后，拉取「今天」的会议 + 任务。
+ * 共享用例：静默确保 Google 授权后，拉取指定日期范围的会议；默认调用拉取今天的会议 + 任务。
  *
  * 抽出日历页的「静默授权 + 取数」核心逻辑，供首页 Up next 等复用，避免各处重复实现，
  * 也让首页获得与日历页一致的静默续期能力（token 过期自动重取一次）。
@@ -38,7 +38,24 @@ class TodayAgendaUseCase @Inject constructor(
     private val authSource: GoogleCalendarAuthSource,
     private val bindingStore: CalendarBindingStore,
 ) {
-    suspend operator fun invoke(): TodayAgenda {
+    suspend operator fun invoke(): TodayAgenda = load(
+        start = LocalDate.now(),
+        endExclusive = LocalDate.now().plusDays(1),
+        includeTasks = true,
+    )
+
+    /** 拉取 [start]（含）到 [endExclusive]（不含）的日历事件，不读取 Tasks。 */
+    suspend fun eventsBetween(start: LocalDate, endExclusive: LocalDate): TodayAgenda = load(
+        start = start,
+        endExclusive = endExclusive,
+        includeTasks = false,
+    )
+
+    private suspend fun load(
+        start: LocalDate,
+        endExclusive: LocalDate,
+        includeTasks: Boolean,
+    ): TodayAgenda {
         // 账号：优先已绑定账号，否则探测当前登录账户（只读，不建立绑定）
         val account = (bindingStore.accountEmail?.takeIf { bindingStore.isConnected }
             ?: UserSessionManager.current.userKey)?.takeIf { it.isNotBlank() }
@@ -47,24 +64,23 @@ class TodayAgendaUseCase @Inject constructor(
         // 有账号但静默授权失败 → 未授权（accountAvailable=true 供 UI 展示「连接」按钮）
         if (!acquireTokenSilently(account)) return TodayAgenda(accountAvailable = true)
 
-        val today = LocalDate.now()
         return TodayAgenda(
-            events = fetchEvents(today, account),
-            tasks = safe { tasksRepository.tasksOn(today) },
+            events = fetchEvents(start, endExclusive, account),
+            tasks = if (includeTasks) safe { tasksRepository.tasksOn(start) } else emptyList(),
             authorized = true,
             accountAvailable = true,
         )
     }
 
     /** 拉会议：401 过期时清 token → 静默重取 → 再试一次；仍失败返回空。 */
-    private suspend fun fetchEvents(date: LocalDate, account: String): List<CalendarEvent> =
+    private suspend fun fetchEvents(start: LocalDate, endExclusive: LocalDate, account: String): List<CalendarEvent> =
         try {
-            calendarRepository.eventsOn(date)
+            calendarRepository.eventsBetween(start, endExclusive)
         } catch (c: CancellationException) {
             throw c
         } catch (e: GoogleAuthExpiredException) {
             GoogleTokenProvider.accessToken?.let { authSource.clearToken(it) }
-            if (acquireTokenSilently(account)) safe { calendarRepository.eventsOn(date) } else emptyList()
+            if (acquireTokenSilently(account)) safe { calendarRepository.eventsBetween(start, endExclusive) } else emptyList()
         } catch (e: Exception) {
             emptyList()
         }

@@ -87,6 +87,9 @@ fun HomeRoute(
 
     var notifications by remember { mutableStateOf(sampleNotifications) }
     var overlay by remember { mutableStateOf(HomeOverlay.None) }
+    LaunchedEffect(overlay) {
+        if (overlay == HomeOverlay.Upcoming) viewModel.loadUpcomingRange()
+    }
     // 当前打开详情的任务（TaskDetail 覆盖层用）
     var selectedTask by remember { mutableStateOf<CalendarTask?>(null) }
     // 退出登录二次确认弹窗
@@ -183,8 +186,13 @@ fun HomeRoute(
                 )
 
                 HomeOverlay.Upcoming -> UpcomingListScreen(
-                    items = sampleUpcoming,
+                    items = uiState.upcomingRangeItems,
                     onBack = { overlay = HomeOverlay.None },
+                    onStartNotes = onStartNotes,
+                    isLoading = uiState.upcomingRangeLoading,
+                    calendarNeedsAuth = uiState.calendarNeedsAuth,
+                    calendarConnecting = uiState.calendarConnecting,
+                    onConnectCalendar = viewModel::connectCalendar,
                 )
 
                 HomeOverlay.Permissions -> PermissionManagerScreen(
