@@ -679,14 +679,18 @@ fun AskNovieScreen(
                             fontSize = 14.sp,
                             color = TextSub,
                         )
-                        Spacer(Modifier.height(28.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            suggestions.forEach { s ->
-                                SuggestionChip(text = s, onClick = {
-                                    keyboardController?.hide()
-                                    focusManager.clearFocus()
-                                    sendMessage(s, emptyList())
-                                })
+                        // 录音态按 Figma 键盘收起状态保留空白内容区，不显示快捷建议，
+                        // 让底部波形录音条成为唯一操作焦点。
+                        if (!isRecording) {
+                            Spacer(Modifier.height(28.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                suggestions.forEach { s ->
+                                    SuggestionChip(text = s, onClick = {
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                        sendMessage(s, emptyList())
+                                    })
+                                }
                             }
                         }
                     }
@@ -805,6 +809,8 @@ fun AskNovieScreen(
                             )
                         )
                     },
+                    compact = true,
+                    autoStart = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
@@ -934,7 +940,6 @@ fun AskNovieScreen(
                                         onClick = {
                                             // 点麦克风：已授权直接录音，否则先申请权限
                                             if (PermissionUtils.hasAudioPermission(context)) {
-                                                keyboardController?.hide()
                                                 ensureNotifPermission()
                                                 isRecording = true
                                             } else {

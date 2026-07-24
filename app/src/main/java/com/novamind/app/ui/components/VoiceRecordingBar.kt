@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -89,6 +90,12 @@ private val DisabledBg: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Primary.backgroundDisabled.current()   // neutral-200
 private val DisabledIcon: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Primary.textDisabled.current()          // neutral-400
+private val CompactCancelBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Primary.secondary.current()        // Figma #f1f3f4
+private val CompactCardBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()          // Figma surface/default: white
+private val CompactTimer: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()               // Figma #656565
 private val RecordingDot: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Error.default.current()            // 录音中红点
 private val PausedDot: Color
@@ -137,6 +144,8 @@ private enum class RecordingBarPhase { Idle, Recording, Sending, UploadFailed }
  * @param onConfirm 完成录音（上传成功后）回传路径与时长（秒）
  * @param onUpload 可选上传步骤：录音落盘后调用，返回 false 进入失败态（绿色重试按钮，
  *   可重传同一文件）；为 null 时跳过上传直接 [onConfirm]（当前 CreateScreen 本地插入即此路径）。
+ * @param compact 紧凑输入框模式（Ask Novie 使用）；为 false 时保持 Create 页的大型录音面板。
+ * @param autoStart 紧凑模式进入后是否立即开始录音。
  */
 @Composable
 fun VoiceRecordingBar(
@@ -144,6 +153,8 @@ fun VoiceRecordingBar(
     onConfirm: (path: String, durationSeconds: Int) -> Unit,
     modifier: Modifier = Modifier,
     onUpload: (suspend (path: String, durationSeconds: Int) -> Boolean)? = null,
+    compact: Boolean = false,
+    autoStart: Boolean = false,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val snapshot by com.novamind.app.common.audio.RecordingController.state
@@ -190,6 +201,11 @@ fun VoiceRecordingBar(
         com.novamind.app.common.audio.RecordingController.reset()
         com.novamind.app.common.audio.RecordingService.start(context)
         started = true
+    }
+
+    // Ask Novie 的紧凑录音条没有单独的「开始录音」按钮，进入后直接开始采集。
+    LaunchedEffect(autoStart) {
+        if (autoStart && compact && !started) startRecording()
     }
 
     // 进入即复位为空闲态（计时归零、不自动录音）；离开页面时若仍在录音（用户直接返回）则取消丢弃
@@ -289,6 +305,7 @@ fun VoiceRecordingBar(
                 scope.launch { uploadAndConfirm(path, duration) }
             }
         },
+        compact = compact,
         modifier = modifier,
     )
 
@@ -351,7 +368,23 @@ private fun RecordingBarContent(
     modifier: Modifier = Modifier,
     phase: RecordingBarPhase = RecordingBarPhase.Idle,
     onRetry: () -> Unit = {},
+    compact: Boolean = false,
 ) {
+    if (compact) {
+        CompactRecordingBarContent(
+            levels = levels,
+            elapsed = elapsed,
+            paused = paused,
+            sendEnabled = sendEnabled,
+            phase = phase,
+            onCancelClick = onCancelClick,
+            onSend = onSend,
+            onRetry = onRetry,
+            modifier = modifier,
+        )
+        return
+    }
+
     val cardShape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp)
     Column(
         modifier = modifier
@@ -496,6 +529,112 @@ private fun RecordingBarContent(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Ask Novie 输入框内的录音态（Figma 1166:70053 / 1166:63760）：取消按钮 + 动态波形 + 时长 + 发送按钮。
+ * 录音生命周期仍由 [VoiceRecordingBar] 管理，这里只负责紧凑布局。
+ */
+@Composable
+private fun CompactRecordingBarContent(
+    levels: List<Float>,
+    elapsed: Int,
+    paused: Boolean,
+    sendEnabled: Boolean,
+    phase: RecordingBarPhase,
+    onCancelClick: () -> Unit,
+    onSend: () -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(20.dp)
+    androidx.compose.material3.Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .imePadding()
+            .navigationBarsPadding(),
+        shape = shape,
+        color = CompactCardBg,
+        shadowElevation = 1.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(66.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircleButton(
+                iconRes = R.drawable.ic_close,
+                desc = "Cancel recording",
+                buttonSize = 36.dp,
+                iconSize = 24.dp,
+                bg = CompactCancelBg,
+                tint = CancelIcon,
+                enabled = phase != RecordingBarPhase.Sending,
+                onClick = onCancelClick,
+            )
+
+            if (phase == RecordingBarPhase.Recording) {
+                Waveform(
+                    levels = levels,
+                    color = CardTitle,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .alpha(if (paused) 0.4f else 1f),
+                )
+            } else {
+                Text(
+                    text = when (phase) {
+                        RecordingBarPhase.Idle -> "Starting…"
+                        RecordingBarPhase.Sending -> "Sending…"
+                        RecordingBarPhase.UploadFailed -> "Upload failed"
+                        RecordingBarPhase.Recording -> ""
+                    },
+                    modifier = Modifier.weight(1f),
+                    color = CardLabel,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                )
+            }
+
+            Text(
+                text = formatCompactTime(elapsed),
+                color = CompactTimer,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Light,
+            )
+
+            if (phase == RecordingBarPhase.UploadFailed) {
+                CircleButton(
+                    iconRes = R.drawable.ic_refresh,
+                    desc = "Retry upload",
+                    buttonSize = 36.dp,
+                    iconSize = 24.dp,
+                    bg = SendBg,
+                    tint = SendIcon,
+                    onClick = onRetry,
+                )
+            } else {
+                val sending = phase == RecordingBarPhase.Sending
+                CircleButton(
+                    iconRes = R.drawable.ic_arrow_up,
+                    desc = if (sending) "Uploading" else "Send recording",
+                    buttonSize = 36.dp,
+                    iconSize = 24.dp,
+                    bg = SendBg,
+                    tint = SendIcon,
+                    enabled = sendEnabled && !sending,
+                    loading = sending,
+                    onClick = onSend,
+                )
             }
         }
     }
@@ -713,6 +852,13 @@ private fun formatTime(totalSeconds: Int): String {
     val m = totalSeconds / 60
     val s = totalSeconds % 60
     return "${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}"
+}
+
+/** 紧凑输入框中的计时格式（Figma：0:01）。 */
+private fun formatCompactTime(totalSeconds: Int): String {
+    val m = totalSeconds / 60
+    val s = totalSeconds % 60
+    return "$m:${s.toString().padStart(2, '0')}"
 }
 
 // 预览用假波形：正弦叠加基线，模拟录音中的动态起伏。
