@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -88,6 +89,12 @@ private fun BottomNavDestination.selectedIconRes(): Int? = when (this) {
     else -> null
 }
 
+private fun BottomNavDestination.iconSize(): Dp = when (this) {
+    // Figma Profile icon is 19.2px; the other three tab icons are 24px.
+    BottomNavDestination.Profile -> 19.2.dp
+    else -> 24.dp
+}
+
 // ─── 颜色：统一引用 ui/colors 设计令牌，随主题深浅自动解析 ────────────────────────
 
 private val ColorSelected: Color
@@ -101,31 +108,28 @@ private val FabBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Focus.default.current()
 /** 设计：展开态 FAB 描边 = palette/neutral-600 #808080（弱化，强调让位给速拨按钮）。 */
 private val FabBorderExpanded: Color = Palette.neutral600
-/** 设计（展开态 nav）：速拨子按钮描边 = border/focus/default（黑）。 */
-private val SubButtonBorder: Color
-    @Composable @ReadOnlyComposable get() = BorderColors.Focus.default.current()
+/** 设计（展开态 nav）：速拨子按钮描边 = palette/gray-600（#656565）。 */
+private val SubButtonBorder: Color = Palette.gray600
 
 // ─── 尺寸 ─────────────────────────────────────────────────────────────────────
 
-private val BarHeight = 56.dp       // 设计：栏体内容带高度（不含 home 指示条安全区）
+private val NavRootHeight = 209.dp  // Figma nav：从速拨/FAB 区顶部到屏幕底部
+private val NavSurfaceHeight = 92.dp // Figma Rectangle 3：白色导航栏主体
+private val NavItemsHeight = 58.dp  // Figma nav items：包含四个 tab 的内容带
 private val FabSize = 65.dp        // 设计：vuesax/linear/scan size-[65px]
 private val FabIconSize = 38.dp    // 设计：add size-[38px]
 private val SubButtonSize = 48.dp  // 设计：ask/create size-[48px]
 private val CradleWidth = 82.dp     // 设计：凹槽贴合 65dp FAB，左右各留 ~8dp 间隙
 private val CradleDepth = 30.dp
 private val TopCorner = 22.dp
-private val StrokeSm = 1.5.dp      // 设计令牌 Stroke/SM = 1.5
+private val StrokeSm = 1.dp        // Figma 底部控件描边
 private val FabShadow = 3.dp       // 设计：drop-shadow (0,3,3) neutral-400
 private val RightGroupWidth = 120.dp // 设计：Library/Profile 组固定宽 120
 private val LeftGroupGap = 30.dp     // 设计：Home↔Calendar 间距 30
 private val NavItemsPadding = 24.dp  // 设计：nav items 左右内边距 24
-/**
- * 栏体底部安全区（叠加系统手势条 inset）：让 tab 内容高于 home 指示条/手势条。
- * 设计 home_final：nav 贴屏幕底边，label 距底约 35dp（tab 带居中后再留 ~30dp）。
- */
-private val BottomSafeExtra = 30.dp
 private val SpeedDialGap = 16.dp     // 速拨相对 FAB 顶边的额外抬升
-private val FabZoneHeight = 120.dp   // 栏体之上为 FAB 上探 + 速拨预留的高度区
+private val NavMaskHeight = 120.dp   // Figma mask_nav：底部内容渐隐区域
+private val DesignHomeIndicatorInset = 34.dp // Figma iPhone 底部手势区高度
 
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 
@@ -150,21 +154,41 @@ fun AppBottomNavBar(
     onExpandedChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    // 栏体贴屏幕底边（不再上浮）；底部安全区 = 系统手势条 inset + 设计留白，抬高 tab 内容。
+    // 以 Figma nav 的 209dp 为基准；若 Android 系统手势区高于设计稿，再向上扩展同等高度，
+    // 保证白色导航栏主体和 tab 的绝对位置不被设备 inset 推动。
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val bottomSafe = navInset + BottomSafeExtra
-    val barTotalHeight = BarHeight + bottomSafe
-    val fabTopOffset = barTotalHeight - FabSize / 2                 // FAB 中心与栏体顶边齐平
-    val speedDialTopOffset = fabTopOffset + FabSize + SpeedDialGap
+    val extraNavInset = (navInset - DesignHomeIndicatorInset).coerceAtLeast(0.dp)
+    val navRootHeight = NavRootHeight + extraNavInset
+    val navSurfaceHeight = NavSurfaceHeight + extraNavInset
+    val fabBottomOffset = 68.dp // Figma FAB top=76dp，nav 高=209dp，FAB 高=65dp
+    val speedDialTopOffset = fabBottomOffset + FabSize + SpeedDialGap
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(barTotalHeight + FabZoneHeight),
+            .height(navRootHeight),
     ) {
+        // 先铺内容到导航栏的渐隐遮罩，再绘制不透明的白色导航栏主体。
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(NavMaskHeight)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Transparent,
+                            Palette.sand400,
+                            Palette.sand400,
+                        ),
+                    ),
+                ),
+        )
+
         // 栏体 + 四个 tab（贴底、含安全区；点 tab 顺便收起速拨）
         CradleBar(
             currentRoute = currentRoute,
-            barHeight = barTotalHeight,
+            barHeight = navSurfaceHeight,
             modifier = Modifier.align(Alignment.BottomCenter),
             onNavigate = { onExpandedChange(false); onNavigate(it) },
         )
@@ -184,7 +208,7 @@ fun AppBottomNavBar(
             expanded = expanded,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = -fabTopOffset),
+                .offset(y = -fabBottomOffset),
             onClick = { onExpandedChange(!expanded) },
         )
     }
@@ -207,12 +231,12 @@ private fun CradleBar(
             .background(BarBg, cradle),
     ) {
         Row(
-            // tab 内容带置于栏体顶部 BarHeight 内（下方为安全区）；左右各 24 内边距，两组分列，纵向居中。
+            // tab 内容带贴合 Figma nav items（58dp）；左右各 24 内边距，tab 底部对齐。
             modifier = Modifier
                 .fillMaxWidth()
-                .height(BarHeight)
+                .height(NavItemsHeight)
                 .padding(horizontal = NavItemsPadding),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
         ) {
             // 左组：Home + Calendar（固定间距 30）
             Row(horizontalArrangement = Arrangement.spacedBy(LeftGroupGap)) {
@@ -339,6 +363,7 @@ private fun NavTab(
     val weight = if (selected) FontWeight.SemiBold else FontWeight.Medium
     // 选中态优先用设计 selected 专属双色图（不 tint）；否则用单色图靠 tint 上色。
     val selectedRes = destination.selectedIconRes()
+    val iconSize = destination.iconSize()
 
     Column(
         modifier = modifier
@@ -355,14 +380,14 @@ private fun NavTab(
                 painter = painterResource(id = selectedRes),
                 contentDescription = destination.label,
                 tint = Color.Unspecified,   // 双色素材，保留自带绿+白
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(iconSize),
             )
         } else {
             Icon(
                 painter = painterResource(id = destination.iconRes()),
                 contentDescription = destination.label,
                 tint = tint,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(iconSize),
             )
         }
         Text(
