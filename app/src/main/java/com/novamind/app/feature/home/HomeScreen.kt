@@ -109,7 +109,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 48.dp),
+                    // 底部导航栏和中央 FAB 叠在首页内容之上，给最后一张卡预留滚动安全区。
+                    .padding(bottom = 160.dp),
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
 
