@@ -55,7 +55,7 @@ fun CreateMetaRow(
         ) {
             // 文件夹：无文件夹时显示「Unassigned」（对齐设计稿）
             MetaChip(
-                iconResId = R.drawable.ic_folder,
+                iconResId = R.drawable.ic_create_folder,
                 label = selectedFolder?.name ?: "Unassigned",
                 onClick = if (readOnly) null else onShowFolderPicker,
             )
@@ -67,7 +67,7 @@ fun CreateMetaRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_nav_calendar),
+                painter = painterResource(id = R.drawable.ic_create_calendar_time),
                 contentDescription = null,
                 tint = TextColors.Primary.secondary.current(),
                 modifier = Modifier.size(16.dp),
@@ -117,6 +117,7 @@ private fun MetaChip(
             Text(
                 text = label,
                 fontSize = 14.sp,
+                lineHeight = 16.sp,
                 color = TextColors.Primary.default.current(),
             )
         }
