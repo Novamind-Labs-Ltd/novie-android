@@ -25,6 +25,8 @@ internal val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 internal val ColorAccent: Color
     @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
+internal val ColorIconDefault: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.default.current()
 internal val ColorIconBtn: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
 // 笔记卡片日期文案色（Figma orange-900 #603812）

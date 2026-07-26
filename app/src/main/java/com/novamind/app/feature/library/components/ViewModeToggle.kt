@@ -1,7 +1,5 @@
 package com.novamind.app.feature.library.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -20,29 +18,29 @@ import com.novamind.app.feature.library.LibraryViewMode
 import com.novamind.app.ui.theme.AppTheme
 
 /**
- * 视图切换按钮：圆角方形白底按钮（区别于顶部圆形搜索按钮），
- * 图标显示「当前」视图模式——网格态显示网格图标、列表态显示列表图标，点击切换。
+ * 视图切换按钮：40dp 无底色点击区域、8dp 圆角，
+ * 图标显示点击后将切换到的目标视图模式。
  */
 @Composable
 internal fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit, visible: Boolean = true) {
     val isGrid = viewMode == LibraryViewMode.GRID
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(40.dp)
             // 不可见时仍保留占位（alpha 0），并禁用点击
             .alpha(if (visible) 1f else 0f)
-            .clip(RoundedCornerShape(12.dp))
-            .background(ColorIconBtn)
-            .border(1.dp, ColorBorder, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .clickable(enabled = visible, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             // 显示「将切换到的」目标视图图标（对齐 Figma：网格态显示列表图标，列表态显示网格图标）
-            painter = painterResource(if (isGrid) R.drawable.ic_format_list else R.drawable.ic_grid),
+            painter = painterResource(
+                if (isGrid) R.drawable.ic_library_view_list else R.drawable.ic_library_view_grid,
+            ),
             contentDescription = if (isGrid) "Switch to list view" else "Switch to grid view",
-            tint = ColorTextTitle,
-            modifier = Modifier.size(20.dp),
+            tint = ColorIconDefault,
+            modifier = Modifier.size(if (isGrid) 24.dp else 18.dp),
         )
     }
 }
