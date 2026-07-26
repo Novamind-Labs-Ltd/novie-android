@@ -472,6 +472,10 @@ class CalendarViewModel @Inject constructor(
                         connectionStatus = CalendarConnectionStatus.CONNECTED,
                         events = events,
                         tasks = tasks,
+                        // A previous authorization/sync failure may have populated this field.
+                        // Once both agenda requests complete, that error is stale and must not
+                        // remain visible over the successfully connected calendar.
+                        errorMessage = null,
                         isPullRefreshing = false,
                     )
                 }
