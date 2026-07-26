@@ -112,6 +112,9 @@ import kotlinx.coroutines.launch
 
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
 
+/** Ask Novie 语音输入暂时隐藏；保留实现，便于后续恢复。 */
+private const val ASK_NOVIE_VOICE_INPUT_ENABLED = false
+
 /** 预设快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
     "Help me brainstorm",
@@ -899,7 +902,7 @@ fun AskNovieScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            // 次行：左 [+][模型胶囊]，右 [麦克风][发送 / 停止]
+                            // 次行：左 [+][模型胶囊]，右 [语音（功能开启时）][发送 / 停止]
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -934,19 +937,21 @@ fun AskNovieScreen(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    ComposerRoundButton(
-                                        R.drawable.ic_mic,
-                                        "Voice",
-                                        onClick = {
-                                            // 点麦克风：已授权直接录音，否则先申请权限
-                                            if (PermissionUtils.hasAudioPermission(context)) {
-                                                ensureNotifPermission()
-                                                isRecording = true
-                                            } else {
-                                                recordPermission?.launch(android.Manifest.permission.RECORD_AUDIO)
-                                            }
-                                        },
-                                    )
+                                    if (ASK_NOVIE_VOICE_INPUT_ENABLED) {
+                                        ComposerRoundButton(
+                                            R.drawable.ic_mic,
+                                            "Voice",
+                                            onClick = {
+                                                // 点麦克风：已授权直接录音，否则先申请权限
+                                                if (PermissionUtils.hasAudioPermission(context)) {
+                                                    ensureNotifPermission()
+                                                    isRecording = true
+                                                } else {
+                                                    recordPermission?.launch(android.Manifest.permission.RECORD_AUDIO)
+                                                }
+                                            },
+                                        )
+                                    }
                                     // 回复生成中 → 停止；否则 → 发送（无输入内容时置灰不可点）
                                     if (isResponding || isStreaming) {
                                         StopButton(onClick = stopResponse)
