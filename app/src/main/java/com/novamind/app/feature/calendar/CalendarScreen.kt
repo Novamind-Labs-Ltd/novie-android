@@ -87,6 +87,19 @@ fun CalendarScreen(
             .background(BgPage)
             .statusBarsPadding(),
     ) {
+        // 固定头部：与 Home 一致，不参与下拉位移；刷新指示器从标题下方出现。
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(top = 16.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Calendar", fontSize = 28.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
+            PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
+        }
+
         AppPullToRefresh(
             // 进入页面的自动同步只更新内容，不让页面跟随下拉指示器位移；
             // 只有用户实际下拉触发 Refresh 时才显示下拉刷新动画。
@@ -106,19 +119,6 @@ fun CalendarScreen(
                     // state enough scroll range to move its connect button fully above it.
                     .padding(bottom = if (uiState.isConnected) 100.dp else 220.dp),
             ) {
-        // 顶部标题 + 新建（Figma：仅标题 + ＋）
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(top = 16.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Calendar", fontSize = 28.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
-            PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
-        }
-
         // 日期卡（Figma 959-60167）：日期 + 箭头 + Today 药丸；分隔线；星期表头；周条
         Column(
             modifier = Modifier
