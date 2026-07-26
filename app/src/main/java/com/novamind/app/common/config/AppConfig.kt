@@ -188,7 +188,7 @@ object AppConfig {
          * 判为「有声」的单个采样窗口（[com.novamind.app.common.audio.RecordingService] 100ms 轮询）
          * 最小振幅（0..32767）：高于麦克风底噪、低于常见说话电平。实测本机静音底噪峰值约 4000~6000。
          */
-        const val VOICE_LEVEL = 8000
+        const val VOICE_LEVEL = 5000
 
         /**
          * 累计「有声」时长达到此值（毫秒）才视为录到人声；否则判「没有声音」弹提示。
