@@ -36,7 +36,7 @@ import java.util.Locale
 private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
 
 /**
- * 会议行（Figma 1032-42476）：圆角卡片 + 左侧**深色圆角方块**图标框（白色人物图标）+ 标题 + 时间段。
+ * 会议行（Figma 1032-42476）：圆角卡片 + 左侧**深色圆角方块**图标框（白色双人图标）+ 标题 + 时间段。
  * 已结束（[CalendarEvent.isPast]）为「已过去」态：卡片改浅底（#fcfaf6）、图标框改灰底（#e5e5e5）配
  * 次要色图标、标题加删除线并转次要色。
  *
@@ -78,7 +78,7 @@ internal fun EventRow(event: CalendarEvent, onClick: (() -> Unit)? = null) {
                 painter = painterResource(R.drawable.ic_meeting_people),
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(width = 21.5.dp, height = 16.5.dp),
             )
         }
         Column(
