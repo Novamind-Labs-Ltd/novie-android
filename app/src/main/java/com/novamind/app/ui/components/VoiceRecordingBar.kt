@@ -145,7 +145,7 @@ private enum class RecordingBarPhase { Idle, Recording, Sending, UploadFailed }
  * @param onUpload 可选上传步骤：录音落盘后调用，返回 false 进入失败态（绿色重试按钮，
  *   可重传同一文件）；为 null 时跳过上传直接 [onConfirm]（当前 CreateScreen 本地插入即此路径）。
  * @param compact 紧凑输入框模式（Ask Novie 使用）；为 false 时保持 Create 页的大型录音面板。
- * @param autoStart 紧凑模式进入后是否立即开始录音。
+ * @param autoStart 组件进入后是否立即开始录音。
  */
 @Composable
 fun VoiceRecordingBar(
@@ -203,12 +203,12 @@ fun VoiceRecordingBar(
         started = true
     }
 
-    // Ask Novie 的紧凑录音条没有单独的「开始录音」按钮，进入后直接开始采集。
+    // 调用方明确要求自动开始时，组件进入后直接开始采集。
     LaunchedEffect(autoStart) {
-        if (autoStart && compact && !started) startRecording()
+        if (autoStart && !started) startRecording()
     }
 
-    // 进入即复位为空闲态（计时归零、不自动录音）；离开页面时若仍在录音（用户直接返回）则取消丢弃
+    // 进入时先复位共享快照；离开页面时若仍在录音（用户直接返回）则取消丢弃。
     androidx.compose.runtime.DisposableEffect(Unit) {
         com.novamind.app.common.audio.RecordingController.reset()
         onDispose {

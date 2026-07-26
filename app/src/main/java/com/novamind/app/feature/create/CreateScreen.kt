@@ -645,6 +645,7 @@ fun CreateScreen(
                     onConfirm = { path, durationSeconds ->
                         onUploadRecording(path, durationSeconds * 1000L)
                     },
+                    autoStart = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
