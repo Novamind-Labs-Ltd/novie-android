@@ -12,6 +12,12 @@ import retrofit2.http.Query
  */
 interface GoogleCalendarApi {
 
+    /** 读取当前授权账号的主日历，用其 id 识别实际选择的 Google 账号。 */
+    @GET("calendars/{calendarId}")
+    suspend fun getCalendar(
+        @Path("calendarId") calendarId: String = "primary",
+    ): CalendarDto
+
     /**
      * 列出某日历在 [timeMin, timeMax) 区间内的事件。
      * singleEvents=true 会把循环事件展开为单次实例，配合 orderBy=startTime 按开始时间排序。

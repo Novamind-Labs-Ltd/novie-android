@@ -22,6 +22,16 @@ class GoogleCalendarRepositoryImpl(
     private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) : GoogleCalendarRepository {
 
+    override suspend fun currentAccountEmail(): String = withContext(Dispatchers.IO) {
+        try {
+            api.getCalendar().id
+                ?.takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("Primary calendar has no account id")
+        } catch (e: HttpException) {
+            throw e.toAuthAware()
+        }
+    }
+
     override suspend fun eventsOn(date: LocalDate): List<CalendarEvent> = eventsBetween(date, date.plusDays(1))
 
     override suspend fun eventsBetween(start: LocalDate, endExclusive: LocalDate): List<CalendarEvent> =

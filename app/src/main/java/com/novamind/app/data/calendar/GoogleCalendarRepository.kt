@@ -6,6 +6,9 @@ import java.time.LocalDate
  * Google 日历数据仓库。授权 token 由 [com.novamind.app.common.google.GoogleTokenProvider] 提供。
  */
 interface GoogleCalendarRepository {
+    /** 当前授权 Google 账号邮箱（主日历 id），用于绑定和缓存隔离。 */
+    suspend fun currentAccountEmail(): String
+
     /** 拉取 [date] 当天主日历的事件，已按开始时间排序、转换为本地时区时间。 */
     suspend fun eventsOn(date: LocalDate): List<CalendarEvent>
 

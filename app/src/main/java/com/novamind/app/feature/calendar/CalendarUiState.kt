@@ -65,6 +65,9 @@ sealed interface CalendarUiEvent {
     /** 授权流程失败 / 被取消。 */
     data class AuthFailed(val message: String?) : CalendarUiEvent
 
+    /** 交互式 Google 账号选择与授权成功。 */
+    data class GoogleTokenObtained(val accessToken: String) : CalendarUiEvent
+
     /** 断开 Calendar：删除 token + 删除绑定 + 清缓存（不 revoke）。 */
     data object Disconnect : CalendarUiEvent
 

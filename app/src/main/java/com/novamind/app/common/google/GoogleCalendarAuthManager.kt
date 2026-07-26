@@ -7,12 +7,19 @@ import android.content.Intent
 import com.google.android.gms.auth.GoogleAuthException
 import com.google.android.gms.auth.GoogleAuthUtil
 import com.google.android.gms.auth.UserRecoverableAuthException
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.AuthorizationResult
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /** 为某个 Google 账号取 token 的结果。 */
 sealed interface TokenOutcome {
@@ -56,9 +63,56 @@ interface GoogleCalendarAuthSource {
 class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
 
     private val appContext = context.applicationContext
+    private val authorizationClient = Identity.getAuthorizationClient(appContext)
+    private val requestedScopes = listOf(
+        Scope(SCOPE_CALENDAR_READONLY),
+        Scope(SCOPE_CALENDAR_EVENTS),
+        Scope(SCOPE_TASKS),
+    )
 
     /** 仅用于服务端吊销的小客户端，与 Calendar 业务网络栈无关。 */
     private val revokeClient: OkHttpClient by lazy { OkHttpClient() }
+
+    /** 交互式账号选择/授权的结果。 */
+    sealed interface AuthorizationOutcome {
+        data class Authorized(val accessToken: String) : AuthorizationOutcome
+        data class NeedsConsent(val intentSender: android.content.IntentSender) : AuthorizationOutcome
+    }
+
+    /**
+     * 首次连接使用 AuthorizationClient，让用户选择设备上真实存在的 Google 账号。
+     * 不再假设 Novie/Auth0 登录邮箱也是 Android 系统 Google 账号。
+     */
+    suspend fun requestAuthorization(): AuthorizationOutcome = suspendCancellableCoroutine { continuation ->
+        val request = AuthorizationRequest.builder()
+            .setRequestedScopes(requestedScopes)
+            .build()
+        authorizationClient.authorize(request)
+            .addOnSuccessListener { result ->
+                if (continuation.isActive) continuation.resume(result.toAuthorizationOutcome())
+            }
+            .addOnFailureListener { error ->
+                if (continuation.isActive) continuation.resumeWithException(error)
+            }
+    }
+
+    /** 解析账号选择/授权页面返回的 access token。 */
+    fun tokenFromAuthorizationResult(data: Intent?): String? {
+        if (data == null) return null
+        return authorizationClient.getAuthorizationResultFromIntent(data)
+            .accessToken
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun AuthorizationResult.toAuthorizationOutcome(): AuthorizationOutcome {
+        val resolution = pendingIntent
+        if (hasResolution() && resolution != null) {
+            return AuthorizationOutcome.NeedsConsent(resolution.intentSender)
+        }
+        val token = accessToken
+        check(!token.isNullOrBlank()) { "Authorization succeeded without an access token" }
+        return AuthorizationOutcome.Authorized(token)
+    }
 
     override suspend fun fetchToken(accountName: String): TokenOutcome = withContext(Dispatchers.IO) {
         try {

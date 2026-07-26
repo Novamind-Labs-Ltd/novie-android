@@ -1,14 +1,11 @@
 package com.novamind.app.feature.home
 
-import android.content.Intent
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
-import com.novamind.app.common.google.TokenOutcome
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.fold
@@ -17,6 +14,7 @@ import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.calendar.TodayAgenda
 import com.novamind.app.data.calendar.TodayAgendaUseCase
+import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
@@ -36,9 +34,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -52,16 +48,12 @@ class HomeViewModel @Inject constructor(
     private val attachmentsRepository: AttachmentsRepository,
     private val todayAgenda: TodayAgendaUseCase,
     private val tasksRepository: GoogleTasksRepository,
-    private val authSource: GoogleCalendarAuthSource,
+    private val calendarRepository: GoogleCalendarRepository,
     private val bindingStore: CalendarBindingStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
-
-    /** 需要用户同意授权时发出恢复意图；Route 收集后用 ActivityResult 启动（与日历页一致）。 */
-    private val _consentRequest = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
-    val consentRequest = _consentRequest.asSharedFlow()
 
     fun onSearchQueryChange(query: String) {
         // TODO: filter
@@ -278,52 +270,36 @@ class HomeViewModel @Inject constructor(
 
     // ─── Google 日历连接（Up next 未授权时的入口，复用日历页同意流程） ─────────────
 
-    /**
-     * 连接 Google 日历：用当前登录账户取 token。需要用户同意时经 [consentRequest] 让
-     * Route 启动同意页，返回后调 [onConsentGranted] 重试；成功即建立绑定并刷新 Up next。
-     */
-    fun connectCalendar() {
-        val account = UserSessionManager.current.userKey
-        if (account.isNullOrBlank()) {
-            AppLog.w(TAG) { "connectCalendar: no login account" }
-            return
-        }
+    /** Route 即将启动 Google 账号选择时切换按钮 loading。 */
+    fun beginCalendarConnection() {
         if (_uiState.value.calendarConnecting) return
         _uiState.update { it.copy(calendarConnecting = true) }
-        viewModelScope.launch { connectWithAccount(account) }
     }
 
-    /** 用户在同意页授权后回调：用登录账户重试取 token。 */
-    fun onConsentGranted() {
-        val account = UserSessionManager.current.userKey ?: return
-        _uiState.update { it.copy(calendarConnecting = true) }
-        viewModelScope.launch { connectWithAccount(account) }
-    }
-
-    /** 同意被取消 / 失败：结束连接中态。 */
+    /** 账号选择被取消 / 失败：结束连接中态。 */
     fun onConsentCancelled() {
         _uiState.update { it.copy(calendarConnecting = false) }
     }
 
-    private suspend fun connectWithAccount(account: String) {
-        when (val outcome = authSource.fetchToken(account)) {
-            is TokenOutcome.Success -> {
-                GoogleTokenProvider.accessToken = outcome.token
-                bindingStore.bind(account, UserSessionManager.current.userKey)
-                _uiState.update { it.copy(calendarConnecting = false, calendarNeedsAuth = false) }
-                loadUpcoming()       // 刷新今日会议/任务
-                loadUpcomingRange()  // 刷新 Upcoming 未来两周
-            }
-            is TokenOutcome.NeedsConsent -> {
-                AppLog.d(TAG) { "connectCalendar needs consent -> request UI" }
-                _consentRequest.tryEmit(outcome.recoveryIntent)   // 保持 connecting，等同意结果
-            }
-            is TokenOutcome.Failure -> {
-                AppLog.w(TAG, outcome.error) { "connectCalendar failed" }
-                _uiState.update {
-                    it.copy(calendarConnecting = false, errorMessage = "Google 授权失败，请重试")
+    /** 交互式 Google 授权成功后绑定真实 Google 邮箱并刷新 Up next。 */
+    fun onCalendarTokenObtained(token: String) {
+        GoogleTokenProvider.accessToken = token
+        viewModelScope.launch {
+            runCatching { calendarRepository.currentAccountEmail() }
+                .onSuccess { accountEmail ->
+                    bindingStore.bind(accountEmail, UserSessionManager.current.userKey)
+                    _uiState.update { it.copy(calendarConnecting = false, calendarNeedsAuth = false) }
+                    loadUpcoming()
+                    loadUpcomingRange()
                 }
-            }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    GoogleTokenProvider.clear()
+                    AppLog.w(TAG, error) { "connectCalendar: resolve Google account failed" }
+                    _uiState.update {
+                        it.copy(calendarConnecting = false, errorMessage = "Google 授权失败，请重试")
+                    }
+                }
         }
     }
 

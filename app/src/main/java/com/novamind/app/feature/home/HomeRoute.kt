@@ -2,6 +2,7 @@ package com.novamind.app.feature.home
 
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -30,6 +31,7 @@ import java.time.LocalDate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novamind.app.BuildConfig
+import com.novamind.app.common.google.GoogleCalendarAuthManager
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.feature.calendar.AddTaskScreen
@@ -67,20 +69,43 @@ fun HomeRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val calendarAuthManager = remember { GoogleCalendarAuthManager(context) }
 
     // 每次回到首页（HomeRoute 重新进入组合，如底栏切换 / 从编辑器返回）都静默重拉笔记列表
     LaunchedEffect(Unit) { viewModel.reload() }
 
-    // Up next 未授权时的「连接日历」授权流程（与日历页一致）：
-    // VM 需用户同意时经 consentRequest 发出恢复意图，这里启动并回传结果。
-    val consentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
+    // Up next 未授权时让用户选择设备上的 Google 账号，与 Calendar 页保持一致。
+    val calendarAuthorizationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) viewModel.onConsentGranted()
-        else viewModel.onConsentCancelled()
+        if (result.resultCode == Activity.RESULT_OK) {
+            runCatching { calendarAuthManager.tokenFromAuthorizationResult(result.data) }
+                .onSuccess { token ->
+                    if (token != null) viewModel.onCalendarTokenObtained(token)
+                    else viewModel.onConsentCancelled()
+                }
+                .onFailure { viewModel.onConsentCancelled() }
+        } else viewModel.onConsentCancelled()
     }
-    LaunchedEffect(Unit) {
-        viewModel.consentRequest.collect { intent -> consentLauncher.launch(intent) }
+
+    fun connectGoogleCalendar() {
+        if (uiState.calendarConnecting) return
+        viewModel.beginCalendarConnection()
+        scope.launch {
+            runCatching { calendarAuthManager.requestAuthorization() }
+                .onSuccess { outcome ->
+                    when (outcome) {
+                        is GoogleCalendarAuthManager.AuthorizationOutcome.Authorized ->
+                            viewModel.onCalendarTokenObtained(outcome.accessToken)
+
+                        is GoogleCalendarAuthManager.AuthorizationOutcome.NeedsConsent ->
+                            calendarAuthorizationLauncher.launch(
+                                IntentSenderRequest.Builder(outcome.intentSender).build(),
+                            )
+                    }
+                }
+                .onFailure { viewModel.onConsentCancelled() }
+        }
     }
 
     // 个人资料（头像）
@@ -189,7 +214,7 @@ fun HomeRoute(
                     onStartNotes = onStartNotes,
                     onAvatarClick = { scope.launch { drawerState.open() } },
                     onRefresh = viewModel::onRefresh,
-                    onConnectCalendar = viewModel::connectCalendar,
+                    onConnectCalendar = ::connectGoogleCalendar,
                     userName = userName?.takeIf { it.isNotBlank() } ?: "",
                     avatarPath = avatarPath,
                     notificationCount = notifications.unreadCount(),
@@ -219,7 +244,7 @@ fun HomeRoute(
                     isLoading = uiState.upcomingRangeLoading,
                     calendarNeedsAuth = uiState.calendarNeedsAuth,
                     calendarConnecting = uiState.calendarConnecting,
-                    onConnectCalendar = viewModel::connectCalendar,
+                    onConnectCalendar = ::connectGoogleCalendar,
                 )
 
                 HomeOverlay.MeetingDetail -> {

@@ -2,6 +2,7 @@ package com.novamind.app.feature.calendar
 
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -21,9 +22,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.novamind.app.common.google.GoogleCalendarAuthManager
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.tasks.CalendarTask
 import kotlinx.coroutines.launch
@@ -31,10 +34,9 @@ import kotlinx.coroutines.launch
 /**
  * Calendar 的有状态路由：连接 [CalendarViewModel] 与无状态的 [CalendarScreen]。
  *
- * 日历账户跟随 App 登录账户，**不弹账号选择器**：
- * - [CalendarUiEvent.Connect] / [CalendarUiEvent.SwitchAccount] → 直接用当前登录账户取 token；
- * - VM 取 token 若需用户同意（首次授权 calendar 范围），通过 [CalendarViewModel.consentRequest]
- *   请求启动 OAuth 同意页，返回后调 [CalendarViewModel.onConsentGranted] 重试。
+ * 首次连接通过 Google AuthorizationClient 让用户选择设备上的 Google 账号；授权成功后
+ * ViewModel 读取主日历邮箱并绑定到当前 Novie 用户。冷启动续期仍由 ViewModel 对已绑定
+ * Google 账号执行，不会误用 Auth0 登录邮箱。
  */
 @Composable
 fun CalendarRoute(
@@ -43,7 +45,9 @@ fun CalendarRoute(
     viewModel: CalendarViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val authManager = remember { GoogleCalendarAuthManager(context) }
 
     // 新增/编辑任务覆盖层（点顶部「+」或任务行打开）；打开时隐藏底部导航栏。
     var showAddTask by rememberSaveable { mutableStateOf(false) }
@@ -64,20 +68,45 @@ fun CalendarRoute(
     // 系统返回由 AddTaskScreen 内部的 BackHandler 接管（含未保存变更的放弃确认），
     // 此处不再拦截，避免绕过脏检查直接关闭。
 
-    // 恢复授权（OAuth 同意）结果：同意后用登录账户重试取 token。
-    val consentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
+    // Google 账号选择/授权结果：解析 access token 后交给 ViewModel 建立绑定。
+    val authorizationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.onConsentGranted()
+            runCatching { authManager.tokenFromAuthorizationResult(result.data) }
+                .onSuccess { token ->
+                    if (token != null) {
+                        viewModel.onEvent(CalendarUiEvent.GoogleTokenObtained(token))
+                    } else {
+                        viewModel.onEvent(CalendarUiEvent.AuthFailed("No access token returned"))
+                    }
+                }
+                .onFailure { error ->
+                    viewModel.onEvent(CalendarUiEvent.AuthFailed(error.message))
+                }
         } else {
             viewModel.onEvent(CalendarUiEvent.AuthFailed("Authorization cancelled"))
         }
     }
 
-    // VM 请求同意时启动恢复意图。
-    LaunchedEffect(Unit) {
-        viewModel.consentRequest.collect { intent -> consentLauncher.launch(intent) }
+    fun startGoogleAuthorization() {
+        scope.launch {
+            runCatching { authManager.requestAuthorization() }
+                .onSuccess { outcome ->
+                    when (outcome) {
+                        is GoogleCalendarAuthManager.AuthorizationOutcome.Authorized ->
+                            viewModel.onEvent(CalendarUiEvent.GoogleTokenObtained(outcome.accessToken))
+
+                        is GoogleCalendarAuthManager.AuthorizationOutcome.NeedsConsent ->
+                            authorizationLauncher.launch(
+                                IntentSenderRequest.Builder(outcome.intentSender).build(),
+                            )
+                    }
+                }
+                .onFailure { error ->
+                    viewModel.onEvent(CalendarUiEvent.AuthFailed(error.message))
+                }
+        }
     }
 
     // 每次页面显示（进入/切回 tab/回前台）都刷新。
@@ -91,12 +120,12 @@ fun CalendarRoute(
             uiState = uiState,
             onEvent = { event ->
                 when (event) {
-                    // 连接：直接用当前登录账户取 token。
-                    CalendarUiEvent.Connect -> viewModel.connectWithCurrentAccount()
-                    // 重新授权当前账户：先清/吊销旧授权，再用登录账户重连。
+                    // 首次连接：让用户选择设备上的 Google 账号并授权。
+                    CalendarUiEvent.Connect -> startGoogleAuthorization()
+                    // 换账号：先清/吊销旧授权，再重新弹出 Google 账号选择。
                     CalendarUiEvent.SwitchAccount -> scope.launch {
                         viewModel.prepareAccountSwitch()
-                        viewModel.connectWithCurrentAccount()
+                        startGoogleAuthorization()
                     }
                     // 新增任务：仅已连接时打开（未连接创建必然失败）。
                     CalendarUiEvent.AddTaskClicked -> if (uiState.isConnected) {

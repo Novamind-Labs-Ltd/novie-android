@@ -1,7 +1,6 @@
 package com.novamind.app.feature.calendar
 
 import com.novamind.app.common.log.AppLog
-import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.google.GoogleAccount
@@ -22,9 +21,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -58,10 +55,6 @@ class CalendarViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState = _uiState.asStateFlow()
 
-    /** 需要用户同意时，发出恢复授权 Intent；Route 收集后用 ActivityResult 启动。 */
-    private val _consentRequest = MutableSharedFlow<Intent>(extraBufferCapacity = 1)
-    val consentRequest = _consentRequest.asSharedFlow()
-
     init {
         // 响应式联动 App 会话：登录/登出时重新评估，避免 VM 被保留后状态停滞。StateFlow 会立即发射当前值。
         viewModelScope.launch {
@@ -79,6 +72,7 @@ class CalendarViewModel @Inject constructor(
             // Connect / SwitchAccount 需 Activity，由 Route 拦截编排，VM 不处理。
             CalendarUiEvent.Connect -> Unit
             CalendarUiEvent.SwitchAccount -> Unit
+            is CalendarUiEvent.GoogleTokenObtained -> onTokenObtained(event.accessToken)
             is CalendarUiEvent.AuthFailed -> _uiState.update {
                 it.copy(errorMessage = event.message ?: "Google authorization failed")
             }
@@ -108,8 +102,7 @@ class CalendarViewModel @Inject constructor(
     /**
      * 进入页面 / 冷启动的入口。
      * - 已有绑定：一致性校验后用绑定账号静默续期（拿不到 token → [CalendarConnectionStatus.PERMISSION_REVOKED]）。
-     * - 无绑定但已登录：静默探测当前登录账户是否**已授权日历读取**——已授权则**自动连接**并建立绑定，
-     *   未授权才显示首次连接卡片（[CalendarConnectionStatus.NOT_CONNECTED]）。
+     * - 无绑定：等待用户主动选择设备上的 Google 账号。
      */
     private fun refreshAuthAndLoad() {
         val currentUser = UserSessionManager.current.userKey
@@ -128,21 +121,23 @@ class CalendarViewModel @Inject constructor(
             return
         }
 
-        // 无绑定：未登录（或登录态未就绪）→ 先显示连接卡片，待会话就绪再触发。
-        if (currentUser.isNullOrBlank()) {
-            AppLog.d(TAG) { "refreshAuthAndLoad: no binding & no login user -> NOT_CONNECTED" }
-            _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.NOT_CONNECTED) }
-            return
+        // 无绑定时等待用户主动选择设备上的 Google 账号。Novie 登录邮箱可能不是
+        // Google 账号，不能据此构造 Account，否则 GoogleAuthUtil 会返回 AccountNotPresent。
+        AppLog.d(TAG) { "refreshAuthAndLoad: no calendar binding -> NOT_CONNECTED" }
+        _uiState.update {
+            it.copy(
+                connectionStatus = CalendarConnectionStatus.NOT_CONNECTED,
+                account = null,
+                events = emptyList(),
+                tasks = emptyList(),
+                errorMessage = null,
+            )
         }
-        // 已登录但无绑定：静默探测是否已授权，已授权则自动连接。
-        AppLog.d(TAG) { "refreshAuthAndLoad: no binding, probe login account $currentUser" }
-        connectSilently(currentUser, isReconnect = false)
     }
 
     /**
      * 用 [accountName] 静默取 token 并落地。
-     * @param isReconnect true=已有绑定的续期（失败→PERMISSION_REVOKED）；
-     *                    false=无绑定的探测（成功则建立绑定；失败→NOT_CONNECTED 显示连接卡片，不当作错误）。
+     * @param isReconnect true=已有绑定的续期（失败→PERMISSION_REVOKED）。
      */
     private fun connectSilently(accountName: String?, isReconnect: Boolean) {
         viewModelScope.launch {
@@ -178,58 +173,35 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 连接日历：直接用**当前 App 登录账户**邮箱取 token，不弹账号选择器（日历账户跟随登录账户）。
-     * 需要用户同意时，通过 [consentRequest] 让 Route 启动恢复意图，返回后调 [onConsentGranted] 重试。
-     */
-    fun connectWithCurrentAccount() {
-        val accountName = UserSessionManager.current.userKey
-        if (accountName.isNullOrBlank()) {
-            AppLog.w(TAG) { "connect: no login account email" }
+    /** 交互式账号选择成功后，解析真实 Google 邮箱、建立绑定并同步。 */
+    private fun onTokenObtained(token: String) {
+        GoogleTokenProvider.accessToken = token
+        viewModelScope.launch {
             _uiState.update {
-                it.copy(
-                    connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
-                    errorMessage = "No login account to connect",
-                )
+                it.copy(connectionStatus = CalendarConnectionStatus.SYNCING, errorMessage = null)
             }
-            return
-        }
-        AppLog.d(TAG) { "connect with login account: $accountName" }
-        _uiState.update {
-            it.copy(
-                connectionStatus = CalendarConnectionStatus.SYNCING,
-                account = GoogleAccount(accountName),
-                errorMessage = null,
-            )
-        }
-        viewModelScope.launch { connectWithAccount(accountName) }
-    }
-
-    /** 用户在恢复授权页同意后回调：用已选账号重试取 token。 */
-    fun onConsentGranted() {
-        val accountName = _uiState.value.account?.email ?: return
-        _uiState.update { it.copy(connectionStatus = CalendarConnectionStatus.SYNCING, errorMessage = null) }
-        viewModelScope.launch { connectWithAccount(accountName) }
-    }
-
-    private suspend fun connectWithAccount(accountName: String) {
-        when (val outcome = authSource.fetchToken(accountName)) {
-            is TokenOutcome.Success -> {
-                GoogleTokenProvider.accessToken = outcome.token
-                bindingStore.bind(accountName, UserSessionManager.current.userKey)
-                _uiState.update { it.copy(account = GoogleAccount(accountName)) }
-                fetchInto(_uiState.value.selectedDate, accountName, allowSilentRetry = false)
-            }
-            is TokenOutcome.NeedsConsent -> {
-                AppLog.d(TAG) { "connect needs consent -> request UI" }
-                _consentRequest.tryEmit(outcome.recoveryIntent)
-            }
-            is TokenOutcome.Failure -> _uiState.update {
-                it.copy(
-                    connectionStatus = CalendarConnectionStatus.SYNC_FAILED,
-                    errorMessage = connectFailureMessage(outcome.error),
-                )
-            }
+            runCatching { repository.currentAccountEmail() }
+                .onSuccess { accountEmail ->
+                    bindingStore.bind(accountEmail, UserSessionManager.current.userKey)
+                    _uiState.update { it.copy(account = GoogleAccount(accountEmail)) }
+                    fetchInto(
+                        _uiState.value.selectedDate,
+                        accountEmail,
+                        allowSilentRetry = false,
+                    )
+                }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    AppLog.w(TAG, error) { "resolve authorized Google account failed" }
+                    GoogleTokenProvider.clear()
+                    _uiState.update {
+                        it.copy(
+                            connectionStatus = CalendarConnectionStatus.NOT_CONNECTED,
+                            account = null,
+                            errorMessage = null,
+                        )
+                    }
+                }
         }
     }
 
@@ -550,7 +522,7 @@ class CalendarViewModel @Inject constructor(
 
     /**
      * 重新授权前置清理：清 GMS token 缓存 + 服务端 revoke + 删 token/绑定/缓存。
-     * Route 在此之后立即用当前登录账户重连（[connectWithCurrentAccount]）。
+     * Route 在此之后立即重新启动 Google 账号选择与授权。
      */
     suspend fun prepareAccountSwitch() {
         AppLog.d(TAG) { "prepare account switch (clearToken + revoke + clear)" }
@@ -560,13 +532,6 @@ class CalendarViewModel @Inject constructor(
         }
         clearLocalSession()
         _uiState.update { CalendarUiState(selectedDate = it.selectedDate) }
-    }
-
-    /** 连接失败的可读提示：区分网络错误与账号/授权配置问题。 */
-    private fun connectFailureMessage(error: Throwable): String = when (error) {
-        is java.io.IOException -> "Network error. Please retry."
-        else -> "Couldn't connect this account to Google Calendar. " +
-            "Make sure it's a Google account with Calendar access allowed."
     }
 
     /** 清本地会话（token + 绑定 + 缓存）。退出登录 / 断开 / 换账号共用。 */

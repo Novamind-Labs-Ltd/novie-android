@@ -18,6 +18,12 @@ data class EventsResponse(
     val defaultReminders: List<ReminderOverrideDto> = emptyList(),
 )
 
+/** `calendars/primary` 的精简响应；主日历 id 是当前授权 Google 账号邮箱。 */
+@Serializable
+data class CalendarDto(
+    val id: String? = null,
+)
+
 @Serializable
 data class EventDto(
     val id: String? = null,
