@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +44,8 @@ import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.components.Button
+import com.novamind.app.ui.components.ButtonVariant
 import com.novamind.app.ui.theme.AppTheme
 
 /**
@@ -150,48 +149,26 @@ private fun BorderColorDialogContent(
             }
         }
 
-        // CTAs：Cancel | 竖分隔线 | Apply（均为文字按钮）
+        // CTAs：与通用 AppAlertDialog 保持一致（描边取消 + 实心确认胶囊按钮）。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            DialogTextButton(text = "Cancel", modifier = Modifier.weight(1f), onClick = onCancel)
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(18.dp)
-                    .background(BorderColors.Default.default.current()),
+            Button(
+                text = "Cancel",
+                onClick = onCancel,
+                variant = ButtonVariant.Secondary,
+                modifier = Modifier.weight(1f),
             )
-            DialogTextButton(text = "Apply", modifier = Modifier.weight(1f), onClick = onApply)
+            Button(
+                text = "Apply",
+                onClick = onApply,
+                variant = ButtonVariant.Primary,
+                modifier = Modifier.weight(1f),
+            )
         }
-    }
-}
-
-@Composable
-private fun DialogTextButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            )
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            color = TextColors.Primary.default.current(),
-        )
     }
 }
 
