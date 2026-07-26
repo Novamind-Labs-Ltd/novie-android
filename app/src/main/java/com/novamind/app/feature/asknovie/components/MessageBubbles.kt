@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +58,12 @@ import com.novamind.app.feature.asknovie.Attachment
 import com.novamind.app.feature.asknovie.ChatMessage
 import com.novamind.app.feature.asknovie.Role
 import com.novamind.app.ui.theme.AppTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.io.File
+
+/** 流式 Markdown 重新解析间隔：兼顾实时感与组合稳定性。 */
+private const val STREAMING_MARKDOWN_FRAME_MS = 120L
 
 /** 语音气泡：播放/暂停 + 名称（含时长）。点击播放录音文件；预览态不创建 MediaPlayer。 */
 @Composable
@@ -247,8 +253,8 @@ internal fun AssistantText(
 }
 
 /**
- * SSE 流式期间用稳定的纯文本节点，避免 Markdown AST 每个 token 整树重建造成闪屏。
- * 流结束后再切换为完整 Markdown，保留标题、列表、代码块等格式。
+ * SSE 流式期间按固定帧率刷新 Markdown，而非每个 token 都重建 AST。
+ * 这样返回过程中即可看到标题、列表、粗体等格式，同时减少闪屏。
  */
 @Composable
 private fun AssistantMessageContent(
@@ -256,20 +262,24 @@ private fun AssistantMessageContent(
     isStreaming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (isStreaming) {
-        Text(
-            text = text,
-            color = TextTitle,
-            fontSize = 15.sp,
-            lineHeight = 22.sp,
-            modifier = modifier,
-        )
-    } else {
-        Markdown(
-            content = text,
-            modifier = modifier,
-        )
+    val latestText by rememberUpdatedState(text)
+    var renderedText by remember { mutableStateOf(text) }
+
+    LaunchedEffect(isStreaming) {
+        if (!isStreaming) {
+            renderedText = latestText
+            return@LaunchedEffect
+        }
+        while (isActive) {
+            renderedText = latestText
+            delay(STREAMING_MARKDOWN_FRAME_MS)
+        }
     }
+
+    Markdown(
+        content = renderedText,
+        modifier = modifier,
+    )
 }
 
 /** 助手回复下方的操作行：复制 / 分享 / 朗读。 */
