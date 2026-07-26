@@ -161,10 +161,10 @@ internal fun StopButton(onClick: () -> Unit) {
     }
 }
 
-/** 悬浮「滚到最新」按钮（圆形白底 + 向下箭头）。 */
+/** 悬浮「滚到最新」按钮（Figma 862:62037：36dp 黑底 + 24dp 白色向下箭头）。 */
 @Composable
 internal fun ScrollToBottomButton(onClick: () -> Unit) {
-    Surface(color = Card, shape = CircleShape, shadowElevation = 0.dp) {
+    Surface(color = Dark, shape = CircleShape, shadowElevation = 4.dp) {
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -175,7 +175,7 @@ internal fun ScrollToBottomButton(onClick: () -> Unit) {
                     indication = ripple(
                         bounded = false,
                         radius = 18.dp,
-                        color = TextTitle.copy(alpha = 0.18f),
+                        color = OnDark.copy(alpha = 0.18f),
                     ),
                     onClick = onClick,
                 ),
@@ -184,8 +184,8 @@ internal fun ScrollToBottomButton(onClick: () -> Unit) {
             Icon(
                 painter = painterResource(R.drawable.ic_arrow_down),
                 contentDescription = "Scroll to latest",
-                tint = TextTitle,
-                modifier = Modifier.size(20.dp),
+                tint = OnDark,
+                modifier = Modifier.size(24.dp),
             )
         }
     }

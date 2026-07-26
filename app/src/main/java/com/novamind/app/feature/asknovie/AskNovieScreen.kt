@@ -60,6 +60,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -785,12 +787,26 @@ fun AskNovieScreen(
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp),
+                        .align(Alignment.BottomCenter),
                 ) {
-                    ScrollToBottomButton(onClick = {
-                        scope.launch { listState.smoothScrollToBottom() }
-                    })
+                    // Figma 862:62035：54dp 高的页面色渐隐遮罩，黑色圆形按钮距顶 6dp。
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Bg),
+                                ),
+                            ),
+                        contentAlignment = Alignment.TopCenter,
+                    ) {
+                        Box(modifier = Modifier.padding(top = 6.dp)) {
+                            ScrollToBottomButton(onClick = {
+                                scope.launch { listState.smoothScrollToBottom() }
+                            })
+                        }
+                    }
                 }
             }
 
