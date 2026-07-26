@@ -41,7 +41,7 @@ import com.novamind.app.feature.calendar.components.ColorBorder
 import com.novamind.app.feature.calendar.components.ColorSurface
 import com.novamind.app.feature.calendar.components.ColorTextSub
 import com.novamind.app.feature.calendar.components.ColorTextTitle
-import com.novamind.app.ui.components.BackButton
+import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -111,10 +111,10 @@ fun MeetingDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BackButton(onClick = onBack)
+            TopBarBackButton(onClick = onBack)
             if (onEdit != null) {
                 Spacer(Modifier.weight(1f))
                 Surface(shape = CircleShape, color = ColorSurface, shadowElevation = 1.dp) {

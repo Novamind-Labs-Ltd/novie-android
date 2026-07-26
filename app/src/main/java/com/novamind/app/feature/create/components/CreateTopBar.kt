@@ -3,6 +3,7 @@ import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.components.TopBarBackButton
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -60,12 +61,7 @@ fun CreateTopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 左：返回（扁平图标，无圆底，对齐设计稿）
-        TopBarIconBtn(
-            icon = R.drawable.ic_arrow_back,
-            contentDescription = "Back",
-            enabled = true,
-            onClick = onBack,
-        )
+        TopBarBackButton(onClick = onBack)
 
         // 只读态（回收站，Figma 879-27503）：右侧扁平图标 恢复 | 彻底删除
         if (readOnly) {

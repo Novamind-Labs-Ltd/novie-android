@@ -72,10 +72,44 @@ fun BackButton(
     }
 }
 
+/** 笔记编辑页使用的扁平顶栏返回按钮：36dp 命中区、24dp 图标、无背景。 */
+@Composable
+fun TopBarBackButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentDescription: String = "Back",
+) {
+    Box(
+        modifier = modifier
+            .size(36.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(bounded = false, radius = 18.dp),
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_arrow_back),
+            contentDescription = contentDescription,
+            tint = IconColors.Default.default.current(),
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFFF0EFEA)
 @Composable
 private fun BackButtonPreview() {
     AppTheme {
         BackButton(onClick = {}, modifier = Modifier.padding(16.dp))
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF0EFEA)
+@Composable
+private fun TopBarBackButtonPreview() {
+    AppTheme {
+        TopBarBackButton(onClick = {}, modifier = Modifier.padding(16.dp))
     }
 }

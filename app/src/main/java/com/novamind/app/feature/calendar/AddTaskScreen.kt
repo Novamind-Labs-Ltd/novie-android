@@ -52,6 +52,7 @@ import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -146,14 +147,10 @@ fun AddTaskScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CircleIconButton(
-                iconRes = R.drawable.ic_arrow_back,
-                desc = "Back",
-                onClick = attemptClose,
-            )
+            TopBarBackButton(onClick = attemptClose)
             Spacer(Modifier.weight(1f))
             if (onDelete != null) {
                 CircleIconButton(
