@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -83,6 +84,24 @@ private fun ChatHistoryContent(
     onSelectSession: (ChatSession) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 方向性嵌套滚动：列表到顶后继续往下拖（y > 0）交给 Sheet，
+    // 整页跟手下移；往上到底的剩余位移 / fling（y < 0）则消费，避免 Sheet 抖动。
+    val directionalListScroll = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: androidx.compose.ui.geometry.Offset,
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset =
+                if (available.y < 0f) available else androidx.compose.ui.geometry.Offset.Zero
+
+            override suspend fun onPostFling(
+                consumed: androidx.compose.ui.unit.Velocity,
+                available: androidx.compose.ui.unit.Velocity,
+            ): androidx.compose.ui.unit.Velocity =
+                if (available.y < 0f) available else androidx.compose.ui.unit.Velocity.Zero
+        }
+    }
     Column(
         modifier = modifier
             .padding(horizontal = 20.dp)
@@ -113,12 +132,12 @@ private fun ChatHistoryContent(
                 modifier = Modifier.padding(vertical = 16.dp),
             )
         } else {
-            // 列表到顶后将继续下拉传给 ModalBottomSheet：弹窗跟手下移，
-            // 超过阈值 / 快速下甩时关闭，否则回弹。
+            // 往下到顶后自然接力拖动 Sheet；往上到底不带动 Sheet。
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .weight(1f)
+                    .nestedScroll(directionalListScroll),
             ) {
                 items(filtered) { session ->
                     ChatRow(title = session.title, onClick = { onSelectSession(session) })
