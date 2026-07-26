@@ -3,7 +3,16 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M18.4,10.6C16.55,8.99 14.15,8 11.5,8c-4.65,0 -8.58,3.03 -9.96,7.22L3.9,15.7c1.05,-3.19 4.05,-5.5 7.6,-5.5 1.95,0 3.73,0.72 5.12,1.88L13,15h9V6l-3.6,4.6z"/>
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="180">
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M6.95387,9.96902L2.4,14.5845L6.95387,19.2M2.4,14.5845H16.7078C19.4097,14.5845 21.6,12.39417 21.6,9.69225C21.6,6.99034 19.4097,4.8 16.7077,4.8L12,4.8"
+            android:strokeColor="#FF000000"
+            android:strokeWidth="1.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
 </vector>
