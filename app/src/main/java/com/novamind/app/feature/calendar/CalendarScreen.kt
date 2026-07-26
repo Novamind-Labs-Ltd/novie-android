@@ -37,7 +37,6 @@ import com.novamind.app.feature.calendar.components.ColorDark
 import com.novamind.app.feature.calendar.components.ColorPrimary
 import com.novamind.app.feature.calendar.components.ColorTextError
 import com.novamind.app.feature.calendar.components.ColorTextInverse
-import com.novamind.app.feature.calendar.components.ColorTextSub
 import com.novamind.app.feature.calendar.components.ColorTextTitle
 import com.novamind.app.feature.calendar.components.DayCell
 import com.novamind.app.feature.calendar.components.EventRow
@@ -103,7 +102,9 @@ fun CalendarScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 100.dp),
+                    // The bottom navigation is drawn over the page. Give the disconnected
+                    // state enough scroll range to move its connect button fully above it.
+                    .padding(bottom = if (uiState.isConnected) 100.dp else 220.dp),
             ) {
         // 顶部标题 + 新建（Figma：仅标题 + ＋）
         Row(
@@ -251,7 +252,9 @@ fun CalendarScreen(
 
         Spacer(Modifier.height(if (uiState.isConnected) 12.dp else 24.dp))
 
-        uiState.errorMessage?.let { message ->
+        // Keep the disconnected state compact so the connect action stays clear of bottom nav.
+        // Connection errors are intentionally omitted there; retry remains available via button.
+        uiState.errorMessage?.takeIf { uiState.isConnected }?.let { message ->
             Text(
                 text = message,
                 fontSize = 13.sp,
@@ -263,7 +266,7 @@ fun CalendarScreen(
         }
 
         if (!uiState.isConnected) {
-            // 未连接（Figma 959-60308）：插画 + 说明 + 深色「Connect to google calendar」按钮
+            // 未连接（Figma 959-60308）：插画 + 深色「Connect to google calendar」按钮
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 36.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -274,17 +277,7 @@ fun CalendarScreen(
                     contentDescription = null,
                     modifier = Modifier.width(181.dp).height(137.dp),
                 )
-                Spacer(Modifier.height(24.dp))
-                Text(
-                    "Link your account to sync your events and keep your calendar up-to-date.",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Light,
-                    color = ColorTextSub,
-                    lineHeight = 20.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(20.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
