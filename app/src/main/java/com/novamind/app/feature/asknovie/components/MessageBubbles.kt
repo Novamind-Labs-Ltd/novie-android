@@ -224,8 +224,9 @@ internal fun AssistantText(
                 modifier = Modifier.size(22.dp),
             )
             SelectionContainer {
-                Markdown(
-                    content = text,
+                AssistantMessageContent(
+                    text = text,
+                    isStreaming = isTyping,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -233,14 +234,41 @@ internal fun AssistantText(
     } else {
         Column(modifier = Modifier.fillMaxWidth()) {
             SelectionContainer {
-                Markdown(
-                    content = text,
+                AssistantMessageContent(
+                    text = text,
+                    isStreaming = isTyping,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
             Spacer(Modifier.height(10.dp))
             AssistantActions(text = text)
         }
+    }
+}
+
+/**
+ * SSE 流式期间用稳定的纯文本节点，避免 Markdown AST 每个 token 整树重建造成闪屏。
+ * 流结束后再切换为完整 Markdown，保留标题、列表、代码块等格式。
+ */
+@Composable
+private fun AssistantMessageContent(
+    text: String,
+    isStreaming: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (isStreaming) {
+        Text(
+            text = text,
+            color = TextTitle,
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+            modifier = modifier,
+        )
+    } else {
+        Markdown(
+            content = text,
+            modifier = modifier,
+        )
     }
 }
 
