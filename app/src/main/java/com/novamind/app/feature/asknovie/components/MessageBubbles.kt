@@ -50,6 +50,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.mikepenz.markdown.m3.Markdown
 import com.novamind.app.R
 import com.novamind.app.feature.asknovie.AttachType
 import com.novamind.app.feature.asknovie.Attachment
@@ -195,7 +196,7 @@ internal fun UserBubble(msg: ChatMessage) {
 }
 
 /**
- * 助手消息：纯文本（可选中复制）+ 操作行（复制/分享/朗读）。
+ * 助手消息：Markdown 内容（可选中复制）+ 操作行（复制/分享/朗读）。
  * [showAvatar] 为 true 时（收尾/追问语气）在左侧显示花标、且不带操作行。
  */
 @Composable
@@ -223,11 +224,8 @@ internal fun AssistantText(
                 modifier = Modifier.size(22.dp),
             )
             SelectionContainer {
-                Text(
-                    text = text,
-                    color = TextTitle,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp,
+                Markdown(
+                    content = text,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -235,11 +233,8 @@ internal fun AssistantText(
     } else {
         Column(modifier = Modifier.fillMaxWidth()) {
             SelectionContainer {
-                Text(
-                    text = text,
-                    color = TextTitle,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp,
+                Markdown(
+                    content = text,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -387,7 +382,8 @@ private fun AssistantTextPreview() {
     AppTheme {
         Column(modifier = Modifier.padding(16.dp)) {
             AssistantText(
-                text = "Sure, here are the three key points of this quarterly report: revenue grew 12% year-over-year, gross margin stabilized, and cash flow turned positive.",
+                text = "## Suggested plan\n\nHere are **three practical steps**:\n\n" +
+                    "1. Define the outcome\n2. Assign an owner\n3. Review it on Friday",
             )
         }
     }
