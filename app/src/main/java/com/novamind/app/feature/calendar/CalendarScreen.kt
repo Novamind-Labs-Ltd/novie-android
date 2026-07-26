@@ -141,8 +141,8 @@ fun CalendarScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(dateLabel, fontSize = 20.sp, color = ColorTextTitle)
-                    NavArrow(left = true) { onEvent(CalendarUiEvent.PrevDay) }
-                    NavArrow(left = false) { onEvent(CalendarUiEvent.NextDay) }
+                    NavArrow(left = true) { onEvent(CalendarUiEvent.PrevWeek) }
+                    NavArrow(left = false) { onEvent(CalendarUiEvent.NextWeek) }
                 }
                 // Today 药丸（描边）：仅当选中日期非今天时显示，点击回到今天
                 if (selectedDate != LocalDate.now()) {

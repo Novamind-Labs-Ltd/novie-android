@@ -92,8 +92,8 @@ class CalendarViewModel @Inject constructor(
             is CalendarUiEvent.SetTaskCompleted -> setTaskCompleted(event.task, event.completed)
             is CalendarUiEvent.DeleteTask -> deleteTask(event.task)
             is CalendarUiEvent.DateSelected -> selectDate(event.date)
-            CalendarUiEvent.PrevDay -> selectDate(_uiState.value.selectedDate.minusDays(1))
-            CalendarUiEvent.NextDay -> selectDate(_uiState.value.selectedDate.plusDays(1))
+            CalendarUiEvent.PrevWeek -> selectDate(_uiState.value.selectedDate.minusWeeks(1))
+            CalendarUiEvent.NextWeek -> selectDate(_uiState.value.selectedDate.plusWeeks(1))
             CalendarUiEvent.Refresh -> if (_uiState.value.isConnected) loadEvents(showPullRefresh = true)
             CalendarUiEvent.ErrorShown -> _uiState.update { it.copy(errorMessage = null) }
         }

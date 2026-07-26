@@ -115,8 +115,11 @@ sealed interface CalendarUiEvent {
     ) : CalendarUiEvent
 
     data class DateSelected(val date: LocalDate) : CalendarUiEvent
-    data object PrevDay : CalendarUiEvent
-    data object NextDay : CalendarUiEvent
+    /** 切换到上一周，并保持当前选中的星期位置。 */
+    data object PrevWeek : CalendarUiEvent
+
+    /** 切换到下一周，并保持当前选中的星期位置。 */
+    data object NextWeek : CalendarUiEvent
     data object Refresh : CalendarUiEvent
     data object ErrorShown : CalendarUiEvent
 }
