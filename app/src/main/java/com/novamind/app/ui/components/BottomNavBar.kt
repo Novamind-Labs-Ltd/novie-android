@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
@@ -283,7 +282,7 @@ private fun CenterFab(
         Box(
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, radius = FabSize / 2),
+                indication = null,
                 onClick = onClick,
             ),
             contentAlignment = Alignment.Center,
@@ -336,7 +335,11 @@ private fun SpeedDialButton(
         modifier = Modifier.size(SubButtonSize),
     ) {
         Box(
-            modifier = Modifier.clickable(onClick = onClick),
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -369,7 +372,7 @@ private fun NavTab(
         modifier = modifier
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false, radius = 32.dp),
+                indication = null,
                 onClick = { onClick(destination.route) },
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
