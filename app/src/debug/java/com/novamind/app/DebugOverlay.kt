@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.debug.DebugPanel
 import com.novamind.app.debug.ShakeDetector
 
@@ -17,8 +18,9 @@ import com.novamind.app.debug.ShakeDetector
 @Composable
 fun DebugOverlay(onNavigate: (String) -> Unit) {
     var showDebug by rememberSaveable { mutableStateOf(false) }
-    ShakeDetector(enabled = true) { showDebug = true }
-    if (showDebug) {
+    val allowShakeToOpen = AppConfig.Debug.ALLOW_SHAKE_TO_OPEN_PANEL
+    ShakeDetector(enabled = allowShakeToOpen) { showDebug = true }
+    if (allowShakeToOpen && showDebug) {
         DebugPanel(
             onDismiss = { showDebug = false },
             onNavigate = { route ->

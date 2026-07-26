@@ -5,7 +5,7 @@ import com.novamind.app.ui.colors.Palette
 
 /**
  * 应用级可调参数集中处。把分散在各处的“魔法数字”收拢到这里，方便后续统一调整。
- * 按领域分组：[Editor]、[Network]、[Media]、[Pdf]、[Folder]、[RecycleBin]。
+ * 按领域分组：[Editor]、[Network]、[Media]、[Pdf]、[Folder]、[RecycleBin]、[Debug]。
  */
 object AppConfig {
 
@@ -244,6 +244,12 @@ object AppConfig {
 
         /** 管道队列容量，满则丢弃新日志（不阻塞调用线程）。 */
         const val CHANNEL_CAPACITY = 1024
+    }
+
+    /** Debug 工具相关配置。 */
+    object Debug {
+        /** 是否允许在 Debug 构建中通过摇一摇打开 Debug 工具箱。 */
+        const val ALLOW_SHAKE_TO_OPEN_PANEL = false
     }
 
     /** 回收站。 */
