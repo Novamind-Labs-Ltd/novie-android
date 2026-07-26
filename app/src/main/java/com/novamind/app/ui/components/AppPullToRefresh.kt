@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
  *
  * @param isRefreshing 是否正在刷新（由上层状态驱动）
  * @param onRefresh    越过阈值松手时触发
+ * @param enabled      是否允许下拉刷新；关闭时不消费手势，并将已有位移回弹到顶部
  * @param threshold    触发刷新的下拉阈值（也是刷新中 spinner 停留处）
  * @param maxDrag      最大可下拉距离（带阻尼）
  */
@@ -50,6 +51,7 @@ fun AppPullToRefresh(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     threshold: Dp = 72.dp,
     maxDrag: Dp = 120.dp,
     content: @Composable () -> Unit,
@@ -65,12 +67,17 @@ fun AppPullToRefresh(
     val offset = remember { Animatable(0f) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var dragging by remember { mutableStateOf(false) }
+    val enabledState by rememberUpdatedState(enabled)
     val refreshingState by rememberUpdatedState(isRefreshing)
     val refreshCallback by rememberUpdatedState(onRefresh)
 
     // 刷新态变化（且非拖动中）→ 平滑到静止位：刷新中停在阈值，否则收回 0
-    LaunchedEffect(isRefreshing) {
-        if (!dragging) {
+    LaunchedEffect(isRefreshing, enabled) {
+        if (!enabled) {
+            dragging = false
+            offset.animateTo(targetValue = 0f, animationSpec = settleAnimation)
+            dragOffset = 0f
+        } else if (!dragging) {
             offset.animateTo(
                 targetValue = if (isRefreshing) thresholdPx else 0f,
                 animationSpec = settleAnimation,
@@ -90,6 +97,7 @@ fun AppPullToRefresh(
             }
 
             override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                if (!enabledState) return androidx.compose.ui.geometry.Offset.Zero
                 // 手指上滑（内容想向上滚）时，先把已下拉的偏移收回（仅手指拖动，惯性 fling 不处理）
                 if (source == NestedScrollSource.UserInput && available.y < 0 && dragOffset > 0f) {
                     beginDragging()
@@ -109,7 +117,7 @@ fun AppPullToRefresh(
             ): androidx.compose.ui.geometry.Offset {
                 // 内容已到顶后仍有向下剩余 → 累积下拉偏移（带阻尼）。
                 // 仅响应手指拖动：惯性 fling 的剩余不应把指示器顶出来，否则快速下滑后不回弹。
-                if (source == NestedScrollSource.UserInput && available.y > 0 && !refreshingState) {
+                if (enabledState && source == NestedScrollSource.UserInput && available.y > 0 && !refreshingState) {
                     beginDragging()
                     val newValue = (dragOffset + available.y * dragMultiplier).coerceIn(0f, maxDragPx)
                     dragOffset = newValue
@@ -126,7 +134,7 @@ fun AppPullToRefresh(
                 offset.snapTo(releaseOffset)
                 dragging = false
 
-                val shouldRefresh = !refreshingState && releaseOffset >= thresholdPx
+                val shouldRefresh = enabledState && !refreshingState && releaseOffset >= thresholdPx
                 if (shouldRefresh) {
                     refreshCallback()
                 }

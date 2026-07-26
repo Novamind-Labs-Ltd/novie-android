@@ -105,6 +105,7 @@ fun CalendarScreen(
             // 只有用户实际下拉触发 Refresh 时才显示下拉刷新动画。
             isRefreshing = uiState.isPullRefreshing,
             onRefresh = { onEvent(CalendarUiEvent.Refresh) },
+            enabled = uiState.isConnected,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
