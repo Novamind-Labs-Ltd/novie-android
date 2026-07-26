@@ -308,8 +308,10 @@ fun CalendarScreen(
                     emptyText = "No events",
                     loading = uiState.isLoading,
                 ) {
-                    uiState.events.forEach { event ->
-                        EventRow(event, onClick = { onEvent(CalendarUiEvent.EventClicked(event)) })
+                    uiState.displayedEvents.forEach { event ->
+                        key(event.id) {
+                            EventRow(event, onClick = { onEvent(CalendarUiEvent.EventClicked(event)) })
+                        }
                     }
                 }
             }

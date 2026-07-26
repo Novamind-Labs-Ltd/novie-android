@@ -2,6 +2,7 @@ package com.novamind.app.feature.calendar
 
 import com.novamind.app.common.google.GoogleAccount
 import com.novamind.app.data.calendar.CalendarEvent
+import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
 import java.time.LocalDate
 
@@ -17,7 +18,7 @@ data class CalendarUiState(
     /** 当前绑定的 Google 账号（用于展示与「换账号」入口）。 */
     val account: GoogleAccount? = null,
     val selectedDate: LocalDate = LocalDate.now(),
-    /** 选中日期的活动（Calendar events，已按开始时间排序）。 */
+    /** 选中日期的活动（Calendar events，保留数据源顺序）。 */
     val events: List<CalendarEvent> = emptyList(),
     /** 选中日期的任务（Google Tasks）。 */
     val tasks: List<CalendarTask> = emptyList(),
@@ -46,6 +47,10 @@ data class CalendarUiState(
 
     val eventCount: Int get() = events.size
     val taskCount: Int get() = tasks.size
+
+    /** 客户端展示顺序：未结束的活动优先，已结束的活动靠后；组内按开始时间升序。 */
+    val displayedEvents: List<CalendarEvent>
+        get() = events.sortedWith(compareBy<CalendarEvent> { it.isPast }.thenBy { it.start })
 
     /** 是否展示活动区块（全部 / 仅活动）。 */
     val showEventsSection: Boolean get() = filter == AgendaFilter.ALL || filter == AgendaFilter.EVENTS
