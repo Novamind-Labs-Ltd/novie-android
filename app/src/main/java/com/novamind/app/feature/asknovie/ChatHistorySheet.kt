@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -84,22 +83,6 @@ private fun ChatHistoryContent(
     onSelectSession: (ChatSession) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 列表消费不掉的滚动 / fling 全部在此吃掉，不再上抛给 ModalBottomSheet，
-    // 避免内容不足一屏时手势在列表与弹窗之间来回争夺而剧烈抖动。
-    val keepScrollInList = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: androidx.compose.ui.geometry.Offset,
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
-            ): androidx.compose.ui.geometry.Offset = available
-
-            override suspend fun onPostFling(
-                consumed: androidx.compose.ui.unit.Velocity,
-                available: androidx.compose.ui.unit.Velocity,
-            ): androidx.compose.ui.unit.Velocity = available
-        }
-    }
     Column(
         modifier = modifier
             .padding(horizontal = 20.dp)
@@ -130,13 +113,12 @@ private fun ChatHistoryContent(
                 modifier = Modifier.padding(vertical = 16.dp),
             )
         } else {
-            // 用 LazyColumn 作为唯一滚动容器：与 ModalBottomSheet 的嵌套滚动正确协作，
-            // fling 到边界时不会与弹窗拖拽来回争夺手势（避免剧烈抖动）。
+            // 列表到顶后将继续下拉传给 ModalBottomSheet：弹窗跟手下移，
+            // 超过阈值 / 快速下甩时关闭，否则回弹。
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .nestedScroll(keepScrollInList),
+                    .weight(1f),
             ) {
                 items(filtered) { session ->
                     ChatRow(title = session.title, onClick = { onSelectSession(session) })
