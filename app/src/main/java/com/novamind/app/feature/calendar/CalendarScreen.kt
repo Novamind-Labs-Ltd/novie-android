@@ -116,9 +116,9 @@ fun CalendarScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    // The bottom navigation is drawn over the page. Give the disconnected
-                    // state enough scroll range to move its connect button fully above it.
-                    .padding(bottom = if (uiState.isConnected) 100.dp else 220.dp),
+                    // 底部导航和中央「+」悬浮在内容之上：已连接态与首页统一预留 160dp；
+                    // 未连接态保留更大空间，确保 Connect 按钮也能完整滚到导航栏上方。
+                    .padding(bottom = if (uiState.isConnected) 160.dp else 220.dp),
             ) {
         // 日期卡（Figma 959-60167）：日期 + 箭头 + Today 药丸；分隔线；星期表头；周条
         Column(
