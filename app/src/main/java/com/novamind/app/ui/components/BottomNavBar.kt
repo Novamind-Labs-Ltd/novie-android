@@ -112,15 +112,14 @@ private val SubButtonBorder: Color = Palette.gray600
 
 // ─── 尺寸 ─────────────────────────────────────────────────────────────────────
 
-private val NavRootHeight = 209.dp  // Figma nav：从速拨/FAB 区顶部到屏幕底部
-private val NavSurfaceHeight = 92.dp // Figma Rectangle 3：白色导航栏主体
-private val NavItemsHeight = 58.dp  // Figma nav items：包含四个 tab 的内容带
+// Figma nav 总高 209，其中底部安全区 34；Android inset 更大时再向上扩展。
+private val NavContentHeight = 175.dp
+private val NavItemsHeight = 58.dp   // Figma nav items：y=116..174
+private val FabBottomAboveSafeArea = 34.dp // Figma FAB bottom=141，内容区 bottom=175
+private val MinBottomSafeArea = 34.dp
 private val FabSize = 65.dp        // 设计：vuesax/linear/scan size-[65px]
 private val FabIconSize = 38.dp    // 设计：add size-[38px]
 private val SubButtonSize = 48.dp  // 设计：ask/create size-[48px]
-private val CradleWidth = 82.dp     // 设计：凹槽贴合 65dp FAB，左右各留 ~8dp 间隙
-private val CradleDepth = 30.dp
-private val TopCorner = 22.dp
 private val StrokeSm = 1.dp        // Figma 底部控件描边
 private val FabShadow = 3.dp       // 设计：drop-shadow (0,3,3) neutral-400
 private val RightGroupWidth = 120.dp // 设计：Library/Profile 组固定宽 120
@@ -128,7 +127,6 @@ private val LeftGroupGap = 30.dp     // 设计：Home↔Calendar 间距 30
 private val NavItemsPadding = 24.dp  // 设计：nav items 左右内边距 24
 private val SpeedDialGap = 16.dp     // 速拨相对 FAB 顶边的额外抬升
 private val NavMaskHeight = 120.dp   // Figma mask_nav：底部内容渐隐区域
-private val DesignHomeIndicatorInset = 34.dp // Figma iPhone 底部手势区高度
 
 // ─── 主组件 ───────────────────────────────────────────────────────────────────
 
@@ -153,13 +151,12 @@ fun AppBottomNavBar(
     onExpandedChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    // 以 Figma nav 的 209dp 为基准；若 Android 系统手势区高于设计稿，再向上扩展同等高度，
-    // 保证白色导航栏主体和 tab 的绝对位置不被设备 inset 推动。
-    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val extraNavInset = (navInset - DesignHomeIndicatorInset).coerceAtLeast(0.dp)
-    val navRootHeight = NavRootHeight + extraNavInset
-    val navSurfaceHeight = NavSurfaceHeight + extraNavInset
-    val fabBottomOffset = 68.dp // Figma FAB top=76dp，nav 高=209dp，FAB 高=65dp
+    // 部分全面屏设备会返回 0dp；至少保留设计稿的 34dp，避免 Tab 和 FAB 贴住屏幕底边。
+    val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomSafeArea = systemNavInset.coerceAtLeast(MinBottomSafeArea)
+    val navRootHeight = NavContentHeight + bottomSafeArea
+    val navSurfaceHeight = NavItemsHeight + bottomSafeArea
+    val fabBottomOffset = FabBottomAboveSafeArea + bottomSafeArea
     val speedDialTopOffset = fabBottomOffset + FabSize + SpeedDialGap
     Box(
         modifier = modifier
@@ -222,7 +219,7 @@ private fun CradleBar(
     modifier: Modifier = Modifier,
     onNavigate: (String) -> Unit,
 ) {
-    val cradle = remember { CradleTopShape(CradleWidth, CradleDepth, TopCorner) }
+    val cradle = remember { CradleTopShape() }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -407,33 +404,44 @@ private fun NavTab(
 
 // ─── 中央下凹的顶边形状 ───────────────────────────────────────────────────────
 
-/** 顶边中央下凹的栏体形状（平滑三次贝塞尔谷），用于容纳浮动 FAB。 */
-private class CradleTopShape(
-    private val cradleWidth: Dp,
-    private val cradleDepth: Dp,
-    private val topCorner: Dp,
-) : Shape {
+/**
+ * Figma Rectangle 3 的中央凹槽路径。控制点相对水平中心定位，因此任意屏宽下都与 FAB 同心；
+ * 凹槽约 122dp 宽、46dp 深，为 65dp 圆形按钮及阴影留出平滑圆弧空间。
+ */
+private class CradleTopShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val path = Path()
-        with(density) {
-            val w = size.width
-            val h = size.height
-            val half = cradleWidth.toPx() / 2f
-            val depth = cradleDepth.toPx()
-            val corner = topCorner.toPx()
-            val cx = w / 2f
+        val w = size.width
+        val h = size.height
+        val cx = w / 2f
+        val scale = density.density
 
-            path.moveTo(0f, corner)
-            path.quadraticBezierTo(0f, 0f, corner, 0f)                                  // 左上圆角
-            path.lineTo(cx - half, 0f)                                                   // 平直到凹槽起点
-            path.cubicTo(cx - half * 0.5f, 0f, cx - half * 0.5f, depth, cx, depth)       // 谷左半
-            path.cubicTo(cx + half * 0.5f, depth, cx + half * 0.5f, 0f, cx + half, 0f)   // 谷右半
-            path.lineTo(w - corner, 0f)
-            path.quadraticBezierTo(w, 0f, w, corner)                                     // 右上圆角
-            path.lineTo(w, h)
-            path.lineTo(0f, h)
-            path.close()
-        }
+        fun x(offsetDp: Float) = cx + offsetDp * scale
+        fun y(valueDp: Float) = valueDp * scale
+
+        path.moveTo(0f, 0f)
+        path.lineTo(x(-60.467f), 0f)
+        path.cubicTo(
+            x(-54.762f), 0f,
+            x(-49.330f), y(2.436f),
+            x(-45.535f), y(6.694f),
+        )
+        path.lineTo(x(-25.760f), y(28.886f))
+        path.cubicTo(
+            x(-10.250f), y(46.291f),
+            x(17.296f), y(45.189f),
+            x(31.366f), y(26.601f),
+        )
+        path.lineTo(x(45.498f), y(7.930f))
+        path.cubicTo(
+            x(49.279f), y(2.935f),
+            x(55.181f), 0f,
+            x(61.445f), 0f,
+        )
+        path.lineTo(w, 0f)
+        path.lineTo(w, h)
+        path.lineTo(0f, h)
+        path.close()
         return Outline.Generic(path)
     }
 }
