@@ -192,6 +192,7 @@ private val DEMO_QUADRANT = ChatBlock.Quadrant(
  * Ask Novie 聊天入口页：顶部返回/历史/更多，中部问候或对话列表，底部快捷建议 + 输入框。
  *
  * @param userName 问候语显示的名字（用户昵称，来自全局 UserSession）；为空/空白时问候语退化为「Hi there」。
+ * @param newSessionRequestId 大于 0 且尚未消费时，保存当前会话并打开空白新会话。
  * @param onBack 返回上一页
  * @param onSend 发送消息回调
  * @param initial* 仅供 @Preview 注入初始状态；生产调用用默认值（空），不影响行为
@@ -199,6 +200,7 @@ private val DEMO_QUADRANT = ChatBlock.Quadrant(
 @Composable
 fun AskNovieScreen(
     userName: String? = null,
+    newSessionRequestId: Long = 0L,
     onBack: () -> Unit = {},
     onSend: (String) -> Unit = {},
     onShare: () -> Unit = {},
@@ -573,6 +575,10 @@ fun AskNovieScreen(
         input = ""
         attachments = emptyList()
         keepBottomSpace = false
+    }
+
+    LaunchedEffect(newSessionRequestId) {
+        if (chatVm.consumeNewSessionRequest(newSessionRequestId)) startNewChat()
     }
 
     // 会话持久化：消息或标题变化即存储（流式期间不写，结束后保存一次）

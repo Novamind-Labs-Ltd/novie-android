@@ -32,6 +32,7 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     private val streamJobs = mutableMapOf<String, Job>()
     private val respondingSessions = mutableSetOf<String>()
     private val streamingSessions = mutableSetOf<String>()
+    private var handledNewSessionRequestId = 0L
 
     var seeded = false
         private set
@@ -39,6 +40,13 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     fun markSeeded() {
         seeded = true
         sessionMessages[sessionId.value] = messages.value
+    }
+
+    /** 同一个首页进入事件只消费一次，避免页面重新进入组合时重复创建空会话。 */
+    fun consumeNewSessionRequest(requestId: Long): Boolean {
+        if (requestId <= 0L || requestId == handledNewSessionRequestId) return false
+        handledNewSessionRequestId = requestId
+        return true
     }
 
     /** 开始当前会话的 SSE；其他历史会话的在途回复不受影响。 */

@@ -121,6 +121,7 @@ class MainActivity : FragmentActivity() {
                 var hideBottomNav by rememberSaveable { mutableStateOf(false) }
                 // 三个全屏覆盖层：Ask Novie（底栏品牌按钮）、回收站 / 标签管理（Library 侧栏）
                 var showAskNovie by rememberSaveable { mutableStateOf(false) }
+                var askNovieNewSessionRequestId by rememberSaveable { mutableStateOf(0L) }
                 BackHandler(enabled = showAskNovie) { showAskNovie = false }
                 var showRecycleBin by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showRecycleBin) { showRecycleBin = false }
@@ -238,8 +239,11 @@ class MainActivity : FragmentActivity() {
                                     createReturnRoute = BottomNavDestination.Home.route
                                     currentRoute = BottomNavDestination.Create.route
                                 },
-                                // 首页「Ask Novie」入口 → 打开 Ask Novie（与底栏速拨一致）
-                                onAskNovie = { showAskNovie = true },
+                                // 首页「Ask Novie」入口每次创建新会话；底栏速拨仍继续当前会话。
+                                onAskNovie = {
+                                    askNovieNewSessionRequestId += 1L
+                                    showAskNovie = true
+                                },
                                 onFullscreenChange = { hideBottomNav = it },
                                 onLogout = { authViewModel.logout(this@MainActivity) },
                                 userName = userSession.profile?.displayName,
@@ -343,6 +347,7 @@ class MainActivity : FragmentActivity() {
                         AskNovieScreen(
                             // 问候语用当前登录用户昵称（全局 UserSession），不写死。
                             userName = userSession.profile?.displayName,
+                            newSessionRequestId = askNovieNewSessionRequestId,
                             onBack = { showAskNovie = false },
                             modifier = Modifier.fillMaxSize(),
                         )
