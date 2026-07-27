@@ -16,8 +16,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -172,12 +175,45 @@ object AskNovieChat {
         val obj = runCatching { json.parseToJsonElement(data).jsonObject }.getOrNull()
         fun str(key: String) = obj?.get(key)?.jsonPrimitive?.contentOrNull
         return when (event) {
-            "text" -> str("delta")?.let { ChatStreamEvent.TextDelta(it) }
+            "text" -> (obj?.get("delta") ?: obj?.get("text"))
+                ?.let(::extractDeltaText)
+                ?.takeIf { it.isNotEmpty() }
+                ?.let(ChatStreamEvent::TextDelta)
             "card" -> str("card_type")?.let { ChatStreamEvent.Card(it, obj ?: return null) }
             "status" -> ChatStreamEvent.Status(str("state"), str("skill"), str("label"))
             "error" -> ChatStreamEvent.Failure(str("code"), str("message"))
             "done" -> ChatStreamEvent.Done(str("finish_reason"))
             else -> null
+        }
+    }
+
+    /**
+     * Agent 文本 delta 通常是普通字符串，语音场景也可能返回
+     * `{"text":"...","begin_time":...}` 对象，或该对象的 JSON 字符串。
+     * 若 text 内含 sentences 数组，按顺序展开 sentences[].sentence.text。
+     * UI 只消费文字，时间戳等结构化字段不进入消息正文。
+     */
+    private fun extractDeltaText(element: JsonElement): String? {
+        val text = extractDeltaTextValue(element)
+        AppLog.i(TAG) { "chat SSE delta 提取结果 text=${text.orEmpty()}" }
+        return text
+    }
+
+    /** 递归展开结构化 delta；与上层日志分离，避免每个 sentence 重复打印。 */
+    private fun extractDeltaTextValue(element: JsonElement): String? = when (element) {
+        is JsonObject -> (
+            element["sentences"]
+                ?: element["sentence"]
+                ?: element["text"]
+            )?.let(::extractDeltaTextValue)
+        is JsonArray -> element
+            .mapNotNull(::extractDeltaTextValue)
+            .joinToString(separator = "")
+            .takeIf { it.isNotEmpty() }
+        is JsonPrimitive -> {
+            val raw = element.contentOrNull ?: return null
+            val nested = runCatching { json.parseToJsonElement(raw) }.getOrNull()
+            if (nested != null && nested !is JsonPrimitive) extractDeltaTextValue(nested) else raw
         }
     }
 }
