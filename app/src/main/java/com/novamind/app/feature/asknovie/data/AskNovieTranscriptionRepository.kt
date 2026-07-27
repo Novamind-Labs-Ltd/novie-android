@@ -3,7 +3,6 @@ package com.novamind.app.feature.asknovie.data
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.NetworkModule
-import com.novamind.app.common.net.TranscribeData
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.apiCall
 import com.novamind.app.common.net.response.map
@@ -21,7 +20,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 object AskNovieTranscriptionRepository {
     private const val TAG = "AskNovieTranscription"
 
-    suspend fun transcribe(path: String, durationSeconds: Int): ApiResult<TranscribeData> {
+    data class VoiceTranscription(
+        val text: String,
+        val partialTexts: List<String>,
+    )
+
+    suspend fun transcribe(path: String, durationSeconds: Int): ApiResult<VoiceTranscription> {
         val file = File(path)
         if (!file.isFile) {
             return ApiResult.NetworkError(message = "Recorded audio file is missing")
@@ -37,35 +41,40 @@ object AskNovieTranscriptionRepository {
         return apiCall {
             NetworkModule.askNovieTranscribeApi.transcribe(audio, declaredDuration)
         }.map { data ->
-            val parsedText = extractTranscriptionText(data?.text.orEmpty())
-            AppLog.i(TAG) { "语音转写回填文字 text=$parsedText" }
-            (data ?: TranscribeData()).copy(text = parsedText)
+            val partialTexts = extractTranscriptionSteps(data?.text.orEmpty())
+            val finalText = partialTexts.lastOrNull().orEmpty()
+            AppLog.i(TAG) {
+                "语音转写回填 steps=${partialTexts.size} finalText=$finalText"
+            }
+            VoiceTranscription(text = finalText, partialTexts = partialTexts)
         }
     }
 
     /**
      * 后端的 text 可能是普通文字，也可能是 JSON 字符串：
-     * `sentences[].sentence.text`。输入框只接收数组最后一个有效 sentence.text。
+     * `sentences[].sentence.text`。返回全部有效的累计转写结果，最后一项为最终文字。
      */
-    private fun extractTranscriptionText(raw: String): String {
+    private fun extractTranscriptionSteps(raw: String): List<String> {
         val root = runCatching { NetworkModule.json.parseToJsonElement(raw) }.getOrNull()
-            ?: return raw
-        return extractTextValue(root).orEmpty()
+            ?: return listOf(raw).filter { it.isNotEmpty() }
+        return extractTextValues(root)
     }
 
-    private fun extractTextValue(element: JsonElement): String? = when (element) {
+    private fun extractTextValues(element: JsonElement): List<String> = when (element) {
         is JsonObject -> (
             element["sentences"]
                 ?: element["sentence"]
                 ?: element["text"]
-            )?.let(::extractTextValue)
-        is JsonArray -> element.asReversed().firstNotNullOfOrNull { item ->
-            extractTextValue(item)?.takeIf { it.isNotEmpty() }
-        }
+            )?.let(::extractTextValues).orEmpty()
+        is JsonArray -> element.flatMap(::extractTextValues)
         is JsonPrimitive -> {
-            val value = element.contentOrNull ?: return null
+            val value = element.contentOrNull ?: return emptyList()
             val nested = runCatching { NetworkModule.json.parseToJsonElement(value) }.getOrNull()
-            if (nested != null && nested !is JsonPrimitive) extractTextValue(nested) else value
+            if (nested != null && nested !is JsonPrimitive) {
+                extractTextValues(nested)
+            } else {
+                listOf(value).filter { it.isNotEmpty() }
+            }
         }
     }
 }

@@ -118,6 +118,7 @@ import kotlinx.coroutines.launch
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
 
 private const val ASK_NOVIE_MAX_VOICE_SECONDS = 60
+private const val VOICE_TRANSCRIPTION_STEP_DELAY_MS = 60L
 
 /** 预设快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
@@ -996,9 +997,6 @@ fun AskNovieScreen(
                                     "We couldn't hear any speech. Please try again.",
                                 )
                             } else {
-                                input = listOf(input.trimEnd(), transcript)
-                                    .filter { it.isNotBlank() }
-                                    .joinToString(" ")
                                 scope.launch {
                                     withFrameNanos { }
                                     inputFocusRequester.requestFocus()
@@ -1018,7 +1016,24 @@ fun AskNovieScreen(
                             } else {
                                 when (val result = chatVm.transcribeVoice(path, dur)) {
                                     is ApiResult.Success -> {
-                                        transcribedVoiceText = result.data?.text.orEmpty()
+                                        val transcription = result.data
+                                        val baseInput = input.trimEnd()
+                                        val steps = transcription?.partialTexts.orEmpty()
+                                            .ifEmpty { listOf(transcription?.text.orEmpty()) }
+                                        steps.forEachIndexed { index, partialText ->
+                                            transcribedVoiceText = partialText
+                                            input = listOf(baseInput, partialText)
+                                                .filter { it.isNotBlank() }
+                                                .joinToString(" ")
+                                            if (index < steps.lastIndex) {
+                                                delay(VOICE_TRANSCRIPTION_STEP_DELAY_MS)
+                                            }
+                                        }
+                                        // 中间步骤只用于逐步覆盖展示；最终强制以数组末项为准。
+                                        transcribedVoiceText = transcription?.text.orEmpty()
+                                        input = listOf(baseInput, transcribedVoiceText)
+                                            .filter { it.isNotBlank() }
+                                            .joinToString(" ")
                                         true
                                     }
                                     is ApiResult.BizError -> {
