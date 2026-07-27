@@ -2,6 +2,7 @@ package com.novamind.app.feature.asknovie.data
 
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
+import com.novamind.app.common.net.HttpLoggers
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.TokenProvider
 import com.novamind.app.util.TimeUtils
@@ -69,6 +70,12 @@ object AskNovieChat {
     private val client: OkHttpClient by lazy {
         NetworkModule.okHttpClient.newBuilder()
             .readTimeout(0, TimeUnit.SECONDS) // SSE 长连：不读超时
+            // 摘掉会整体缓冲响应体的拦截器（debug 变体的 HttpLoggingInterceptor(BODY)）。
+            // 不摘的话 SSE 就不是流式了：那个拦截器为了打印 body 会 `source.request(Long.MAX_VALUE)`，
+            // 一直阻塞到服务端关流才放行——服务端逐帧发的增量，在这里会攒成一坨同时到达，
+            // 表现就是"点了发送后长时间没反应，然后整段答案唰地全出来"。本类下面每收到一帧都会
+            // 自己打 AppLog（含时间戳），所以这条链路的抓包能力并没有因此丢失。
+            .apply { interceptors().removeAll { HttpLoggers.bufsResponseBody(it) } }
             .build()
     }
 

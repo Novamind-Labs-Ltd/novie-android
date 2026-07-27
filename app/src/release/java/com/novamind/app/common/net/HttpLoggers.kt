@@ -8,4 +8,7 @@ import okhttp3.Interceptor
  */
 object HttpLoggers {
     fun create(): Interceptor? = null
+
+    /** Release 包没有日志拦截器，不存在缓冲响应体的问题。签名与 debug 变体一致。 */
+    fun bufsResponseBody(interceptor: Interceptor): Boolean = false
 }
