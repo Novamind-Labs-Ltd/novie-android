@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -232,7 +233,12 @@ private fun HistoryScreenContent(
                         grouped.entries.forEachIndexed { groupIndex, (label, groupSessions) ->
                             if (groupIndex > 0) item(key = "space-$label") { Spacer(Modifier.height(24.dp)) }
                             item(key = "header-$label") {
-                                HistorySectionHeader(label)
+                                HistorySectionHeader(
+                                    label = label,
+                                    // 吸顶副本出现后隐藏列表内的同名标题，
+                                    // 仅保留原高度，避免 item 位置跳动。
+                                    modifier = Modifier.alpha(if (pinnedLabel == label) 0f else 1f),
+                                )
                             }
                             items(groupSessions, key = { it.id }) { session ->
                                 HistorySessionCard(
