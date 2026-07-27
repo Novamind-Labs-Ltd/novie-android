@@ -1,7 +1,7 @@
 package com.novamind.app.feature.asknovie.components
 
 import android.content.Intent
-import android.widget.Toast
+import com.novamind.app.util.ToastUtils
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -290,7 +290,7 @@ private fun AssistantActions(text: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         ActionIcon(R.drawable.ic_copy, "Copy") {
             clipboard.setText(AnnotatedString(text))
-            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+            ToastUtils.short(context, "Copied")
         }
         ActionIcon(R.drawable.ic_share, "Share") {
             val intent = Intent(Intent.ACTION_SEND).apply {
@@ -301,7 +301,7 @@ private fun AssistantActions(text: String) {
         }
         ActionIcon(R.drawable.ic_volume, "Read aloud") {
             // TODO: 接入 TTS 朗读（如 Android TextToSpeech）
-            Toast.makeText(context, "Read aloud coming soon", Toast.LENGTH_SHORT).show()
+            ToastUtils.short(context, "Read aloud coming soon")
         }
     }
 }

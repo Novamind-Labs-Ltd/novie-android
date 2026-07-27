@@ -5,7 +5,7 @@ import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.BackgroundColors
 
-import android.widget.Toast
+import com.novamind.app.util.ToastUtils
 import com.novamind.app.common.config.AppConfig
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -328,9 +328,7 @@ fun CreateScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) launchCamera()
-        else Toast.makeText(
-            context, "Camera permission is required to take a photo", Toast.LENGTH_SHORT,
-        ).show()
+        else ToastUtils.short(context, "Camera permission is required to take a photo")
     }
     // 点「拍照」：已授权直接启动相机，否则先申请相机权限
     val takePhoto: () -> Unit = {
@@ -346,7 +344,7 @@ fun CreateScreen(
             // 先校验大小：超过 16MB 忽略并提示（SAF 无法预先按大小过滤）
             val size = FileUtils.documentSize(context, uri)
             if (size > AppConfig.Media.MAX_DOCUMENT_SIZE) {
-                Toast.makeText(context, "File exceeds 16MB, skipped", Toast.LENGTH_SHORT).show()
+                ToastUtils.short(context, "File exceeds 16MB, skipped")
                 return@rememberLauncherForActivityResult
             }
             ImageStore.copyFileToInternal(context, uri)?.let { (path, name) ->
@@ -496,11 +494,10 @@ fun CreateScreen(
                                         val now = System.currentTimeMillis()
                                         if (now - lastTitleLimitToastMs > AppConfig.Editor.TITLE_LIMIT_TOAST_INTERVAL_MS) {
                                             lastTitleLimitToastMs = now
-                                            Toast.makeText(
+                                            ToastUtils.short(
                                                 context,
                                                 "Title cannot exceed ${AppConfig.Editor.TITLE_MAX_CHARS} characters",
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
+                                            )
                                         }
                                     }
                                     // 未超标题上限即接受（标题独立限长，不计入正文总字数）
@@ -577,11 +574,10 @@ fun CreateScreen(
                 onInsertImage = {
                     // 打开附件选择弹窗；已满则提示
                     if (remainingSlots <= 0) {
-                        Toast.makeText(
+                        ToastUtils.short(
                             context,
                             "You can add up to ${AppConfig.Media.MAX_ATTACHMENTS} attachments",
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                        )
                     } else {
                         keyboardController?.hide()
                         showAttachSheet = true

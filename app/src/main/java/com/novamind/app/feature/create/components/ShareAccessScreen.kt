@@ -1,6 +1,6 @@
 package com.novamind.app.feature.create.components
 
-import android.widget.Toast
+import com.novamind.app.util.ToastUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -107,7 +107,7 @@ fun ShareAccessScreen(
         val typed = input.trim()
         if (typed.isEmpty()) return
         if (!typed.isValidEmail()) {
-            Toast.makeText(context, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+            ToastUtils.short(context, "Please enter a valid email address")
             return
         }
         commitInput()
@@ -123,7 +123,7 @@ fun ShareAccessScreen(
         val typed = input.trim()
         // 第一步：邮箱格式
         if (typed.isNotEmpty() && !typed.isValidEmail()) {
-            Toast.makeText(context, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+            ToastUtils.short(context, "Please enter a valid email address")
             return
         }
         // 第二步：数量上限（按去重后的最终选择数计算）
@@ -131,11 +131,10 @@ fun ShareAccessScreen(
         pending.forEach { merged.add(it.lowercase()) }
         if (typed.isNotEmpty()) merged.add(typed.lowercase())
         if (merged.size > AppConfig.Share.MAX_ACCESS_EMAILS) {
-            Toast.makeText(
+            ToastUtils.short(
                 context,
                 "You can share with up to ${AppConfig.Share.MAX_ACCESS_EMAILS} people",
-                Toast.LENGTH_SHORT,
-            ).show()
+            )
             return
         }
         // 通过：落 chip + 入列表（去重，忽略大小写）

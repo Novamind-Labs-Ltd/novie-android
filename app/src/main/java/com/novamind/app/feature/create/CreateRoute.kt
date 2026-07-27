@@ -1,6 +1,6 @@
 package com.novamind.app.feature.create
 
-import android.widget.Toast
+import com.novamind.app.util.ToastUtils
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -58,13 +58,13 @@ fun CreateRoute(
     // 保存失败一次性提示（POST/PUT 业务或网络错误；含源录音上传失败）
     LaunchedEffect(Unit) {
         viewModel.saveError.collect { msg ->
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            ToastUtils.short(context, msg)
         }
     }
     // 源录音上传成功一次性提示
     LaunchedEffect(Unit) {
         viewModel.recordingUploaded.collect {
-            Toast.makeText(context, "Recording uploaded", Toast.LENGTH_SHORT).show()
+            ToastUtils.short(context, "Recording uploaded")
         }
     }
 

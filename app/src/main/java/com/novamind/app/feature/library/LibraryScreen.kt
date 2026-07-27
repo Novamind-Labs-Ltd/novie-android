@@ -1,6 +1,6 @@
 package com.novamind.app.feature.library
 
-import android.widget.Toast
+import com.novamind.app.util.ToastUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -256,7 +256,7 @@ fun LibraryScreen(
             onCreate = { name, colorHex ->
                 // 重名校验（忽略大小写）：已存在则提示且不创建、不关闭弹窗
                 if (uiState.folders.any { it.name.equals(name, ignoreCase = true) }) {
-                    Toast.makeText(context, "Folder \"$name\" already exists", Toast.LENGTH_SHORT).show()
+                    ToastUtils.short(context, "Folder \"$name\" already exists")
                 } else {
                     showCreateFolder = false
                     onCreateFolder(name, colorHex)
@@ -526,11 +526,7 @@ private fun FoldersPage(
                                 it.name != folder.name && it.name.equals(newName, ignoreCase = true)
                             }
                             if (conflict) {
-                                Toast.makeText(
-                                    context,
-                                    "Folder \"$newName\" already exists",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                                ToastUtils.short(context, "Folder \"$newName\" already exists")
                             } else {
                                 onRenameFolder(folder.name, newName)
                                 renameTarget = null

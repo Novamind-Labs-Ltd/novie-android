@@ -1,6 +1,6 @@
 package com.novamind.app.feature.create.tag.tagmanager
 
-import android.widget.Toast
+import com.novamind.app.util.ToastUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -176,7 +176,7 @@ fun TagManagerScreen(
                             initialName = tag.name,
                             onConfirm = { newName ->
                                 if (existingNames.any { it != tag.name && it.equals(newName, ignoreCase = true) }) {
-                                    Toast.makeText(context, "Tag \"$newName\" already exists", Toast.LENGTH_SHORT).show()
+                                    ToastUtils.short(context, "Tag \"$newName\" already exists")
                                 } else {
                                     onRenameTag(tag.name, newName)
                                     renameTarget = null
@@ -236,7 +236,7 @@ fun TagManagerScreen(
             onCreate = { name, colorHex ->
                 // 重名校验（忽略大小写）：已存在则提示且不创建、不关闭弹窗
                 if (existingNames.any { it.equals(name, ignoreCase = true) }) {
-                    Toast.makeText(context, "Tag \"$name\" already exists", Toast.LENGTH_SHORT).show()
+                    ToastUtils.short(context, "Tag \"$name\" already exists")
                 } else {
                     onCreateTag(name, colorHex)
                     showCreateSheet = false

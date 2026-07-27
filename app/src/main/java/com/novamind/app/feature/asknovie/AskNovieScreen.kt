@@ -1,6 +1,6 @@
 package com.novamind.app.feature.asknovie
 
-import android.widget.Toast
+import com.novamind.app.util.ToastUtils
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -388,9 +388,7 @@ fun AskNovieScreen(
         if (granted) {
             launchCamera()
         } else {
-            Toast.makeText(
-                context, "Camera permission is required to take a photo", Toast.LENGTH_SHORT,
-            ).show()
+            ToastUtils.short(context, "Camera permission is required to take a photo")
         }
     }
     // 点「拍照」：已授权直接启动相机，否则先申请相机权限
@@ -421,7 +419,7 @@ fun AskNovieScreen(
             ensureNotifPermission()
             isRecording = true
         } else {
-            Toast.makeText(context, "Microphone permission is required to record audio", Toast.LENGTH_SHORT).show()
+            ToastUtils.short(context, "Microphone permission is required to record audio")
         }
     }
 
@@ -736,7 +734,7 @@ fun AskNovieScreen(
                                         is ChatBlock.SkillStatus -> SkillStatusRow(b.label, b.working)
                                         is ChatBlock.Quadrant -> QuadrantDiagram(b)
                                         is ChatBlock.NoteResult -> NoteResultCard(b, onClick = {
-                                            Toast.makeText(context, "Opening note…", Toast.LENGTH_SHORT).show()
+                                            ToastUtils.short(context, "Opening note…")
                                         })
                                         ChatBlock.CreateNoteCta -> CreateNoteCta(onClick = onCreateNoteRequested)
                                         // 纯文本助手消息（收尾语带花标、状态行为灰字）
@@ -978,11 +976,10 @@ fun AskNovieScreen(
                             val transcript = transcribedVoiceText.trim()
                             transcribedVoiceText = ""
                             if (transcript.isBlank()) {
-                                Toast.makeText(
+                                ToastUtils.short(
                                     context,
                                     "We couldn't hear any speech. Please try again.",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                                )
                             } else {
                                 input = listOf(input.trimEnd(), transcript)
                                     .filter { it.isNotBlank() }
@@ -996,11 +993,10 @@ fun AskNovieScreen(
                         },
                         onUpload = { path, dur ->
                             if (dur > ASK_NOVIE_MAX_VOICE_SECONDS) {
-                                Toast.makeText(
+                                ToastUtils.short(
                                     context,
                                     "Voice input can be up to 60 seconds.",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                                )
                                 false
                             } else {
                                 when (val result = chatVm.transcribeVoice(path, dur)) {
@@ -1009,19 +1005,17 @@ fun AskNovieScreen(
                                         true
                                     }
                                     is ApiResult.BizError -> {
-                                        Toast.makeText(
+                                        ToastUtils.short(
                                             context,
                                             result.message ?: "Couldn't transcribe the recording.",
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
+                                        )
                                         false
                                     }
                                     is ApiResult.NetworkError -> {
-                                        Toast.makeText(
+                                        ToastUtils.short(
                                             context,
                                             "Couldn't transcribe the recording. Please retry.",
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
+                                        )
                                         false
                                     }
                                 }
