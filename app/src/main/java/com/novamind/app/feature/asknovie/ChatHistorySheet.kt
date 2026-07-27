@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -188,40 +189,89 @@ private fun HistoryScreenContent(
                 }
             } else {
                 val grouped = remember(visibleSessions) { visibleSessions.groupByHistoryPeriod() }
-                LazyColumn(
-                    state = listState,
+                val headerPositions = remember(grouped) {
+                    buildList {
+                        var itemIndex = 0
+                        grouped.entries.forEachIndexed { groupIndex, (label, sessions) ->
+                            if (groupIndex > 0) itemIndex++ // section spacer
+                            add(itemIndex to label)
+                            itemIndex++ // section header
+                            itemIndex += sessions.size
+                        }
+                    }
+                }
+                val pinnedLabel by remember(listState, headerPositions) {
+                    derivedStateOf {
+                        val firstIndex = listState.firstVisibleItemIndex
+                        val crossedVisibleHeader = listState.layoutInfo.visibleItemsInfo
+                            .lastOrNull { item ->
+                                item.offset <= 0 && headerPositions.any { it.first == item.index }
+                            }
+                            ?.index
+                        val activeIndex = crossedVisibleHeader
+                            ?: headerPositions.lastOrNull { it.first < firstIndex }?.first
+                        headerPositions.firstOrNull { it.first == activeIndex }?.second
+                    }
+                }
+
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        start = 16.dp,
-                        top = 16.dp,
-                        end = 16.dp,
-                        bottom = 24.dp,
-                    ),
                 ) {
-                    grouped.entries.forEachIndexed { groupIndex, (label, groupSessions) ->
-                        if (groupIndex > 0) item(key = "space-$label") { Spacer(Modifier.height(24.dp)) }
-                        item(key = "header-$label") {
-                            Text(
-                                text = label,
-                                color = SubColor,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            )
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            start = 16.dp,
+                            top = 16.dp,
+                            end = 16.dp,
+                            bottom = 24.dp,
+                        ),
+                    ) {
+                        grouped.entries.forEachIndexed { groupIndex, (label, groupSessions) ->
+                            if (groupIndex > 0) item(key = "space-$label") { Spacer(Modifier.height(24.dp)) }
+                            item(key = "header-$label") {
+                                HistorySectionHeader(label)
+                            }
+                            items(groupSessions, key = { it.id }) { session ->
+                                HistorySessionCard(
+                                    session = session,
+                                    onClick = { onSelectSession(session) },
+                                    modifier = Modifier.padding(bottom = 12.dp),
+                                )
+                            }
                         }
-                        items(groupSessions, key = { it.id }) { session ->
-                            HistorySessionCard(
-                                session = session,
-                                onClick = { onSelectSession(session) },
-                                modifier = Modifier.padding(bottom = 12.dp),
-                            )
-                        }
+                    }
+
+                    pinnedLabel?.let { label ->
+                        HistorySectionHeader(
+                            label = label,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HistorySectionHeader(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = Bg,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = label,
+            color = SubColor,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
     }
 }
 
