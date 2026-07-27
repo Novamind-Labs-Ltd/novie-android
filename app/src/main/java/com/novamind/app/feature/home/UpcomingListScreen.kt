@@ -2,8 +2,6 @@ package com.novamind.app.feature.home
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,18 +17,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,6 +39,7 @@ import com.novamind.app.feature.home.components.ColorTextTitle
 import com.novamind.app.feature.home.components.ColorTimeStamp
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -265,50 +260,26 @@ private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("d M
 private fun UpcomingHeader(
     onBack: () -> Unit,
 ) {
-    // Figma top_info：顶部 64dp、返回行 36dp、间距 10dp、标题行 64dp，整体高 182dp。
+    // Figma top_info：顶部留白 64dp，返回按钮与标题同排 36dp，底部留白 8dp。
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(182.dp),
+            .height(108.dp),
     ) {
         Spacer(Modifier.height(64.dp))
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(36.dp)
                 .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.CenterStart,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(bounded = false),
-                        onClick = onBack,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_arrow_back),
-                    contentDescription = "Back",
-                    tint = ColorTextTitle,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 28.dp)
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
+            TopBarBackButton(onClick = onBack)
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = "Up next",
-                fontSize = 32.sp,
+                modifier = Modifier.padding(horizontal = 4.dp),
+                fontSize = 22.sp,
                 lineHeight = 28.sp,
                 fontWeight = FontWeight.Medium,
                 color = ColorTextTitle,
