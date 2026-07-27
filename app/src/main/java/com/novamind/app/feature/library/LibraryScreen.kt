@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -158,7 +159,9 @@ fun LibraryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                // Figma top_info：状态栏后 36dp，左右 28dp，36dp 内容行，底部 14dp。
+                .padding(start = 28.dp, end = 28.dp, top = 36.dp, bottom = 14.dp)
+                .height(36.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -176,16 +179,17 @@ fun LibraryScreen(
                         desc = "Sidebar",
                         shape = RoundedCornerShape(4.dp),
                         bg = Color.Transparent,
-                        buttonSize = 36.dp,
-                        iconWidth = 22.dp,
-                        iconHeight = 24.dp,
+                        buttonSize = 32.dp,
+                        iconWidth = 20.dp,
+                        iconHeight = 22.dp,
                         onClick = onOpenSidebar,
                     )
                 }
                 Text(
                     text = "Library",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 32.sp,
+                    lineHeight = 28.sp,
+                    fontWeight = FontWeight.Medium,
                     color = ColorTextTitle,
                 )
             }
@@ -197,7 +201,7 @@ fun LibraryScreen(
                     desc = "New folder",
                     shape = RoundedCornerShape(8.dp),
                     bg = Color.Transparent,
-                    buttonSize = 40.dp,
+                    buttonSize = 36.dp,
                     iconWidth = 24.dp,
                     iconHeight = 24.dp,
                     onClick = { showCreateFolder = true },

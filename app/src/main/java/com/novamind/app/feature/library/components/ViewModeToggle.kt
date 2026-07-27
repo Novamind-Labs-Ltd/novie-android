@@ -24,7 +24,7 @@ import com.novamind.app.feature.library.LibraryViewMode
 import com.novamind.app.ui.theme.AppTheme
 
 /**
- * 视图切换按钮：40dp 无底色点击区域、8dp 圆角，
+ * 视图切换按钮：36dp 无底色点击区域、8dp 圆角，与 Library 顶栏操作按钮对齐，
  * 图标显示点击后将切换到的目标视图模式。
  */
 @Composable
@@ -32,7 +32,7 @@ internal fun ViewModeToggle(viewMode: LibraryViewMode, onClick: () -> Unit, visi
     val isGrid = viewMode == LibraryViewMode.GRID
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(36.dp)
             // 不可见时仍保留占位（alpha 0），并禁用点击
             .alpha(if (visible) 1f else 0f)
             .clip(RoundedCornerShape(8.dp))
