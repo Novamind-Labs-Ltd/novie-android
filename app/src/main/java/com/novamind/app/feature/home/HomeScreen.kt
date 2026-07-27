@@ -119,6 +119,7 @@ fun HomeScreen(
                 title = "Up next",
                 onSeeAll = onUpcomingSeeAll,
                 modifier = Modifier.padding(horizontal = 24.dp),
+                prominentTitle = true,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
