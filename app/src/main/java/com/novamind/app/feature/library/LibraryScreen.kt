@@ -114,7 +114,7 @@ import com.novamind.app.feature.library.components.ViewModeToggle
 import com.novamind.app.feature.library.components.sampleFolders
 import com.novamind.app.feature.library.components.sampleNotes
 import com.novamind.app.ui.components.AppPullToRefresh
-import com.novamind.app.ui.components.BackButton
+import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 
@@ -165,8 +165,8 @@ fun LibraryScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (onBack != null) {
-                    // 作为子页进入（如首页 See all）：返回键，通用组件（与 Create 等页统一）
-                    BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
+                    // 作为子页进入（如首页 See all）：复用笔记编辑页的扁平顶栏返回键
+                    TopBarBackButton(onClick = onBack)
                 } else {
                     // 侧栏入口 → 通知宿主打开抽屉
                     TopIconButton(
@@ -628,7 +628,7 @@ internal fun FolderDetailScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BackButton(onClick = onBack, background = ColorIconBtn, tint = ColorTextTitle)
+            TopBarBackButton(onClick = onBack)
         }
 
         // 标题：文件夹名
