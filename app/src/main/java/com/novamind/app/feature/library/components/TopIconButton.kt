@@ -27,6 +27,8 @@ internal fun TopIconButton(
     shape: androidx.compose.ui.graphics.Shape,
     bg: Color = ColorIconBtn,
     buttonSize: Dp = 42.dp,
+    iconWidth: Dp = 20.dp,
+    iconHeight: Dp = 20.dp,
     border: BorderStroke? = null,
     onClick: () -> Unit = {},
 ) {
@@ -43,7 +45,7 @@ internal fun TopIconButton(
             painter = painterResource(iconRes),
             contentDescription = desc,
             tint = ColorTextTitle,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(width = iconWidth, height = iconHeight),
         )
     }
 }

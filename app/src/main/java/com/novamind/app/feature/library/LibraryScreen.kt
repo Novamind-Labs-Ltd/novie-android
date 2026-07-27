@@ -9,7 +9,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -95,11 +94,9 @@ import com.novamind.app.feature.create.model.NoteItem
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.novamind.app.feature.library.components.BgPage
-import com.novamind.app.feature.library.components.BgRow
 import com.novamind.app.feature.library.components.ChangeFolderColorSheet
 import com.novamind.app.feature.library.components.ColorAccent
 import com.novamind.app.feature.library.components.ColorIconBtn
-import com.novamind.app.feature.library.components.ColorBorder
 import com.novamind.app.feature.library.components.ColorTextSub
 import com.novamind.app.feature.library.components.ColorTextTitle
 import com.novamind.app.feature.library.components.CannotDeleteFolderDialog
@@ -173,12 +170,13 @@ fun LibraryScreen(
                 } else {
                     // 侧栏入口 → 通知宿主打开抽屉
                     TopIconButton(
-                        iconRes = R.drawable.ic_panel_left,
+                        iconRes = R.drawable.ic_library_sidebar,
                         desc = "Sidebar",
                         shape = RoundedCornerShape(4.dp),
-                        bg = BgRow,
+                        bg = Color.Transparent,
                         buttonSize = 36.dp,
-                        border = BorderStroke(1.dp, ColorBorder),
+                        iconWidth = 22.dp,
+                        iconHeight = 24.dp,
                         onClick = onOpenSidebar,
                     )
                 }
