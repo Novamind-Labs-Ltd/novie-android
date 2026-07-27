@@ -81,9 +81,7 @@ fun ProfileScreen(
         modifier = modifier
             .fillMaxSize()
             .background(BgPage)
-            .verticalScroll(rememberScrollState())
-            .statusBarsPadding()
-            .padding(bottom = 160.dp),
+            .statusBarsPadding(),
     ) {
         // ── 顶部标题栏：Profile 大标题 + 头像 ──────────────────────────────────
         Row(
@@ -121,52 +119,60 @@ fun ProfileScreen(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
-
-        // ── Settings ────────────────────────────────────────────────────────
-        SectionHeader("Settings")
-        SettingsCard {
-            SettingsRow(R.drawable.ic_notification, "Notification preferences", onNotificationPreferences)
-            SettingsRow(R.drawable.ic_link, "Connectors", onConnectors)
-            SettingsRow(R.drawable.ic_key, "Permissions", onOpenPermissions)
-            SettingsRow(R.drawable.ic_toggle_on, "Access controls", onAccessControls)
-        }
-
-        // ── Support ─────────────────────────────────────────────────────────
-        SectionHeader("Support")
-        SettingsCard {
-            SettingsRow(R.drawable.ic_help, "Help centre", onHelpCentre)
-            SettingsRow(R.drawable.ic_chat, "Send feedback", onSendFeedback)
-            SettingsRow(R.drawable.ic_warning, "Report an issue", onReportIssue)
-        }
-
-        // ── About ───────────────────────────────────────────────────────────
-        SectionHeader("About")
-        SettingsCard {
-            SettingsRow(R.drawable.ic_novie_flower, "About MyNovie", onAbout)
-            SettingsRow(R.drawable.ic_refresh, "Check for updates", onCheckForUpdates)
-            SettingsRow(R.drawable.ic_document, "Privacy policy", onPrivacyPolicy)
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        // ── 底部主操作：整宽黑色胶囊「退出登录」───────────────────────
-        Box(
+        Column(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clip(RoundedCornerShape(100.dp))
-                .background(BtnBg)
-                .clickable(onClick = onLogout)
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center,
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 160.dp),
         ) {
-            Text(
-                text = "Sign out",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = BtnText,
-            )
+            Spacer(Modifier.height(10.dp))
+
+            // ── Settings ────────────────────────────────────────────────────
+            SectionHeader("Settings")
+            SettingsCard {
+                SettingsRow(R.drawable.ic_notification, "Notification preferences", onNotificationPreferences)
+                SettingsRow(R.drawable.ic_link, "Connectors", onConnectors)
+                SettingsRow(R.drawable.ic_key, "Permissions", onOpenPermissions)
+                SettingsRow(R.drawable.ic_toggle_on, "Access controls", onAccessControls)
+            }
+
+            // ── Support ─────────────────────────────────────────────────────
+            SectionHeader("Support")
+            SettingsCard {
+                SettingsRow(R.drawable.ic_help, "Help centre", onHelpCentre)
+                SettingsRow(R.drawable.ic_chat, "Send feedback", onSendFeedback)
+                SettingsRow(R.drawable.ic_warning, "Report an issue", onReportIssue)
+            }
+
+            // ── About ───────────────────────────────────────────────────────
+            SectionHeader("About")
+            SettingsCard {
+                SettingsRow(R.drawable.ic_novie_flower, "About MyNovie", onAbout)
+                SettingsRow(R.drawable.ic_refresh, "Check for updates", onCheckForUpdates)
+                SettingsRow(R.drawable.ic_document, "Privacy policy", onPrivacyPolicy)
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ── 底部主操作：整宽黑色胶囊「退出登录」───────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(BtnBg)
+                    .clickable(onClick = onLogout)
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "Sign out",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = BtnText,
+                )
+            }
         }
     }
 }
