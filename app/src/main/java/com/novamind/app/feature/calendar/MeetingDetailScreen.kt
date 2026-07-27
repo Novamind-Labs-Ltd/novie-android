@@ -107,14 +107,22 @@ fun MeetingDetailScreen(
             .statusBarsPadding()
             .verticalScroll(rememberScrollState()),
     ) {
-        // 顶部信息（Figma top_info）：返回按钮 +（右侧）编辑铅笔
+        // 顶部信息（Figma 1365-42670）：返回按钮与 22sp 标题同排。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(start = 16.dp, top = 22.dp, end = 16.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TopBarBackButton(onClick = onBack)
+            Text(
+                text = "Meetings",
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
+                fontWeight = FontWeight.Medium,
+                color = ColorTextTitle,
+                modifier = Modifier.padding(start = 12.dp),
+            )
             if (onEdit != null) {
                 Spacer(Modifier.weight(1f))
                 Surface(shape = CircleShape, color = ColorSurface, shadowElevation = 1.dp) {
@@ -135,19 +143,12 @@ fun MeetingDetailScreen(
                 }
             }
         }
-        Text(
-            text = "Meetings",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Medium,
-            color = ColorTextTitle,
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
-        )
 
         // 事件卡片（Figma Body - Event）
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 24.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(ColorSurface)
                 .padding(24.dp),

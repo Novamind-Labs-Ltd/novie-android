@@ -3,6 +3,7 @@ package com.novamind.app.feature.calendar
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +25,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -143,39 +146,50 @@ fun AddTaskScreen(
             .background(BgPage)
             .statusBarsPadding(),
     ) {
-        // 顶栏（Figma top_info）：返回（左）+ 删除垃圾桶（右，仅编辑模式）
+        // 顶栏（Figma 1321-37370）：返回 + 22sp 标题 + 扁平删除按钮同排。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(start = 16.dp, top = 22.dp, end = 16.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TopBarBackButton(onClick = attemptClose)
+            Text(
+                text = "To-do",
+                fontSize = 22.sp,
+                lineHeight = 28.sp,
+                fontWeight = FontWeight.Medium,
+                color = ColorTextTitle,
+                modifier = Modifier.padding(start = 12.dp),
+            )
             Spacer(Modifier.weight(1f))
             if (onDelete != null) {
-                CircleIconButton(
-                    iconRes = R.drawable.ic_delete,
-                    desc = "Delete task",
-                    onClick = { hideKeyboard(); showDeleteConfirm = true },
-                )
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = false, radius = 18.dp),
+                            onClick = { hideKeyboard(); showDeleteConfirm = true },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_todo_delete),
+                        contentDescription = "Delete task",
+                        tint = ColorTextTitle,
+                        modifier = Modifier.size(width = 19.5.dp, height = 21.5.dp),
+                    )
+                }
             }
         }
 
-        // 大标题「To-do」（Figma 32sp Medium）
-        Text(
-            text = "To-do",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Medium,
-            color = ColorTextTitle,
-            modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 16.dp),
-        )
-
         // 表单卡片：仅标题 + 截止日期。
-        // Google Tasks 不支持时间段/提醒/描述/附件，故设计稿中的这些行均不呈现。
+        // 当前版本只呈现日期和描述；时间段/提醒留待后续接入，附件不属于后端 To-dos 能力。
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(start = 16.dp, top = 24.dp, end = 16.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(ColorSurface)
                 .padding(24.dp),
