@@ -215,6 +215,9 @@ fun AskNovieScreen(
     initialAttachments: List<Attachment> = emptyList(),
     initialResponding: Boolean = false,
 ) {
+    // Preview 没有稳定的 Activity/Application ViewModel 环境，使用纯 Compose 本地状态。
+    // 真机运行时仍由 Activity 级 ViewModel 持有会话和 SSE 任务。
+    val inPreview = LocalInspectionMode.current
     var input by remember { mutableStateOf(initialInput) }
     var isRecording by remember { mutableStateOf(false) }        // 麦克风录音状态
     var transcribedVoiceText by remember { mutableStateOf("") }
@@ -222,20 +225,26 @@ fun AskNovieScreen(
     var showHistory by remember { mutableStateOf(false) }        // 聊天历史弹窗
     // 会话状态存放在 Activity 作用域的 VM，切走页面（AnimatedVisibility 移出 composition）
     // 再回来不丢；流式回复亦跑在其 viewModelScope 上，切走不取消、SSE 数据继续累积。
-    val chatVm: AskNovieChatViewModel = viewModel()
+    val chatVm: AskNovieChatViewModel? = if (inPreview) null else viewModel()
+    val previewMessages = remember { mutableStateOf(initialMessages) }
+    val previewResponding = remember { mutableStateOf(initialResponding) }
+    val previewStreaming = remember { mutableStateOf(false) }
+    val previewResponseJob = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val previewSessionId = remember { mutableStateOf("preview-session") }
+    val previewCustomTitle = remember { mutableStateOf<String?>(null) }
     // 首次进入用初始/预览参数播种；之后保留既有会话（回到页面不重置）。
     remember {
-        if (!chatVm.seeded) {
+        if (chatVm != null && !chatVm.seeded) {
             chatVm.messages.value = initialMessages
             chatVm.isResponding.value = initialResponding
             chatVm.markSeeded()
         }
         true
     }
-    var messages by chatVm.messages
-    var isResponding by chatVm.isResponding            // 助手正在回复
-    var sessionId by chatVm.sessionId                  // 当前会话 id（保存到会话历史）
-    var customTitle by chatVm.customTitle              // 手动重命名的标题（为空则用第一句话）
+    var messages by (chatVm?.messages ?: previewMessages)
+    var isResponding by (chatVm?.isResponding ?: previewResponding) // 助手正在回复
+    var sessionId by (chatVm?.sessionId ?: previewSessionId)         // 当前会话 id
+    var customTitle by (chatVm?.customTitle ?: previewCustomTitle)   // 手动重命名的标题
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     // 底部模型胶囊：当前模型 + 选择弹窗
@@ -305,8 +314,8 @@ fun AskNovieScreen(
     val focusManager = LocalFocusManager.current
     val inputFocusRequester = remember { FocusRequester() }
     val context = LocalContext.current
-    var isStreaming by chatVm.isStreaming   // 逐字输出中（流式期间不写存储）
-    var responseJob by chatVm.responseJob   // 当前回复协程（供「停止」取消）
+    var isStreaming by (chatVm?.isStreaming ?: previewStreaming) // 逐字输出中
+    var responseJob by (chatVm?.responseJob ?: previewResponseJob) // 当前回复协程
     // 仿 ChatGPT：刚发送的用户消息滚到顶部（自增以触发滚动，即使位置相同）
     var sendTick by remember { mutableIntStateOf(0) }
     var anchorIndex by remember { mutableIntStateOf(0) }
@@ -338,9 +347,6 @@ fun AskNovieScreen(
             }
         }
     }
-    // 预览/Inspection 环境：跳过依赖 Activity 的能力（选择器、BackHandler）
-    val inPreview = LocalInspectionMode.current
-
     // 图片选择器（系统照片选择器，多选，无需权限）；预览时不创建
     val imagePicker = if (inPreview) null else rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia()
@@ -454,14 +460,15 @@ fun AskNovieScreen(
                 }
             } else {
                 // SSE 由 Activity 级 ViewModel 消费，切走页面或切换 App 窗口不会丢失服务端增量。
-                chatVm.startStreamingReply(prompt)
+                chatVm?.startStreamingReply(prompt)
             }
         }
     }
 
     // 停止当前回复生成（保留已输出的部分内容）
     val stopResponse: () -> Unit = {
-        chatVm.stopStreamingReply()
+        chatVm?.stopStreamingReply()
+        responseJob?.cancel()
     }
 
     // 输入框发送：取当前文本 + 附件，发送后清空
@@ -554,7 +561,7 @@ fun AskNovieScreen(
 
     // 保存当前会话到本地（含实时 / 部分回复）。切断或切换会话前调用，避免丢失正在生成的内容。
     val persistCurrentSession: () -> Unit = {
-        if (messages.isNotEmpty()) {
+        if (!inPreview && messages.isNotEmpty()) {
             val first = messages.first()
             val title = customTitle?.takeIf { it.isNotBlank() }
                 ?: first.text.trim().takeIf { it.isNotEmpty() }
@@ -571,14 +578,22 @@ fun AskNovieScreen(
     // 顶部「+」与历史弹窗「New chat」共用。
     val startNewChat: () -> Unit = {
         persistCurrentSession()
-        chatVm.startNewSession()
+        if (chatVm != null) {
+            chatVm.startNewSession()
+        } else {
+            messages = emptyList()
+            isResponding = false
+            isStreaming = false
+            sessionId = "preview-session"
+            customTitle = null
+        }
         input = ""
         attachments = emptyList()
         keepBottomSpace = false
     }
 
     LaunchedEffect(newSessionRequestId) {
-        if (chatVm.consumeNewSessionRequest(newSessionRequestId)) startNewChat()
+        if (chatVm?.consumeNewSessionRequest(newSessionRequestId) == true) startNewChat()
     }
 
     // 会话持久化：消息或标题变化即存储（流式期间不写，结束后保存一次）
@@ -998,6 +1013,8 @@ fun AskNovieScreen(
                                     "Voice input can be up to 60 seconds.",
                                 )
                                 false
+                            } else if (chatVm == null) {
+                                false
                             } else {
                                 when (val result = chatVm.transcribeVoice(path, dur)) {
                                     is ApiResult.Success -> {
@@ -1099,7 +1116,13 @@ fun AskNovieScreen(
                 showHistory = false
                 // 仅切换展示会话：旧会话的 SSE 继续在后台接收并保存。
                 persistCurrentSession()
-                chatVm.selectSession(s)
+                if (chatVm != null) {
+                    chatVm.selectSession(s)
+                } else {
+                    messages = s.messages
+                    sessionId = s.id
+                    customTitle = s.title
+                }
                 input = ""
                 attachments = emptyList()
                 keepBottomSpace = false
@@ -1134,7 +1157,13 @@ fun AskNovieScreen(
             dismissLabel = "Cancel",
             destructive = true,
             onConfirm = {
-                chatVm.deleteCurrentSession()
+                if (chatVm != null) {
+                    chatVm.deleteCurrentSession()
+                } else {
+                    messages = emptyList()
+                    sessionId = "preview-session"
+                    customTitle = null
+                }
                 input = ""
                 attachments = emptyList()
                 keepBottomSpace = false
