@@ -672,7 +672,7 @@ fun AskNovieScreen(
                         horizontalAlignment = Alignment.Start,
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_novie_flower),
+                            painter = painterResource(R.drawable.ic_ask_novie_header_symbol),
                             contentDescription = null,
                             tint = TextTitle,
                             modifier = Modifier.size(28.dp),
