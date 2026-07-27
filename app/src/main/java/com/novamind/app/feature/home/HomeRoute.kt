@@ -23,6 +23,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -73,6 +74,10 @@ fun HomeRoute(
 
     // 每次回到首页（HomeRoute 重新进入组合，如底栏切换 / 从编辑器返回）都静默重拉笔记列表
     LaunchedEffect(Unit) { viewModel.reload() }
+    val currentOnNoteClick by rememberUpdatedState(onNoteClick)
+    LaunchedEffect(viewModel) {
+        viewModel.openNote.collect { noteId -> currentOnNoteClick(noteId) }
+    }
 
     // Up next 未授权时让用户选择设备上的 Google 账号，与 Calendar 页保持一致。
     val calendarAuthorizationLauncher = rememberLauncherForActivityResult(
@@ -211,7 +216,11 @@ fun HomeRoute(
                     },
                     onNotificationsClick = { overlay = HomeOverlay.Notifications },
                     onAskNovie = onAskNovie,
-                    onStartNotes = onStartNotes,
+                    onMeetingNotesClick = { item ->
+                        uiState.upcomingEvents
+                            .firstOrNull { event -> "evt_${event.id}" == item.id }
+                            ?.let { event -> viewModel.openMeetingNote(event.id, item.noteId) }
+                    },
                     onAvatarClick = { scope.launch { drawerState.open() } },
                     onRefresh = viewModel::onRefresh,
                     onConnectCalendar = ::connectGoogleCalendar,

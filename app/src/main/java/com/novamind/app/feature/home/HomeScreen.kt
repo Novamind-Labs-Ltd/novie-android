@@ -67,7 +67,7 @@ fun HomeScreen(
     onNotificationsClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAskNovie: () -> Unit = {},
-    onStartNotes: () -> Unit = {},
+    onMeetingNotesClick: (UpcomingItem) -> Unit = {},
     onRefresh: () -> Unit = {},
     onConnectCalendar: () -> Unit = {},
     userName: String = "",
@@ -150,12 +150,13 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    // 首页 Up next 只展示会议卡，并提供「Start notes」入口。
+                    // 首页 Up next 会议卡根据后端绑定状态展示 Start notes / View notes。
                     meetingItems.forEach { item ->
                         UpcomingCard(
                             item = item,
                             showAction = item.isMeeting,
-                            onAction = onStartNotes,
+                            actionLabel = if (item.noteId == null) "Start notes" else "View notes",
+                            onAction = { onMeetingNotesClick(item) },
                             onClick = { onMeetingClick(item.id) },
                         )
                     }

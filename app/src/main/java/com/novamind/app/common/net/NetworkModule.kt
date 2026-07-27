@@ -85,4 +85,9 @@ object NetworkModule {
     val askNovieTranscribeApi: AskNovieTranscribeApi by lazy {
         retrofit(ApiConfig.apiBaseUrl).create(AskNovieTranscribeApi::class.java)
     }
+
+    /** 后端日历事件及事件-笔记绑定接口。 */
+    val calendarBackendApi: CalendarBackendApi by lazy {
+        retrofit(ApiConfig.apiBaseUrl).create(CalendarBackendApi::class.java)
+    }
 }

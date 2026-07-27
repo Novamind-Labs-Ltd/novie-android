@@ -9,11 +9,13 @@ import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.fold
+import com.novamind.app.common.net.response.getOrNull
 import com.novamind.app.common.session.UserSessionManager
 import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.calendar.TodayAgenda
 import com.novamind.app.data.calendar.TodayAgendaUseCase
+import com.novamind.app.data.calendar.CalendarNoteRepository
 import com.novamind.app.data.calendar.GoogleCalendarRepository
 import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
@@ -28,6 +30,7 @@ import java.io.File
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -35,6 +38,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -50,10 +55,13 @@ class HomeViewModel @Inject constructor(
     private val tasksRepository: GoogleTasksRepository,
     private val calendarRepository: GoogleCalendarRepository,
     private val bindingStore: CalendarBindingStore,
+    private val calendarNoteRepository: CalendarNoteRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+    private val _openNote = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val openNote = _openNote.asSharedFlow()
 
     fun onSearchQueryChange(query: String) {
         // TODO: filter
@@ -197,8 +205,18 @@ class HomeViewModel @Inject constructor(
     }
 
     /** 将同一份议程结果一次性映射到 Up next，避免刷新期间分段改变页面高度。 */
-    private fun applyAgenda(agenda: TodayAgenda) {
+    private suspend fun applyAgenda(agenda: TodayAgenda) {
         val events = agenda.events.filterNot { it.isPast }
+        val today = LocalDate.now()
+        val zone = ZoneId.systemDefault()
+        val linkedNoteIds = if (agenda.authorized && events.isNotEmpty()) {
+            calendarNoteRepository.linkedNoteIds(
+                from = today.atStartOfDay(zone).toInstant(),
+                to = today.plusDays(1).atStartOfDay(zone).toInstant(),
+            ).getOrNull().orEmpty()
+        } else {
+            emptyMap()
+        }
         val items = buildList {
             // 会议（有时间，按开始时间；仓库已按 start 排序）
             events.forEach { e ->
@@ -214,6 +232,7 @@ class HomeViewModel @Inject constructor(
                         isMeeting = true,   // 会议卡：带 Start notes
                         date = e.start.toLocalDate(),
                         isAllDay = e.isAllDay,
+                        noteId = linkedNoteIds[e.id],
                     )
                 )
             }
@@ -227,6 +246,34 @@ class HomeViewModel @Inject constructor(
                 // 有可连接账号但未静默授权 → Up next 展示「连接日历」入口
                 calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
             )
+        }
+    }
+
+    /** 已有关联直接打开；未关联则先由后端创建笔记并绑定会议，再打开返回的 noteId。 */
+    fun openMeetingNote(eventId: String, noteId: String?) {
+        if (noteId != null) {
+            _openNote.tryEmit(noteId)
+            return
+        }
+        viewModelScope.launch {
+            when (val result = calendarNoteRepository.createOrGetNote(eventId)) {
+                is ApiResult.Success -> result.data?.noteId?.let { resolvedNoteId ->
+                    _uiState.update { state ->
+                        state.copy(
+                            upcomingItems = state.upcomingItems.map { item ->
+                                if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
+                            },
+                        )
+                    }
+                    _openNote.emit(resolvedNoteId)
+                }
+                is ApiResult.BizError -> _uiState.update {
+                    it.copy(errorMessage = result.message ?: "Failed to open meeting notes")
+                }
+                is ApiResult.NetworkError -> _uiState.update {
+                    it.copy(errorMessage = "网络异常，请重试")
+                }
+            }
         }
     }
 

@@ -12,12 +12,14 @@ data class UpcomingItem(
     val iconResId: Int,
     /** 计划时间（如「10:00」）；home_final 卡片左侧展示，为空则不显示。 */
     val time: String = "",
-    /** 是否为会议：true=会议卡（带「Start notes」按钮），false=任务卡（不带）。 */
+    /** 是否为会议：true=会议卡（带 Start/View notes 按钮），false=任务卡（不带）。 */
     val isMeeting: Boolean = false,
     /** Google Calendar 事件开始日期；示例数据可为空。 */
     val date: LocalDate? = null,
     /** 是否为全天事件。 */
     val isAllDay: Boolean = false,
+    /** 后端返回的关联笔记 id；为空时卡片显示 Start notes。 */
+    val noteId: String? = null,
 )
 
 data class HomeUiState(
