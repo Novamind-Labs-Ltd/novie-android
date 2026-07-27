@@ -31,8 +31,6 @@ internal val ColorAvatarBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Interactive.active.current()
 internal val ColorBadge: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Error.default.current()
-internal val ColorOnBadge: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Default.onColor.current()
 internal val ColorMenuIcon: Color
     @Composable @ReadOnlyComposable get() = IconColors.Default.secondary.current()
 internal val ColorBorder: Color

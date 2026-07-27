@@ -28,7 +28,7 @@ import com.novamind.app.ui.theme.AppTheme
 import java.io.File
 
 /**
- * 首页顶栏（home_final）：头像（36dp，点击进个人页）+「Hi, {name}」问候 + 提醒铃铛（带未读角标）。
+ * 首页顶栏（home_final）：头像（36dp，点击进个人页）+「Hi, {name}」问候 + 提醒铃铛（带未读红点）。
  */
 @Composable
 internal fun HomeTopBar(
@@ -76,7 +76,7 @@ internal fun HomeTopBar(
             )
         }
 
-        // ── 提醒铃铛 + 未读角标 ─────────────────────────────────────────
+        // ── 提醒铃铛 + 未读红点 ─────────────────────────────────────────
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -84,28 +84,21 @@ internal fun HomeTopBar(
                 .clickable(onClick = onNotificationsClick),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_notification),
-                contentDescription = "Notifications",
-                tint = ColorTextTitle,
-                modifier = Modifier.size(24.dp),
-            )
-            if (notificationCount > 0) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-4).dp, y = 4.dp)
-                        .size(13.dp)
-                        .clip(CircleShape)
-                        .background(ColorBadge),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (notificationCount > 9) "9+" else "$notificationCount",
-                        color = ColorOnBadge,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 8.sp,
+            Box(modifier = Modifier.size(24.dp)) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_notification),
+                    contentDescription = "Notifications",
+                    tint = ColorTextTitle,
+                    modifier = Modifier.size(24.dp),
+                )
+                if (notificationCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = (-5).dp, y = 1.dp)
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(ColorBadge),
                     )
                 }
             }
@@ -137,7 +130,7 @@ private fun HomeTopBarNoBadgePreview() {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Home · Top Bar (guest / 9+)")
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Home · Top Bar (guest / dot)")
 @Composable
 private fun HomeTopBarGuestPreview() {
     AppTheme {
