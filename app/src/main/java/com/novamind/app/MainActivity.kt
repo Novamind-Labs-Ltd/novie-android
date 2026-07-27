@@ -312,6 +312,7 @@ class MainActivity : FragmentActivity() {
                                 userEmail = userSession.profile?.email ?: userSession.userKey,
                                 onOpenPermissions = { showProfilePermissions = true },
                                 onAbout = { showAbout = true },
+                                onFullscreenChange = { hideBottomNav = it },
                                 // Sign out 使用彻底登出：打开浏览器命中 /v2/logout，清除 Auth0 SSO 会话
                                 onLogout = { authViewModel.logoutFederated(this@MainActivity) },
                             )

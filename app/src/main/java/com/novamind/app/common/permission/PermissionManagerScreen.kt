@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,11 +53,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.ReadOnlyComposable
 import com.novamind.app.R
 import com.novamind.app.ui.colors.BackgroundColors
-import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
-import com.novamind.app.ui.components.BackButton
+import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 
 /* ---------------------------------------------------------------------------
@@ -72,16 +71,14 @@ private val TextTitle: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
 private val TextSub: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
-private val Accent: Color
-    @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
-private val AccentSoft: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Scenario.fern.current()
-private val Divider: Color
-    @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
-private val PillOffBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
-private val PillOffText: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+private val IconBackground: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.backgroundTertiary.current()
+private val IconOnDark: Color
+    @Composable @ReadOnlyComposable get() = IconColors.Default.onDark.current()
+private val PrimaryButtonBackground: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
+private val PrimaryButtonText: Color
+    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
 
 /* ---------------------------------------------------------------------------
  * 数据模型
@@ -279,27 +276,27 @@ fun PermissionManagerContent(
     onOpenSystemSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val grantedCount = items.count { it.status == PermissionStatus.GRANTED }
-
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(BgPage)
             .statusBarsPadding(),
     ) {
-        // 顶栏：返回 | 标题
+        // 顶栏：按 Figma 使用 36dp 扁平返回按钮与 22sp 标题。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp)
+                .padding(top = 22.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            BackButton(onClick = onBack, background = Card, tint = TextTitle, contentDescription = "Back")
+            TopBarBackButton(onClick = onBack)
             Text(
                 "Permission Management",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                lineHeight = 28.sp,
+                fontWeight = FontWeight.Medium,
                 color = TextTitle,
                 modifier = Modifier.weight(1f),
             )
@@ -307,187 +304,111 @@ fun PermissionManagerContent(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 160.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // 概览卡：已开启数量 + 说明
-            item {
-                SummaryCard(grantedCount = grantedCount, total = items.size)
-                Spacer(Modifier.height(8.dp))
-                SectionLabel("App Permissions")
-            }
-
             items(items, key = { it.permission.key }) { item ->
                 PermissionRow(item = item, onClick = { onItemClick(item) })
             }
 
-            // 底部统一入口 + 说明
             item {
-                Spacer(Modifier.height(6.dp))
                 SystemSettingsEntry(onClick = onOpenSystemSettings)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "Permissions are managed by the system. For security reasons, the app cannot " +
-                        "directly enable or disable permissions — you can change them anytime in system settings.",
-                    fontSize = 12.sp,
-                    color = TextSub,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                )
             }
         }
     }
-}
-
-@Composable
-private fun SummaryCard(grantedCount: Int, total: Int) {
-    Surface(shape = RoundedCornerShape(16.dp), color = Card, shadowElevation = 1.dp) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(AccentSoft),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_check_circle),
-                    contentDescription = null,
-                    tint = Accent,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "$grantedCount / $total permissions enabled",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextTitle,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "Manage the system permissions used by this app",
-                    fontSize = 12.sp,
-                    color = TextSub,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        color = TextSub,
-        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 6.dp),
-    )
 }
 
 @Composable
 private fun PermissionRow(item: PermissionUiItem, onClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(14.dp), color = Card, shadowElevation = 1.dp) {
+    Surface(shape = RoundedCornerShape(12.dp), color = Card, shadowElevation = 2.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(),
                     onClick = onClick,
                 )
-                .padding(14.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 图标
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(AccentSoft),
+                    .clip(CircleShape)
+                    .background(IconBackground),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(id = item.permission.iconRes),
                     contentDescription = null,
-                    tint = Accent,
-                    modifier = Modifier.size(20.dp),
+                    tint = IconOnDark,
+                    modifier = Modifier.size(16.dp),
                 )
             }
-            // 标题 + 说明
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     item.permission.title,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
                     color = TextTitle,
                 )
                 Text(
                     item.permission.description,
                     fontSize = 12.sp,
                     color = TextSub,
-                    lineHeight = 17.sp,
+                    lineHeight = 16.sp,
                 )
             }
-            // 状态徽章
-            StatusPill(granted = item.status == PermissionStatus.GRANTED)
+            PermissionStatusLabel(granted = item.status == PermissionStatus.GRANTED)
         }
     }
 }
 
 @Composable
-private fun StatusPill(granted: Boolean) {
-    val bg = if (granted) AccentSoft else PillOffBg
-    val fg = if (granted) Accent else PillOffText
-    val label = if (granted) "Enabled" else "Enable"
+private fun PermissionStatusLabel(granted: Boolean) {
     Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(bg)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = fg)
+        Text(
+            text = if (granted) "On" else "Off",
+            fontSize = 12.sp,
+            lineHeight = 20.sp,
+            color = TextTitle,
+        )
+        Icon(
+            painter = painterResource(id = R.drawable.ic_chevron_right),
+            contentDescription = null,
+            tint = IconColors.Default.default.current(),
+            modifier = Modifier.size(16.dp),
+        )
     }
 }
 
 @Composable
 private fun SystemSettingsEntry(onClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(14.dp), color = Card, shadowElevation = 1.dp) {
-        Row(
+    Surface(shape = RoundedCornerShape(100.dp), color = PrimaryButtonBackground, shadowElevation = 2.dp) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .height(40.dp)
+                .clip(RoundedCornerShape(100.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(),
                     onClick = onClick,
-                )
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ),
+            contentAlignment = Alignment.Center,
         ) {
             Text(
                 "Manage in System Settings",
-                fontSize = 15.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
-                color = TextTitle,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                painter = painterResource(id = R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = TextSub,
-                modifier = Modifier.size(18.dp),
+                color = PrimaryButtonText,
             )
         }
     }
