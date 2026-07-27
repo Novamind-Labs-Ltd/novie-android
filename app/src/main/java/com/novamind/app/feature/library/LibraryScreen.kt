@@ -193,7 +193,11 @@ fun LibraryScreen(
                 TopIconButton(
                     iconRes = R.drawable.ic_folder_add,
                     desc = "New folder",
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    bg = Color.Transparent,
+                    buttonSize = 40.dp,
+                    iconWidth = 24.dp,
+                    iconHeight = 24.dp,
                     onClick = { showCreateFolder = true },
                 )
             }
