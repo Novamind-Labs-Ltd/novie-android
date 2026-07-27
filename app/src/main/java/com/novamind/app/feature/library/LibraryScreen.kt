@@ -118,6 +118,9 @@ import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 
+/** 列表末尾可滚出的安全区：与首页一致，避开叠加显示的底部导航栏和中央 FAB。 */
+private val BottomNavContentInset = 160.dp
+
 @Composable
 fun LibraryScreen(
     uiState: LibraryUiState,
@@ -147,8 +150,7 @@ fun LibraryScreen(
         modifier = modifier
             .fillMaxSize()
             .background(BgPage)
-            .statusBarsPadding()
-            .padding(bottom = 100.dp),
+            .statusBarsPadding(),
     ) {
         // 顶部应用栏（Figma top_info）：左侧「侧栏/返回 + Library 标题」内联一行，
         // 右侧为上下文操作（Recent 页 → 视图切换；Folders 页 → 新建文件夹）。
@@ -322,7 +324,7 @@ private fun RecentPage(
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalItemSpacing = 14.dp,
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = BottomNavContentInset),
                 ) {
                     items(uiState.notes, key = { it.id }) { note ->
                         LibraryNoteCard(note = note, onClick = { onOpenNote(note.id) })
@@ -339,7 +341,7 @@ private fun RecentPage(
                         .fillMaxSize()
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = BottomNavContentInset),
                 ) {
                     items(uiState.notes, key = { it.id }) { note ->
                         LibraryNoteRow(note = note, onClick = { onOpenNote(note.id) })
@@ -501,8 +503,11 @@ private fun FoldersPage(
                         (windowInfo.containerSize.height - it.boundsInWindow().bottom.toInt()).coerceAtLeast(0)
                 },
             verticalArrangement = Arrangement.spacedBy(rowSpacing),
-            // 底部预留 IME 高度作滚动余量，使末行也能被上移到键盘之上（不改变视口高度，故无布局反馈抖动）
-            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp + imeBottomDp),
+            // 常态下内容可透到导航栏背后；重命名时改由更高的 IME 滚动余量接管底部安全区。
+            contentPadding = PaddingValues(
+                top = 16.dp,
+                bottom = maxOf(BottomNavContentInset, 16.dp + imeBottomDp),
+            ),
         ) {
             items(ordered, key = { it.name }) { folder ->
             ReorderableItem(reorderState, key = folder.name) { _ ->
@@ -622,8 +627,7 @@ internal fun FolderDetailScreen(
         modifier = modifier
             .fillMaxSize()
             .background(BgPage)
-            .statusBarsPadding()
-            .padding(bottom = 100.dp),
+            .statusBarsPadding(),
     ) {
         // 顶部：仅返回键（Figma 879-26983）
         Row(
@@ -660,7 +664,7 @@ internal fun FolderDetailScreen(
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalItemSpacing = 14.dp,
-                contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = BottomNavContentInset),
             ) {
                 items(notes, key = { it.id }) { note ->
                     LibraryNoteCard(note = note, onClick = { onOpenNote(note.id) })
