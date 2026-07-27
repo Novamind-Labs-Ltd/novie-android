@@ -17,6 +17,9 @@ object Palette {
     val white30a = Color(0x4DFFFFFF) // #FFFFFF4D
     val white50a = Color(0x80FFFFFF) // #FFFFFF80（whit-50a）
 
+    // chart
+    val chart01 = Color(0xFFC9B99E)
+
     // fern
     val fern50 = Color(0xFFF0F7F3)
     val fern100 = Color(0xFFE3F0EA)

@@ -51,15 +51,15 @@ import com.novamind.app.ui.theme.AppTheme
 /**
  * 笔记边框颜色调色板。第一项为 null = 默认（灰）边框，其余直接取自设计系统 [Palette] 的基础色。
  * 渲染时直接用 Color，仅在选中入库时转成 #RRGGBB，不来回转换。
- * 这些是用户选定的强调色，深浅模式下保持一致（红就是红），故为绝对色，不随主题翻转。
- * 顺序与配色对齐 Figma「Note border」弹窗（默认灰 → 绿 / 橙 / 蓝灰 / 红 / 青）。
+ * 这些是用户选定的强调色，深浅模式下保持一致，故为绝对色，不随主题翻转。
+ * 顺序与配色对齐 Figma「Note border」弹窗（默认灰 → 绿 / 橙 / 蓝灰 / 米棕 / 青）。
  */
 val NoteBorderColors: List<Color?> = listOf(
     null,                 // 默认（灰）
     Palette.forrest500,   // 绿  #257550
     Palette.orange600,    // 橙  #ff8c00
     Palette.slate600,     // 蓝灰 #708090
-    Palette.red500,       // 红  #c8391a
+    Palette.chart01,      // 米棕 #c9b99e
     Palette.teal400,      // 青  #32b4d9
 )
 
