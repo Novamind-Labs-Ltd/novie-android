@@ -74,11 +74,11 @@ internal val SendGreen: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()
 internal val OnSendGreen: Color
     @Composable @ReadOnlyComposable get() = IconColors.Default.onColor.current()
-// 发送按钮禁用态（无输入内容）：中性灰底 + 中性灰图标（设计系统 button/primary/disabled）。
+// 发送按钮禁用态（Figma 862:61264）：secondary disabled 半透明深色底 + 白色箭头。
 internal val DisabledBtnBg: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.backgroundDisabled.current()
+    @Composable @ReadOnlyComposable get() = ButtonColors.Secondary.backgroundDisabled.current()
 internal val DisabledBtnIcon: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.textDisabled.current()
+    @Composable @ReadOnlyComposable get() = IconColors.Default.onColor.current()
 internal val MenuBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Page.secondary.current()
 internal val AttachChipBg: Color

@@ -88,12 +88,11 @@ private val SendBg: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()               // 品牌绿 #1b6b45
 private val SendIcon: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()                // 恒定白
-// 禁用态填充按钮：中性灰底 + 中性灰图标（设计系统 button/primary/disabled），
-// 避免品牌绿按 alpha 淡化后仍偏绿、看不出「置灰」。
+// 禁用发送态（Figma 862:61264）：secondary disabled 半透明深色底 + 白色箭头。
 private val DisabledBg: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.backgroundDisabled.current()   // neutral-200
+    @Composable @ReadOnlyComposable get() = ButtonColors.Secondary.backgroundDisabled.current()
 private val DisabledIcon: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.textDisabled.current()          // neutral-400
+    @Composable @ReadOnlyComposable get() = ButtonColors.Success.text.current()
 private val CompactCancelBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Primary.secondary.current()        // Figma #f1f3f4
 private val CompactCardBg: Color
