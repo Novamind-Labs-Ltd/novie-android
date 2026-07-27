@@ -4,7 +4,10 @@ import android.app.Application
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.novamind.app.common.net.TranscribeData
+import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.feature.asknovie.data.AskNovieChat
+import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import java.util.UUID
 import kotlinx.coroutines.Job
@@ -41,6 +44,10 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
         seeded = true
         sessionMessages[sessionId.value] = messages.value
     }
+
+    /** 上传 Ask Novie 短语音并同步取回转写文字，不自动发送消息。 */
+    suspend fun transcribeVoice(path: String, durationSeconds: Int): ApiResult<TranscribeData> =
+        AskNovieTranscriptionRepository.transcribe(path, durationSeconds)
 
     /** 同一个首页进入事件只消费一次，避免页面重新进入组合时重复创建空会话。 */
     fun consumeNewSessionRequest(requestId: Long): Boolean {

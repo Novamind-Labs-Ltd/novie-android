@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -99,6 +100,7 @@ import com.novamind.app.feature.asknovie.components.TextSub
 import com.novamind.app.feature.asknovie.components.TextTitle
 import com.novamind.app.feature.asknovie.components.TypingIndicator
 import com.novamind.app.feature.asknovie.components.UserBubble
+import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.AppAlertDialog
@@ -106,7 +108,6 @@ import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.PermissionUtils
-import com.novamind.app.util.TimeUtils
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -114,8 +115,7 @@ import kotlinx.coroutines.launch
 
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
 
-/** Ask Novie 语音输入暂时隐藏；保留实现，便于后续恢复。 */
-private const val ASK_NOVIE_VOICE_INPUT_ENABLED = false
+private const val ASK_NOVIE_MAX_VOICE_SECONDS = 60
 
 /** 预设快捷建议（点击填入输入框）。 */
 private val suggestions = listOf(
@@ -215,6 +215,7 @@ fun AskNovieScreen(
 ) {
     var input by remember { mutableStateOf(initialInput) }
     var isRecording by remember { mutableStateOf(false) }        // 麦克风录音状态
+    var transcribedVoiceText by remember { mutableStateOf("") }
     var showMoreMenu by remember { mutableStateOf(false) }       // 右上角「更多」菜单
     var showHistory by remember { mutableStateOf(false) }        // 聊天历史弹窗
     // 会话状态存放在 Activity 作用域的 VM，切走页面（AnimatedVisibility 移出 composition）
@@ -415,7 +416,6 @@ fun AskNovieScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            keyboardController?.hide()
             ensureNotifPermission()
             isRecording = true
         } else {
@@ -817,35 +817,15 @@ fun AskNovieScreen(
             }
 
             // ── 底部：录音条 / 快捷建议 + 输入框 ──
-            if (isRecording) {
-                VoiceRecordingBar(
-                    onCancel = { isRecording = false },
-                    onConfirm = { path, dur ->
-                        isRecording = false
-                        // 录音作为语音消息发送
-                        sendMessage(
-                            "",
-                            listOf(
-                                Attachment(
-                                    AttachType.Audio,
-                                    path,
-                                    "Voice ${TimeUtils.formatDuration(dur)}"
-                                )
-                            )
-                        )
-                    },
-                    compact = true,
-                    autoStart = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .imePadding()
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp)
-                        .padding(bottom = 12.dp),
+                        .padding(bottom = 12.dp)
+                        .alpha(if (isRecording) 0f else 1f),
                 ) {
                     // 输入卡片（Figma：占位/文本在上，控件行在下；圆角 20）
                     Surface(
@@ -924,7 +904,7 @@ fun AskNovieScreen(
 
                             Spacer(Modifier.height(12.dp))
 
-                            // 次行：左 [+][模型胶囊]，右 [语音（功能开启时）][发送 / 停止]
+                            // 次行：左 [+][模型胶囊]，右 [语音][发送 / 停止]
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -959,21 +939,19 @@ fun AskNovieScreen(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    if (ASK_NOVIE_VOICE_INPUT_ENABLED) {
-                                        ComposerRoundButton(
-                                            R.drawable.ic_mic,
-                                            "Voice",
-                                            onClick = {
-                                                // 点麦克风：已授权直接录音，否则先申请权限
-                                                if (PermissionUtils.hasAudioPermission(context)) {
-                                                    ensureNotifPermission()
-                                                    isRecording = true
-                                                } else {
-                                                    recordPermission?.launch(android.Manifest.permission.RECORD_AUDIO)
-                                                }
-                                            },
-                                        )
-                                    }
+                                    ComposerRoundButton(
+                                        R.drawable.ic_mic,
+                                        "Voice",
+                                        onClick = {
+                                            // 点麦克风：已授权直接录音，否则先申请权限
+                                            if (PermissionUtils.hasAudioPermission(context)) {
+                                                ensureNotifPermission()
+                                                isRecording = true
+                                            } else {
+                                                recordPermission?.launch(android.Manifest.permission.RECORD_AUDIO)
+                                            }
+                                        },
+                                    )
                                     // 回复生成中 → 停止；否则 → 发送（无输入内容时置灰不可点）
                                     if (isResponding || isStreaming) {
                                         StopButton(onClick = stopResponse)
@@ -987,6 +965,72 @@ fun AskNovieScreen(
                             }
                         }
                     }
+                }
+
+                if (isRecording) {
+                    VoiceRecordingBar(
+                        onCancel = { isRecording = false },
+                        onConfirm = { path, dur ->
+                            isRecording = false
+                            runCatching { java.io.File(path).delete() }
+                            val transcript = transcribedVoiceText.trim()
+                            transcribedVoiceText = ""
+                            if (transcript.isBlank()) {
+                                Toast.makeText(
+                                    context,
+                                    "We couldn't hear any speech. Please try again.",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            } else {
+                                input = listOf(input.trimEnd(), transcript)
+                                    .filter { it.isNotBlank() }
+                                    .joinToString(" ")
+                                scope.launch {
+                                    withFrameNanos { }
+                                    inputFocusRequester.requestFocus()
+                                    keyboardController?.show()
+                                }
+                            }
+                        },
+                        onUpload = { path, dur ->
+                            if (dur > ASK_NOVIE_MAX_VOICE_SECONDS) {
+                                Toast.makeText(
+                                    context,
+                                    "Voice input can be up to 60 seconds.",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                false
+                            } else {
+                                when (val result = chatVm.transcribeVoice(path, dur)) {
+                                    is ApiResult.Success -> {
+                                        transcribedVoiceText = result.data?.text.orEmpty()
+                                        true
+                                    }
+                                    is ApiResult.BizError -> {
+                                        Toast.makeText(
+                                            context,
+                                            result.message ?: "Couldn't transcribe the recording.",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                        false
+                                    }
+                                    is ApiResult.NetworkError -> {
+                                        Toast.makeText(
+                                            context,
+                                            "Couldn't transcribe the recording. Please retry.",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                        false
+                                    }
+                                }
+                            }
+                        },
+                        compact = true,
+                        autoStart = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter),
+                    )
                 }
             }
         }

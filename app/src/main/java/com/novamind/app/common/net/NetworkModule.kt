@@ -80,4 +80,9 @@ object NetworkModule {
 
     /** 转写结果 / 状态（/api/v1.0/notes/{id}/transcription，§9 前端轮询）类型化接口。 */
     val transcriptionApi: TranscriptionApi by lazy { retrofit(ApiConfig.apiBaseUrl).create(TranscriptionApi::class.java) }
+
+    /** Ask Novie 短语音同步转写（/api/v1.0/transcribe）。 */
+    val askNovieTranscribeApi: AskNovieTranscribeApi by lazy {
+        retrofit(ApiConfig.apiBaseUrl).create(AskNovieTranscribeApi::class.java)
+    }
 }
