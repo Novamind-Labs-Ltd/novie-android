@@ -277,7 +277,7 @@ internal fun FooterDisclaimer() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_novie_flower),
+            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_profile_about_novie),
             contentDescription = null,
             tint = TextTitle,
             modifier = Modifier.size(22.dp),
