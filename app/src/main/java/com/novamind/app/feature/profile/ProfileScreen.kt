@@ -148,7 +148,7 @@ fun ProfileScreen(
             // ── About ───────────────────────────────────────────────────────
             SectionHeader("About")
             SettingsCard {
-                SettingsRow(R.drawable.ic_novie_flower, "About MyNovie", onAbout)
+                SettingsRow(R.drawable.ic_profile_about_novie, "About MyNovie", onAbout)
                 SettingsRow(R.drawable.ic_refresh, "Check for updates", onCheckForUpdates)
                 SettingsRow(R.drawable.ic_document, "Privacy policy", onPrivacyPolicy)
             }
