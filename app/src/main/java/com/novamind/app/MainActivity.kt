@@ -23,6 +23,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -198,7 +199,24 @@ class MainActivity : FragmentActivity() {
                         transitionSpec = {
                             val createRoute = BottomNavDestination.Create.route
                             val involvesCreate = targetState == createRoute || initialState == createRoute
-                            if (!involvesCreate) {
+                            val openingRecentFromHome = libraryAsSubpage &&
+                                initialState == BottomNavDestination.Home.route &&
+                                targetState == BottomNavDestination.Library.route
+                            if (openingRecentFromHome) {
+                                // Home「Recent · See all」作为子页转场，节奏比底栏切页更舒缓。
+                                (slideInHorizontally(
+                                    animationSpec = tween(durationMillis = 450),
+                                ) { it } + fadeIn(
+                                    animationSpec = tween(durationMillis = 350),
+                                    initialAlpha = 0.3f,
+                                )).togetherWith(
+                                    slideOutHorizontally(
+                                        animationSpec = tween(durationMillis = 450),
+                                    ) { -it / 5 } + fadeOut(
+                                        animationSpec = tween(durationMillis = 300),
+                                    ),
+                                )
+                            } else if (!involvesCreate) {
                                 // Home / Calendar / Library / Profile 之间：直接切换，无动画
                                 EnterTransition.None togetherWith ExitTransition.None
                             } else {
@@ -261,6 +279,7 @@ class MainActivity : FragmentActivity() {
                                 onFullscreenChange = { hideBottomNav = it },
                             )
                             BottomNavDestination.Library.route -> LibraryRoute(
+                                openRecent = libraryAsSubpage,
                                 onCreateNote = {
                                     editingNoteId = null
                                     createReturnRoute = BottomNavDestination.Library.route

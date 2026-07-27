@@ -671,6 +671,7 @@ internal fun FolderDetailScreen(
 
 @Composable
 fun LibraryRoute(
+    openRecent: Boolean = false,
     onCreateNote: () -> Unit = {},
     onOpenNote: (String) -> Unit = {},
     onOpenTagManager: () -> Unit = {},
@@ -689,6 +690,15 @@ fun LibraryRoute(
     var selectedFolder by rememberSaveable { mutableStateOf<String?>(null) }
     // 分段标签状态提升到这里：进入文件夹详情再返回时仍停留在 Folders 页（不回到 Recent）
     val pagerState = rememberPagerState(pageCount = { 2 })
+
+    // Home 的 Recent「See all」必须落到 Recent；底栏进入时仍恢复用户上次停留的标签。
+    LaunchedEffect(openRecent) {
+        if (openRecent) {
+            selectedFolder = null
+            viewModel.closeFolder()
+            pagerState.scrollToPage(0)
+        }
+    }
 
     BackHandler(enabled = selectedFolder != null) { selectedFolder = null; viewModel.closeFolder() }
 
