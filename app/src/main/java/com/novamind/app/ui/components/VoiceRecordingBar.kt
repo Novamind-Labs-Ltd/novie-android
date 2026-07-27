@@ -488,10 +488,10 @@ private fun RecordingBarContent(
                     )
                 }
 
-                // 中间主按钮：空闲 / 暂停继续显示麦克风，录音中显示暂停
+                // 中间主按钮：空闲显示麦克风，录音中显示暂停，暂停后显示继续
                 val micIcon = when {
-                    phase == RecordingBarPhase.Recording && !paused -> R.drawable.ic_pause
-                    phase == RecordingBarPhase.Recording && paused -> R.drawable.ic_play
+                    phase == RecordingBarPhase.Recording && !paused -> R.drawable.ic_recording_pause
+                    phase == RecordingBarPhase.Recording && paused -> R.drawable.ic_recording_resume
                     else -> R.drawable.ic_mic
                 }
                 CircleButton(
