@@ -1,202 +1,342 @@
 package com.novamind.app.feature.asknovie
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.novamind.app.feature.asknovie.components.ChatRow
-import com.novamind.app.feature.asknovie.components.NewChatButton
+import com.novamind.app.R
+import com.novamind.app.feature.asknovie.components.Bg
+import com.novamind.app.feature.asknovie.components.HistoryCardBg
 import com.novamind.app.feature.asknovie.components.SearchField
-import com.novamind.app.feature.asknovie.components.SheetBg
 import com.novamind.app.feature.asknovie.components.SubColor
 import com.novamind.app.feature.asknovie.components.TitleColor
 import com.novamind.app.ui.theme.AppTheme
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.min
+
+private const val HISTORY_PAGE_SIZE = 20
 
 /**
- * 「Chat history」底部弹窗：搜索框 + 最近会话列表 + 新建会话。
- * 点 AskNovie 顶栏历史按钮弹出。读取已保存会话。
+ * Ask Novie 会话历史全屏页（Figma 1321:36303）。
+ * 首次展示 20 条；上拉接近列表末尾时每次继续追加 20 条。
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatHistorySheet(
-    onDismiss: () -> Unit,
-    onNewChat: () -> Unit = {},
+fun ChatHistoryScreen(
+    onBack: () -> Unit,
     onSelectSession: (ChatSession) -> Unit = {},
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = androidx.compose.ui.platform.LocalContext.current
     var query by remember { mutableStateOf("") }
-    // 打开时加载已保存会话
+    var visibleCount by remember(query) { mutableIntStateOf(HISTORY_PAGE_SIZE) }
     val sessions = remember { ChatSessionStore.load(context) }
     val filtered = remember(query, sessions) {
-        if (query.isBlank()) sessions
-        else sessions.filter { it.title.contains(query, ignoreCase = true) }
+        if (query.isBlank()) {
+            sessions
+        } else {
+            sessions.filter { session ->
+                session.title.contains(query, ignoreCase = true) ||
+                    session.previewText().contains(query, ignoreCase = true)
+            }
+        }
     }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = SheetBg,
-    ) {
-        // 固定较高的整体高度（用屏幕高度的固定比例，避免相对约束在拖动时抖动）
-        val sheetHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * 0.85f
-        ChatHistoryContent(
-            sessions = sessions,
-            filtered = filtered,
-            query = query,
-            onQueryChange = { query = it },
-            onNewChat = onNewChat,
-            onSelectSession = onSelectSession,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(sheetHeight),
-        )
+    val visibleSessions = remember(filtered, visibleCount) {
+        filtered.take(visibleCount)
     }
+    val listState = rememberLazyListState()
+
+    BackHandler(onBack = onBack)
+
+    HistoryScreenContent(
+        sessions = sessions,
+        visibleSessions = visibleSessions,
+        query = query,
+        onQueryChange = { query = it },
+        onBack = onBack,
+        onSelectSession = onSelectSession,
+        listState = listState,
+        hasMore = visibleSessions.size < filtered.size,
+        onLoadMore = {
+            visibleCount = min(visibleCount + HISTORY_PAGE_SIZE, filtered.size)
+        },
+    )
 }
 
-/** 弹窗的纯内容（不含 sheet 容器与存储读取），便于复用与 @Preview。 */
 @Composable
-private fun ChatHistoryContent(
+private fun HistoryScreenContent(
     sessions: List<ChatSession>,
-    filtered: List<ChatSession>,
+    visibleSessions: List<ChatSession>,
     query: String,
     onQueryChange: (String) -> Unit,
-    onNewChat: () -> Unit,
+    onBack: () -> Unit,
     onSelectSession: (ChatSession) -> Unit,
-    modifier: Modifier = Modifier,
+    listState: LazyListState,
+    hasMore: Boolean,
+    onLoadMore: () -> Unit,
 ) {
-    // 方向性嵌套滚动：列表到顶后继续往下拖（y > 0）交给 Sheet，
-    // 整页跟手下移；往上到底的剩余位移 / fling（y < 0）则消费，避免 Sheet 抖动。
-    val directionalListScroll = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: androidx.compose.ui.geometry.Offset,
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
-            ): androidx.compose.ui.geometry.Offset =
-                if (available.y < 0f) available else androidx.compose.ui.geometry.Offset.Zero
-
-            override suspend fun onPostFling(
-                consumed: androidx.compose.ui.unit.Velocity,
-                available: androidx.compose.ui.unit.Velocity,
-            ): androidx.compose.ui.unit.Velocity =
-                if (available.y < 0f) available else androidx.compose.ui.unit.Velocity.Zero
+    val shouldLoadMore by remember(listState, visibleSessions, hasMore) {
+        derivedStateOf {
+            if (!hasMore || visibleSessions.isEmpty()) return@derivedStateOf false
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisibleIndex >= listState.layoutInfo.totalItemsCount - 3
         }
     }
-    Column(
-        modifier = modifier
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 24.dp),
-    ) {
-        // 标题 + New chat
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Chat history", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TitleColor)
-            Spacer(Modifier.weight(1f))
-            NewChatButton(onClick = onNewChat)
-        }
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) onLoadMore()
+    }
 
-        Spacer(Modifier.height(16.dp))
-
-        // 搜索框
-        SearchField(query = query, onQueryChange = onQueryChange)
-
-        Spacer(Modifier.height(20.dp))
-
-        Text("Recent", fontSize = 14.sp, color = SubColor)
-        Spacer(Modifier.height(4.dp))
-
-        if (filtered.isEmpty()) {
-            Text(
-                if (sessions.isEmpty()) "No chat history yet" else "No matching chats",
-                fontSize = 14.sp,
-                color = SubColor,
-                modifier = Modifier.padding(vertical = 16.dp),
-            )
-        } else {
-            // 往下到顶后自然接力拖动 Sheet；往上到底不带动 Sheet。
-            LazyColumn(
+    Surface(color = Bg, modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        ) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .nestedScroll(directionalListScroll),
+                    .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 12.dp)
+                    .height(36.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(filtered) { session ->
-                    ChatRow(title = session.title, onClick = { onSelectSession(session) })
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_back),
+                    contentDescription = "Back",
+                    tint = TitleColor,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = false),
+                            onClick = onBack,
+                        )
+                        .padding(6.dp),
+                )
+                Text(
+                    text = "History",
+                    color = TitleColor,
+                    fontSize = 22.sp,
+                    lineHeight = 28.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+
+            SearchField(
+                query = query,
+                onQueryChange = onQueryChange,
+                placeholder = "Search conversations",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            )
+
+            val emptyMessage = when {
+                sessions.isEmpty() -> "No conversation history yet"
+                query.isNotBlank() -> "No matching conversations"
+                else -> null
+            }
+            if (visibleSessions.isEmpty()) {
+                emptyMessage?.let {
+                    Text(
+                        text = it,
+                        color = SubColor,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 24.dp),
+                    )
+                }
+            } else {
+                val grouped = remember(visibleSessions) { visibleSessions.groupByHistoryPeriod() }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        start = 16.dp,
+                        top = 16.dp,
+                        end = 16.dp,
+                        bottom = 24.dp,
+                    ),
+                ) {
+                    grouped.entries.forEachIndexed { groupIndex, (label, groupSessions) ->
+                        if (groupIndex > 0) item(key = "space-$label") { Spacer(Modifier.height(24.dp)) }
+                        item(key = "header-$label") {
+                            Text(
+                                text = label,
+                                color = SubColor,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        }
+                        items(groupSessions, key = { it.id }) { session ->
+                            HistorySessionCard(
+                                session = session,
+                                onClick = { onSelectSession(session) },
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-// ── Preview（预览内容层；ModalBottomSheet 为窗口层，静态预览不渲染） ──
-
-private fun previewSessions() = listOf(
-    ChatSession("1", "Trip planning for Tokyo", 0L, emptyList()),
-    ChatSession("2", "Summarize meeting notes", 0L, emptyList()),
-    ChatSession("3", "Brainstorm app names", 0L, emptyList()),
-)
-
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 560, name = "ChatHistory · With Sessions")
 @Composable
-private fun ChatHistoryContentPreview() {
-    val sessions = previewSessions()
+private fun HistorySessionCard(
+    session: ChatSession,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = HistoryCardBg,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 63.dp)
+            .animateContentSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = session.title,
+                    color = TitleColor,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = session.historyTimeLabel(),
+                    color = SubColor,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                )
+            }
+            Text(
+                text = session.previewText(),
+                color = SubColor,
+                fontSize = 13.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private fun ChatSession.previewText(): String =
+    messages.asReversed().firstNotNullOfOrNull { message ->
+        message.text.trim().takeIf { it.isNotEmpty() }
+            ?: message.attachments.firstOrNull()?.name
+    }.orEmpty()
+
+private fun List<ChatSession>.groupByHistoryPeriod(): Map<String, List<ChatSession>> {
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now(zone)
+    return groupBy { session ->
+        val date = Instant.ofEpochMilli(session.updatedAt).atZone(zone).toLocalDate()
+        when {
+            date == today -> "Today"
+            date == today.minusDays(1) -> "Yesterday"
+            !date.isBefore(today.minusDays(7)) -> "Previous 7 days"
+            else -> date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
+        }
+    }
+}
+
+private fun ChatSession.historyTimeLabel(): String {
+    val zone = ZoneId.systemDefault()
+    val time = Instant.ofEpochMilli(updatedAt).atZone(zone)
+    val today = LocalDate.now(zone)
+    return when {
+        time.toLocalDate() == today || time.toLocalDate() == today.minusDays(1) ->
+            time.format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+        !time.toLocalDate().isBefore(today.minusDays(7)) ->
+            time.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault()))
+        else -> time.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+    }
+}
+
+private fun previewSessions(): List<ChatSession> {
+    val now = System.currentTimeMillis()
+    return listOf(
+        ChatSession("1", "First CS hire", now, listOf(ChatMessage(Role.Assistant, "Seniority × specialization for the first CS hire…"))),
+        ChatSession("2", "Note-taking habits", now - 3_600_000, listOf(ChatMessage(Role.Assistant, "Capture first, organise later — a daily review habit."))),
+        ChatSession("3", "Q3 KPIs follow-up", now - 86_400_000, listOf(ChatMessage(Role.Assistant, "John to finalize the report by Thursday."))),
+    )
+}
+
+@Preview(showBackground = true, widthDp = 412, heightDp = 917, name = "Chat History · Figma")
+@Composable
+private fun ChatHistoryScreenPreview() {
     AppTheme {
-        ChatHistoryContent(
+        val sessions = previewSessions()
+        HistoryScreenContent(
             sessions = sessions,
-            filtered = sessions,
+            visibleSessions = sessions,
             query = "",
             onQueryChange = {},
-            onNewChat = {},
+            onBack = {},
             onSelectSession = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · Empty History")
-@Composable
-private fun ChatHistoryContentEmptyPreview() {
-    AppTheme {
-        ChatHistoryContent(
-            sessions = emptyList(),
-            filtered = emptyList(),
-            query = "",
-            onQueryChange = {},
-            onNewChat = {},
-            onSelectSession = {},
-        )
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFFBFAF7, heightDp = 400, name = "ChatHistory · No Search Results")
-@Composable
-private fun ChatHistoryContentNoMatchPreview() {
-    AppTheme {
-        ChatHistoryContent(
-            sessions = previewSessions(),
-            filtered = emptyList(),
-            query = "xyz",
-            onQueryChange = {},
-            onNewChat = {},
-            onSelectSession = {},
+            listState = rememberLazyListState(),
+            hasMore = false,
+            onLoadMore = {},
         )
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,8 +27,17 @@ import com.novamind.app.ui.theme.AppTheme
 
 /** 会话搜索框：白底胶囊 + 搜索图标 + 占位文案。 */
 @Composable
-internal fun SearchField(query: String, onQueryChange: (String) -> Unit) {
-    Surface(color = SearchBg, shape = RoundedCornerShape(50), shadowElevation = 1.dp) {
+internal fun SearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "Search conversations",
+) {
+    Surface(
+        modifier = modifier.height(44.dp),
+        color = SearchBg,
+        shape = RoundedCornerShape(22.dp),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -43,12 +53,12 @@ internal fun SearchField(query: String, onQueryChange: (String) -> Unit) {
             Spacer(Modifier.width(10.dp))
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (query.isEmpty()) {
-                    Text("Search chats", color = SubColor, fontSize = 15.sp)
+                    Text(placeholder, color = SubColor, fontSize = 14.sp)
                 }
                 BasicTextField(
                     value = query,
                     onValueChange = onQueryChange,
-                    textStyle = TextStyle(color = TitleColor, fontSize = 15.sp),
+                    textStyle = TextStyle(color = TitleColor, fontSize = 14.sp),
                     cursorBrush = SolidColor(TitleColor),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),

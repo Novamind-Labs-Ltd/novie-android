@@ -11,6 +11,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -1083,16 +1085,20 @@ fun AskNovieScreen(
         )
     }
 
-    // 聊天历史底部弹窗
-    if (showHistory) {
-        ChatHistorySheet(
-            onDismiss = { showHistory = false },
-            onNewChat = {
-                keyboardController?.hide()
-                focusManager.clearFocus()
-                showHistory = false
-                startNewChat()
-            },
+    // 聊天历史全屏页：保留退场期间的 composition，使返回动画能完整播放。
+    androidx.compose.animation.AnimatedVisibility(
+        visible = showHistory,
+        enter = slideInHorizontally(
+            initialOffsetX = { fullWidth -> fullWidth },
+            animationSpec = tween(durationMillis = 300),
+        ) + fadeIn(animationSpec = tween(durationMillis = 180)),
+        exit = slideOutHorizontally(
+            targetOffsetX = { fullWidth -> fullWidth },
+            animationSpec = tween(durationMillis = 260),
+        ) + fadeOut(animationSpec = tween(durationMillis = 180)),
+    ) {
+        ChatHistoryScreen(
+            onBack = { showHistory = false },
             onSelectSession = { s ->
                 keyboardController?.hide()
                 focusManager.clearFocus()

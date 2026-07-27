@@ -29,7 +29,9 @@ internal val DarkPill: Color
 internal val OnDarkPill: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
 internal val SearchBg: Color
-    @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.tertiary.current()
+internal val HistoryCardBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.secondary.current()
 internal val FieldBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.inset.current()
 internal val FieldBorder: Color
