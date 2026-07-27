@@ -15,10 +15,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,6 +46,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -231,8 +235,11 @@ fun VoiceRecordingBar(
                     sending = false
                     onCancel()
                 }
-                result.voicedMs >= MIN_VOICED_MS ->
+                // consumeResult 会改变 LaunchedEffect 的 key；上传放到稳定的组件作用域，
+                // 避免当前 Effect 重启时连带取消 Retrofit 请求。
+                result.voicedMs >= MIN_VOICED_MS -> scope.launch {
                     uploadAndConfirm(result.path, result.durationSeconds)
+                }
                 else -> {
                     runCatching { java.io.File(result.path).delete() }
                     sending = false
@@ -551,12 +558,25 @@ private fun CompactRecordingBarContent(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(20.dp)
+    val density = LocalDensity.current
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    val navigationBarHeight = with(density) {
+        WindowInsets.navigationBars.getBottom(this).toDp()
+    }
+    // Figma 1166:70054：键盘收起态容器底部留白 24dp。
+    // 系统导航栏 inset 已占用的部分需要扣除，确保不同导航模式下总间距至少为 24dp。
+    val keyboardHiddenBottomPadding = if (imeVisible) {
+        0.dp
+    } else {
+        (24.dp - navigationBarHeight).coerceAtLeast(0.dp)
+    }
     androidx.compose.material3.Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .imePadding()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .padding(bottom = keyboardHiddenBottomPadding),
         shape = shape,
         color = CompactCardBg,
         shadowElevation = 1.dp,

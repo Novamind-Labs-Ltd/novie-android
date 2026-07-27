@@ -167,8 +167,8 @@ object AppConfig {
         /** 声道数。语音/AI 分析用单声道。 */
         const val AUDIO_CHANNELS = 1
 
-        /** 录音上传 MIME（须在后端 files 允许类型内）。ADTS 原始 AAC → audio/aac。 */
-        const val AUDIO_MIME = "audio/aac"
+        /** 录音上传 MIME（须在后端 files 允许类型内）。M4A（MPEG-4 + AAC）→ audio/mp4。 */
+        const val AUDIO_MIME = "audio/mp4"
 
         // ── 本地存储滚动删除 ────────────────────────────────────────────
         /** 可用空间低于此值（MB）时触发录音清理。 */

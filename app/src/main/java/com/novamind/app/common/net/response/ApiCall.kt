@@ -2,6 +2,7 @@ package com.novamind.app.common.net.response
 
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.NetworkModule
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.decodeFromString
 import retrofit2.Response
 
@@ -33,6 +34,9 @@ suspend fun <T> apiCall(
 ): ApiResult<T> =
     try {
         block().toApiResult()
+    } catch (c: CancellationException) {
+        // Retrofit 会随调用协程取消底层 OkHttp Call；取消属于正常控制流，必须继续向上传播。
+        throw c
     } catch (t: Throwable) {
         AppLog.w(TAG) { "请求异常: ${t.message}" }
         ApiResult.NetworkError(cause = t)
