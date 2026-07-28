@@ -3,6 +3,7 @@ package com.novamind.app.feature.asknovie.components
 import android.annotation.SuppressLint
 import android.graphics.Color as AndroidColor
 import android.util.Base64
+import android.util.LruCache
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -52,14 +53,29 @@ import com.novamind.app.ui.theme.AppTheme
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.delay
 import org.json.JSONObject
+import org.json.JSONTokener
 
 private const val PAGE_URL = "https://appassets.androidplatform.net/assets/mermaid/diagram.html"
+private const val VIEWER_URL = "https://appassets.androidplatform.net/assets/mermaid/viewer.html"
 private const val APP_ASSETS_HOST = "appassets.androidplatform.net"
 private const val RESULT_PREFIX = "novie-mermaid:"
 private const val MIN_HEIGHT_DP = 160
 private const val MAX_HEIGHT_DP = 520
 private const val MAX_SOURCE_LENGTH = 10_000
+private const val MAX_CACHED_SVG_LENGTH = 400_000
 private const val RENDER_TIMEOUT_MS = 10_000L
+
+private data class CachedDiagram(val heightDp: Int, val svg: String?)
+
+private object MermaidRenderCache {
+    private val values = object : LruCache<String, CachedDiagram>(1_500_000) {
+        override fun sizeOf(key: String, value: CachedDiagram): Int = (value.svg?.length ?: 0) + key.length
+    }
+
+    @Synchronized fun get(key: String): CachedDiagram? = values.get(key)
+
+    @Synchronized fun put(key: String, value: CachedDiagram) = values.put(key, value)
+}
 
 /** Renders an SSE diagram card locally from Mermaid source. */
 @Composable
@@ -68,9 +84,13 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
     val theme = if (isSystemInDarkTheme()) "dark" else "base"
     var retryToken by remember(card.mermaid) { mutableStateOf(0) }
     var renderError by remember(card.mermaid, retryToken) { mutableStateOf<String?>(null) }
-    var rendered by remember(card.mermaid, retryToken) { mutableStateOf(false) }
     var showSource by remember(card.mermaid) { mutableStateOf(false) }
     var showFullscreen by remember(card.mermaid) { mutableStateOf(false) }
+    val cacheKey = remember(card.mermaid, theme) { "$theme:${card.mermaid}" }
+    var cachedDiagram by remember(cacheKey, retryToken) {
+        mutableStateOf(MermaidRenderCache.get(cacheKey))
+    }
+    var rendered by remember(cacheKey, retryToken) { mutableStateOf(cachedDiagram != null) }
     val validationError = validateMermaidSource(card.mermaid)
     Surface(color = Card, shape = RoundedCornerShape(16.dp), shadowElevation = 1.dp) {
         Column(
@@ -97,7 +117,12 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
                         source = card.mermaid,
                         theme = theme,
                         zoomEnabled = false,
+                        cachedDiagram = cachedDiagram,
                         onRendered = { rendered = true },
+                        onCached = {
+                            MermaidRenderCache.put(cacheKey, it)
+                            cachedDiagram = it
+                        },
                         onError = { renderError = it },
                     )
                 }
@@ -113,6 +138,7 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
             source = card.mermaid,
             theme = theme,
             caption = card.caption,
+            cachedDiagram = cachedDiagram,
             onDismiss = { showFullscreen = false },
         )
     }
@@ -124,11 +150,13 @@ private fun MermaidWebView(
     source: String,
     theme: String,
     zoomEnabled: Boolean,
+    cachedDiagram: CachedDiagram?,
     modifier: Modifier = Modifier,
     onRendered: () -> Unit,
+    onCached: (CachedDiagram) -> Unit,
     onError: (String) -> Unit,
 ) {
-    var heightDp by remember(source) { mutableStateOf(MIN_HEIGHT_DP) }
+    var heightDp by remember(source) { mutableStateOf(cachedDiagram?.heightDp ?: MIN_HEIGHT_DP) }
     var webView by remember(source) { mutableStateOf<WebView?>(null) }
     var completed by remember(source) { mutableStateOf(false) }
 
@@ -140,6 +168,7 @@ private fun MermaidWebView(
     AndroidView(
         modifier = if (zoomEnabled) modifier else modifier.fillMaxWidth().height(heightDp.dp),
         factory = { context ->
+            val pageUrl = if (cachedDiagram?.svg != null) VIEWER_URL else PAGE_URL
             val assetLoader = WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
                 .build()
@@ -177,11 +206,16 @@ private fun MermaidWebView(
                     }
 
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                        request.url.toString() != PAGE_URL
+                        request.url.toString() != pageUrl
 
                     override fun onPageFinished(view: WebView, url: String) {
                         super.onPageFinished(view, url)
-                        if (url == PAGE_URL) {
+                        if (url == VIEWER_URL && cachedDiagram?.svg != null) {
+                            view.evaluateJavascript("showDiagram(${JSONObject.quote(cachedDiagram.svg)})") {
+                                completed = true
+                                onRendered()
+                            }
+                        } else if (url == PAGE_URL) {
                             view.evaluateJavascript(
                                 "renderDiagram(${JSONObject.quote(source)}, ${JSONObject.quote(theme)})",
                                 null,
@@ -201,8 +235,17 @@ private fun MermaidWebView(
                         val result = title?.takeIf { it.startsWith(RESULT_PREFIX) }?.let(::decodeResult) ?: return
                         if (result.optBoolean("ok")) {
                             completed = true
-                            heightDp = result.optInt("height", MIN_HEIGHT_DP).coerceIn(MIN_HEIGHT_DP, MAX_HEIGHT_DP)
-                            onRendered()
+                            val renderedHeight = result.optInt("height", MIN_HEIGHT_DP)
+                                .coerceIn(MIN_HEIGHT_DP, MAX_HEIGHT_DP)
+                            heightDp = renderedHeight
+                            view.evaluateJavascript(
+                                "(document.querySelector('#diagram svg') || {}).outerHTML || ''",
+                            ) { rawValue ->
+                                val svg = decodeJavascriptString(rawValue)
+                                    ?.takeIf { it.length <= MAX_CACHED_SVG_LENGTH }
+                                onCached(CachedDiagram(renderedHeight, svg))
+                                onRendered()
+                            }
                         } else {
                             val error = result.optString("error").take(200)
                             AppLog.w("MermaidDiagram") { "render failed: $error" }
@@ -210,7 +253,7 @@ private fun MermaidWebView(
                         }
                     }
                 }
-                loadUrl(PAGE_URL)
+                loadUrl(pageUrl)
             }
         },
     )
@@ -233,6 +276,7 @@ private fun MermaidFullscreenDialog(
     source: String,
     theme: String,
     caption: String,
+    cachedDiagram: CachedDiagram?,
     onDismiss: () -> Unit,
 ) {
     var error by remember(source) { mutableStateOf<String?>(null) }
@@ -257,8 +301,10 @@ private fun MermaidFullscreenDialog(
                         source = source,
                         theme = theme,
                         zoomEnabled = true,
+                        cachedDiagram = cachedDiagram,
                         modifier = Modifier.fillMaxSize(),
                         onRendered = {},
+                        onCached = {},
                         onError = { error = it },
                     )
                 } else {
@@ -313,6 +359,10 @@ private fun decodeResult(title: String): JSONObject? = runCatching {
     val json = String(Base64.decode(encoded, Base64.DEFAULT), Charsets.UTF_8)
     JSONObject(json)
 }.getOrNull()
+
+private fun decodeJavascriptString(value: String?): String? = runCatching {
+    JSONTokener(value.orEmpty()).nextValue() as? String
+}.getOrNull()?.takeIf(String::isNotBlank)
 
 internal fun validateMermaidSource(source: String): String? = when {
     source.isBlank() -> "The diagram source is empty."
