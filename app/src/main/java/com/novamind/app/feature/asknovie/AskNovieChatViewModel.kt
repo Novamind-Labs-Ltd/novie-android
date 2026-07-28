@@ -15,8 +15,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val DISPLAY_CHUNK_SIZE = 2
-private const val DISPLAY_INTERVAL_MS = 32L
+private const val DISPLAY_CHUNK_SIZE = 4
+private const val DISPLAY_INTERVAL_MS = 64L
 
 /**
  * Ask Novie 的 Activity 级会话状态。
@@ -26,6 +26,7 @@ private const val DISPLAY_INTERVAL_MS = 32L
  */
 class AskNovieChatViewModel(application: Application) : AndroidViewModel(application) {
     val messages = mutableStateOf<List<ChatMessage>>(emptyList())
+    val streamingText = mutableStateOf("")
     val isResponding = mutableStateOf(false)
     val isStreaming = mutableStateOf(false)
     val responseJob = mutableStateOf<Job?>(null)
@@ -36,6 +37,7 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     private val streamJobs = mutableMapOf<String, Job>()
     private val respondingSessions = mutableSetOf<String>()
     private val streamingSessions = mutableSetOf<String>()
+    private val sessionStreamingTexts = mutableMapOf<String, String>()
     private var handledNewSessionRequestId = 0L
 
     var seeded = false
@@ -87,12 +89,10 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                 for (delta in deltaQueue) {
                     ensureBubble()
                     delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
-                        updateSessionMessages(targetSessionId) { current ->
-                            current.toMutableList().also { list ->
-                                list[list.lastIndex] = list.last().copy(
-                                    text = list.last().text + chunk,
-                                )
-                            }
+                        val updatedText = sessionStreamingTexts[targetSessionId].orEmpty() + chunk
+                        sessionStreamingTexts[targetSessionId] = updatedText
+                        if (sessionId.value == targetSessionId) {
+                            streamingText.value = updatedText
                         }
                         delay(DISPLAY_INTERVAL_MS)
                     }
@@ -126,16 +126,22 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                     ensureBubble()
                     val message = failure.message
                         ?: "Something went wrong (${failure.code ?: "error"}). Please try again."
-                    updateSessionMessages(targetSessionId) { current ->
-                        current.toMutableList().also { list ->
-                            list[list.lastIndex] = list.last().copy(text = message)
-                        }
-                    }
+                    sessionStreamingTexts[targetSessionId] = message
+                    if (sessionId.value == targetSessionId) streamingText.value = message
                 }
             } finally {
                 // 用户停止时不继续播放队列中未显示的文字。
                 deltaQueue.cancel()
                 displayJob.cancel()
+                val finalText = sessionStreamingTexts[targetSessionId].orEmpty()
+                if (appended) {
+                    updateSessionMessages(targetSessionId) { current ->
+                        current.toMutableList().also { list ->
+                            list[list.lastIndex] = list.last().copy(text = finalText)
+                        }
+                    }
+                }
+                sessionStreamingTexts.remove(targetSessionId)
                 streamJobs.remove(targetSessionId)
                 respondingSessions -= targetSessionId
                 streamingSessions -= targetSessionId
@@ -205,6 +211,7 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
         isResponding.value = changedSessionId in respondingSessions
         isStreaming.value = changedSessionId in streamingSessions
         responseJob.value = streamJobs[changedSessionId]
+        streamingText.value = sessionStreamingTexts[changedSessionId].orEmpty()
     }
 
     private fun persistSession(targetSessionId: String) {

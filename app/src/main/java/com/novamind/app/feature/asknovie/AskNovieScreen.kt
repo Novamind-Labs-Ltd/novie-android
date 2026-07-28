@@ -87,7 +87,6 @@ import com.novamind.app.feature.asknovie.components.Card
 import com.novamind.app.feature.asknovie.components.ComposerRoundButton
 import com.novamind.app.feature.asknovie.components.CreateNoteCta
 import com.novamind.app.feature.asknovie.components.Dark
-import com.novamind.app.feature.asknovie.components.FooterDisclaimer
 import com.novamind.app.feature.asknovie.components.Hint
 import com.novamind.app.feature.asknovie.components.ModelPill
 import com.novamind.app.feature.asknovie.components.MoreMenu
@@ -228,6 +227,7 @@ fun AskNovieScreen(
     // 再回来不丢；流式回复亦跑在其 viewModelScope 上，切走不取消、SSE 数据继续累积。
     val chatVm: AskNovieChatViewModel? = if (inPreview) null else viewModel()
     val previewMessages = remember { mutableStateOf(initialMessages) }
+    val previewStreamingText = remember { mutableStateOf("") }
     val previewResponding = remember { mutableStateOf(initialResponding) }
     val previewStreaming = remember { mutableStateOf(false) }
     val previewResponseJob = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
@@ -243,6 +243,7 @@ fun AskNovieScreen(
         true
     }
     var messages by (chatVm?.messages ?: previewMessages)
+    val streamingTextState = chatVm?.streamingText ?: previewStreamingText
     var isResponding by (chatVm?.isResponding ?: previewResponding) // 助手正在回复
     var sessionId by (chatVm?.sessionId ?: previewSessionId)         // 当前会话 id
     var customTitle by (chatVm?.customTitle ?: previewCustomTitle)   // 手动重命名的标题
@@ -322,32 +323,9 @@ fun AskNovieScreen(
     var anchorIndex by remember { mutableIntStateOf(0) }
     // 本轮保持底部留白：发送后置 true，回复不足一屏也保留占位以免文字跳动；新建/切换会话时复位。
     var keepBottomSpace by remember { mutableStateOf(false) }
+    var bottomSpacerPx by remember { mutableIntStateOf(0) }
     // 列表项间距（与 LazyColumn 的 Arrangement.spacedBy 一致）
     val listItemSpacingPx = with(LocalDensity.current) { 14.dp.roundToPx() }
-    // 底部占位高度（px）：仅填满「本轮内容（锚点用户消息→最后一条消息）」之外的剩余视口，
-    // 使最新用户消息最多停在顶部、绝不被推出屏幕外。
-    val bottomSpacerPx by remember {
-        derivedStateOf {
-            if (!keepBottomSpace) return@derivedStateOf 0
-            val info = listState.layoutInfo
-            val vp = info.viewportSize.height
-            val lastMsgIndex = messages.lastIndex
-            if (vp <= 0 || lastMsgIndex < 0) return@derivedStateOf 0
-            val anchor = info.visibleItemsInfo.firstOrNull { it.index == anchorIndex }
-            val lastReal = info.visibleItemsInfo
-                .filter { it.index in 0..lastMsgIndex }
-                .maxByOrNull { it.index }
-            if (anchor != null && lastReal != null) {
-                // 本轮内容高度 = 置顶的用户消息 + 已输出回复（与滚动位置、占位本身无关）
-                val contentH = (lastReal.offset + lastReal.size) - anchor.offset
-                // 剩余空白 = 视口 − 本轮内容 − 占位于上一项之间的间距（回复越长，空白越少，直至为 0）
-                (vp - contentH - listItemSpacingPx).coerceAtLeast(0)
-            } else {
-                // 无法确认锚点/最后一条消息的位置时不要填充整屏，避免测量瞬态制造巨型空白。
-                0
-            }
-        }
-    }
     // 图片选择器（系统照片选择器，多选，无需权限）；预览时不创建
     val imagePicker = if (inPreview) null else rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia()
@@ -545,7 +523,19 @@ fun AskNovieScreen(
 
     // 发送后：把刚发送的用户消息平滑滚到顶部（仿 ChatGPT「新一页」，底部占位腾出空间供回复生成）。
     LaunchedEffect(sendTick) {
-        if (sendTick > 0) listState.animateScrollToItem(anchorIndex)
+        if (sendTick > 0) {
+            listState.animateScrollToItem(anchorIndex)
+            // 等待用户消息完成布局后固定本轮底部留白。流式 Markdown 高度持续变化时若同步缩小
+            // Spacer，会让 LazyColumn 每帧同时重测消息和占位，形成可见闪动。
+            withFrameNanos { }
+            val info = listState.layoutInfo
+            val anchor = info.visibleItemsInfo.firstOrNull { it.index == anchorIndex }
+            bottomSpacerPx = if (keepBottomSpace && anchor != null) {
+                (info.viewportSize.height - anchor.size - listItemSpacingPx).coerceAtLeast(0)
+            } else {
+                0
+            }
+        }
     }
 
     // 切换历史会话后，等待新消息列表完成一次布局，再定位到最后一个实际 item。
@@ -557,7 +547,10 @@ fun AskNovieScreen(
 
     // 底部留白只服务于本轮回复生成过程；回复完成后立即移除，避免空白一直保留。
     LaunchedEffect(isResponding, isStreaming) {
-        if (!isResponding && !isStreaming) keepBottomSpace = false
+        if (!isResponding && !isStreaming) {
+            keepBottomSpace = false
+            bottomSpacerPx = 0
+        }
     }
 
     // 保存当前会话到本地（含实时 / 部分回复）。切断或切换会话前调用，避免丢失正在生成的内容。
@@ -737,12 +730,15 @@ fun AskNovieScreen(
                                 items = messages,
                                 key = { index, _ -> "message-$index" },
                             ) { index, msg ->
+                                val isTypingAssistant =
+                                    isStreaming && index == messages.lastIndex && msg.role == Role.Assistant
                                 // animateItem：新消息淡入 + 位置平滑过渡，发送时不突兀
-                                Box(modifier = Modifier
-                                    .fillMaxWidth()
-                                    .animateItem()) {
-                                    val isTypingAssistant =
-                                        isStreaming && index == messages.lastIndex && msg.role == Role.Assistant
+                                // 流式消息的高度持续变化，若保留 animateItem 会每次触发位置动画，
+                                // 与 Markdown 重新测量叠加后造成页面抖动。仅流式期间关闭。
+                                val itemModifier = Modifier.fillMaxWidth().let { base ->
+                                    if (isTypingAssistant) base else base.animateItem()
+                                }
+                                Box(modifier = itemModifier) {
                                     if (msg.role == Role.User) {
                                         UserBubble(msg)
                                     } else when (val b = msg.block) {
@@ -767,7 +763,8 @@ fun AskNovieScreen(
                                                 lineHeight = 20.sp,
                                             )
                                             else -> AssistantText(
-                                                msg.text,
+                                                // 在消息 item 的组合域内读取，避免流式文字变化使整个 Screen 失效。
+                                                text = if (isTypingAssistant) streamingTextState.value else msg.text,
                                                 isTyping = isTypingAssistant,
                                             )
                                         }
@@ -777,15 +774,6 @@ fun AskNovieScreen(
                             if (isResponding) {
                                 item(key = "typing") {
                                     Box(modifier = Modifier.animateItem()) { TypingIndicator() }
-                                }
-                            }
-                            // 会话已结束（非生成中）：末尾展示免责声明
-                            if (messages.isNotEmpty() && !isResponding && !isStreaming) {
-                                item(key = "disclaimer") {
-                                    Box(modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItem()
-                                        .padding(top = 4.dp)) { FooterDisclaimer() }
                                 }
                             }
                             // 底部占位：只填满本轮内容之外的剩余视口（仿 ChatGPT），整轮保留，

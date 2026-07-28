@@ -30,20 +30,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -58,12 +54,7 @@ import com.novamind.app.feature.asknovie.Attachment
 import com.novamind.app.feature.asknovie.ChatMessage
 import com.novamind.app.feature.asknovie.Role
 import com.novamind.app.ui.theme.AppTheme
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import java.io.File
-
-/** 流式 Markdown 重新解析间隔：兼顾实时感与组合稳定性。 */
-private const val STREAMING_MARKDOWN_FRAME_MS = 120L
 
 /** 语音气泡：播放/暂停 + 名称（含时长）。点击播放录音文件；预览态不创建 MediaPlayer。 */
 @Composable
@@ -211,13 +202,6 @@ internal fun AssistantText(
     showAvatar: Boolean = false,
     isTyping: Boolean = false,
 ) {
-    val haptics = LocalHapticFeedback.current
-    LaunchedEffect(text, isTyping) {
-        if (isTyping && text.isNotEmpty()) {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        }
-    }
-
     if (showAvatar) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -246,15 +230,17 @@ internal fun AssistantText(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Spacer(Modifier.height(10.dp))
-            AssistantActions(text = text)
+            if (!isTyping) {
+                Spacer(Modifier.height(10.dp))
+                AssistantActions(text = text)
+            }
         }
     }
 }
 
 /**
- * SSE 流式期间按固定帧率刷新 Markdown，而非每个 token 都重建 AST。
- * 这样返回过程中即可看到标题、列表、粗体等格式，同时减少闪屏。
+ * SSE 流式期间只把已结束的段落交给 Markdown，正在增长的尾段使用稳定 Text。
+ * 避免未闭合 Markdown 每批字符都替换整棵渲染树；流结束后再渲染完整 Markdown。
  */
 @Composable
 private fun AssistantMessageContent(
@@ -262,24 +248,39 @@ private fun AssistantMessageContent(
     isStreaming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val latestText by rememberUpdatedState(text)
-    var renderedText by remember { mutableStateOf(text) }
-
-    LaunchedEffect(isStreaming) {
-        if (!isStreaming) {
-            renderedText = latestText
-            return@LaunchedEffect
-        }
-        while (isActive) {
-            renderedText = latestText
-            delay(STREAMING_MARKDOWN_FRAME_MS)
-        }
+    if (!isStreaming) {
+        Markdown(
+            content = text,
+            modifier = modifier,
+        )
+        return
     }
 
-    Markdown(
-        content = renderedText,
-        modifier = modifier,
-    )
+    val paragraphBoundary = text.lastIndexOf("\n\n")
+    val completedMarkdown = if (paragraphBoundary >= 0) {
+        text.substring(0, paragraphBoundary).trimEnd()
+    } else {
+        ""
+    }
+    val activeTail = if (paragraphBoundary >= 0) {
+        text.substring(paragraphBoundary + 2)
+    } else {
+        text
+    }
+
+    Column(modifier = modifier) {
+        if (completedMarkdown.isNotEmpty()) {
+            Markdown(content = completedMarkdown)
+        }
+        if (activeTail.isNotEmpty()) {
+            Text(
+                text = activeTail,
+                color = TextTitle,
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+            )
+        }
+    }
 }
 
 /** 助手回复下方的操作行：复制 / 分享 / 朗读。 */
