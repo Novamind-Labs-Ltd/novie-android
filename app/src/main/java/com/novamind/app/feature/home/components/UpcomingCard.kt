@@ -67,14 +67,17 @@ internal fun UpcomingCard(
                     Text(
                         text = item.title,
                         fontSize = 16.sp,
+                        lineHeight = 21.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = ColorTextTitle,
                     )
-                    Text(
-                        text = item.subtitle,
-                        fontSize = 14.sp,
-                        color = ColorTextSub,
-                    )
+                    if (item.subtitle.isNotBlank()) {
+                        Text(
+                            text = item.subtitle,
+                            fontSize = 14.sp,
+                            color = ColorTextSub,
+                        )
+                    }
                 }
             }
 
@@ -101,6 +104,17 @@ internal fun UpcomingCard(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB, name = "Home · Up next Card (no description)")
+@Composable
+private fun UpcomingCardNoDescriptionPreview() {
+    AppTheme {
+        UpcomingCard(
+            item = UpcomingItem("3", "Monthly report sharing", "", R.drawable.ic_upcoming_meeting, time = "10:00"),
+            modifier = Modifier.padding(16.dp),
+        )
     }
 }
 
