@@ -8,24 +8,30 @@ import okhttp3.logging.HttpLoggingInterceptor
  *
  * logging-interceptor 仅以 debugImplementation 引入，故该实现只存在于 debug 源集，
  * release 变体使用 src/release 下的空实现，保证发布包不含日志拦截器。
+ *
+ * ⚠️ SSE 必须绕开 body 日志，否则流式会被彻底摧毁。`Level.BODY` 下
+ * HttpLoggingInterceptor 为了打印响应体会执行
+ * `source.request(Long.MAX_VALUE) // Buffer the entire body.`（okhttp 4.12.0 源码原文），
+ * 且**没有** text/event-stream 的特例分支。对 SSE 长连来说这句话意味着：它一直阻塞到服务端
+ * 把整条流关掉，才把攒满的 body 交给调用方——服务端每帧准时发出的增量，在 App 侧变成
+ * "等很久，然后一次性全部出现"。
+ *
+ * 这道闸放在**这里**而不是放在 SSE 调用方，是因为所有客户端都从
+ * [NetworkModule.okHttpClient] 派生：在调用方摘拦截器只能救那一个已经踩坑的调用点，
+ * 下一个流式接口还会再踩一遍。在源头按请求放行，新增的流式调用方自动是对的。
  */
 object HttpLoggers {
-    fun create(): Interceptor? = HttpLoggingInterceptor().apply {
+
+    private val bodyLogger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    /**
-     * 这个拦截器会不会把响应体整个缓冲下来（从而**摧毁流式**）。
-     *
-     * `Level.BODY` 下 HttpLoggingInterceptor 为了打印响应体，会执行
-     * `source.request(Long.MAX_VALUE) // Buffer the entire body.`（okhttp 4.12.0 源码原文），
-     * 且**没有** text/event-stream 的特例分支。对 SSE 长连来说这句话意味着：它会一直阻塞到
-     * 服务端把整条流关掉，才把已经攒满的 body 交给调用方——于是服务端每 100ms 准时发出的
-     * 增量帧，在 App 这边变成"等很久，然后一次性全部出现"。
-     *
-     * 因此 SSE 客户端（见 AskNovieChat）必须用这个判定把它摘掉。做成函数而不是让调用方直接
-     * `it is HttpLoggingInterceptor`，是因为 logging-interceptor 只以 debugImplementation 引入，
-     * main 源集根本引用不到这个类型；release 变体返回 false（那边压根没有日志拦截器）。
-     */
-    fun bufsResponseBody(interceptor: Interceptor): Boolean = interceptor is HttpLoggingInterceptor
+    fun create(): Interceptor? = Interceptor { chain ->
+        val request = chain.request()
+        if (request.header("Accept")?.contains("text/event-stream") == true) {
+            chain.proceed(request)          // 流式：直接放行，不碰响应体
+        } else {
+            bodyLogger.intercept(chain)
+        }
+    }
 }

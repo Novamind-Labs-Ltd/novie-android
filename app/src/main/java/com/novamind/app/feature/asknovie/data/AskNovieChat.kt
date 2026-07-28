@@ -2,7 +2,6 @@ package com.novamind.app.feature.asknovie.data
 
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
-import com.novamind.app.common.net.HttpLoggers
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.TokenProvider
 import com.novamind.app.util.TimeUtils
@@ -61,6 +60,9 @@ sealed interface ChatStreamEvent {
 object AskNovieChat {
     private const val TAG = "AskNovieChat"
 
+    /** SSE 读超时（秒）。服务端心跳 15s，取 4 倍余量；绝不设 0，理由见 [client]。 */
+    private const val SSE_READ_TIMEOUT_S = 60L
+
     private val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
@@ -69,13 +71,13 @@ object AskNovieChat {
 
     private val client: OkHttpClient by lazy {
         NetworkModule.okHttpClient.newBuilder()
-            .readTimeout(0, TimeUnit.SECONDS) // SSE 长连：不读超时
-            // 摘掉会整体缓冲响应体的拦截器（debug 变体的 HttpLoggingInterceptor(BODY)）。
-            // 不摘的话 SSE 就不是流式了：那个拦截器为了打印 body 会 `source.request(Long.MAX_VALUE)`，
-            // 一直阻塞到服务端关流才放行——服务端逐帧发的增量，在这里会攒成一坨同时到达，
-            // 表现就是"点了发送后长时间没反应，然后整段答案唰地全出来"。本类下面每收到一帧都会
-            // 自己打 AppLog（含时间戳），所以这条链路的抓包能力并没有因此丢失。
-            .apply { interceptors().removeAll { HttpLoggers.bufsResponseBody(it) } }
+            // SSE 长连：读超时要远大于服务端心跳间隔，但**不能是 0**。服务端用
+            // sse_starlette 的默认 ping 间隔 15s（`EventSourceResponse.DEFAULT_PING_INTERVAL`，
+            // 后端未覆盖该参数），心跳是 `:` 注释帧、下面的解析循环会忽略掉，但它会刷新这个
+            // 读超时。设 0（永不超时）的话，遇到半开连接（切网/基站漂移/NAT 静默丢弃）
+            // readUtf8Line 会永久阻塞：既不报错也不结束，调用方的 finally 不跑，会话就永远
+            // 卡在"正在回复"。60s = 4 倍心跳，正常流不可能触发。
+            .readTimeout(SSE_READ_TIMEOUT_S, TimeUnit.SECONDS)
             .build()
     }
 
@@ -101,6 +103,12 @@ object AskNovieChat {
         val request = Request.Builder()
             .url(url)
             .header("Accept", "text/event-stream")
+            // 显式关掉压缩。不设的话 OkHttp 的 BridgeInterceptor 会自动加
+            // `Accept-Encoding: gzip`——OkHttp 自己解压是流式的没问题，但链路上任何一层
+            // 网关/CDN 一旦真的对 text/event-stream 启用压缩，就会为了攒压缩块而把帧合并，
+            // 在边缘复现同一个"等很久然后一次性全出来"。SSE 关压缩是通行做法，这条流本来
+            // 也小，省不下什么。（预防性：尚未确认线上网关是否会压 SSE。）
+            .header("Accept-Encoding", "identity")
             // Authorization（Auth0 Bearer）由 AuthInterceptor 统一附带，不在此手动设置
             .post(payload.toRequestBody("application/json".toMediaType()))
             .build()
