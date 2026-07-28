@@ -150,11 +150,11 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    // 首页 Up next 会议卡根据后端绑定状态展示 Start notes / View notes。
-                    meetingItems.forEach { item ->
+                    // 仅第一张会议卡根据后端绑定状态展示 Start notes / View notes。
+                    meetingItems.forEachIndexed { index, item ->
                         UpcomingCard(
                             item = item,
-                            showAction = item.isMeeting,
+                            showAction = index == 0 && item.isMeeting,
                             actionLabel = if (item.noteId == null) "Start notes" else "View notes",
                             onAction = { onMeetingNotesClick(item) },
                             onClick = { onMeetingClick(item.id) },
