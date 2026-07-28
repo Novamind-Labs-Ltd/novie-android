@@ -102,6 +102,7 @@ import com.novamind.app.feature.asknovie.components.TextSub
 import com.novamind.app.feature.asknovie.components.TextTitle
 import com.novamind.app.feature.asknovie.components.TypingIndicator
 import com.novamind.app.feature.asknovie.components.UserBubble
+import com.novamind.app.feature.asknovie.data.ChatCard
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
@@ -250,6 +251,15 @@ fun AskNovieScreen(
     var isResponding by (chatVm?.isResponding ?: previewResponding) // 助手正在回复
     var sessionId by (chatVm?.sessionId ?: previewSessionId)         // 当前会话 id
     var customTitle by (chatVm?.customTitle ?: previewCustomTitle)   // 手动重命名的标题
+    // options Card 以底部弹层展示；记住已答/已关闭的消息位置，避免重组后反复弹出。
+    var handledOptionCardIndexes by remember(sessionId) { mutableStateOf(emptySet<Int>()) }
+    val latestOptionCard = messages.withIndex().lastOrNull { (_, message) ->
+        message.card is ChatCard.Options
+    }
+    val activeOptionCard = latestOptionCard?.takeIf { (index, _) ->
+        index !in handledOptionCardIndexes &&
+            messages.drop(index + 1).none { it.role == Role.User }
+    }
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     // 底部模型胶囊：当前模型 + 选择弹窗
@@ -830,6 +840,8 @@ fun AskNovieScreen(
                                 Box(modifier = itemModifier) {
                                     if (msg.role == Role.User) {
                                         UserBubble(msg)
+                                    } else if (msg.card is ChatCard.Options) {
+                                        // options 卡片由底部弹层承载，不在消息流重复渲染。
                                     } else if (msg.card != null) {
                                         SseCard(
                                             card = msg.card,
@@ -1323,6 +1335,19 @@ fun AskNovieScreen(
             onSelect = { _, opt -> onClarifyAnswered(opt) },
             onSubmitOther = { onClarifyAnswered(it) },
             onDismiss = { showClarify = false },
+        )
+    }
+
+    activeOptionCard?.let { (index, message) ->
+        OptionsCardSheet(
+            card = message.card as ChatCard.Options,
+            onSubmit = { answer ->
+                handledOptionCardIndexes = handledOptionCardIndexes + index
+                sendMessage(answer, emptyList())
+            },
+            onDismiss = {
+                handledOptionCardIndexes = handledOptionCardIndexes + index
+            },
         )
     }
 
