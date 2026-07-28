@@ -58,6 +58,10 @@ import java.util.Locale
 import kotlin.math.min
 
 private const val HISTORY_PAGE_SIZE = 20
+private val historyMonthFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+private val historyTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private val historyWeekdayFormatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+private val historyDateFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
 
 /**
  * Ask Novie 会话历史全屏页（Figma 1321:36303）。
@@ -351,7 +355,7 @@ private fun List<ChatSession>.groupByHistoryPeriod(): Map<String, List<ChatSessi
             date == today -> "Today"
             date == today.minusDays(1) -> "Yesterday"
             !date.isBefore(today.minusDays(7)) -> "Previous 7 days"
-            else -> date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
+            else -> date.format(historyMonthFormatter)
         }
     }
 }
@@ -362,10 +366,10 @@ private fun ChatSession.historyTimeLabel(): String {
     val today = LocalDate.now(zone)
     return when {
         time.toLocalDate() == today || time.toLocalDate() == today.minusDays(1) ->
-            time.format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+            time.format(historyTimeFormatter)
         !time.toLocalDate().isBefore(today.minusDays(7)) ->
-            time.format(DateTimeFormatter.ofPattern("EEE", Locale.getDefault()))
-        else -> time.format(DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()))
+            time.format(historyWeekdayFormatter)
+        else -> time.format(historyDateFormatter)
     }
 }
 
