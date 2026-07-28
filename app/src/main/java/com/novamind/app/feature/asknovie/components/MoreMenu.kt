@@ -18,10 +18,13 @@ import com.novamind.app.ui.theme.AppTheme
 @Composable
 internal fun MoreMenu(
     expanded: Boolean,
+    hasConversation: Boolean,
     onDismiss: () -> Unit,
     onShare: () -> Unit,
     onRename: () -> Unit,
     onExportToNotes: () -> Unit,
+    onStartGrilling: () -> Unit,
+    onEndGrilling: () -> Unit,
     onDelete: () -> Unit,
 ) {
     DropdownMenu(
@@ -33,18 +36,21 @@ internal fun MoreMenu(
         tonalElevation = 0.dp,
         modifier = Modifier.width(220.dp),
     ) {
-        MoreMenuItem("Share", onShare)
-        MoreMenuItem("Rename", onRename)
-        MoreMenuItem("Export to notes", onExportToNotes)
-        MoreMenuItem("Delete", onDelete)
+        MoreMenuItem("Share", enabled = hasConversation, onClick = onShare)
+        MoreMenuItem("Rename", enabled = hasConversation, onClick = onRename)
+        MoreMenuItem("Export to notes", enabled = hasConversation, onClick = onExportToNotes)
+        MoreMenuItem("Start deep questioning", onClick = onStartGrilling)
+        MoreMenuItem("End deep questioning", onClick = onEndGrilling)
+        MoreMenuItem("Delete", enabled = hasConversation, onClick = onDelete)
     }
 }
 
 @Composable
-private fun MoreMenuItem(label: String, onClick: () -> Unit) {
+private fun MoreMenuItem(label: String, enabled: Boolean = true, onClick: () -> Unit) {
     DropdownMenuItem(
         text = { Text(label, color = TextTitle, fontSize = 16.sp) },
         onClick = onClick,
+        enabled = enabled,
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
     )
 }

@@ -1,6 +1,8 @@
 package com.novamind.app.feature.asknovie
 
 import android.content.Context
+import com.novamind.app.feature.asknovie.data.ChatCard
+import com.novamind.app.feature.asknovie.data.OptionItem
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -51,6 +53,8 @@ data class ChatMessage(
     val attachments: List<Attachment> = emptyList(),
     // 富内容块（非文本消息）；为空则按普通文本渲染。不持久化。
     val block: ChatBlock? = null,
+    // SSE 交互卡片；卡片内容会持久化，临时选中状态不持久化。
+    val card: ChatCard? = null,
     // 助手消息是否显示花标头像（用于总结/收尾语气的消息）。
     val showAvatar: Boolean = false,
     // 是否为灰字状态行（如「Creation … is done.」），不带操作行。
@@ -136,6 +140,7 @@ object ChatSessionStore {
                 })
             }
         })
+        m.card?.let { put("card", cardToJson(it)) }
     }
 
     private fun messageFromJson(o: JSONObject): ChatMessage {
@@ -153,6 +158,87 @@ object ChatSessionStore {
             role = runCatching { Role.valueOf(o.getString("role")) }.getOrDefault(Role.User),
             text = o.optString("text", ""),
             attachments = atts,
+            card = o.optJSONObject("card")?.let(::cardFromJson),
         )
+    }
+
+    private fun cardToJson(card: ChatCard): JSONObject = JSONObject().apply {
+        when (card) {
+            is ChatCard.Options -> {
+                put("card_type", "options")
+                put("prompt", card.prompt)
+                put("allow_free_text", card.allowFreeText)
+                put("select", card.select)
+                put("items", JSONArray().apply {
+                    card.items.forEach { item ->
+                        put(JSONObject().apply {
+                            put("id", item.id)
+                            put("label", item.label)
+                            put("description", item.description)
+                        })
+                    }
+                })
+            }
+            is ChatCard.Diagram -> {
+                put("card_type", "diagram")
+                put("diagram_type", card.diagramType)
+                put("mermaid", card.mermaid)
+                put("caption", card.caption)
+            }
+            is ChatCard.Summary -> {
+                put("card_type", "summary")
+                put("title", card.title)
+                put("body", card.body)
+                put("saveable", card.saveable)
+            }
+            is ChatCard.Offer -> {
+                put("card_type", "offer")
+                put("kind", card.kind)
+                put("label", card.label)
+            }
+            is ChatCard.CreateNote -> {
+                put("card_type", "create_note")
+                put("draft_title", card.draftTitle)
+                put("draft_content", card.draftContent)
+            }
+            is ChatCard.Note -> {
+                put("card_type", "note")
+                put("note_id", card.noteId)
+                put("title", card.title)
+            }
+        }
+    }
+
+    private fun cardFromJson(o: JSONObject): ChatCard? = when (o.optString("card_type")) {
+        "options" -> ChatCard.Options(
+            prompt = o.optString("prompt"),
+            items = o.optJSONArray("items")?.let { items ->
+                (0 until items.length()).mapNotNull { index ->
+                    items.optJSONObject(index)?.let { item ->
+                        OptionItem(
+                            id = item.optString("id"),
+                            label = item.optString("label"),
+                            description = item.optString("description"),
+                        )
+                    }
+                }
+            }.orEmpty(),
+            allowFreeText = o.optBoolean("allow_free_text", true),
+            select = o.optString("select").takeIf { it == "many" } ?: "one",
+        )
+        "diagram" -> ChatCard.Diagram(
+            o.optString("diagram_type"), o.optString("mermaid"), o.optString("caption"),
+        )
+        "summary" -> ChatCard.Summary(
+            o.optString("title"), o.optString("body"), o.optBoolean("saveable", true),
+        )
+        "offer" -> ChatCard.Offer(o.optString("kind"), o.optString("label"))
+        "create_note" -> ChatCard.CreateNote(
+            o.optString("draft_title"), o.optString("draft_content"),
+        )
+        "note" -> o.optString("note_id").takeIf(String::isNotBlank)?.let {
+            ChatCard.Note(it, o.optString("title"))
+        }
+        else -> null
     }
 }

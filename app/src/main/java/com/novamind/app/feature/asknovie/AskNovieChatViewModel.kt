@@ -65,7 +65,11 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /** 开始当前会话的 SSE；其他历史会话的在途回复不受影响。 */
-    fun startStreamingReply(prompt: String, attachments: List<Attachment> = emptyList()) {
+    fun startStreamingReply(
+        prompt: String,
+        attachments: List<Attachment> = emptyList(),
+        action: String? = null,
+    ) {
         val targetSessionId = sessionId.value
         if (streamJobs.containsKey(targetSessionId)) return
 
@@ -74,32 +78,40 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
         refreshActiveSession(targetSessionId)
 
         val job = viewModelScope.launch {
-            var appended = false
+            var textMessageIndex: Int? = null
             var streamFailure: ChatStreamEvent.Failure? = null
 
             fun ensureBubble() {
-                if (!appended) {
+                if (textMessageIndex == null) {
                     respondingSessions -= targetSessionId
                     streamingSessions += targetSessionId
+                    textMessageIndex = sessionMessages[targetSessionId].orEmpty().size
                     updateSessionMessages(targetSessionId) { it + ChatMessage(Role.Assistant, "") }
-                    appended = true
                     refreshActiveSession(targetSessionId)
                 }
             }
 
             // 网络收帧与 UI 打字机解耦：SSE collector 只入队，不被显示节奏反向阻塞。
             // UNLIMITED 保证后端突发输出时不丢 delta；单消费者严格保持原始顺序。
-            val deltaQueue = Channel<String>(capacity = Channel.UNLIMITED)
+            val displayQueue = Channel<ChatStreamEvent>(capacity = Channel.UNLIMITED)
             val displayJob = launch {
-                for (delta in deltaQueue) {
-                    ensureBubble()
-                    delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
-                        val updatedText = sessionStreamingTexts[targetSessionId].orEmpty() + chunk
-                        sessionStreamingTexts[targetSessionId] = updatedText
-                        if (sessionId.value == targetSessionId) {
-                            streamingText.value = updatedText
+                for (event in displayQueue) {
+                    when (event) {
+                        is ChatStreamEvent.TextDelta -> {
+                            ensureBubble()
+                            event.delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
+                                val updatedText = sessionStreamingTexts[targetSessionId].orEmpty() + chunk
+                                sessionStreamingTexts[targetSessionId] = updatedText
+                                if (sessionId.value == targetSessionId) {
+                                    streamingText.value = updatedText
+                                }
+                                delay(DISPLAY_INTERVAL_MS)
+                            }
                         }
-                        delay(DISPLAY_INTERVAL_MS)
+                        is ChatStreamEvent.Card -> updateSessionMessages(targetSessionId) {
+                            it + ChatMessage(Role.Assistant, "", card = event.card)
+                        }
+                        else -> Unit
                     }
                 }
             }
@@ -121,15 +133,15 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                         conversationId = targetSessionId,
                         input = prompt,
                         attachmentIds = attachmentIds,
+                        action = action,
                     ).collect { event ->
                         when (event) {
-                            is ChatStreamEvent.TextDelta -> {
-                                deltaQueue.send(event.delta)
-                            }
+                            is ChatStreamEvent.TextDelta,
+                            is ChatStreamEvent.Card,
+                            -> displayQueue.send(event)
                             is ChatStreamEvent.Failure -> {
                                 streamFailure = event
                             }
-                            is ChatStreamEvent.Card,
                             is ChatStreamEvent.Status,
                             is ChatStreamEvent.Done,
                             -> Unit
@@ -137,25 +149,29 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                     }
                 }
                 // 正常结束时先把队列中已收到的文字播完，再收束 streaming 状态。
-                deltaQueue.close()
+                displayQueue.close()
                 displayJob.join()
 
                 streamFailure?.let { failure ->
                     ensureBubble()
-                    val message = failure.message
-                        ?: "Something went wrong (${failure.code ?: "error"}). Please try again."
+                    val message = when (failure.code) {
+                        "grilling_unavailable" ->
+                            "Deep questioning is temporarily unavailable. Please try again."
+                        else -> failure.message
+                            ?: "Something went wrong (${failure.code ?: "error"}). Please try again."
+                    }
                     sessionStreamingTexts[targetSessionId] = message
                     if (sessionId.value == targetSessionId) streamingText.value = message
                 }
             } finally {
                 // 用户停止时不继续播放队列中未显示的文字。
-                deltaQueue.cancel()
+                displayQueue.cancel()
                 displayJob.cancel()
                 val finalText = sessionStreamingTexts[targetSessionId].orEmpty()
-                if (appended) {
+                textMessageIndex?.let { index ->
                     updateSessionMessages(targetSessionId) { current ->
                         current.toMutableList().also { list ->
-                            list[list.lastIndex] = list.last().copy(text = finalText)
+                            if (index in list.indices) list[index] = list[index].copy(text = finalText)
                         }
                     }
                 }

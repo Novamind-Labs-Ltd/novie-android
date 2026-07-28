@@ -46,14 +46,36 @@ data class ChatRequest(
 sealed interface ChatStreamEvent {
     /** 文本增量（打字机）。 */
     data class TextDelta(val delta: String) : ChatStreamEvent
-    /** 交互式卡片（card_type 区分种类）；MVP 暂不渲染，仅透传原始 data。 */
-    data class Card(val cardType: String, val data: JsonObject) : ChatStreamEvent
+    /** 交互式卡片（card_type 区分种类）。 */
+    data class Card(val card: ChatCard) : ChatStreamEvent
     /** skill 调用状态（thinking / using xxx skill）。 */
     data class Status(val state: String?, val skill: String?, val label: String?) : ChatStreamEvent
     /** 出错；其后必有 [Done]。 */
     data class Failure(val code: String?, val message: String?) : ChatStreamEvent
     /** 一轮结束；finish_reason ∈ stop/turn_limit/error/cancelled。 */
     data class Done(val finishReason: String?) : ChatStreamEvent
+}
+
+data class OptionItem(
+    val id: String,
+    val label: String,
+    val description: String = "",
+)
+
+sealed interface ChatCard {
+    data class Options(
+        val prompt: String,
+        val items: List<OptionItem>,
+        val allowFreeText: Boolean,
+        /** 未知值按单选处理，保持向前兼容。 */
+        val select: String,
+    ) : ChatCard
+
+    data class Diagram(val diagramType: String, val mermaid: String, val caption: String) : ChatCard
+    data class Summary(val title: String, val body: String, val saveable: Boolean) : ChatCard
+    data class Offer(val kind: String, val label: String) : ChatCard
+    data class CreateNote(val draftTitle: String, val draftContent: String) : ChatCard
+    data class Note(val noteId: String, val title: String) : ChatCard
 }
 
 /**
@@ -216,10 +238,44 @@ object AskNovieChat {
                 ?.let(::extractDeltaText)
                 ?.takeIf { it.isNotEmpty() }
                 ?.let(ChatStreamEvent::TextDelta)
-            "card" -> str("card_type")?.let { ChatStreamEvent.Card(it, obj ?: return null) }
+            "card" -> obj?.let(::parseCard)?.let(ChatStreamEvent::Card)
             "status" -> ChatStreamEvent.Status(str("state"), str("skill"), str("label"))
             "error" -> ChatStreamEvent.Failure(str("code"), str("message"))
             "done" -> ChatStreamEvent.Done(str("finish_reason"))
+            else -> null
+        }
+    }
+
+    /** 未知 card_type 直接跳过；已知类型只读取需要的字段，自然忽略新增字段。 */
+    internal fun parseCard(obj: JsonObject): ChatCard? {
+        fun str(key: String) = obj[key]?.jsonPrimitive?.contentOrNull.orEmpty()
+        fun bool(key: String, default: Boolean) =
+            obj[key]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: default
+
+        return when (str("card_type")) {
+            "options" -> {
+                val items = (obj["items"] as? JsonArray).orEmpty().mapNotNull { element ->
+                    val item = element as? JsonObject ?: return@mapNotNull null
+                    val label = item["label"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                    if (label.isBlank()) return@mapNotNull null
+                    OptionItem(
+                        id = item["id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                        label = label,
+                        description = item["description"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    )
+                }
+                ChatCard.Options(
+                    prompt = str("prompt"),
+                    items = items,
+                    allowFreeText = bool("allow_free_text", true),
+                    select = str("select").takeIf { it == "many" } ?: "one",
+                )
+            }
+            "diagram" -> ChatCard.Diagram(str("diagram_type"), str("mermaid"), str("caption"))
+            "summary" -> ChatCard.Summary(str("title"), str("body"), bool("saveable", true))
+            "offer" -> ChatCard.Offer(str("kind"), str("label"))
+            "create_note" -> ChatCard.CreateNote(str("draft_title"), str("draft_content"))
+            "note" -> str("note_id").takeIf(String::isNotBlank)?.let { ChatCard.Note(it, str("title")) }
             else -> null
         }
     }

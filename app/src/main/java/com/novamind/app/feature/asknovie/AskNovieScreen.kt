@@ -97,6 +97,7 @@ import com.novamind.app.feature.asknovie.components.SendButton
 import com.novamind.app.feature.asknovie.components.SkillStatusRow
 import com.novamind.app.feature.asknovie.components.StopButton
 import com.novamind.app.feature.asknovie.components.SuggestionChip
+import com.novamind.app.feature.asknovie.components.SseCard
 import com.novamind.app.feature.asknovie.components.TextSub
 import com.novamind.app.feature.asknovie.components.TextTitle
 import com.novamind.app.feature.asknovie.components.TypingIndicator
@@ -519,6 +520,16 @@ fun AskNovieScreen(
         responseJob?.cancel()
     }
 
+    // Card 操作/常驻入口通过 action 重新进入同一会话，不伪造空的用户气泡。
+    val sendAction: (String) -> Unit = { action ->
+        if (!isResponding && !isStreaming) {
+            keyboardController?.hide()
+            focusManager.clearFocus()
+            keepBottomSpace = true
+            chatVm?.startStreamingReply(prompt = "", action = action)
+        }
+    }
+
     // 输入框发送：取当前文本 + 附件，发送后清空
     val send: () -> Unit = {
         val prompt = input.trim()
@@ -719,15 +730,23 @@ fun AskNovieScreen(
                         BareIconButton(
                             R.drawable.ic_more,
                             "More",
-                            enabled = messages.isNotEmpty(),
                             onClick = { showMoreMenu = true },
                         )
                         MoreMenu(
                             expanded = showMoreMenu,
+                            hasConversation = messages.isNotEmpty(),
                             onDismiss = { showMoreMenu = false },
                             onShare = { showMoreMenu = false; onShare() },
                             onRename = { showMoreMenu = false; onRename(); showRename = true },
                             onExportToNotes = { showMoreMenu = false; onExportToNotes() },
+                            onStartGrilling = {
+                                showMoreMenu = false
+                                sendAction("start_grilling")
+                            },
+                            onEndGrilling = {
+                                showMoreMenu = false
+                                sendAction("end_grilling")
+                            },
                             onDelete = { showMoreMenu = false; showDeleteConfirm = true },
                         )
                     }
@@ -811,6 +830,14 @@ fun AskNovieScreen(
                                 Box(modifier = itemModifier) {
                                     if (msg.role == Role.User) {
                                         UserBubble(msg)
+                                    } else if (msg.card != null) {
+                                        SseCard(
+                                            card = msg.card,
+                                            onSendText = { answer ->
+                                                sendMessage(answer, emptyList())
+                                            },
+                                            onAction = sendAction,
+                                        )
                                     } else when (val b = msg.block) {
                                         // agentic 富内容块
                                         is ChatBlock.SkillStatus -> SkillStatusRow(b.label, b.working)
