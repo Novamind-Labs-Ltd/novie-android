@@ -439,7 +439,7 @@ fun AskNovieScreen(
                 }
             } else {
                 // SSE 由 Activity 级 ViewModel 消费，切走页面或切换 App 窗口不会丢失服务端增量。
-                chatVm?.startStreamingReply(prompt)
+                chatVm?.startStreamingReply(prompt, atts)
             }
         }
     }

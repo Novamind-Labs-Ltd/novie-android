@@ -37,6 +37,7 @@ data class ChatRequest(
     val mode: String,
     @SerialName("conversation_id") val conversationId: String,
     val input: String,
+    @SerialName("attachment_ids") val attachmentIds: List<String> = emptyList(),
     /** offer-tap 二次进入，仅 brainstorm 有效；MVP 不用，留字段。 */
     val action: String? = null,
 )
@@ -90,15 +91,19 @@ object AskNovieChat {
         mode: String,
         conversationId: String,
         input: String,
+        attachmentIds: List<String> = emptyList(),
         action: String? = null,
     ): Flow<ChatStreamEvent> = flow {
-        val payload = json.encodeToString(ChatRequest(mode, conversationId, input, action))
+        val payload = json.encodeToString(
+            ChatRequest(mode, conversationId, input, attachmentIds, action),
+        )
         val url = ApiConfig.agentBaseUrl + "v1/chat"
         // 请求前日志：不打 input 原文（用户内容，PII），只记长度与关键路由/鉴权状态，便于排查
         // 开流前错误（如 401 invalid_token / 403 not_registered）。hasToken 反映是否会带 Bearer。
         AppLog.i(TAG) {
             "chat 请求前 url=$url env=${ApiConfig.env.label} mode=$mode conv=$conversationId " +
                 "action=${action ?: "-"} inputLen=${input.length} " +
+                "attachmentCount=${attachmentIds.size} " +
                 "hasToken=${!TokenProvider.accessToken.isNullOrBlank()}"
         }
         val request = Request.Builder()

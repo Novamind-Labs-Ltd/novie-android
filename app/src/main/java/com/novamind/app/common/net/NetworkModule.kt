@@ -86,6 +86,11 @@ object NetworkModule {
         retrofit(ApiConfig.apiBaseUrl).create(AskNovieTranscribeApi::class.java)
     }
 
+    /** Ask Novie 会话级图片/PDF 附件。 */
+    val conversationAttachmentsApi: ConversationAttachmentsApi by lazy {
+        retrofit(ApiConfig.apiBaseUrl).create(ConversationAttachmentsApi::class.java)
+    }
+
     /** 后端日历事件及事件-笔记绑定接口。 */
     val calendarBackendApi: CalendarBackendApi by lazy {
         retrofit(ApiConfig.apiBaseUrl).create(CalendarBackendApi::class.java)

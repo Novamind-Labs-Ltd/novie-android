@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.feature.asknovie.data.AskNovieChat
+import com.novamind.app.feature.asknovie.data.AskNovieAttachmentRepository
 import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository
 import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository.VoiceTranscription
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
@@ -60,7 +61,7 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     }
 
     /** 开始当前会话的 SSE；其他历史会话的在途回复不受影响。 */
-    fun startStreamingReply(prompt: String) {
+    fun startStreamingReply(prompt: String, attachments: List<Attachment> = emptyList()) {
         val targetSessionId = sessionId.value
         if (streamJobs.containsKey(targetSessionId)) return
 
@@ -100,22 +101,35 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
             }
 
             try {
-                AskNovieChat.streamChat(
-                    mode = "chat",
-                    conversationId = targetSessionId,
-                    input = prompt,
-                ).collect { event ->
-                    when (event) {
-                        is ChatStreamEvent.TextDelta -> {
-                            deltaQueue.send(event.delta)
+                val attachmentIds = AskNovieAttachmentRepository
+                    .prepareForTurn(targetSessionId, attachments)
+                    .getOrElse { error ->
+                        streamFailure = ChatStreamEvent.Failure(
+                            code = "attachment_upload_failed",
+                            message = error.message ?: "Could not upload the attachment. Please retry.",
+                        )
+                        emptyList()
+                    }
+
+                if (streamFailure == null) {
+                    AskNovieChat.streamChat(
+                        mode = "chat",
+                        conversationId = targetSessionId,
+                        input = prompt,
+                        attachmentIds = attachmentIds,
+                    ).collect { event ->
+                        when (event) {
+                            is ChatStreamEvent.TextDelta -> {
+                                deltaQueue.send(event.delta)
+                            }
+                            is ChatStreamEvent.Failure -> {
+                                streamFailure = event
+                            }
+                            is ChatStreamEvent.Card,
+                            is ChatStreamEvent.Status,
+                            is ChatStreamEvent.Done,
+                            -> Unit
                         }
-                        is ChatStreamEvent.Failure -> {
-                            streamFailure = event
-                        }
-                        is ChatStreamEvent.Card,
-                        is ChatStreamEvent.Status,
-                        is ChatStreamEvent.Done,
-                        -> Unit
                     }
                 }
                 // 正常结束时先把队列中已收到的文字播完，再收束 streaming 状态。
