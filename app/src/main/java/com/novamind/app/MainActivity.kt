@@ -251,12 +251,6 @@ class MainActivity : FragmentActivity() {
                                     libraryAsSubpage = true
                                     currentRoute = BottomNavDestination.Library.route
                                 },
-                                // Up next 首卡「Start notes」→ 新建笔记
-                                onStartNotes = {
-                                    editingNoteId = null
-                                    createReturnRoute = BottomNavDestination.Home.route
-                                    currentRoute = BottomNavDestination.Create.route
-                                },
                                 // 首页「Ask Novie」入口每次创建新会话；底栏速拨仍继续当前会话。
                                 onAskNovie = {
                                     askNovieNewSessionRequestId += 1L

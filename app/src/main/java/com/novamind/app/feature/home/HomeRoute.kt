@@ -56,7 +56,6 @@ fun HomeRoute(
     onNotesSeeAll: () -> Unit = {},
     onNoteClick: (noteId: String) -> Unit = {},
     onAskNovie: () -> Unit = {},                   // Ask Novie 入口（由宿主接入创建/助手流程）
-    onStartNotes: () -> Unit = {},                 // Up next 首卡「Start notes」动作
     onFullscreenChange: (Boolean) -> Unit = {},   // 子页/抽屉打开 → 宿主隐藏底部导航
     onLogout: () -> Unit = {},                     // 退出登录（由宿主交给 AuthViewModel 处理）
     userName: String? = null,                      // 显示昵称（来自全局 UserSession.profile）
@@ -249,7 +248,11 @@ fun HomeRoute(
                                 overlay = HomeOverlay.MeetingDetail
                             }
                     },
-                    onStartNotes = onStartNotes,
+                    onMeetingNotesClick = { item ->
+                        uiState.upcomingRangeEvents
+                            .firstOrNull { event -> "evt_${event.id}" == item.id }
+                            ?.let { event -> viewModel.openMeetingNote(event.id, item.noteId) }
+                    },
                     isLoading = uiState.upcomingRangeLoading,
                     calendarNeedsAuth = uiState.calendarNeedsAuth,
                     calendarConnecting = uiState.calendarConnecting,

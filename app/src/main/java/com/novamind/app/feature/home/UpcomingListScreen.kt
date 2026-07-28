@@ -65,7 +65,7 @@ fun UpcomingListScreen(
     items: List<UpcomingItem>,
     onBack: () -> Unit,
     onItemClick: (UpcomingItem) -> Unit = {},
-    onStartNotes: () -> Unit = {},
+    onMeetingNotesClick: (UpcomingItem) -> Unit = {},
     isLoading: Boolean = false,
     calendarNeedsAuth: Boolean = false,
     calendarConnecting: Boolean = false,
@@ -98,7 +98,7 @@ fun UpcomingListScreen(
                             UpcomingCardGroup(
                                 items = thisWeek,
                                 onItemClick = onItemClick,
-                                onStartNotes = onStartNotes,
+                                onMeetingNotesClick = onMeetingNotesClick,
                             )
                         }
                     }
@@ -110,6 +110,7 @@ fun UpcomingListScreen(
                             UpcomingCardGroup(
                                 items = nextWeek,
                                 onItemClick = onItemClick,
+                                onMeetingNotesClick = onMeetingNotesClick,
                             )
                         }
                     }
@@ -228,6 +229,8 @@ private fun rememberUpcomingGroups(items: List<UpcomingItem>): Pair<List<Upcomin
         source.drop(3)
     }
 
+    val firstItemId = source.firstOrNull()?.id
+
     fun display(item: UpcomingItem, index: Int, isNextWeek: Boolean): UpcomingDisplayItem {
         val dateLabel = item.date?.let { date ->
             if (date == today) null else DATE_FORMATTER.format(date).uppercase(Locale.US)
@@ -246,7 +249,7 @@ private fun rememberUpcomingGroups(items: List<UpcomingItem>): Pair<List<Upcomin
             item = item,
             dateLabel = dateLabel,
             timeLabel = timeLabel,
-            showAction = index == 0 && item.isMeeting,
+            showAction = item.id == firstItemId && item.isMeeting,
         )
     }
 
@@ -312,7 +315,7 @@ private fun UpcomingSectionHeader(title: String) {
 private fun UpcomingCardGroup(
     items: List<UpcomingDisplayItem>,
     onItemClick: (UpcomingItem) -> Unit = {},
-    onStartNotes: () -> Unit = {},
+    onMeetingNotesClick: (UpcomingItem) -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -325,7 +328,7 @@ private fun UpcomingCardGroup(
             UpcomingFullCard(
                 displayItem = displayItem,
                 onItemClick = onItemClick,
-                onStartNotes = onStartNotes,
+                onMeetingNotesClick = onMeetingNotesClick,
             )
         }
     }
@@ -335,7 +338,7 @@ private fun UpcomingCardGroup(
 private fun UpcomingFullCard(
     displayItem: UpcomingDisplayItem,
     onItemClick: (UpcomingItem) -> Unit,
-    onStartNotes: () -> Unit,
+    onMeetingNotesClick: (UpcomingItem) -> Unit,
 ) {
     Surface(
         onClick = { onItemClick(displayItem.item) },
@@ -371,14 +374,14 @@ private fun UpcomingFullCard(
 
             if (displayItem.showAction) {
                 Surface(
-                    onClick = onStartNotes,
+                    onClick = { onMeetingNotesClick(displayItem.item) },
                     modifier = Modifier.fillMaxWidth().height(32.dp),
                     shape = RoundedCornerShape(100.dp),
                     color = UpcomingActionColor,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = "Start notes",
+                            text = if (displayItem.item.noteId == null) "Start notes" else "View notes",
                             fontSize = 14.sp,
                             lineHeight = 24.sp,
                             fontWeight = FontWeight.Medium,
@@ -442,14 +445,16 @@ private fun UpcomingDetails(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Text(
-            text = item.subtitle,
-            fontSize = 14.sp,
-            lineHeight = 16.sp,
-            color = ColorTextSub,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (item.subtitle.isNotBlank()) {
+            Text(
+                text = item.subtitle,
+                fontSize = 14.sp,
+                lineHeight = 16.sp,
+                color = ColorTextSub,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

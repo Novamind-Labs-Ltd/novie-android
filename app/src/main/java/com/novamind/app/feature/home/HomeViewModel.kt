@@ -262,10 +262,10 @@ class HomeViewModel @Inject constructor(
             return
         }
         if (!meetingNoteActions.add(eventId)) return
-        val meetingTitle = _uiState.value.upcomingEvents
-            .firstOrNull { event -> event.id == eventId }
-            ?.title
-            ?.takeIf { it.isNotBlank() }
+        val meetingTitle = (
+            _uiState.value.upcomingEvents.firstOrNull { event -> event.id == eventId }?.title
+                ?: _uiState.value.upcomingRangeEvents.firstOrNull { event -> event.id == eventId }?.title
+            )?.takeIf { it.isNotBlank() }
         viewModelScope.launch {
             try {
                 when (val createResult = notesRepository.createNote(title = meetingTitle, body = "")) {
@@ -281,6 +281,9 @@ class HomeViewModel @Inject constructor(
                                 _uiState.update { state ->
                                     state.copy(
                                         upcomingItems = state.upcomingItems.map { item ->
+                                            if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
+                                        },
+                                        upcomingRangeItems = state.upcomingRangeItems.map { item ->
                                             if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
                                         },
                                     )
@@ -308,7 +311,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun applyRangeAgenda(agenda: TodayAgenda) {
+    private suspend fun applyRangeAgenda(agenda: TodayAgenda) {
         val start = LocalDate.now()
         val endExclusive = start.plusDays(14)
         val events = agenda.events
@@ -320,6 +323,21 @@ class HomeViewModel @Inject constructor(
             }
             .sortedBy { it.start }
             .toList()
+        val linkedNoteIds = if (agenda.authorized && events.isNotEmpty()) {
+            coroutineScope {
+                events.map { event ->
+                    async {
+                        meetingNoteSemaphore.withPermit {
+                            event.id to calendarNoteRepository.getNoteId(event.id).getOrNull()
+                        }
+                    }
+                }.map { request -> request.await() }
+                    .mapNotNull { (eventId, noteId) -> noteId?.let { eventId to it } }
+                    .toMap()
+            }
+        } else {
+            emptyMap()
+        }
         val items = events
             .map { event ->
                 UpcomingItem(
@@ -332,6 +350,7 @@ class HomeViewModel @Inject constructor(
                     isMeeting = true,
                     date = event.start.toLocalDate(),
                     isAllDay = event.isAllDay,
+                    noteId = linkedNoteIds[event.id],
                 )
             }
             .toList()
