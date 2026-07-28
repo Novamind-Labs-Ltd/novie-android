@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,14 +47,16 @@ internal fun SegmentedTabBar(
         Column {
             Row(modifier = Modifier.fillMaxWidth()) {
                 SegmentTab(
-                    iconRes = R.drawable.ic_history,
+                    iconRes = R.drawable.ic_library_tab_recent_unselected,
+                    selectedIconRes = R.drawable.ic_library_tab_recent_selected,
                     label = "Recent",
                     selected = selectedIndex == 0,
                     onClick = { onTabClick(0) },
                     modifier = Modifier.weight(1f),
                 )
                 SegmentTab(
-                    iconRes = R.drawable.ic_folder,
+                    iconRes = R.drawable.ic_library_tab_folder_unselected,
+                    selectedIconRes = R.drawable.ic_library_tab_folder_selected,
                     label = "Folders",
                     selected = selectedIndex == 1,
                     onClick = { onTabClick(1) },
@@ -89,6 +92,7 @@ internal fun SegmentedTabBar(
 @Composable
 private fun SegmentTab(
     iconRes: Int,
+    selectedIconRes: Int = iconRes,
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -103,9 +107,9 @@ private fun SegmentTab(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            painter = painterResource(iconRes),
+            painter = painterResource(if (selected) selectedIconRes else iconRes),
             contentDescription = null,
-            tint = if (selected) ColorTextTitle else ColorTextSub,
+            tint = Color.Unspecified,
             modifier = Modifier.size(16.dp),
         )
         Spacer(Modifier.width(6.dp))
@@ -130,6 +134,12 @@ private fun SegmentedTabBarPreview() {
 @Composable
 private fun SegmentTabPreview() {
     AppTheme {
-        SegmentTab(iconRes = R.drawable.ic_history, label = "Recent", selected = true, onClick = {})
+        SegmentTab(
+            iconRes = R.drawable.ic_library_tab_recent_unselected,
+            selectedIconRes = R.drawable.ic_library_tab_recent_selected,
+            label = "Recent",
+            selected = true,
+            onClick = {},
+        )
     }
 }
