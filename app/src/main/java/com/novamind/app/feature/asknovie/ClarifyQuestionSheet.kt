@@ -1,18 +1,23 @@
 package com.novamind.app.feature.asknovie
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -20,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -35,6 +41,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +55,7 @@ import com.novamind.app.feature.asknovie.components.TitleColor
 import com.novamind.app.feature.asknovie.data.ChatCard
 import com.novamind.app.feature.asknovie.data.OptionItem
 import com.novamind.app.ui.colors.BackgroundColors
+import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 
@@ -60,13 +68,27 @@ fun OptionsCardSheet(
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        // 选项卡是强交互流程：遮罩、系统返回和下滑都不关闭，只允许点右上角叉号。
+        onDismissRequest = {},
+        sheetState = rememberModalBottomSheetState(
+            skipPartiallyExpanded = true,
+            // 阻止遮罩/返回键先把 Sheet 切到 Hidden 后仍留在 Composition 拦截触摸。
+            confirmValueChange = { it != SheetValue.Hidden },
+        ),
+        sheetGesturesEnabled = false,
         containerColor = BackgroundColors.Interactive.default.current(),
         shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
         dragHandle = null,
     ) {
-        OptionsSheetContent(card = card, onSubmit = onSubmit, onClose = onDismiss)
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            OptionsSheetContent(
+                card = card,
+                onSubmit = onSubmit,
+                onClose = onDismiss,
+                // Figma 1389:46559：弹层最高约为可用屏高的 70%。
+                modifier = Modifier.heightIn(max = maxHeight * 0.7f),
+            )
+        }
     }
 }
 
@@ -104,12 +126,16 @@ private fun OptionsSheetContent(
     val isMany = card.select == "many"
     var selectedIds by remember(card) { mutableStateOf(emptySet<String>()) }
     var other by remember(card) { mutableStateOf("") }
+    val selectedLabels = card.items.filterIndexed { index, item ->
+        item.id.ifBlank { index.toString() } in selectedIds
+    }.map(OptionItem::label)
+    val answer = (selectedLabels + listOfNotNull(other.trim().takeIf(String::isNotEmpty)))
+        .joinToString(", ")
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().height(30.dp).padding(horizontal = 12.dp),
@@ -121,6 +147,8 @@ private fun OptionsSheetContent(
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(12.dp))
@@ -139,8 +167,19 @@ private fun OptionsSheetContent(
             )
         }
 
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-            card.items.forEachIndexed { index, item ->
+        Spacer(Modifier.height(24.dp))
+
+        // 标题和底部输入区固定；只有选项列表在超过最大高度时滚动。
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .padding(horizontal = 12.dp),
+        ) {
+            itemsIndexed(
+                items = card.items,
+                key = { index, item -> item.id.ifBlank { index.toString() } },
+            ) { index, item ->
                 val itemId = item.id.ifBlank { index.toString() }
                 val selected = itemId in selectedIds
                 Row(
@@ -165,17 +204,40 @@ private fun OptionsSheetContent(
                             .size(28.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
-                                if (selected) SendGreen
-                                else BackgroundColors.Scenario.fern.current(),
+                                when {
+                                    selected -> SendGreen
+                                    isMany -> BackgroundColors.Interactive.default.current()
+                                    else -> BackgroundColors.Scenario.fern.current()
+                                },
+                            )
+                            .then(
+                                if (isMany && !selected) {
+                                    Modifier.border(
+                                        width = 1.dp,
+                                        color = BorderColors.Default.strong.current(),
+                                        shape = RoundedCornerShape(4.dp),
+                                    )
+                                } else {
+                                    Modifier
+                                },
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = if (selected) "✓" else "${index + 1}",
-                            color = if (selected) OnSendGreen else TitleColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
+                        if (selected) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_check),
+                                contentDescription = null,
+                                tint = OnSendGreen,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        } else if (!isMany) {
+                            Text(
+                                text = "${index + 1}",
+                                color = TitleColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(
@@ -196,13 +258,17 @@ private fun OptionsSheetContent(
                 HorizontalDivider(color = FieldBorder, thickness = 1.dp)
                 if (index < card.items.lastIndex) Spacer(Modifier.height(4.dp))
             }
+        }
 
-            if (card.allowFreeText) {
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+        if (card.allowFreeText || isMany) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (card.allowFreeText) {
                     Icon(
                         painter = painterResource(R.drawable.ic_edit_square),
                         contentDescription = null,
@@ -222,21 +288,10 @@ private fun OptionsSheetContent(
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                    val labels = card.items.filterIndexed { index, item ->
-                        item.id.ifBlank { index.toString() } in selectedIds
-                    }.map(OptionItem::label)
-                    val answer = (labels + listOfNotNull(other.trim().takeIf(String::isNotEmpty)))
-                        .joinToString(", ")
-                    SheetSendButton(enabled = answer.isNotBlank()) { onSubmit(answer) }
+                } else {
+                    Spacer(Modifier.weight(1f))
                 }
-            } else if (isMany) {
-                Spacer(Modifier.height(12.dp))
-                val answer = card.items.filterIndexed { index, item ->
-                    item.id.ifBlank { index.toString() } in selectedIds
-                }.joinToString(", ") { it.label }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    SheetSendButton(enabled = answer.isNotBlank()) { onSubmit(answer) }
-                }
+                SheetSendButton(enabled = answer.isNotBlank()) { onSubmit(answer) }
             }
         }
     }
