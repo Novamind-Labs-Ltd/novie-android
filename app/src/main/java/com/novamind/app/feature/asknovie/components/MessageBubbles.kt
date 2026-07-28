@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -40,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -50,7 +51,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.model.ReferenceLinkHandlerImpl
 import com.mikepenz.markdown.model.State
@@ -61,7 +61,6 @@ import com.novamind.app.feature.asknovie.Attachment
 import com.novamind.app.feature.asknovie.ChatMessage
 import com.novamind.app.feature.asknovie.Role
 import com.novamind.app.ui.theme.AppTheme
-import java.io.File
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.parser.MarkdownParser
 
@@ -125,16 +124,36 @@ internal fun AudioBubble(att: Attachment) {
     }
 }
 
-/** 用户消息气泡：右对齐。附件（图片预览 / 文件 chip）在上，文本在下。 */
+/** 用户消息：图片、文件、语音和文本均靠右展示。 */
 @Composable
 internal fun UserBubble(msg: ChatMessage) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        Column(
-            modifier = Modifier.padding(start = 48.dp),
-            horizontalAlignment = Alignment.End,
-        ) {
-            // 文件附件：静态 chip（置于最前）
-            msg.attachments.filter { it.type == AttachType.File }.forEach { att ->
+    Column(modifier = Modifier.fillMaxWidth()) {
+        val imageAttachments = msg.attachments.filter { it.type == AttachType.Image }
+        if (imageAttachments.isNotEmpty()) {
+            // Figma 1459:53678：80dp 方形缩略图、6dp 间距、整体靠右，超宽后横向滚动。
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = if (msg.text.isNotEmpty()) 6.dp else 0.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+            ) {
+                imageAttachments.forEach { attachment ->
+                    AttachmentChip(
+                        att = attachment,
+                        onRemove = {},
+                    )
+                }
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Column(
+                modifier = Modifier.padding(start = 48.dp),
+                horizontalAlignment = Alignment.End,
+            ) {
+                // 文件附件：静态 chip（置于最前）
+                msg.attachments.filter { it.type == AttachType.File }.forEach { att ->
                 Surface(
                     color = AttachChipBg,
                     shape = RoundedCornerShape(50),
@@ -161,38 +180,25 @@ internal fun UserBubble(msg: ChatMessage) {
                     }
                 }
             }
-            // 语音附件：可播放气泡
-            msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
-                AudioBubble(att)
-            }
-            // 图片附件：圆角预览
-            msg.attachments.filter { it.type == AttachType.Image }.forEach { att ->
-                AsyncImage(
-                    model = File(att.path),
-                    contentDescription = att.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .padding(bottom = 6.dp)
-                        .widthIn(max = 220.dp)
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(PlaceholderBg),
-                )
-            }
-            // 文本气泡（有文字才显示）
-            if (msg.text.isNotEmpty()) {
-                Surface(
-                    color = UserMessageBg,
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    SelectionContainer {
-                        Text(
-                            text = msg.text,
-                            color = TextTitle,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp,
-                            modifier = Modifier.padding(16.dp),
-                        )
+                // 语音附件：可播放气泡
+                msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
+                    AudioBubble(att)
+                }
+                // 文本气泡（有文字才显示）
+                if (msg.text.isNotEmpty()) {
+                    Surface(
+                        color = UserMessageBg,
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        SelectionContainer {
+                            Text(
+                                text = msg.text,
+                                color = TextTitle,
+                                fontSize = 16.sp,
+                                lineHeight = 24.sp,
+                                modifier = Modifier.padding(16.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -479,6 +485,22 @@ private fun UserBubbleWithAttachmentPreview() {
                 ),
             )
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · UserBubble · Images")
+@Composable
+private fun UserBubbleWithImagesPreview() {
+    AppTheme {
+        UserBubble(
+            ChatMessage(
+                role = Role.User,
+                text = "",
+                attachments = List(5) { index ->
+                    Attachment(AttachType.Image, "/tmp/photo-$index.jpg", "photo-$index.jpg")
+                },
+            ),
+        )
     }
 }
 
