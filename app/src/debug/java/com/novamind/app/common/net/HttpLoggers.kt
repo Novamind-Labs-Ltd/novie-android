@@ -24,6 +24,9 @@ object HttpLoggers {
 
     private val bodyLogger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
+        // 别把 Auth0 access token 整条打进 logcat。debug-only 不等于可以随便漏：
+        // 联调时截图/贴日志是常态，一条完整 Bearer 贴出去就是一个可用的凭证。
+        redactHeader("Authorization")
     }
 
     /**
@@ -33,6 +36,7 @@ object HttpLoggers {
      */
     private val headersLogger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.HEADERS
+        redactHeader("Authorization")
     }
 
     fun create(): Interceptor? = Interceptor { chain ->

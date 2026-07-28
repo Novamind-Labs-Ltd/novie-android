@@ -109,7 +109,14 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                             // 兜底文案里不带 code：那是给开发者看的标识（stream_truncated /
                             // network_error…），印进气泡就会被 persistSession 永久存进历史、
                             // 还会被复制/分享带出去。code 已经在 AskNovieChat 的日志里了。
-                            val message = event.message
+                            //
+                            // takeIf(isNotBlank) 而不是裸 `?:`：空串是**非 null**，裸 `?:` 不会
+                            // 触发兜底，气泡就会是完全空白的（用户发了消息，收到一个没有任何文字、
+                            // 也没有任何报错的回复）。这道闸放在消费端是因为四个 Failure 生产点
+                            // 都汇到这里：h2 下的 `resp.message`（恒为空串，见 AskNovieChat）、
+                            // 服务端 error 帧里的 `message` 字段、network_error、stream_truncated。
+                            // 在这里挡一次，比在每个生产点各挡一次可靠。
+                            val message = event.message?.takeIf { it.isNotBlank() }
                                 ?: "Something went wrong. Please try again."
                             updateSessionMessages(targetSessionId) { current ->
                                 current.toMutableList().also { list ->
