@@ -8,4 +8,7 @@ import okhttp3.Interceptor
  */
 object HttpLoggers {
     fun create(): Interceptor? = null
+
+    /** Release 变体不包含 logging-interceptor，保持与 Debug 源集的 API 一致。 */
+    fun isBodyLoggingInterceptor(interceptor: Interceptor): Boolean = false
 }

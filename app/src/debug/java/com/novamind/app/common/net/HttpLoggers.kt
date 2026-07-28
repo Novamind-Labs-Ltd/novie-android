@@ -13,4 +13,9 @@ object HttpLoggers {
     fun create(): Interceptor? = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
+
+    /** SSE 长连需移除 BODY logger，避免它读完整个响应后才交给消费者。 */
+    fun isBodyLoggingInterceptor(interceptor: Interceptor): Boolean =
+        interceptor is HttpLoggingInterceptor &&
+            interceptor.level == HttpLoggingInterceptor.Level.BODY
 }

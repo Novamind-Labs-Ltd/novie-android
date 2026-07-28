@@ -11,6 +11,7 @@ import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository.Vo
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import java.util.UUID
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -67,6 +68,7 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
 
         val job = viewModelScope.launch {
             var appended = false
+            var streamFailure: ChatStreamEvent.Failure? = null
 
             fun ensureBubble() {
                 if (!appended) {
@@ -78,6 +80,25 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                 }
             }
 
+            // 网络收帧与 UI 打字机解耦：SSE collector 只入队，不被显示节奏反向阻塞。
+            // UNLIMITED 保证后端突发输出时不丢 delta；单消费者严格保持原始顺序。
+            val deltaQueue = Channel<String>(capacity = Channel.UNLIMITED)
+            val displayJob = launch {
+                for (delta in deltaQueue) {
+                    ensureBubble()
+                    delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
+                        updateSessionMessages(targetSessionId) { current ->
+                            current.toMutableList().also { list ->
+                                list[list.lastIndex] = list.last().copy(
+                                    text = list.last().text + chunk,
+                                )
+                            }
+                        }
+                        delay(DISPLAY_INTERVAL_MS)
+                    }
+                }
+            }
+
             try {
                 AskNovieChat.streamChat(
                     mode = "chat",
@@ -86,28 +107,10 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                 ).collect { event ->
                     when (event) {
                         is ChatStreamEvent.TextDelta -> {
-                            ensureBubble()
-                            // SSE 可能一次带回整段文本；展示层按固定节奏追加，保持打字效果。
-                            event.delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
-                                updateSessionMessages(targetSessionId) { current ->
-                                    current.toMutableList().also { list ->
-                                        list[list.lastIndex] = list.last().copy(
-                                            text = list.last().text + chunk,
-                                        )
-                                    }
-                                }
-                                delay(DISPLAY_INTERVAL_MS)
-                            }
+                            deltaQueue.send(event.delta)
                         }
                         is ChatStreamEvent.Failure -> {
-                            ensureBubble()
-                            val message = event.message
-                                ?: "Something went wrong (${event.code ?: "error"}). Please try again."
-                            updateSessionMessages(targetSessionId) { current ->
-                                current.toMutableList().also { list ->
-                                    list[list.lastIndex] = list.last().copy(text = message)
-                                }
-                            }
+                            streamFailure = event
                         }
                         is ChatStreamEvent.Card,
                         is ChatStreamEvent.Status,
@@ -115,7 +118,24 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                         -> Unit
                     }
                 }
+                // 正常结束时先把队列中已收到的文字播完，再收束 streaming 状态。
+                deltaQueue.close()
+                displayJob.join()
+
+                streamFailure?.let { failure ->
+                    ensureBubble()
+                    val message = failure.message
+                        ?: "Something went wrong (${failure.code ?: "error"}). Please try again."
+                    updateSessionMessages(targetSessionId) { current ->
+                        current.toMutableList().also { list ->
+                            list[list.lastIndex] = list.last().copy(text = message)
+                        }
+                    }
+                }
             } finally {
+                // 用户停止时不继续播放队列中未显示的文字。
+                deltaQueue.cancel()
+                displayJob.cancel()
                 streamJobs.remove(targetSessionId)
                 respondingSessions -= targetSessionId
                 streamingSessions -= targetSessionId
@@ -205,7 +225,7 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     }
 }
 
-/** 按 Unicode code point 分块，避免在动画过程中把 emoji 拆成半个 surrogate。 */
+/** 按 Unicode code point 分块，避免将 emoji 拆成半个 surrogate。 */
 private fun String.displayChunks(chunkSize: Int): List<String> {
     if (isEmpty()) return emptyList()
     val chunks = ArrayList<String>((length + chunkSize - 1) / chunkSize)
