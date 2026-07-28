@@ -149,6 +149,7 @@ private enum class RecordingBarPhase { Idle, Recording, Sending, UploadFailed }
  *   可重传同一文件）；为 null 时跳过上传直接 [onConfirm]（当前 CreateScreen 本地插入即此路径）。
  * @param compact 紧凑输入框模式（Ask Novie 使用）；为 false 时保持 Create 页的大型录音面板。
  * @param autoStart 组件进入后是否立即开始录音。
+ * @param sendingLabel 上传处理中的状态文案；Ask Novie 使用 “Transcribing…” 表达语音转文字。
  */
 @Composable
 fun VoiceRecordingBar(
@@ -158,6 +159,7 @@ fun VoiceRecordingBar(
     onUpload: (suspend (path: String, durationSeconds: Int) -> Boolean)? = null,
     compact: Boolean = false,
     autoStart: Boolean = false,
+    sendingLabel: String = "Sending…",
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val snapshot by com.novamind.app.common.audio.RecordingController.state
@@ -312,6 +314,7 @@ fun VoiceRecordingBar(
             }
         },
         compact = compact,
+        sendingLabel = sendingLabel,
         modifier = modifier,
     )
 
@@ -375,6 +378,7 @@ private fun RecordingBarContent(
     phase: RecordingBarPhase = RecordingBarPhase.Idle,
     onRetry: () -> Unit = {},
     compact: Boolean = false,
+    sendingLabel: String = "Sending…",
 ) {
     if (compact) {
         CompactRecordingBarContent(
@@ -386,6 +390,7 @@ private fun RecordingBarContent(
             onCancelClick = onCancelClick,
             onSend = onSend,
             onRetry = onRetry,
+            sendingLabel = sendingLabel,
             modifier = modifier,
         )
         return
@@ -446,7 +451,7 @@ private fun RecordingBarContent(
                 } else {
                     val label = when (phase) {
                         RecordingBarPhase.Idle -> "Tap the mic to start"
-                        RecordingBarPhase.Sending -> "Sending…"
+                        RecordingBarPhase.Sending -> sendingLabel
                         RecordingBarPhase.UploadFailed -> "Upload failed"
                         RecordingBarPhase.Recording -> ""
                     }
@@ -554,6 +559,7 @@ private fun CompactRecordingBarContent(
     onCancelClick: () -> Unit,
     onSend: () -> Unit,
     onRetry: () -> Unit,
+    sendingLabel: String = "Sending…",
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(20.dp)
@@ -612,7 +618,7 @@ private fun CompactRecordingBarContent(
                 Text(
                     text = when (phase) {
                         RecordingBarPhase.Idle -> "Starting…"
-                        RecordingBarPhase.Sending -> "Sending…"
+                        RecordingBarPhase.Sending -> sendingLabel
                         RecordingBarPhase.UploadFailed -> "Upload failed"
                         RecordingBarPhase.Recording -> ""
                     },

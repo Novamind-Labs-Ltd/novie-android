@@ -42,6 +42,8 @@ internal val Bg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Page.default.current()
 internal val Card: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Surface.default.current()
+internal val UserMessageBg: Color
+    @Composable @ReadOnlyComposable get() = BackgroundColors.Page.secondary.current()
 internal val TextTitle: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
 internal val TextSub: Color

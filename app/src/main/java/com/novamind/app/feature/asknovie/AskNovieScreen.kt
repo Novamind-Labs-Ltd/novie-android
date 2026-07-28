@@ -1041,6 +1041,7 @@ fun AskNovieScreen(
                         },
                         compact = true,
                         autoStart = true,
+                        sendingLabel = "Transcribing…",
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter),

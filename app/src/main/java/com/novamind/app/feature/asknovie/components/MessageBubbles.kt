@@ -182,17 +182,16 @@ internal fun UserBubble(msg: ChatMessage) {
             // 文本气泡（有文字才显示）
             if (msg.text.isNotEmpty()) {
                 Surface(
-                    color = Card,
-                    shape = RoundedCornerShape(18.dp),
-                    shadowElevation = 1.dp,
+                    color = UserMessageBg,
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     SelectionContainer {
                         Text(
                             text = msg.text,
                             color = TextTitle,
-                            fontSize = 15.sp,
-                            lineHeight = 21.sp,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp,
+                            modifier = Modifier.padding(16.dp),
                         )
                     }
                 }
