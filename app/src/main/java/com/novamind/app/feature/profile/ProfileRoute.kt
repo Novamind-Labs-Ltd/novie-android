@@ -1,5 +1,10 @@
 package com.novamind.app.feature.profile
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -55,7 +60,11 @@ fun ProfileRoute(
             modifier = Modifier.fillMaxSize(),
         )
 
-        if (showAccount) {
+        AnimatedVisibility(
+            visible = showAccount,
+            enter = slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f),
+            exit = slideOutHorizontally { it } + fadeOut(),
+        ) {
             AccountScreen(
                 name = userName.orEmpty(),
                 email = userEmail.orEmpty(),
@@ -69,7 +78,11 @@ fun ProfileRoute(
             )
         }
 
-        if (showAvatarEditor) {
+        AnimatedVisibility(
+            visible = showAvatarEditor,
+            enter = slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f),
+            exit = slideOutHorizontally { it } + fadeOut(),
+        ) {
             AvatarViewerScreen(
                 avatarPath = avatarPath,
                 onBack = { showAvatarEditor = false },
