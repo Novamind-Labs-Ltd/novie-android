@@ -26,10 +26,19 @@ object HttpLoggers {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
+    /**
+     * 流式请求降级到 HEADERS 而不是完全不打日志：`Level.HEADERS` 下 `logBody` 为 false，
+     * 那个 `source.request(Long.MAX_VALUE)` 分支根本不会进，所以对流式是安全的；同时保住了
+     * 请求行 / 状态码 / 响应头 —— 开流前的 401/403 排查全靠这些，完全静音反而不好查。
+     */
+    private val headersLogger = HttpLoggingInterceptor().apply {
+        level = HttpLoggingInterceptor.Level.HEADERS
+    }
+
     fun create(): Interceptor? = Interceptor { chain ->
         val request = chain.request()
         if (request.header("Accept")?.contains("text/event-stream") == true) {
-            chain.proceed(request)          // 流式：直接放行，不碰响应体
+            headersLogger.intercept(chain)  // 流式：只打头，绝不碰响应体
         } else {
             bodyLogger.intercept(chain)
         }

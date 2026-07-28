@@ -106,12 +106,12 @@ object AskNovieChat {
         val request = Request.Builder()
             .url(url)
             .header("Accept", "text/event-stream")
-            // 显式关掉压缩。不设的话 OkHttp 的 BridgeInterceptor 会自动加
-            // `Accept-Encoding: gzip`——OkHttp 自己解压是流式的没问题，但链路上任何一层
-            // 网关/CDN 一旦真的对 text/event-stream 启用压缩，就会为了攒压缩块而把帧合并，
-            // 在边缘复现同一个"等很久然后一次性全出来"。SSE 关压缩是通行做法，这条流本来
-            // 也小，省不下什么。（预防性：尚未确认线上网关是否会压 SSE。）
-            .header("Accept-Encoding", "identity")
+            // 刻意**不设** Accept-Encoding。曾经加过 `identity` 防"网关压缩 SSE 导致攒帧",
+            // 但那是没有证据的猜测,而代价是实打实的:OkHttp 的 BridgeInterceptor 只在调用方
+            // **没有**设这个头时才置 transparentGzip=true 并负责解压(BridgeInterceptor.kt:69/90);
+            // 手动设了就等于永久关掉它的透明解压。万一网关无视 identity 照样压,收到的就是原始
+            // gzip 字节 —— 每一行都匹配不上 event:/data:,用户拿到空气泡 + stream_truncated,
+            // 而不设这个头的话 OkHttp 本来能正确解压。用一个真实的静默失败去换一个假想收益。
             // Authorization（Auth0 Bearer）由 AuthInterceptor 统一附带，不在此手动设置
             .post(payload.toRequestBody("application/json".toMediaType()))
             .build()

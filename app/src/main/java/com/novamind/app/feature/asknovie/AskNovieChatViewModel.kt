@@ -106,8 +106,11 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                         }
                         is ChatStreamEvent.Failure -> {
                             ensureBubble()
+                            // 兜底文案里不带 code：那是给开发者看的标识（stream_truncated /
+                            // network_error…），印进气泡就会被 persistSession 永久存进历史、
+                            // 还会被复制/分享带出去。code 已经在 AskNovieChat 的日志里了。
                             val message = event.message
-                                ?: "Something went wrong (${event.code ?: "error"}). Please try again."
+                                ?: "Something went wrong. Please try again."
                             updateSessionMessages(targetSessionId) { current ->
                                 current.toMutableList().also { list ->
                                     // 追加,不是覆盖。流到一半才失败时(读超时/掉网),之前已经
