@@ -459,7 +459,8 @@ fun AskNovieScreen(
             input = ""
             attachments = emptyList()
             sendMessage(prompt, atts)
-            // 保留输入框焦点和键盘，保持 ChatGPT 式连续发送交互。
+            focusManager.clearFocus()
+            keyboardController?.hide()
         }
     }
 
@@ -985,11 +986,8 @@ fun AskNovieScreen(
                                     "We couldn't hear any speech. Please try again.",
                                 )
                             } else {
-                                scope.launch {
-                                    withFrameNanos { }
-                                    inputFocusRequester.requestFocus()
-                                    keyboardController?.show()
-                                }
+                                // 转译成功后直接发送最终文本，不再重新聚焦输入框等待二次确认。
+                                send()
                             }
                         },
                         onUpload = { path, dur ->
