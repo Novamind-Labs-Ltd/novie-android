@@ -1,6 +1,7 @@
 package com.novamind.app.feature.asknovie.data
 
 import android.os.SystemClock
+import com.novamind.app.BuildConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.HttpLoggers
@@ -141,6 +142,12 @@ object AskNovieChat {
 
         try {
             call.execute().use { resp ->
+            if (BuildConfig.DEBUG) {
+                // 不使用 HttpLoggingInterceptor：只读取已建立请求的 Header，
+                // 不触碰 response body，避免 SSE 被整体缓冲。
+                AppLog.i(TAG) { "chat HTTP request headers=${resp.request.headers}" }
+                AppLog.i(TAG) { "chat HTTP response headers=${resp.headers}" }
+            }
             if (!resp.isSuccessful) {
                 // 开流前错误：JSON `{code}` + HTTP 状态码
                 val body = runCatching { resp.body?.string() }.getOrNull()
