@@ -18,6 +18,16 @@ private const val DISPLAY_CHUNK_SIZE = 2
 private const val DISPLAY_INTERVAL_MS = 32L
 
 /**
+ * 单个 delta 最多分成多少帧画完（每帧 [DISPLAY_INTERVAL_MS]）。
+ *
+ * 上限存在的理由是反压而不是观感：`collect` 是顺序的，打字动画的每个 `delay` 都会挂起
+ * 收集方，经 `flowOn` 的缓冲一路反压到 `readUtf8Line`。没有上限时，chunk 固定 2 字，
+ * 一个 500 字的 delta 要 250 帧 ≈ 8 秒，这 8 秒里 SSE 根本没人读。
+ * 16 帧 ≈ 0.5s 封顶。逐 token 的小 delta 落不到这个分支，打字手感原样不变。
+ */
+private const val MAX_FRAMES_PER_DELTA = 16
+
+/**
  * Ask Novie 的 Activity 级会话状态。
  *
  * 每个会话拥有独立的 SSE Job 和消息快照：切换历史只切换正在展示的会话，
@@ -88,7 +98,17 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                         is ChatStreamEvent.TextDelta -> {
                             ensureBubble()
                             // SSE 可能一次带回整段文本；展示层按固定节奏追加，保持打字效果。
-                            event.delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
+                            // chunk 按本次 delta 的长度放大，使**任何**一个 delta 都在
+                            // MAX_FRAMES_PER_DELTA 帧内画完。collect 是顺序的，这里每个
+                            // delay 都会挂起收集方、经 flowOn 的缓冲反压到 readUtf8Line：
+                            // 固定 2 字/帧时，一个 500 字的 delta 会把 SSE 读阻塞 8 秒，
+                            // 后续帧只能干等——正好抵消掉这个 PR 争取到的流式。
+                            // 小 delta（逐 token 的常态）走 DISPLAY_CHUNK_SIZE，打字手感不变。
+                            val chunkSize = maxOf(
+                                DISPLAY_CHUNK_SIZE,
+                                (event.delta.length + MAX_FRAMES_PER_DELTA - 1) / MAX_FRAMES_PER_DELTA,
+                            )
+                            event.delta.displayChunks(chunkSize).forEach { chunk ->
                                 updateSessionMessages(targetSessionId) { current ->
                                     current.toMutableList().also { list ->
                                         list[list.lastIndex] = list.last().copy(
@@ -105,7 +125,14 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                                 ?: "Something went wrong (${event.code ?: "error"}). Please try again."
                             updateSessionMessages(targetSessionId) { current ->
                                 current.toMutableList().also { list ->
-                                    list[list.lastIndex] = list.last().copy(text = message)
+                                    // 追加,不是覆盖。流到一半才失败时(读超时/掉网),之前已经
+                                    // 画出来的半截回答是有价值的,不能被一句错误提示抹掉——那对
+                                    // 用户等于"答案凭空消失了"。开流前就失败时气泡本来是空的,
+                                    // 追加与覆盖等价,所以不需要分两种情况。
+                                    val shown = list.last().text
+                                    list[list.lastIndex] = list.last().copy(
+                                        text = if (shown.isEmpty()) message else "$shown\n\n$message",
+                                    )
                                 }
                             }
                         }

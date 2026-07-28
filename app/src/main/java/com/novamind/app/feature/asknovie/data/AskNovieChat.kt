@@ -55,7 +55,10 @@ sealed interface ChatStreamEvent {
  * `POST /v1/chat` 返回 `text/event-stream`，本类逐行解析 SSE 帧发为 [ChatStreamEvent] 流。
  *
  * agent 走独立 agents 子域（[ApiConfig.agentBaseUrl]），直接复用应用主客户端（通用头 /
- * AuthInterceptor 自动附带 Auth0 token / 401 刷新），仅把读超时覆盖为 0（SSE 长连不超时）。
+ * AuthInterceptor 自动附带 Auth0 token / 401 刷新），仅把读超时放宽到 [SSE_READ_TIMEOUT_S]
+ * 以容纳长连（不设 0：那样半开连接会永久阻塞，理由见 client）。
+ * debug 变体的 body 日志由 [com.novamind.app.common.net.HttpLoggers] 按 Accept 头对流式放行，
+ * 不在这里摘拦截器。
  */
 object AskNovieChat {
     private const val TAG = "AskNovieChat"
@@ -178,7 +181,11 @@ object AskNovieChat {
             throw c // 取消（停止/离开）正常传播，不当作错误
         } catch (t: Throwable) {
             AppLog.w(TAG) { "chat 流异常: ${t.message}" }
-            emit(ChatStreamEvent.Failure("network_error", t.message))
+            // message 传 null,不把 `t.message` 递给 UI:那是给开发者看的异常文本
+            // (SocketTimeoutException 的 "timeout"、"unexpected end of stream" 之类),
+            // 消费方会 `event.message ?: 友好兜底`,传原文等于把它直接印进聊天气泡。
+            // 原文已经在上面那行日志里了,排查不受影响。
+            emit(ChatStreamEvent.Failure("network_error", null))
             emit(ChatStreamEvent.Done("error"))
         }
     }.flowOn(Dispatchers.IO)
