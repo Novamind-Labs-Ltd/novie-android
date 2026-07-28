@@ -39,6 +39,7 @@ import com.novamind.app.feature.home.components.ColorTextTitle
 import com.novamind.app.feature.home.components.ColorTimeStamp
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.components.AppPullToRefresh
 import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 import java.time.DayOfWeek
@@ -67,6 +68,8 @@ fun UpcomingListScreen(
     onItemClick: (UpcomingItem) -> Unit = {},
     onMeetingNotesClick: (UpcomingItem) -> Unit = {},
     isLoading: Boolean = false,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
     calendarNeedsAuth: Boolean = false,
     calendarConnecting: Boolean = false,
     onConnectCalendar: () -> Unit = {},
@@ -85,42 +88,48 @@ fun UpcomingListScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             UpcomingHeader(onBack = onBack)
 
-            LazyColumn(
+            AppPullToRefresh(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(bottom = 120.dp),
             ) {
-                if (hasItems) {
-                    if (thisWeek.isNotEmpty()) {
-                        item(key = "this-week-header") {
-                            UpcomingSectionHeader("This week")
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 120.dp),
+                ) {
+                    if (hasItems) {
+                        if (thisWeek.isNotEmpty()) {
+                            item(key = "this-week-header") {
+                                UpcomingSectionHeader("This week")
+                            }
+                            item(key = "this-week-content") {
+                                UpcomingCardGroup(
+                                    items = thisWeek,
+                                    onItemClick = onItemClick,
+                                    onMeetingNotesClick = onMeetingNotesClick,
+                                )
+                            }
                         }
-                        item(key = "this-week-content") {
-                            UpcomingCardGroup(
-                                items = thisWeek,
-                                onItemClick = onItemClick,
-                                onMeetingNotesClick = onMeetingNotesClick,
+                        if (nextWeek.isNotEmpty()) {
+                            item(key = "next-week-header") {
+                                UpcomingSectionHeader("Next week")
+                            }
+                            item(key = "next-week-content") {
+                                UpcomingCardGroup(
+                                    items = nextWeek,
+                                    onItemClick = onItemClick,
+                                    onMeetingNotesClick = onMeetingNotesClick,
+                                )
+                            }
+                        }
+                    } else {
+                        item(key = "upcoming-status") {
+                            UpcomingStatus(
+                                isLoading = isLoading || calendarConnecting,
+                                needsAuth = calendarNeedsAuth,
+                                onConnectCalendar = onConnectCalendar,
                             )
                         }
-                    }
-                    if (nextWeek.isNotEmpty()) {
-                        item(key = "next-week-header") {
-                            UpcomingSectionHeader("Next week")
-                        }
-                        item(key = "next-week-content") {
-                            UpcomingCardGroup(
-                                items = nextWeek,
-                                onItemClick = onItemClick,
-                                onMeetingNotesClick = onMeetingNotesClick,
-                            )
-                        }
-                    }
-                } else {
-                    item(key = "upcoming-status") {
-                        UpcomingStatus(
-                            isLoading = isLoading || calendarConnecting,
-                            needsAuth = calendarNeedsAuth,
-                            onConnectCalendar = onConnectCalendar,
-                        )
                     }
                 }
             }

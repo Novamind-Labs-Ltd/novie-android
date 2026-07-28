@@ -190,18 +190,31 @@ class HomeViewModel @Inject constructor(
 
     /** Upcoming 页面进入时拉取未来两周（今天含、14 天后不含）的 Google Calendar 会议。 */
     fun loadUpcomingRange() {
-        if (_uiState.value.upcomingRangeLoading) return
+        if (_uiState.value.upcomingRangeLoading || _uiState.value.upcomingRangeRefreshing) return
         _uiState.update { it.copy(upcomingRangeLoading = true) }
         viewModelScope.launch {
-            val start = LocalDate.now()
-            val agenda = try {
-                todayAgenda.eventsBetween(start, start.plusDays(14))
-            } catch (c: CancellationException) {
-                throw c
-            } catch (_: Exception) {
-                TodayAgenda()
-            }
-            applyRangeAgenda(agenda)
+            applyRangeAgenda(fetchUpcomingRangeAgenda())
+        }
+    }
+
+    /** Upcoming 页面下拉刷新：保留现有列表，刷新完成后一次性替换。 */
+    fun refreshUpcomingRange() {
+        if (_uiState.value.upcomingRangeLoading || _uiState.value.upcomingRangeRefreshing) return
+        _uiState.update { it.copy(upcomingRangeRefreshing = true) }
+        viewModelScope.launch {
+            applyRangeAgenda(fetchUpcomingRangeAgenda())
+            _uiState.update { it.copy(upcomingRangeRefreshing = false) }
+        }
+    }
+
+    private suspend fun fetchUpcomingRangeAgenda(): TodayAgenda {
+        val start = LocalDate.now()
+        return try {
+            todayAgenda.eventsBetween(start, start.plusDays(14))
+        } catch (c: CancellationException) {
+            throw c
+        } catch (_: Exception) {
+            TodayAgenda()
         }
     }
 

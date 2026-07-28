@@ -256,6 +256,8 @@ fun HomeRoute(
                             ?.let { event -> viewModel.openMeetingNote(event.id, item.noteId) }
                     },
                     isLoading = uiState.upcomingRangeLoading,
+                    isRefreshing = uiState.upcomingRangeRefreshing,
+                    onRefresh = viewModel::refreshUpcomingRange,
                     calendarNeedsAuth = uiState.calendarNeedsAuth,
                     calendarConnecting = uiState.calendarConnecting,
                     onConnectCalendar = ::connectGoogleCalendar,

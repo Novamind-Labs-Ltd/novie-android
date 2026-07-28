@@ -33,6 +33,7 @@ data class HomeUiState(
     /** Upcoming 卡片对应的原始日历事件，用于点击卡片打开会议详情。 */
     val upcomingRangeEvents: List<CalendarEvent> = emptyList(),
     val upcomingRangeLoading: Boolean = false,
+    val upcomingRangeRefreshing: Boolean = false,
     /** 今日 Google Tasks 原始数据（首页 Up next 不展示任务卡，保留供后续功能使用）。 */
     val todayTasks: List<CalendarTask> = emptyList(),
     val notes: List<NoteItem> = emptyList(),
