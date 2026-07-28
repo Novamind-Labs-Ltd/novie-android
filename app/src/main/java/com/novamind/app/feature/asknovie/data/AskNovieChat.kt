@@ -2,7 +2,6 @@ package com.novamind.app.feature.asknovie.data
 
 import android.os.SystemClock
 import com.novamind.app.common.log.AppLog
-import com.novamind.app.common.config.FunConfig
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.HttpLoggers
 import com.novamind.app.common.net.NetworkModule
@@ -76,12 +75,9 @@ object AskNovieChat {
     private val client: OkHttpClient by lazy {
         NetworkModule.okHttpClient.newBuilder()
             .apply {
-                // newBuilder() 会继承共享 client 的 Debug BODY logger，该拦截器会缓冲
-                // 完整响应，导致 SSE 帧在连接关闭后才集中交付。仅从此副本移除。
-                interceptors().removeAll(HttpLoggers::isBodyLoggingInterceptor)
-                if (FunConfig.ASK_NOVIE_SSE_HEADER_LOG_ENABLED) {
-                    HttpLoggers.createHeaders()?.let(::addInterceptor)
-                }
+                // newBuilder() 会继承共享 client 的网络日志拦截器。SSE 必须直接消费响应流，
+                // 因此此专用副本不保留任何 HttpLoggingInterceptor。
+                interceptors().removeAll(HttpLoggers::isLoggingInterceptor)
             }
             .readTimeout(0, TimeUnit.SECONDS) // SSE 长连：不读超时
             .build()

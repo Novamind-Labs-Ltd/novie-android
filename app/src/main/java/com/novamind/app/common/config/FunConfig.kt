@@ -10,11 +10,6 @@ package com.novamind.app.common.config
  */
 object FunConfig {
 
-    // ── 调试诊断 ──
-
-    /** Ask Novie SSE 打印脱敏后的 HTTP Header；Release 变体始终不创建日志拦截器。 */
-    const val ASK_NOVIE_SSE_HEADER_LOG_ENABLED = true
-
     // ── 附件 ──
 
     /** 上传文档（附件弹窗的 Document 入口）。第一期不开放：按钮置灰不可点击。 */
