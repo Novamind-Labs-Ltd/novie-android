@@ -45,14 +45,13 @@ internal fun AttachmentChip(att: Attachment, onRemove: () -> Unit, onClick: () -
     }
 }
 
-/** 图片附件：胶囊预览缩略图 + 右端移除按钮，不展示文件名；点击打开全屏预览。 */
+/** 图片附件：80dp 方形预览 + 右上角移除按钮，不展示文件名；点击打开全屏预览。 */
 @Composable
 private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(width = 72.dp, height = 40.dp)
-            // 胶囊型裁剪：圆角半径 = 高度的一半，两端呈半圆
-            .clip(RoundedCornerShape(50))
+            .size(80.dp)
+            .clip(RoundedCornerShape(8.dp))
             .background(PlaceholderBg)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -66,14 +65,14 @@ private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClic
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        // 右端移除按钮（白底圆形，叠在预览图上，垂直居中）
+        // Figma 1459:52711：右上角内缩 8dp 的 24dp 黑色关闭按钮。
         Box(
             modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 5.dp)
-                .size(18.dp)
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+                .size(24.dp)
                 .clip(CircleShape)
-                .background(Card.copy(alpha = 0.92f))
+                .background(Dark)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false),
@@ -84,8 +83,8 @@ private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClic
             Icon(
                 painter = painterResource(R.drawable.ic_close),
                 contentDescription = "Remove",
-                tint = TextTitle,
-                modifier = Modifier.size(11.dp),
+                tint = OnDark,
+                modifier = Modifier.size(16.dp),
             )
         }
     }

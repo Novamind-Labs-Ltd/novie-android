@@ -850,8 +850,8 @@ fun AskNovieScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .horizontalScroll(rememberScrollState())
-                                        .padding(bottom = 10.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        .padding(bottom = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 ) {
                                     attachments.forEach { att ->
                                         AttachmentChip(
