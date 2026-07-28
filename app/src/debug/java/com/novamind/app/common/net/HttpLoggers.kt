@@ -24,9 +24,11 @@ object HttpLoggers {
 
     private val bodyLogger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
-        // 别把 Auth0 access token 整条打进 logcat。debug-only 不等于可以随便漏：
-        // 联调时截图/贴日志是常态，一条完整 Bearer 贴出去就是一个可用的凭证。
+        // 别把 Auth0 access token / 设备标识整条打进 logcat。debug-only 不等于可以随便漏：
+        // 联调时截图/贴日志是常态，一条完整 Bearer 贴出去就是一个可用的凭证，
+        // X-Device-Id 则是稳定的设备标识（CommonHeaders 每个请求都带）。
         redactHeader("Authorization")
+        redactHeader("X-Device-Id")
     }
 
     /**
@@ -37,6 +39,7 @@ object HttpLoggers {
     private val headersLogger = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.HEADERS
         redactHeader("Authorization")
+        redactHeader("X-Device-Id")
     }
 
     fun create(): Interceptor? = Interceptor { chain ->
