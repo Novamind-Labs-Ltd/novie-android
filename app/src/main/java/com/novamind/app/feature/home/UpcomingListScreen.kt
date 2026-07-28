@@ -352,24 +352,13 @@ private fun UpcomingFullCard(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(if (displayItem.showAction) 20.dp else 0.dp),
         ) {
-            if (displayItem.showAction) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(38.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    UpcomingTimeColumn(displayItem, Modifier.width(64.dp))
-                    UpcomingDetails(displayItem.item, Modifier.weight(1f))
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    UpcomingTimeColumn(displayItem, Modifier.width(64.dp))
-                    UpcomingDetails(displayItem.item, Modifier.width(251.dp))
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                UpcomingTimeColumn(displayItem, Modifier.width(64.dp))
+                UpcomingDetails(displayItem.item, Modifier.width(251.dp))
             }
 
             if (displayItem.showAction) {
