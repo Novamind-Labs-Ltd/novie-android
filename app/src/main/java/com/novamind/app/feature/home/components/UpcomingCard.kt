@@ -93,6 +93,7 @@ internal fun UpcomingCard(
                         Text(
                             text = actionLabel,
                             fontSize = 14.sp,
+                            lineHeight = 24.sp,
                             fontWeight = FontWeight.Medium,
                             color = ColorOnDark,
                         )

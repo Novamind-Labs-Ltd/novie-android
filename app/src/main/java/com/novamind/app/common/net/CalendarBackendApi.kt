@@ -3,34 +3,32 @@ package com.novamind.app.common.net
 import com.novamind.app.common.net.response.ApiResponse
 import kotlinx.serialization.Serializable
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.POST
 import retrofit2.http.Path
-import retrofit2.http.Query
+import retrofit2.http.PUT
 
-/** My Novie 后端日历接口：读取事件绑定状态，以及从事件创建/复用关联笔记。 */
+/** My Novie 后端日历接口：读取与写入本地会议-笔记绑定。 */
 interface CalendarBackendApi {
 
-    @GET("api/v1.0/calendar/events")
-    suspend fun listEvents(
-        @Query("from") from: String,
-        @Query("to") to: String,
-    ): Response<ApiResponse<List<BackendCalendarEventDto>>>
+    @GET("api/v1.0/calendar/events/{calendarId}/note")
+    suspend fun getNoteBinding(
+        @Path("calendarId") calendarId: String,
+    ): Response<ApiResponse<CalendarNoteBindingDto>>
 
-    @POST("api/v1.0/calendar/events/{eventId}/note")
-    suspend fun createOrGetNote(
-        @Path("eventId") eventId: String,
-    ): Response<ApiResponse<EventNoteBindDto>>
+    @PUT("api/v1.0/calendar/events/{calendarId}/note")
+    suspend fun bindNote(
+        @Path("calendarId") calendarId: String,
+        @Body request: BindCalendarNoteRequestDto,
+    ): Response<ApiResponse<CalendarNoteBindingDto>>
 }
 
 @Serializable
-data class BackendCalendarEventDto(
-    val externalEventId: String,
+data class CalendarNoteBindingDto(
     val noteId: String? = null,
 )
 
 @Serializable
-data class EventNoteBindDto(
+data class BindCalendarNoteRequestDto(
     val noteId: String,
-    val created: Boolean = false,
 )

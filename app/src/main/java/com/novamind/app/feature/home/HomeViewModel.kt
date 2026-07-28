@@ -30,7 +30,6 @@ import java.io.File
 import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -62,6 +61,8 @@ class HomeViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
     private val _openNote = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val openNote = _openNote.asSharedFlow()
+    private val meetingNoteSemaphore = Semaphore(4)
+    private val meetingNoteActions = mutableSetOf<String>()
 
     fun onSearchQueryChange(query: String) {
         // TODO: filter
@@ -207,13 +208,18 @@ class HomeViewModel @Inject constructor(
     /** 将同一份议程结果一次性映射到 Up next，避免刷新期间分段改变页面高度。 */
     private suspend fun applyAgenda(agenda: TodayAgenda) {
         val events = agenda.events.filterNot { it.isPast }
-        val today = LocalDate.now()
-        val zone = ZoneId.systemDefault()
         val linkedNoteIds = if (agenda.authorized && events.isNotEmpty()) {
-            calendarNoteRepository.linkedNoteIds(
-                from = today.atStartOfDay(zone).toInstant(),
-                to = today.plusDays(1).atStartOfDay(zone).toInstant(),
-            ).getOrNull().orEmpty()
+            coroutineScope {
+                events.map { event ->
+                    async {
+                        meetingNoteSemaphore.withPermit {
+                            event.id to calendarNoteRepository.getNoteId(event.id).getOrNull()
+                        }
+                    }
+                }.map { request -> request.await() }
+                    .mapNotNull { (eventId, noteId) -> noteId?.let { eventId to it } }
+                    .toMap()
+            }
         } else {
             emptyMap()
         }
@@ -249,30 +255,55 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 已有关联直接打开；未关联则先由后端创建笔记并绑定会议，再打开返回的 noteId。 */
+    /** 已有关联直接打开；未关联则先创建笔记，再绑定 calendarId，最后进入笔记页。 */
     fun openMeetingNote(eventId: String, noteId: String?) {
         if (noteId != null) {
             _openNote.tryEmit(noteId)
             return
         }
+        if (!meetingNoteActions.add(eventId)) return
+        val meetingTitle = _uiState.value.upcomingEvents
+            .firstOrNull { event -> event.id == eventId }
+            ?.title
+            ?.takeIf { it.isNotBlank() }
         viewModelScope.launch {
-            when (val result = calendarNoteRepository.createOrGetNote(eventId)) {
-                is ApiResult.Success -> result.data?.noteId?.let { resolvedNoteId ->
-                    _uiState.update { state ->
-                        state.copy(
-                            upcomingItems = state.upcomingItems.map { item ->
-                                if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
-                            },
-                        )
+            try {
+                when (val createResult = notesRepository.createNote(title = meetingTitle, body = "")) {
+                    is ApiResult.Success -> {
+                        val createdNoteId = createResult.data?.id
+                        if (createdNoteId == null) {
+                            _uiState.update { it.copy(errorMessage = "Failed to create meeting notes") }
+                            return@launch
+                        }
+                        when (val bindResult = calendarNoteRepository.bindNote(eventId, createdNoteId)) {
+                            is ApiResult.Success -> {
+                                val resolvedNoteId = bindResult.data ?: createdNoteId
+                                _uiState.update { state ->
+                                    state.copy(
+                                        upcomingItems = state.upcomingItems.map { item ->
+                                            if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
+                                        },
+                                    )
+                                }
+                                _openNote.emit(resolvedNoteId)
+                            }
+                            is ApiResult.BizError -> _uiState.update {
+                                it.copy(errorMessage = bindResult.message ?: "Failed to bind meeting notes")
+                            }
+                            is ApiResult.NetworkError -> _uiState.update {
+                                it.copy(errorMessage = "网络异常，请重试")
+                            }
+                        }
                     }
-                    _openNote.emit(resolvedNoteId)
+                    is ApiResult.BizError -> _uiState.update {
+                        it.copy(errorMessage = createResult.message ?: "Failed to create meeting notes")
+                    }
+                    is ApiResult.NetworkError -> _uiState.update {
+                        it.copy(errorMessage = "网络异常，请重试")
+                    }
                 }
-                is ApiResult.BizError -> _uiState.update {
-                    it.copy(errorMessage = result.message ?: "Failed to open meeting notes")
-                }
-                is ApiResult.NetworkError -> _uiState.update {
-                    it.copy(errorMessage = "网络异常，请重试")
-                }
+            } finally {
+                meetingNoteActions.remove(eventId)
             }
         }
     }
