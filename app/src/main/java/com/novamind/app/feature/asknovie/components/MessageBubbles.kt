@@ -32,15 +32,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -208,6 +211,18 @@ internal fun AssistantText(
     showAvatar: Boolean = false,
     isTyping: Boolean = false,
 ) {
+    val haptics = LocalHapticFeedback.current
+    var lastHapticAt by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(text, isTyping) {
+        if (isTyping && text.isNotEmpty()) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (now - lastHapticAt >= TYPEWRITER_HAPTIC_INTERVAL_MS) {
+                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                lastHapticAt = now
+            }
+        }
+    }
+
     if (showAvatar) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -243,6 +258,8 @@ internal fun AssistantText(
         }
     }
 }
+
+private const val TYPEWRITER_HAPTIC_INTERVAL_MS = 100L
 
 /**
  * SSE 流式期间只把已结束的段落交给 Markdown，正在增长的尾段使用稳定 Text。
