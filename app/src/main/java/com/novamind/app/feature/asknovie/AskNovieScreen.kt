@@ -117,6 +117,7 @@ import kotlinx.coroutines.launch
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
 
 private const val ASK_NOVIE_MAX_VOICE_SECONDS = 60
+private const val ASK_NOVIE_MAX_IMAGES = 5
 private const val VOICE_TRANSCRIPTION_STEP_DELAY_MS = 60L
 
 /** 预设快捷建议（点击填入输入框）。 */
@@ -327,43 +328,72 @@ fun AskNovieScreen(
     var bottomSpacerPx by remember { mutableIntStateOf(0) }
     // 列表项间距（与 LazyColumn 的 Arrangement.spacedBy 一致）
     val listItemSpacingPx = with(LocalDensity.current) { 14.dp.roundToPx() }
+    val imageCount = attachments.count { it.type == AttachType.Image }
+    val remainingImageSlots = (ASK_NOVIE_MAX_IMAGES - imageCount).coerceAtLeast(0)
+    val imageLimitMessage = "You can attach up to $ASK_NOVIE_MAX_IMAGES images."
     val addAndUploadImage: (Attachment) -> Unit = { attachment ->
-        attachments = attachments + attachment
-        uploadingAttachmentPaths = uploadingAttachmentPaths + attachment.path
-        scope.launch {
-            val result = chatVm?.uploadAttachment(attachment)
-                ?: Result.success("preview-file-id")
-            result.fold(
-                onSuccess = { fileId ->
-                    attachments = attachments.map { current ->
-                        if (current.path == attachment.path) {
-                            current.copy(remoteFileId = fileId)
-                        } else {
-                            current
+        if (attachments.count { it.type == AttachType.Image } >= ASK_NOVIE_MAX_IMAGES) {
+            runCatching { java.io.File(attachment.path).delete() }
+            ToastUtils.short(context, imageLimitMessage)
+        } else {
+            attachments = attachments + attachment
+            uploadingAttachmentPaths = uploadingAttachmentPaths + attachment.path
+            scope.launch {
+                val result = chatVm?.uploadAttachment(attachment)
+                    ?: Result.success("preview-file-id")
+                result.fold(
+                    onSuccess = { fileId ->
+                        attachments = attachments.map { current ->
+                            if (current.path == attachment.path) {
+                                current.copy(remoteFileId = fileId)
+                            } else {
+                                current
+                            }
                         }
-                    }
-                    uploadingAttachmentPaths = uploadingAttachmentPaths - attachment.path
-                },
-                onFailure = { error ->
-                    attachments = attachments.filterNot { it.path == attachment.path }
-                    uploadingAttachmentPaths = uploadingAttachmentPaths - attachment.path
-                    ToastUtils.short(
-                        context,
-                        error.message ?: "Could not upload the image. Please retry.",
-                    )
-                },
-            )
+                        uploadingAttachmentPaths = uploadingAttachmentPaths - attachment.path
+                    },
+                    onFailure = { error ->
+                        attachments = attachments.filterNot { it.path == attachment.path }
+                        uploadingAttachmentPaths = uploadingAttachmentPaths - attachment.path
+                        ToastUtils.short(
+                            context,
+                            error.message ?: "Could not upload the image. Please retry.",
+                        )
+                    },
+                )
+            }
         }
     }
-    // 图片选择器（系统照片选择器，多选，无需权限）；预览时不创建
-    val imagePicker = if (inPreview) null else rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia()
-    ) { uris ->
-        uris.forEach { uri ->
-            ImageStore.copyToInternal(context, uri)?.let { path ->
-                addAndUploadImage(Attachment(
-                    AttachType.Image, path, queryDisplayName(context, uri) ?: "image.jpg",
-                ))
+    // 图片选择器把输入框剩余名额传给系统；只剩 1 个名额时切换为单选契约。
+    val singleImagePicker = if (inPreview) null else rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let {
+            ImageStore.copyToInternal(context, it)?.let { path ->
+                addAndUploadImage(
+                    Attachment(
+                        AttachType.Image,
+                        path,
+                        queryDisplayName(context, it) ?: "image.jpg",
+                    ),
+                )
+            }
+        }
+    }
+    val multiImagePicker = if (inPreview) null else key(remainingImageSlots) {
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.PickMultipleVisualMedia(remainingImageSlots.coerceAtLeast(2))
+        ) { uris ->
+            uris.take(remainingImageSlots).forEach { uri ->
+                ImageStore.copyToInternal(context, uri)?.let { path ->
+                    addAndUploadImage(
+                        Attachment(
+                            AttachType.Image,
+                            path,
+                            queryDisplayName(context, uri) ?: "image.jpg",
+                        ),
+                    )
+                }
             }
         }
     }
@@ -390,9 +420,13 @@ fun AskNovieScreen(
     }
     // 启动系统相机（先建目标文件拿到可写 URI）
     val launchCamera: () -> Unit = {
-        ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
-            pendingCapturePath = path
-            cameraLauncher?.launch(uri)
+        if (attachments.count { it.type == AttachType.Image } >= ASK_NOVIE_MAX_IMAGES) {
+            ToastUtils.short(context, imageLimitMessage)
+        } else {
+            ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
+                pendingCapturePath = path
+                cameraLauncher?.launch(uri)
+            }
         }
     }
     // 相机权限：清单声明了 CAMERA，运行时必须持有该权限才能启动拍照，否则系统抛 SecurityException
@@ -1126,11 +1160,14 @@ fun AskNovieScreen(
     if (showAttachMenu) {
         AttachmentSheet(
             onPickImage = {
-                imagePicker?.launch(
-                    PickVisualMediaRequest(
-                        ActivityResultContracts.PickVisualMedia.ImageOnly,
-                    ),
+                val request = PickVisualMediaRequest(
+                    ActivityResultContracts.PickVisualMedia.ImageOnly,
                 )
+                when {
+                    remainingImageSlots <= 0 -> ToastUtils.short(context, imageLimitMessage)
+                    remainingImageSlots == 1 -> singleImagePicker?.launch(request)
+                    else -> multiImagePicker?.launch(request)
+                }
             },
             onTakePhoto = takePhoto,
             onPickDocument = { filePicker?.launch(arrayOf("application/pdf")) },
