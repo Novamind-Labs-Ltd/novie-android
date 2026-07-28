@@ -43,6 +43,7 @@ internal fun AttachmentChip(
     onRemove: () -> Unit,
     onClick: () -> Unit = {},
     isUploading: Boolean = false,
+    showRemove: Boolean = true,
 ) {
     if (att.type == AttachType.Image) {
         ImageAttachmentPreview(
@@ -50,6 +51,7 @@ internal fun AttachmentChip(
             onRemove = onRemove,
             onClick = onClick,
             isUploading = isUploading,
+            showRemove = showRemove,
         )
     } else {
         FileAttachmentChip(att = att, onRemove = onRemove)
@@ -63,6 +65,7 @@ private fun ImageAttachmentPreview(
     onRemove: () -> Unit,
     onClick: () -> Unit,
     isUploading: Boolean,
+    showRemove: Boolean,
 ) {
     Box(
         modifier = Modifier
@@ -101,27 +104,29 @@ private fun ImageAttachmentPreview(
                 )
             }
         }
-        // Figma 1459:52711：右上角内缩 8dp 的 24dp 黑色关闭按钮。
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-                .size(24.dp)
-                .clip(CircleShape)
-                .background(Dark)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onRemove,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_close),
-                contentDescription = "Remove",
-                tint = OnDark,
-                modifier = Modifier.size(16.dp),
-            )
+        if (showRemove) {
+            // Figma 1459:52711：待发送附件右上角内缩 8dp 的 24dp 黑色关闭按钮。
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Dark)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(bounded = false),
+                        onClick = onRemove,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = "Remove",
+                    tint = OnDark,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
 }

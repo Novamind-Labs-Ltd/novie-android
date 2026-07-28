@@ -142,6 +142,7 @@ internal fun UserBubble(msg: ChatMessage) {
                     AttachmentChip(
                         att = attachment,
                         onRemove = {},
+                        showRemove = false,
                     )
                 }
             }
