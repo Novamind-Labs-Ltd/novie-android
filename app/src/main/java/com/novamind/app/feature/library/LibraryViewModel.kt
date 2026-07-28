@@ -416,7 +416,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     // ── 笔记「详情增强」按需解析（与首页一致）─────────────────────────────
-    // 列表接口（RemoteNoteSummary）不含图片信息，故列表加载后按需拉正文详情解析首图缩略图
+    // 列表接口优先提供 thumbnailUrl；仅在缩略图缺失（如尚未生成）时拉正文详情解析首图
     // （本地文件优先，失效则用 fileId 换签名 URL）。结果按 id@updatedAt 缓存（改动 bump updatedAt → 自动失效）。
     // 为纯 UI 增强、失败静默；并发上限 4。
     private data class NoteExtras(val imagePath: String?)
@@ -424,7 +424,7 @@ class LibraryViewModel @Inject constructor(
 
     private fun resolveNoteExtras(items: List<NoteItem>) {
         val cache = noteExtras.value
-        items.forEach { item ->
+        items.filter { it.imagePath == null }.forEach { item ->
             val key = "${item.id}@${item.updatedAt}"
             if (cache.containsKey(key)) return@forEach   // 已解析（含解析为无图）→ 跳过
             viewModelScope.launch {
@@ -459,7 +459,7 @@ class LibraryViewModel @Inject constructor(
         return atts.firstOrNull { it.fileId == fid }?.downloadUrl
     }
 
-    /** 列表项领域模型 → UI 模型。列表接口不含正文，故 tags 留空；首图由 [noteExtras] 按需回填。 */
+    /** 列表项领域模型 → UI 模型。列表缩略图优先，缺失时由 [noteExtras] 按需回填。 */
     private fun RemoteNoteSummary.toNoteItem(folderName: String?, extras: Map<String, NoteExtras>): NoteItem {
         val updated = updatedAt.toEpochMillisOrZero()
         return NoteItem(
@@ -472,7 +472,7 @@ class LibraryViewModel @Inject constructor(
                 .trim(),
             tags = emptyList(),
             borderColor = ColorUtils.parseHexColor(borderColorHex),
-            imagePath = extras["$id@$updated"]?.imagePath,
+            imagePath = thumbnailUrl ?: extras["$id@$updated"]?.imagePath,
             folderName = folderName,
             createdAt = createdAt.toEpochMillisOrZero(),
             updatedAt = updated,
