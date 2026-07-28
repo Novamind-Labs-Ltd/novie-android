@@ -13,6 +13,7 @@ import com.novamind.app.common.net.response.getOrNull
 import com.novamind.app.common.session.UserSessionManager
 import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.RemoteNoteRepository
+import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.TodayAgenda
 import com.novamind.app.data.calendar.TodayAgendaUseCase
 import com.novamind.app.data.calendar.CalendarNoteRepository
@@ -61,7 +62,6 @@ class HomeViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
     private val _openNote = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val openNote = _openNote.asSharedFlow()
-    private val meetingNoteSemaphore = Semaphore(4)
     private val meetingNoteActions = mutableSetOf<String>()
 
     fun onSearchQueryChange(query: String) {
@@ -209,17 +209,7 @@ class HomeViewModel @Inject constructor(
     private suspend fun applyAgenda(agenda: TodayAgenda) {
         val events = agenda.events.filterNot { it.isPast }
         val linkedNoteIds = if (agenda.authorized && events.isNotEmpty()) {
-            coroutineScope {
-                events.map { event ->
-                    async {
-                        meetingNoteSemaphore.withPermit {
-                            event.id to calendarNoteRepository.getNoteId(event.id).getOrNull()
-                        }
-                    }
-                }.map { request -> request.await() }
-                    .mapNotNull { (eventId, noteId) -> noteId?.let { eventId to it } }
-                    .toMap()
-            }
+            firstMeetingNoteId(events)
         } else {
             emptyMap()
         }
@@ -324,17 +314,7 @@ class HomeViewModel @Inject constructor(
             .sortedBy { it.start }
             .toList()
         val linkedNoteIds = if (agenda.authorized && events.isNotEmpty()) {
-            coroutineScope {
-                events.map { event ->
-                    async {
-                        meetingNoteSemaphore.withPermit {
-                            event.id to calendarNoteRepository.getNoteId(event.id).getOrNull()
-                        }
-                    }
-                }.map { request -> request.await() }
-                    .mapNotNull { (eventId, noteId) -> noteId?.let { eventId to it } }
-                    .toMap()
-            }
+            firstMeetingNoteId(events)
         } else {
             emptyMap()
         }
@@ -363,6 +343,13 @@ class HomeViewModel @Inject constructor(
                 calendarNeedsAuth = agenda.accountAvailable && !agenda.authorized,
             )
         }
+    }
+
+    /** 只有第一张会议卡展示笔记动作，因此仅查询第一场会议的绑定状态。 */
+    private suspend fun firstMeetingNoteId(events: List<CalendarEvent>): Map<String, String> {
+        val firstEvent = events.firstOrNull() ?: return emptyMap()
+        val noteId = calendarNoteRepository.getNoteId(firstEvent.id).getOrNull() ?: return emptyMap()
+        return mapOf(firstEvent.id to noteId)
     }
 
     // ─── Google 日历连接（Up next 未授权时的入口，复用日历页同意流程） ─────────────
