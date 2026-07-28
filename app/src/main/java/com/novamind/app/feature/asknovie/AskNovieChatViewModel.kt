@@ -11,21 +11,7 @@ import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import java.util.UUID
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-private const val DISPLAY_CHUNK_SIZE = 2
-private const val DISPLAY_INTERVAL_MS = 32L
-
-/**
- * 单个 delta 最多分成多少帧画完（每帧 [DISPLAY_INTERVAL_MS]）。
- *
- * 上限存在的理由是反压而不是观感：`collect` 是顺序的，打字动画的每个 `delay` 都会挂起
- * 收集方，经 `flowOn` 的缓冲一路反压到 `readUtf8Line`。没有上限时，chunk 固定 2 字，
- * 一个 500 字的 delta 要 250 帧 ≈ 8 秒，这 8 秒里 SSE 根本没人读。
- * 16 帧 ≈ 0.5s 封顶。逐 token 的小 delta 落不到这个分支，打字手感原样不变。
- */
-private const val MAX_FRAMES_PER_DELTA = 16
 
 /**
  * Ask Novie 的 Activity 级会话状态。
@@ -97,26 +83,25 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                     when (event) {
                         is ChatStreamEvent.TextDelta -> {
                             ensureBubble()
-                            // SSE 可能一次带回整段文本；展示层按固定节奏追加，保持打字效果。
-                            // chunk 按本次 delta 的长度放大，使**任何**一个 delta 都在
-                            // MAX_FRAMES_PER_DELTA 帧内画完。collect 是顺序的，这里每个
-                            // delay 都会挂起收集方、经 flowOn 的缓冲反压到 readUtf8Line：
-                            // 固定 2 字/帧时，一个 500 字的 delta 会把 SSE 读阻塞 8 秒，
-                            // 后续帧只能干等——正好抵消掉这个 PR 争取到的流式。
-                            // 小 delta（逐 token 的常态）走 DISPLAY_CHUNK_SIZE，打字手感不变。
-                            val chunkSize = maxOf(
-                                DISPLAY_CHUNK_SIZE,
-                                (event.delta.length + MAX_FRAMES_PER_DELTA - 1) / MAX_FRAMES_PER_DELTA,
-                            )
-                            event.delta.displayChunks(chunkSize).forEach { chunk ->
-                                updateSessionMessages(targetSessionId) { current ->
-                                    current.toMutableList().also { list ->
-                                        list[list.lastIndex] = list.last().copy(
-                                            text = list.last().text + chunk,
-                                        )
-                                    }
+                            // 到达即追加，不再做人工打字节流。
+                            //
+                            // 原来是每 32ms 画 2 个 code point。因为 collect 是顺序的，每个
+                            // delay 都挂起收集方、经 flowOn 的 64 槽缓冲一路反压到
+                            // readUtf8Line —— 相当于用展示时钟给 socket 限速到 62.5 字/秒，
+                            // 而模型出 token 通常快得多，于是缓冲填满后每一帧都在等动画。
+                            // 一个 1200 字的回答服务端 4 秒发完，屏幕上要爬 19 秒。这正是
+                            // 这个 PR 想消灭的「等很久」，只是从队首挪到了全程。
+                            //
+                            // 而且它换不来平滑：AssistantMessageContent 已经用
+                            // STREAMING_MARKDOWN_FRAME_MS(120ms) 独立节流 Markdown 重绘，
+                            // 比这里的 32ms 粗得多 —— 五次 delay 里约四次根本不产生任何一帧，
+                            // 纯粹在给网络限速。平滑由下游负责，这里只管把数据交出去。
+                            updateSessionMessages(targetSessionId) { current ->
+                                current.toMutableList().also { list ->
+                                    list[list.lastIndex] = list.last().copy(
+                                        text = list.last().text + event.delta,
+                                    )
                                 }
-                                delay(DISPLAY_INTERVAL_MS)
                             }
                         }
                         is ChatStreamEvent.Failure -> {
@@ -232,22 +217,3 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     }
 }
 
-/** 按 Unicode code point 分块，避免在动画过程中把 emoji 拆成半个 surrogate。 */
-private fun String.displayChunks(chunkSize: Int): List<String> {
-    if (isEmpty()) return emptyList()
-    val chunks = ArrayList<String>((length + chunkSize - 1) / chunkSize)
-    var chunkStart = 0
-    var index = 0
-    var codePointCount = 0
-    while (index < length) {
-        index += Character.charCount(codePointAt(index))
-        codePointCount++
-        if (codePointCount == chunkSize) {
-            chunks += substring(chunkStart, index)
-            chunkStart = index
-            codePointCount = 0
-        }
-    }
-    if (chunkStart < length) chunks += substring(chunkStart)
-    return chunks
-}

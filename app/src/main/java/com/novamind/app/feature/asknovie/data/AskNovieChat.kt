@@ -129,7 +129,17 @@ object AskNovieChat {
                     body?.let { json.parseToJsonElement(it).jsonObject["code"]?.jsonPrimitive?.contentOrNull }
                 }.getOrNull()
                 AppLog.w(TAG) { "chat 开流前错误 http=${resp.code} code=$code" }
-                emit(ChatStreamEvent.Failure(code ?: "http_${resp.code}", resp.message))
+                // `resp.message` 必须过一道 isNotBlank：HTTP/2 下它**恒为空串**而不是 null。
+                // OkHttp 的 Http2ExchangeCodec 用 `StatusLine.parse("HTTP/1.1 $status")` 造响应,
+                // 只有状态码没有 reason phrase,于是 message="" —— 而消费方写的是
+                // `event.message ?: 友好兜底`,空串是非 null,兜底永远不触发,气泡就是**全空**的:
+                // 用户发完消息看到一个没有任何文字、也没有任何报错的助手气泡。
+                // NetworkModule 没有限制 protocols,默认 [HTTP_2, HTTP_1_1],现代网关一律协商上 h2,
+                // 所以这条路是常态不是边角。后端错误响应体里也只有 `code`、从不带 message。
+                emit(ChatStreamEvent.Failure(
+                    code ?: "http_${resp.code}",
+                    resp.message.takeIf { it.isNotBlank() },
+                ))
                 emit(ChatStreamEvent.Done("error"))
                 return@flow
             }
@@ -175,6 +185,19 @@ object AskNovieChat {
                     }
                     // 其它字段（id: / retry:）忽略
                 }
+            }
+            // 走到这里 = 循环 break 了(readUtf8Line 返回 null:连接被干净地关掉)，而**没有**
+            // 收到 done 帧 —— 收到 done 的正常路径在上面就 `return@flow` 了。
+            // 服务端进程重启 / 网关 idle 超时 / LB 排空都会这样：TCP 正常 FIN，没有异常，
+            // 读超时也不会触发。不补这一下的话,flow 正常结束、调用方 finally 把半截回答当成
+            // 完整回答存进 ChatSessionStore,用户看到一个被截断却毫无提示的答案。
+            // 这条也是本类 KDoc「任何一轮流最终都以 Done 结束」那句承诺的兑现。
+            // isActive 判一下:循环也可能是因为**用户主动停止**(协程被取消)才退出的,
+            // 那种情况不是截断,不该给用户报错。
+            if (currentCoroutineContext().isActive) {
+                AppLog.w(TAG) { "chat 流被提前关闭(未收到 done 帧)" }
+                emit(ChatStreamEvent.Failure("stream_truncated", null))
+                emit(ChatStreamEvent.Done("error"))
             }
             }
         } catch (c: kotlinx.coroutines.CancellationException) {
