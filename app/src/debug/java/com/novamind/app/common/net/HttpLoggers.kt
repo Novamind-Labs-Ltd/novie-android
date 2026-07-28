@@ -14,6 +14,13 @@ object HttpLoggers {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
+    /** SSE 专用：只打印 Header，不读取长连接 Body；Debug 联调保留 Authorization。 */
+    fun createHeaders(): Interceptor? = HttpLoggingInterceptor().apply {
+        redactHeader("Cookie")
+        redactHeader("Set-Cookie")
+        level = HttpLoggingInterceptor.Level.HEADERS
+    }
+
     /** SSE 长连需移除 BODY logger，避免它读完整个响应后才交给消费者。 */
     fun isBodyLoggingInterceptor(interceptor: Interceptor): Boolean =
         interceptor is HttpLoggingInterceptor &&
