@@ -1,5 +1,6 @@
 package com.novamind.app.feature.asknovie.data
 
+import android.os.SystemClock
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.NetworkModule
@@ -126,6 +127,10 @@ object AskNovieChat {
                 return@flow
             }
 
+            val streamOpenedAt = SystemClock.elapsedRealtime()
+            var lastFrameAt = streamOpenedAt
+            var frameCount = 0
+            var textFrameCount = 0
             var eventName: String? = null
             val data = StringBuilder()
             while (currentCoroutineContext().isActive) {
@@ -136,6 +141,15 @@ object AskNovieChat {
                         val name = eventName
                         if (name != null) {
                             val rawData = data.toString()
+                            val frameAt = SystemClock.elapsedRealtime()
+                            frameCount++
+                            val gapMs = frameAt - lastFrameAt
+                            val elapsedMs = frameAt - streamOpenedAt
+                            lastFrameAt = frameAt
+                            AppLog.i(TAG) {
+                                "chat SSE 帧 #$frameCount event=$name elapsedMs=$elapsedMs " +
+                                    "gapMs=$gapMs dataChars=${rawData.length}"
+                            }
                             // 记录服务端原始帧，包含文本增量与状态/done，便于还原 SSE 返回。
                             // AppLog 会在写入各 Sink 前统一做 PII 脱敏。
                             val receivedAt = TimeUtils.format(
@@ -146,8 +160,15 @@ object AskNovieChat {
                                 "chat SSE 收到 time=$receivedAt event=$name data=$rawData"
                             }
                             val ev = parseFrame(name, rawData)
+                            if (ev is ChatStreamEvent.TextDelta) textFrameCount++
                             if (ev != null) emit(ev)
-                            if (ev is ChatStreamEvent.Done) return@flow
+                            if (ev is ChatStreamEvent.Done) {
+                                AppLog.i(TAG) {
+                                    "chat SSE 结束 reason=done frames=$frameCount " +
+                                        "textFrames=$textFrameCount durationMs=$elapsedMs"
+                                }
+                                return@flow
+                            }
                         }
                         eventName = null
                         data.clear()
@@ -160,6 +181,11 @@ object AskNovieChat {
                     }
                     // 其它字段（id: / retry:）忽略
                 }
+            }
+            AppLog.i(TAG) {
+                "chat SSE 结束 reason=connection_closed frames=$frameCount " +
+                    "textFrames=$textFrameCount " +
+                    "durationMs=${SystemClock.elapsedRealtime() - streamOpenedAt}"
             }
             }
         } catch (c: kotlinx.coroutines.CancellationException) {
