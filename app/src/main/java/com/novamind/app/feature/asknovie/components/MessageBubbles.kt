@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.model.ReferenceLinkHandlerImpl
+import com.mikepenz.markdown.model.State
+import com.mikepenz.markdown.model.parseMarkdownFlow
 import com.novamind.app.R
 import com.novamind.app.feature.asknovie.AttachType
 import com.novamind.app.feature.asknovie.Attachment
@@ -55,6 +59,8 @@ import com.novamind.app.feature.asknovie.ChatMessage
 import com.novamind.app.feature.asknovie.Role
 import com.novamind.app.ui.theme.AppTheme
 import java.io.File
+import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
+import org.intellij.markdown.parser.MarkdownParser
 
 /** 语音气泡：播放/暂停 + 名称（含时长）。点击播放录音文件；预览态不创建 MediaPlayer。 */
 @Composable
@@ -248,21 +254,17 @@ private fun AssistantMessageContent(
     isStreaming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (!isStreaming) {
-        Markdown(
-            content = text,
-            modifier = modifier,
-        )
-        return
-    }
-
-    val paragraphBoundary = text.lastIndexOf("\n\n")
-    val completedMarkdown = if (paragraphBoundary >= 0) {
+    val paragraphBoundary = if (isStreaming) text.lastIndexOf("\n\n") else -1
+    val completedMarkdown = if (!isStreaming) {
+        text
+    } else if (paragraphBoundary >= 0) {
         text.substring(0, paragraphBoundary).trimEnd()
     } else {
         ""
     }
-    val activeTail = if (paragraphBoundary >= 0) {
+    val activeTail = if (!isStreaming) {
+        ""
+    } else if (paragraphBoundary >= 0) {
         text.substring(paragraphBoundary + 2)
     } else {
         text
@@ -270,7 +272,7 @@ private fun AssistantMessageContent(
 
     Column(modifier = modifier) {
         if (completedMarkdown.isNotEmpty()) {
-            Markdown(content = completedMarkdown)
+            StableMarkdown(content = completedMarkdown)
         }
         if (activeTail.isNotEmpty()) {
             Text(
@@ -280,6 +282,55 @@ private fun AssistantMessageContent(
                 lineHeight = 21.sp,
             )
         }
+    }
+}
+
+/**
+ * Markdown 内容变化时继续展示上一次解析成功的树，直到新树准备完成。
+ * 规避 renderer 默认的 Success → Loading(空 Box) → Success 闪白过程。
+ */
+@Composable
+private fun StableMarkdown(
+    content: String,
+    modifier: Modifier = Modifier,
+) {
+    val flavour = remember { GFMFlavourDescriptor() }
+    val parser = remember(flavour) { MarkdownParser(flavour) }
+    val referenceLinkHandler = remember { ReferenceLinkHandlerImpl() }
+    var renderedState by remember { mutableStateOf<State.Success?>(null) }
+
+    LaunchedEffect(content, flavour, parser, referenceLinkHandler) {
+        parseMarkdownFlow(
+            content = content,
+            flavour = flavour,
+            parser = parser,
+            referenceLinkHandler = referenceLinkHandler,
+        ).collect { state ->
+            if (state is State.Success) renderedState = state
+        }
+    }
+
+    renderedState?.let { state ->
+        Markdown(
+            state = state,
+            modifier = modifier,
+        )
+    }
+
+    // 首次解析或内容增长期间，用普通文字补齐尚未进入成功 AST 的后缀，避免尾段消失。
+    val renderedContent = renderedState?.content.orEmpty()
+    val pendingText = if (content.startsWith(renderedContent)) {
+        content.removePrefix(renderedContent).trimStart()
+    } else {
+        ""
+    }
+    if (pendingText.isNotEmpty()) {
+        Text(
+            text = pendingText,
+            color = TextTitle,
+            fontSize = 15.sp,
+            lineHeight = 21.sp,
+        )
     }
 }
 
