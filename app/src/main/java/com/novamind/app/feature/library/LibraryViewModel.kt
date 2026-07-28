@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.common.net.response.BizCode
 import com.novamind.app.common.net.response.fold
 import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.FolderRepository
@@ -20,6 +21,7 @@ import java.io.File
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -229,9 +231,11 @@ class LibraryViewModel @Inject constructor(
     // ── 文件夹详情：按 folderId 独立拉取文件夹内笔记（分页，与 Recent 解耦）──────────
     private var folderNotesCursor: String? = null
     private var currentFolderId: String? = null
+    private var folderNotesJob: Job? = null
 
     /** 打开文件夹详情：按名称解析 folderId（Unfiled → "none"），拉取第一页笔记。 */
     fun openFolder(folderName: String) {
+        folderNotesJob?.cancel()
         val fid = if (folderName == "Unfiled") {
             "none"
         } else {
@@ -247,7 +251,7 @@ class LibraryViewModel @Inject constructor(
             AppLog.w(TAG) { "openFolder 找不到服务端文件夹 name=$folderName" }
             return
         }
-        viewModelScope.launch {
+        folderNotesJob = viewModelScope.launch {
             notesRepository.listNotes(
                 trashed = false,
                 folderId = fid,
@@ -255,13 +259,20 @@ class LibraryViewModel @Inject constructor(
                 cursor = null,
             ).fold(
                 onSuccess = { page ->
-                    folderNotesRaw.value = page?.items.orEmpty()
-                    folderNotesCursor = page?.nextCursor
-                    _uiState.update { it.copy(folderNotesHasMore = page?.nextCursor != null, folderNotesLoading = false) }
+                    // 用户可能已切换或关闭文件夹；旧请求不得覆盖当前详情。
+                    if (currentFolderId == fid) {
+                        folderNotesRaw.value = page?.items.orEmpty()
+                        folderNotesCursor = page?.nextCursor
+                        _uiState.update {
+                            it.copy(folderNotesHasMore = page?.nextCursor != null, folderNotesLoading = false)
+                        }
+                    }
                 },
                 onFail = {
-                    logApiError("openFolder id=$fid", it)
-                    _uiState.update { it.copy(folderNotesLoading = false) }
+                    if (currentFolderId == fid) {
+                        logApiError("openFolder id=$fid", it)
+                        _uiState.update { it.copy(folderNotesLoading = false) }
+                    }
                 },
             )
         }
@@ -273,7 +284,7 @@ class LibraryViewModel @Inject constructor(
         val fid = currentFolderId
         if (fid == null || cursor == null || _uiState.value.folderNotesLoading) return
         _uiState.update { it.copy(folderNotesLoading = true) }
-        viewModelScope.launch {
+        folderNotesJob = viewModelScope.launch {
             notesRepository.listNotes(
                 trashed = false,
                 folderId = fid,
@@ -281,15 +292,22 @@ class LibraryViewModel @Inject constructor(
                 cursor = cursor,
             ).fold(
                 onSuccess = { page ->
-                    val existing = folderNotesRaw.value
-                    val seen = existing.mapTo(HashSet()) { it.id }
-                    folderNotesRaw.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
-                    folderNotesCursor = page?.nextCursor
-                    _uiState.update { it.copy(folderNotesHasMore = page?.nextCursor != null, folderNotesLoading = false) }
+                    // 仅当前文件夹的当前游标请求可以追加，防止切换/返回后的旧分页响应污染列表。
+                    if (currentFolderId == fid && folderNotesCursor == cursor) {
+                        val existing = folderNotesRaw.value
+                        val seen = existing.mapTo(HashSet()) { it.id }
+                        folderNotesRaw.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
+                        folderNotesCursor = page?.nextCursor
+                        _uiState.update {
+                            it.copy(folderNotesHasMore = page?.nextCursor != null, folderNotesLoading = false)
+                        }
+                    }
                 },
                 onFail = {
-                    logApiError("loadMoreFolderNotes id=$fid", it)
-                    _uiState.update { it.copy(folderNotesLoading = false) }
+                    if (currentFolderId == fid && folderNotesCursor == cursor) {
+                        logApiError("loadMoreFolderNotes id=$fid", it)
+                        _uiState.update { it.copy(folderNotesLoading = false) }
+                    }
                 },
             )
         }
@@ -297,6 +315,8 @@ class LibraryViewModel @Inject constructor(
 
     /** 关闭文件夹详情：清空该文件夹笔记快照与游标。 */
     fun closeFolder() {
+        folderNotesJob?.cancel()
+        folderNotesJob = null
         currentFolderId = null
         folderNotesCursor = null
         folderNotesRaw.value = emptyList()
@@ -359,9 +379,20 @@ class LibraryViewModel @Inject constructor(
                     folderRepository.delete(target)
                     loadFolders()
                 },
-                onFail = { logApiError("deleteFolder id=$id", it) },
+                onFail = { result ->
+                    if (result is ApiResult.BizError && result.code == BizCode.FOLDER_NOT_EMPTY) {
+                        // 本地 noteCount 仅是已加载分页的提示；以后端事务内空检查为最终真值。
+                        _uiState.update { it.copy(cannotDeleteFolderName = target) }
+                    } else {
+                        logApiError("deleteFolder id=$id", result)
+                    }
+                },
             )
         }
+    }
+
+    fun dismissCannotDeleteFolder() {
+        _uiState.update { it.copy(cannotDeleteFolderName = null) }
     }
 
     /** 修改文件夹颜色：颜色为本地概念（服务端无该字段），持久化到本地库，随 Flow 立即刷新列表。 */

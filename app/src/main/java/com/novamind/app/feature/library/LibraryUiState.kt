@@ -42,4 +42,6 @@ data class LibraryUiState(
     val folderNotesHasMore: Boolean = false,
     /** 文件夹详情页正在上拉加载下一页。 */
     val folderNotesLoading: Boolean = false,
+    /** 后端判定文件夹非空时记录名称，驱动不可删除提示；null 表示不显示。 */
+    val cannotDeleteFolderName: String? = null,
 )

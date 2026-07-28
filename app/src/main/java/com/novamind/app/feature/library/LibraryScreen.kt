@@ -137,6 +137,7 @@ fun LibraryScreen(
     onReorderFolders: (List<String>) -> Unit = {},   // Folders 页拖拽排序后回传新顺序
     onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },   // 文件夹「更多 → Rename」
     onDeleteFolder: (String) -> Unit = {},   // 文件夹「更多 → Delete」
+    onCannotDeleteFolderDismiss: () -> Unit = {},
     onChangeFolderColor: (name: String, colorHex: String?) -> Unit = { _, _ -> },   // 文件夹「更多 → Change color」
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
@@ -243,6 +244,8 @@ fun LibraryScreen(
                     onReorder = onReorderFolders,
                     onRenameFolder = onRenameFolder,
                     onDeleteFolder = onDeleteFolder,
+                    cannotDeleteFolderName = uiState.cannotDeleteFolderName,
+                    onCannotDeleteFolderDismiss = onCannotDeleteFolderDismiss,
                     onChangeFolderColor = onChangeFolderColor,
                 )
             }
@@ -392,6 +395,8 @@ private fun FoldersPage(
     onReorder: (List<String>) -> Unit = {},
     onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
+    cannotDeleteFolderName: String? = null,
+    onCannotDeleteFolderDismiss: () -> Unit = {},
     onChangeFolderColor: (name: String, colorHex: String?) -> Unit = { _, _ -> },
 ) {
     // 重命名 / 删除 / 改色目标文件夹名（null = 不显示对应弹窗）
@@ -568,7 +573,9 @@ private fun FoldersPage(
     }
 
     // 删除：文件夹内仍有笔记 → 提示不可删除；否则二次确认后删除
-    deleteTarget?.let { target ->
+    if (cannotDeleteFolderName != null) {
+        CannotDeleteFolderDialog(onDismiss = onCannotDeleteFolderDismiss)
+    } else deleteTarget?.let { target ->
         val hasNotes = (folders.firstOrNull { it.name == target }?.noteCount ?: 0) > 0
         if (hasNotes) {
             CannotDeleteFolderDialog(onDismiss = { deleteTarget = null })
@@ -774,6 +781,7 @@ fun LibraryRoute(
                     onReorderFolders = viewModel::reorderFolders,
                     onRenameFolder = viewModel::renameFolder,
                     onDeleteFolder = viewModel::deleteFolder,
+                    onCannotDeleteFolderDismiss = viewModel::dismissCannotDeleteFolder,
                     onChangeFolderColor = viewModel::changeFolderColor,
                     pagerState = pagerState,
                     onBack = onBack,

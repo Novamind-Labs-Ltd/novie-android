@@ -43,6 +43,7 @@ object BizCode {
     const val CONFLICT = 40901
     const val FILE_NOT_READY = 40902
     const val ATTACHMENT_LIMIT_EXCEEDED = 40903
+    const val FOLDER_NOT_EMPTY = 40910
 
     // ── 413 / 415 / 429 ───────────────────────────────────────────────
     const val PAYLOAD_TOO_LARGE = 41301
