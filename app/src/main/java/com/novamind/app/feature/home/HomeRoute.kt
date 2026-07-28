@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -117,7 +118,8 @@ fun HomeRoute(
     val avatarPath by ProfileStore.avatarPath.collectAsState()
 
     var notifications by remember { mutableStateOf(sampleNotifications) }
-    var overlay by remember { mutableStateOf(HomeOverlay.None) }
+    // 离开 Home 打开笔记编辑器时保留当前子页，返回后恢复到原来的 Upcoming 等页面。
+    var overlay by rememberSaveable { mutableStateOf(HomeOverlay.None) }
     LaunchedEffect(overlay) {
         if (overlay == HomeOverlay.Upcoming) viewModel.loadUpcomingRange()
     }
