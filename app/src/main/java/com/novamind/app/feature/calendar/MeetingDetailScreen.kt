@@ -156,9 +156,13 @@ fun MeetingDetailScreen(
         ) {
             Text(
                 text = event.title,
-                fontSize = 16.sp,
-                color = ColorTextSub,
-                lineHeight = 24.sp,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = ColorTextTitle,
+                lineHeight = 30.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
             )
 
             DetailRow(iconRes = R.drawable.ic_clock, primary = timeText)
