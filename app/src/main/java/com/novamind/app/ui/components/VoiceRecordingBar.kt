@@ -57,12 +57,14 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.tooling.preview.Preview
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.common.log.AppLog
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
@@ -133,6 +135,13 @@ private const val MIN_RECORD_SECONDS = AppConfig.Media.MIN_RECORD_SECONDS
  */
 private enum class RecordingBarPhase { Idle, Recording, Sending, UploadFailed }
 
+/** 录音后处理结果：成功、保留原文件重试，或删除原文件并结束本次录音。 */
+sealed interface RecordingUploadOutcome {
+    data object Success : RecordingUploadOutcome
+    data object RetryableFailure : RecordingUploadOutcome
+    data object DiscardFailure : RecordingUploadOutcome
+}
+
 /**
  * 录音卡片（点击工具栏「Voice」后从底部升起）。
  *
@@ -145,8 +154,8 @@ private enum class RecordingBarPhase { Idle, Recording, Sending, UploadFailed }
  *
  * @param onCancel 取消录音（丢弃 / 空闲态直接关闭）
  * @param onConfirm 完成录音（上传成功后）回传路径与时长（秒）
- * @param onUpload 可选上传步骤：录音落盘后调用，返回 false 进入失败态（绿色重试按钮，
- *   可重传同一文件）；为 null 时跳过上传直接 [onConfirm]（当前 CreateScreen 本地插入即此路径）。
+ * @param onUpload 可选上传步骤：录音落盘后调用；可返回保留文件重试或删除文件结束。
+ *   为 null 时跳过上传直接 [onConfirm]（当前 CreateScreen 本地插入即此路径）。
  * @param compact 紧凑输入框模式（Ask Novie 使用）；为 false 时保持 Create 页的大型录音面板。
  * @param autoStart 组件进入后是否立即开始录音。
  * @param sendingLabel 上传处理中的状态文案；Ask Novie 使用 “Transcribing…” 表达语音转文字。
@@ -156,7 +165,7 @@ fun VoiceRecordingBar(
     onCancel: () -> Unit,
     onConfirm: (path: String, durationSeconds: Int) -> Unit,
     modifier: Modifier = Modifier,
-    onUpload: (suspend (path: String, durationSeconds: Int) -> Boolean)? = null,
+    onUpload: (suspend (path: String, durationSeconds: Int) -> RecordingUploadOutcome)? = null,
     compact: Boolean = false,
     autoStart: Boolean = false,
     sendingLabel: String = "Sending…",
@@ -175,18 +184,40 @@ fun VoiceRecordingBar(
     var sending by remember { mutableStateOf(false) }
     // 上传失败：保留已落盘的录音（path, duration），显示重试按钮可重传。
     var pendingUpload by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    // 上传中或待重试的文件；组件离开组合时兜底删除，避免临时音频残留。
+    var retainedAudioPath by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     // 执行上传：成功 → onConfirm；失败 → 进入失败态（保留文件待重试）。
     suspend fun uploadAndConfirm(path: String, durationSeconds: Int) {
-        val ok = onUpload?.invoke(path, durationSeconds) ?: true
-        if (ok) {
-            pendingUpload = null
-            com.novamind.app.common.audio.RecordingController.reset()
-            onConfirm(path, durationSeconds)
-        } else {
-            sending = false
-            pendingUpload = path to durationSeconds
+        retainedAudioPath = path
+        val outcome = try {
+            onUpload?.invoke(path, durationSeconds) ?: RecordingUploadOutcome.Success
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            AppLog.e("VoiceRecordingBar", error) { "recording post-processing failed" }
+            RecordingUploadOutcome.RetryableFailure
+        }
+        when (outcome) {
+            RecordingUploadOutcome.Success -> {
+                pendingUpload = null
+                retainedAudioPath = null
+                com.novamind.app.common.audio.RecordingController.reset()
+                onConfirm(path, durationSeconds)
+            }
+            RecordingUploadOutcome.RetryableFailure -> {
+                sending = false
+                pendingUpload = path to durationSeconds
+            }
+            RecordingUploadOutcome.DiscardFailure -> {
+                runCatching { java.io.File(path).delete() }
+                pendingUpload = null
+                retainedAudioPath = null
+                sending = false
+                com.novamind.app.common.audio.RecordingController.reset()
+                onCancel()
+            }
         }
     }
     // 点删除后的「丢弃录音」二次确认
@@ -217,6 +248,7 @@ fun VoiceRecordingBar(
     androidx.compose.runtime.DisposableEffect(Unit) {
         com.novamind.app.common.audio.RecordingController.reset()
         onDispose {
+            retainedAudioPath?.let { path -> runCatching { java.io.File(path).delete() } }
             if (com.novamind.app.common.audio.RecordingController.state.value.active) {
                 com.novamind.app.common.audio.RecordingService.cancel(context)
             }

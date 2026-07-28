@@ -106,6 +106,7 @@ import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.ui.components.AttachmentSheet
 import com.novamind.app.ui.components.AppAlertDialog
 import com.novamind.app.ui.components.ImagePreviewScreen
+import com.novamind.app.ui.components.RecordingUploadOutcome
 import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.PermissionUtils
@@ -1070,13 +1071,26 @@ fun AskNovieScreen(
                                     context,
                                     "Voice input can be up to 60 seconds.",
                                 )
-                                false
+                                RecordingUploadOutcome.DiscardFailure
+                            } else if (!java.io.File(path).isFile) {
+                                ToastUtils.short(
+                                    context,
+                                    "The recording is unavailable. Please record again.",
+                                )
+                                RecordingUploadOutcome.DiscardFailure
                             } else if (chatVm == null) {
-                                false
+                                RecordingUploadOutcome.DiscardFailure
                             } else {
                                 when (val result = chatVm.transcribeVoice(path, dur)) {
                                     is ApiResult.Success -> {
                                         val transcription = result.data
+                                        if (transcription?.text.isNullOrBlank()) {
+                                            ToastUtils.short(
+                                                context,
+                                                "We couldn't hear any speech. Please try again.",
+                                            )
+                                            return@VoiceRecordingBar RecordingUploadOutcome.DiscardFailure
+                                        }
                                         val baseInput = input.trimEnd()
                                         val steps = transcription?.partialTexts.orEmpty()
                                             .ifEmpty { listOf(transcription?.text.orEmpty()) }
@@ -1094,21 +1108,29 @@ fun AskNovieScreen(
                                         input = listOf(baseInput, transcribedVoiceText)
                                             .filter { it.isNotBlank() }
                                             .joinToString(" ")
-                                        true
+                                        RecordingUploadOutcome.Success
                                     }
                                     is ApiResult.BizError -> {
                                         ToastUtils.short(
                                             context,
                                             result.message ?: "Couldn't transcribe the recording.",
                                         )
-                                        false
+                                        if (
+                                            result.httpStatus >= 500 ||
+                                            result.httpStatus == 408 ||
+                                            result.httpStatus == 429
+                                        ) {
+                                            RecordingUploadOutcome.RetryableFailure
+                                        } else {
+                                            RecordingUploadOutcome.DiscardFailure
+                                        }
                                     }
                                     is ApiResult.NetworkError -> {
                                         ToastUtils.short(
                                             context,
                                             "Couldn't transcribe the recording. Please retry.",
                                         )
-                                        false
+                                        RecordingUploadOutcome.RetryableFailure
                                     }
                                 }
                             }
