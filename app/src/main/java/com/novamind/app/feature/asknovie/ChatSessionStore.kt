@@ -8,7 +8,12 @@ import org.json.JSONObject
 
 enum class Role { User, Assistant }
 enum class AttachType { Image, File, Audio }
-data class Attachment(val type: AttachType, val path: String, val name: String)
+data class Attachment(
+    val type: AttachType,
+    val path: String,
+    val name: String,
+    val remoteFileId: String? = null,
+)
 
 /** 2×2 象限图的单元格（agentic「visualise」技能产物）。 */
 data class QuadrantCell(
@@ -127,6 +132,7 @@ object ChatSessionStore {
                     put("type", it.type.name)
                     put("path", it.path)
                     put("name", it.name)
+                    it.remoteFileId?.let { fileId -> put("remoteFileId", fileId) }
                 })
             }
         })
@@ -140,6 +146,7 @@ object ChatSessionStore {
                 type = runCatching { AttachType.valueOf(a.getString("type")) }.getOrDefault(AttachType.File),
                 path = a.optString("path", ""),
                 name = a.optString("name", ""),
+                remoteFileId = a.optString("remoteFileId").takeIf { it.isNotBlank() },
             )
         }
         return ChatMessage(

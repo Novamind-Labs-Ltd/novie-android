@@ -257,6 +257,7 @@ fun AskNovieScreen(
     var showCreateNote by remember { mutableStateOf(false) }
     var createNoteTitle by remember { mutableStateOf("First CS hire") }
     var attachments by remember { mutableStateOf(initialAttachments) }   // 待发送附件
+    var uploadingAttachmentPaths by remember { mutableStateOf(emptySet<String>()) }
     var showAttachMenu by remember { mutableStateOf(false) }             // 「+」选择菜单
     // 全屏图片预览：当前图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
@@ -326,15 +327,43 @@ fun AskNovieScreen(
     var bottomSpacerPx by remember { mutableIntStateOf(0) }
     // 列表项间距（与 LazyColumn 的 Arrangement.spacedBy 一致）
     val listItemSpacingPx = with(LocalDensity.current) { 14.dp.roundToPx() }
+    val addAndUploadImage: (Attachment) -> Unit = { attachment ->
+        attachments = attachments + attachment
+        uploadingAttachmentPaths = uploadingAttachmentPaths + attachment.path
+        scope.launch {
+            val result = chatVm?.uploadAttachment(attachment)
+                ?: Result.success("preview-file-id")
+            result.fold(
+                onSuccess = { fileId ->
+                    attachments = attachments.map { current ->
+                        if (current.path == attachment.path) {
+                            current.copy(remoteFileId = fileId)
+                        } else {
+                            current
+                        }
+                    }
+                    uploadingAttachmentPaths = uploadingAttachmentPaths - attachment.path
+                },
+                onFailure = { error ->
+                    attachments = attachments.filterNot { it.path == attachment.path }
+                    uploadingAttachmentPaths = uploadingAttachmentPaths - attachment.path
+                    ToastUtils.short(
+                        context,
+                        error.message ?: "Could not upload the image. Please retry.",
+                    )
+                },
+            )
+        }
+    }
     // 图片选择器（系统照片选择器，多选，无需权限）；预览时不创建
     val imagePicker = if (inPreview) null else rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia()
     ) { uris ->
         uris.forEach { uri ->
             ImageStore.copyToInternal(context, uri)?.let { path ->
-                attachments = attachments + Attachment(
+                addAndUploadImage(Attachment(
                     AttachType.Image, path, queryDisplayName(context, uri) ?: "image.jpg",
-                )
+                ))
             }
         }
     }
@@ -356,7 +385,7 @@ fun AskNovieScreen(
         val path = pendingCapturePath
         pendingCapturePath = null
         if (success && path != null) {
-            attachments = attachments + Attachment(AttachType.Image, path, "photo.jpg")
+            addAndUploadImage(Attachment(AttachType.Image, path, "photo.jpg"))
         }
     }
     // 启动系统相机（先建目标文件拿到可写 URI）
@@ -410,7 +439,12 @@ fun AskNovieScreen(
 
     // 追加用户消息（含附件）→ mock 回复（逐字输出 + 打字振动）；生成期间不接受新发送，可「停止」取消。
     val sendMessage: (String, List<Attachment>) -> Unit = { prompt, atts ->
-        if (!isResponding && !isStreaming && (prompt.isNotEmpty() || atts.isNotEmpty())) {
+        if (
+            !isResponding &&
+            !isStreaming &&
+            uploadingAttachmentPaths.isEmpty() &&
+            (prompt.isNotEmpty() || atts.isNotEmpty())
+        ) {
             messages = messages + ChatMessage(Role.User, prompt, atts)
             anchorIndex = messages.lastIndex   // 刚发送的用户消息位置
             sendTick++                          // 触发「滚动到顶部」
@@ -856,7 +890,12 @@ fun AskNovieScreen(
                                     attachments.forEach { att ->
                                         AttachmentChip(
                                             att = att,
-                                            onRemove = { attachments = attachments - att },
+                                            onRemove = {
+                                                attachments = attachments - att
+                                                uploadingAttachmentPaths =
+                                                    uploadingAttachmentPaths - att.path
+                                            },
+                                            isUploading = att.path in uploadingAttachmentPaths,
                                             onClick = {
                                                 val idx = attachments
                                                     .filter { it.type == AttachType.Image }
@@ -962,7 +1001,8 @@ fun AskNovieScreen(
                                         StopButton(onClick = stopResponse)
                                     } else {
                                         SendButton(
-                                            enabled = input.isNotBlank() || attachments.isNotEmpty(),
+                                            enabled = uploadingAttachmentPaths.isEmpty() &&
+                                                (input.isNotBlank() || attachments.isNotEmpty()),
                                             onClick = { send() },
                                         )
                                     }

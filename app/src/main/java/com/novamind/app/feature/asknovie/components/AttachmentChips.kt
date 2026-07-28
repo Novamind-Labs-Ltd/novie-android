@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -37,9 +38,19 @@ import java.io.File
 
 /** 已选附件 chip：图片显示圆角预览缩略图（不展示文件名）；文件显示图标 + 文件名。 */
 @Composable
-internal fun AttachmentChip(att: Attachment, onRemove: () -> Unit, onClick: () -> Unit = {}) {
+internal fun AttachmentChip(
+    att: Attachment,
+    onRemove: () -> Unit,
+    onClick: () -> Unit = {},
+    isUploading: Boolean = false,
+) {
     if (att.type == AttachType.Image) {
-        ImageAttachmentPreview(att = att, onRemove = onRemove, onClick = onClick)
+        ImageAttachmentPreview(
+            att = att,
+            onRemove = onRemove,
+            onClick = onClick,
+            isUploading = isUploading,
+        )
     } else {
         FileAttachmentChip(att = att, onRemove = onRemove)
     }
@@ -47,7 +58,12 @@ internal fun AttachmentChip(att: Attachment, onRemove: () -> Unit, onClick: () -
 
 /** 图片附件：80dp 方形预览 + 右上角移除按钮，不展示文件名；点击打开全屏预览。 */
 @Composable
-private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClick: () -> Unit) {
+private fun ImageAttachmentPreview(
+    att: Attachment,
+    onRemove: () -> Unit,
+    onClick: () -> Unit,
+    isUploading: Boolean,
+) {
     Box(
         modifier = Modifier
             .size(80.dp)
@@ -65,6 +81,26 @@ private fun ImageAttachmentPreview(att: Attachment, onRemove: () -> Unit, onClic
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
+        if (isUploading) {
+            // Figma 1459:52620：上传期间用半透明遮罩，并在左上角显示进度环。
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Dark.copy(alpha = 0.5f)),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(40.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = OnDark,
+                    strokeWidth = 2.dp,
+                )
+            }
+        }
         // Figma 1459:52711：右上角内缩 8dp 的 24dp 黑色关闭按钮。
         Box(
             modifier = Modifier

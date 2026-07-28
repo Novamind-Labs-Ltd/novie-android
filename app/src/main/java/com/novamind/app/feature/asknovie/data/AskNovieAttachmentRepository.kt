@@ -14,48 +14,46 @@ import java.io.IOException
 object AskNovieAttachmentRepository {
     private val filesRepository = FilesRepository()
 
+    /** 选择附件后立即上传并关联到当前会话，成功返回可直接交给 Agent 的 fileId。 */
+    suspend fun uploadAndAttach(
+        conversationId: String,
+        attachment: Attachment,
+    ): Result<String> {
+        val contentType = contentTypeOf(attachment)
+            ?: return Result.failure(IOException("Unsupported attachment type: ${attachment.name}"))
+        val fileId = filesRepository.uploadFile(File(attachment.path), contentType)
+            .getOrElse { return Result.failure(it) }
+        return when (val attached = apiCall {
+            NetworkModule.conversationAttachmentsApi.attach(
+                conversationId,
+                ConversationAttachRequest(fileId),
+            )
+        }) {
+            is ApiResult.Success -> Result.success(fileId)
+            is ApiResult.BizError -> Result.failure(
+                IOException(attached.message ?: "Could not attach ${attachment.name}"),
+            )
+            is ApiResult.NetworkError -> Result.failure(
+                attached.cause ?: IOException(attached.message ?: "Attachment network error"),
+            )
+        }
+    }
+
     suspend fun prepareForTurn(
         conversationId: String,
         newAttachments: List<Attachment>,
     ): Result<List<String>> {
+        val attachmentIds = mutableListOf<String>()
         newAttachments
             .filter { it.type == AttachType.Image || it.type == AttachType.File }
             .forEach { attachment ->
-                val contentType = contentTypeOf(attachment)
-                    ?: return Result.failure(IOException("Unsupported attachment type: ${attachment.name}"))
-                val fileId = filesRepository.uploadFile(File(attachment.path), contentType)
-                    .getOrElse { return Result.failure(it) }
-                when (val attached = apiCall {
-                    NetworkModule.conversationAttachmentsApi.attach(
-                        conversationId,
-                        ConversationAttachRequest(fileId),
-                    )
-                }) {
-                    is ApiResult.Success -> Unit
-                    is ApiResult.BizError -> return Result.failure(
-                        IOException(attached.message ?: "Could not attach ${attachment.name}"),
-                    )
-                    is ApiResult.NetworkError -> return Result.failure(
-                        attached.cause ?: IOException(attached.message ?: "Attachment network error"),
-                    )
-                }
+                val fileId = attachment.remoteFileId
+                    ?: uploadAndAttach(conversationId, attachment).getOrElse {
+                        return Result.failure(it)
+                    }
+                attachmentIds += fileId
             }
-
-        return when (val listed = apiCall {
-            NetworkModule.conversationAttachmentsApi.list(conversationId)
-        }) {
-            is ApiResult.Success -> Result.success(
-                listed.data.orEmpty()
-                    .filter { it.status == "ACTIVE" }
-                    .map { it.fileId },
-            )
-            is ApiResult.BizError -> Result.failure(
-                IOException(listed.message ?: "Could not load conversation attachments"),
-            )
-            is ApiResult.NetworkError -> Result.failure(
-                listed.cause ?: IOException(listed.message ?: "Attachment network error"),
-            )
-        }
+        return Result.success(attachmentIds)
     }
 
     private fun contentTypeOf(attachment: Attachment): String? {

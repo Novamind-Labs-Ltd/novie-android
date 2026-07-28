@@ -53,6 +53,10 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     suspend fun transcribeVoice(path: String, durationSeconds: Int): ApiResult<VoiceTranscription> =
         AskNovieTranscriptionRepository.transcribe(path, durationSeconds)
 
+    /** 图片选择完成后立即上传并关联当前会话。 */
+    suspend fun uploadAttachment(attachment: Attachment): Result<String> =
+        AskNovieAttachmentRepository.uploadAndAttach(sessionId.value, attachment)
+
     /** 同一个首页进入事件只消费一次，避免页面重新进入组合时重复创建空会话。 */
     fun consumeNewSessionRequest(requestId: Long): Boolean {
         if (requestId <= 0L || requestId == handledNewSessionRequestId) return false
