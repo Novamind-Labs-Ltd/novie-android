@@ -46,7 +46,7 @@ internal fun SseCard(
         is ChatCard.Options -> OptionsSseCard(card, onSendText)
         is ChatCard.Offer -> OfferSseCard(card, onSendText, onAction)
         is ChatCard.Summary -> ReadOnlyCard(card.title, card.body)
-        is ChatCard.Diagram -> ReadOnlyCard(card.caption, card.mermaid)
+        is ChatCard.Diagram -> MermaidDiagramCard(card)
         is ChatCard.CreateNote -> ReadOnlyCard(card.draftTitle, card.draftContent)
         is ChatCard.Note -> ReadOnlyCard(card.title, "Note saved")
     }

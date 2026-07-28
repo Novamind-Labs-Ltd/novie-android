@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <style>
+    @font-face {
+      font-family: "Google Sans Flex";
+      src: url("../fonts/google_sans_flex_regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+    html, body { margin: 0; padding: 0; background: transparent; overflow-x: hidden; }
+    body { font-family: "Google Sans Flex", sans-serif; }
+    #diagram { width: 100%; display: flex; justify-content: center; }
+    #diagram svg { width: 100%; max-width: 100%; height: auto; display: block; }
+  </style>
+  <script src="mermaid.min.js"></script>
+</head>
+<body>
+  <div id="diagram" aria-label="Diagram"></div>
+  <script>
+    const resultPrefix = "novie-mermaid:";
+
+    function report(result) {
+      document.title = resultPrefix + btoa(unescape(encodeURIComponent(JSON.stringify(result))));
+    }
+
+    async function renderDiagram(source, theme) {
+      const target = document.getElementById("diagram");
+      try {
+        await document.fonts.ready;
+        mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: "strict",
+          theme: theme === "dark" ? "dark" : "base",
+          maxTextSize: 50000,
+          flowchart: { htmlLabels: false, useMaxWidth: true }
+        });
+        const id = "novie-diagram-" + Date.now();
+        const rendered = await mermaid.render(id, source);
+        target.innerHTML = rendered.svg;
+        const svg = target.querySelector("svg");
+        if (svg) {
+          svg.removeAttribute("height");
+          svg.style.width = "100%";
+          svg.style.maxWidth = "100%";
+          svg.style.height = "auto";
+        }
+        requestAnimationFrame(() => report({ ok: true, height: Math.ceil(document.body.scrollHeight) }));
+      } catch (error) {
+        target.replaceChildren();
+        report({ ok: false, error: String(error && error.message ? error.message : error) });
+      }
+    }
+  </script>
+</body>
+</html>
