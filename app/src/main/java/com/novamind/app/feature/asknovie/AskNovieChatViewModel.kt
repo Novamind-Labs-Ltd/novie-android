@@ -11,11 +11,7 @@ import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository.Vo
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import java.util.UUID
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-private const val DISPLAY_CHUNK_SIZE = 2
-private const val DISPLAY_INTERVAL_MS = 32L
 
 /**
  * Ask Novie 的 Activity 级会话状态。
@@ -87,25 +83,51 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
                     when (event) {
                         is ChatStreamEvent.TextDelta -> {
                             ensureBubble()
-                            // SSE 可能一次带回整段文本；展示层按固定节奏追加，保持打字效果。
-                            event.delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
-                                updateSessionMessages(targetSessionId) { current ->
-                                    current.toMutableList().also { list ->
-                                        list[list.lastIndex] = list.last().copy(
-                                            text = list.last().text + chunk,
-                                        )
-                                    }
+                            // 到达即追加，不再做人工打字节流。
+                            //
+                            // 原来是每 32ms 画 2 个 code point。因为 collect 是顺序的，每个
+                            // delay 都挂起收集方、经 flowOn 的 64 槽缓冲一路反压到
+                            // readUtf8Line —— 相当于用展示时钟给 socket 限速到 62.5 字/秒，
+                            // 而模型出 token 通常快得多，于是缓冲填满后每一帧都在等动画。
+                            // 一个 1200 字的回答服务端 4 秒发完，屏幕上要爬 19 秒。这正是
+                            // 这个 PR 想消灭的「等很久」，只是从队首挪到了全程。
+                            //
+                            // 而且它换不来平滑：AssistantMessageContent 已经用
+                            // STREAMING_MARKDOWN_FRAME_MS(120ms) 独立节流 Markdown 重绘，
+                            // 比这里的 32ms 粗得多 —— 五次 delay 里约四次根本不产生任何一帧，
+                            // 纯粹在给网络限速。平滑由下游负责，这里只管把数据交出去。
+                            updateSessionMessages(targetSessionId) { current ->
+                                current.toMutableList().also { list ->
+                                    list[list.lastIndex] = list.last().copy(
+                                        text = list.last().text + event.delta,
+                                    )
                                 }
-                                delay(DISPLAY_INTERVAL_MS)
                             }
                         }
                         is ChatStreamEvent.Failure -> {
                             ensureBubble()
-                            val message = event.message
-                                ?: "Something went wrong (${event.code ?: "error"}). Please try again."
+                            // 兜底文案里不带 code：那是给开发者看的标识（stream_truncated /
+                            // network_error…），印进气泡就会被 persistSession 永久存进历史、
+                            // 还会被复制/分享带出去。code 已经在 AskNovieChat 的日志里了。
+                            //
+                            // takeIf(isNotBlank) 而不是裸 `?:`：空串是**非 null**，裸 `?:` 不会
+                            // 触发兜底，气泡就会是完全空白的（用户发了消息，收到一个没有任何文字、
+                            // 也没有任何报错的回复）。这道闸放在消费端是因为四个 Failure 生产点
+                            // 都汇到这里：h2 下的 `resp.message`（恒为空串，见 AskNovieChat）、
+                            // 服务端 error 帧里的 `message` 字段、network_error、stream_truncated。
+                            // 在这里挡一次，比在每个生产点各挡一次可靠。
+                            val message = event.message?.takeIf { it.isNotBlank() }
+                                ?: "Something went wrong. Please try again."
                             updateSessionMessages(targetSessionId) { current ->
                                 current.toMutableList().also { list ->
-                                    list[list.lastIndex] = list.last().copy(text = message)
+                                    // 追加,不是覆盖。流到一半才失败时(读超时/掉网),之前已经
+                                    // 画出来的半截回答是有价值的,不能被一句错误提示抹掉——那对
+                                    // 用户等于"答案凭空消失了"。开流前就失败时气泡本来是空的,
+                                    // 追加与覆盖等价,所以不需要分两种情况。
+                                    val shown = list.last().text
+                                    list[list.lastIndex] = list.last().copy(
+                                        text = if (shown.isEmpty()) message else "$shown\n\n$message",
+                                    )
                                 }
                             }
                         }
@@ -205,22 +227,3 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     }
 }
 
-/** 按 Unicode code point 分块，避免在动画过程中把 emoji 拆成半个 surrogate。 */
-private fun String.displayChunks(chunkSize: Int): List<String> {
-    if (isEmpty()) return emptyList()
-    val chunks = ArrayList<String>((length + chunkSize - 1) / chunkSize)
-    var chunkStart = 0
-    var index = 0
-    var codePointCount = 0
-    while (index < length) {
-        index += Character.charCount(codePointAt(index))
-        codePointCount++
-        if (codePointCount == chunkSize) {
-            chunks += substring(chunkStart, index)
-            chunkStart = index
-            codePointCount = 0
-        }
-    }
-    if (chunkStart < length) chunks += substring(chunkStart)
-    return chunks
-}
