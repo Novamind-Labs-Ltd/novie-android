@@ -159,7 +159,10 @@ object AskNovieChat {
                 emit(ChatStreamEvent.Done("error"))
                 return@flow
             }
-            AppLog.i(TAG) { "chat 开流成功 http=${resp.code} message=${resp.message}" }
+            AppLog.i(TAG) {
+                "chat 开流成功 http=${resp.code} httpMessage=${resp.message}" +
+                    if (BuildConfig.DEBUG) " message=$input" else ""
+            }
             val source = resp.body?.source()
             if (source == null) {
                 emit(ChatStreamEvent.Failure("empty_body", null))
