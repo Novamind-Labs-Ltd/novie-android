@@ -38,7 +38,12 @@ import androidx.compose.ui.unit.sp
 import com.novamind.app.feature.asknovie.data.ChatCard
 import com.novamind.app.feature.asknovie.data.OptionItem
 import com.novamind.app.R
+import com.novamind.app.feature.asknovie.NoteCardPreview
 import com.novamind.app.ui.theme.AppTheme
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** Ask Novie `event: card` 的通用渲染入口。 */
 @Composable
@@ -47,6 +52,8 @@ internal fun SseCard(
     onSendText: (String) -> Unit,
     onAction: (String) -> Unit,
     onSaveNoteDraft: (title: String, content: String) -> Unit,
+    notePreview: NoteCardPreview?,
+    onOpenNote: (noteId: String) -> Unit,
 ) {
     when (card) {
         is ChatCard.Options -> OptionsSseCard(card, onSendText)
@@ -55,9 +62,75 @@ internal fun SseCard(
         is ChatCard.Diagram -> MermaidDiagramCard(card)
         is ChatCard.CreateNote -> ReadOnlyCard(card.draftTitle, card.draftContent)
         is ChatCard.SaveNote -> SaveNoteSseCard(card, onSaveNoteDraft)
-        is ChatCard.Note -> ReadOnlyCard(card.title, "Note saved")
+        is ChatCard.Note -> NoteSseCard(card, notePreview, onOpenNote)
     }
 }
+
+/** Figma 1514:57724：保存成功后的 Note 概览卡，整卡点击进入笔记详情。 */
+@Composable
+private fun NoteSseCard(
+    card: ChatCard.Note,
+    preview: NoteCardPreview?,
+    onOpenNote: (noteId: String) -> Unit,
+) {
+    val title = preview?.title?.takeIf(String::isNotBlank) ?: card.title
+    val body = preview?.body.orEmpty()
+    val dateLabel = remember(preview?.updatedAt) { preview?.updatedAt?.let(::formatNoteDate) }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onOpenNote(card.noteId) },
+        color = Card,
+        shape = RoundedCornerShape(12.dp),
+        shadowElevation = 4.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (title.isNotBlank()) {
+                    Text(
+                        text = title,
+                        color = TextTitle,
+                        fontSize = 16.sp,
+                        lineHeight = 21.sp,
+                        letterSpacing = (-0.31).sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                if (body.isNotBlank()) {
+                    Text(
+                        text = body,
+                        color = TextSub,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                    )
+                }
+                if (!dateLabel.isNullOrBlank()) {
+                    Text(
+                        text = dateLabel,
+                        color = NoteDate,
+                        fontSize = 12.sp,
+                        lineHeight = 21.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatNoteDate(value: String): String? = runCatching {
+    val time = Instant.parse(value).atZone(ZoneId.systemDefault())
+    val date = time.format(DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)).uppercase(Locale.ENGLISH)
+    val clock = time.format(DateTimeFormatter.ofPattern("h:mma", Locale.ENGLISH))
+    "$date   $clock"
+}.getOrNull()
 
 /** Figma 862:62429：正文下方的 Save as note 操作，不使用 Summary 白色卡片容器。 */
 @Composable
@@ -313,6 +386,8 @@ private fun OptionsSseCardPreview() {
             onSendText = {},
             onAction = {},
             onSaveNoteDraft = { _, _ -> },
+            notePreview = null,
+            onOpenNote = {},
         )
     }
 }
@@ -345,6 +420,24 @@ private fun SaveNoteSseCardPreview() {
                     draftContent = "A few things to sharpen the picture. What does CS look like at Nova today?",
                 ),
                 onSave = { _, _ -> },
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Saved note card")
+@Composable
+private fun NoteSseCardPreview() {
+    AppTheme {
+        Box(Modifier.padding(16.dp)) {
+            NoteSseCard(
+                card = ChatCard.Note(noteId = "note-1", title = "Q3 KPIs"),
+                preview = NoteCardPreview(
+                    title = "Q3 KPIs",
+                    body = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                    updatedAt = "2026-08-01T10:00:00Z",
+                ),
+                onOpenNote = {},
             )
         }
     }

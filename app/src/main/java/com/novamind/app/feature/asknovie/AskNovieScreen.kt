@@ -212,6 +212,7 @@ fun AskNovieScreen(
     onShare: () -> Unit = {},
     onRename: () -> Unit = {},
     onExportToNotes: () -> Unit = {},
+    onOpenNote: (noteId: String) -> Unit = {},
     onDelete: () -> Unit = {},
     modifier: Modifier = Modifier,
     initialMessages: List<ChatMessage> = emptyList(),
@@ -233,6 +234,7 @@ fun AskNovieScreen(
     val previewMessages = remember { mutableStateOf(initialMessages) }
     val previewStreamingText = remember { mutableStateOf("") }
     val previewResponding = remember { mutableStateOf(initialResponding) }
+    val previewNotePreviews = remember { mutableStateOf<Map<String, NoteCardPreview>>(emptyMap()) }
     val previewStreaming = remember { mutableStateOf(false) }
     val previewResponseJob = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val previewSessionId = remember { mutableStateOf("preview-session") }
@@ -251,6 +253,12 @@ fun AskNovieScreen(
     var isResponding by (chatVm?.isResponding ?: previewResponding) // 助手正在回复
     var sessionId by (chatVm?.sessionId ?: previewSessionId)         // 当前会话 id
     var customTitle by (chatVm?.customTitle ?: previewCustomTitle)   // 手动重命名的标题
+    val notePreviews by (chatVm?.notePreviews ?: previewNotePreviews)
+    LaunchedEffect(messages) {
+        chatVm?.ensureNotePreviews(
+            messages.mapNotNull { (it.card as? ChatCard.Note)?.noteId }.toSet(),
+        )
+    }
     // options / offer Card 以单选弹层展示；记住已答/已关闭的位置，避免重组后反复弹出。
     var handledChoiceCardIndexes by remember(sessionId) { mutableStateOf(emptySet<Int>()) }
     val latestChoiceCard = messages.withIndex().lastOrNull { (_, message) ->
@@ -870,6 +878,10 @@ fun AskNovieScreen(
                                                 createNoteContent = content
                                                 showCreateNote = true
                                             },
+                                            notePreview = (msg.card as? ChatCard.Note)?.let {
+                                                notePreviews[it.noteId]
+                                            },
+                                            onOpenNote = onOpenNote,
                                         )
                                     } else when (val b = msg.block) {
                                         // agentic 富内容块

@@ -363,6 +363,12 @@ class MainActivity : FragmentActivity() {
                             userName = userSession.profile?.displayName,
                             newSessionRequestId = askNovieNewSessionRequestId,
                             onBack = { showAskNovie = false },
+                            onOpenNote = { noteId ->
+                                editingNoteId = noteId
+                                createReturnRoute = currentRoute
+                                showAskNovie = false
+                                currentRoute = BottomNavDestination.Create.route
+                            },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }

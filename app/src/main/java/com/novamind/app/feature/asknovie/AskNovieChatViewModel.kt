@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.common.net.response.ApiResult
+import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.feature.asknovie.data.AskNovieChat
 import com.novamind.app.feature.asknovie.data.AskNovieAttachmentRepository
 import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository
@@ -15,6 +16,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+data class NoteCardPreview(
+    val title: String,
+    val body: String,
+    val updatedAt: String?,
+)
 
 private const val DISPLAY_CHUNK_SIZE = 4
 private const val DISPLAY_INTERVAL_MS = 64L
@@ -25,7 +34,11 @@ private const val DISPLAY_INTERVAL_MS = 64L
  * 每个会话拥有独立的 SSE Job 和消息快照：切换历史只切换正在展示的会话，
  * 不会停止旧会话的服务端回复；旧流结束后仍会写回对应的历史记录。
  */
-class AskNovieChatViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class AskNovieChatViewModel @Inject constructor(
+    application: Application,
+    private val notesRepository: RemoteNoteRepository,
+) : AndroidViewModel(application) {
     val messages = mutableStateOf<List<ChatMessage>>(emptyList())
     val streamingText = mutableStateOf("")
     val isResponding = mutableStateOf(false)
@@ -33,6 +46,7 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     val responseJob = mutableStateOf<Job?>(null)
     val sessionId = mutableStateOf(UUID.randomUUID().toString())
     val customTitle = mutableStateOf<String?>(null)
+    val notePreviews = mutableStateOf<Map<String, NoteCardPreview>>(emptyMap())
 
     private val sessionMessages = mutableMapOf<String, List<ChatMessage>>()
     private val streamJobs = mutableMapOf<String, Job>()
@@ -40,6 +54,33 @@ class AskNovieChatViewModel(application: Application) : AndroidViewModel(applica
     private val streamingSessions = mutableSetOf<String>()
     private val sessionStreamingTexts = mutableMapOf<String, String>()
     private var handledNewSessionRequestId = 0L
+    private val loadingNotePreviews = mutableSetOf<String>()
+
+    fun ensureNotePreviews(noteIds: Set<String>) {
+        noteIds.filter { it.isNotBlank() && it !in notePreviews.value && loadingNotePreviews.add(it) }
+            .forEach { noteId ->
+                viewModelScope.launch {
+                    try {
+                        when (val result = notesRepository.getNote(noteId)) {
+                            is ApiResult.Success -> result.data?.let { note ->
+                                notePreviews.value = notePreviews.value + (
+                                    noteId to NoteCardPreview(
+                                        title = note.title.orEmpty(),
+                                        body = note.preview.orEmpty(),
+                                        updatedAt = note.updatedAt,
+                                    )
+                                )
+                            }
+                            is ApiResult.BizError,
+                            is ApiResult.NetworkError,
+                            -> Unit
+                        }
+                    } finally {
+                        loadingNotePreviews -= noteId
+                    }
+                }
+            }
+    }
 
     var seeded = false
         private set
