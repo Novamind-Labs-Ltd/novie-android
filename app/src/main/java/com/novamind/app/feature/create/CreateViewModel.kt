@@ -46,10 +46,34 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.json.JSONObject
 import java.io.File
 import java.time.Instant
 import javax.inject.Inject
+
+/**
+ * 从服务端 Note content 提取编辑器正文。
+ *
+ * 普通笔记使用 `{"body":"{\"blocks\":[...]}"}` 信封；Ask Novie 保存的笔记则可能直接
+ * 使用 `{"blocks":[...]}` doc-tree。两种格式都转换为编辑器统一消费的 doc-tree 字符串。
+ */
+internal fun noteBodyOf(content: String): String = runCatching {
+    val root = Json.parseToJsonElement(content).jsonObject
+    when {
+        "body" in root -> when (val body = root["body"]) {
+            is JsonPrimitive -> body.content
+            is JsonObject -> body.toString()
+            else -> ""
+        }
+        root["blocks"] is JsonArray -> root.toString()
+        else -> ""
+    }
+}.getOrDefault("")
 
 /**
  * 「新建 / 编辑笔记」页的 ViewModel（MVVM 单一状态源）：持有 [CreateUiState]，承接编辑器的
@@ -190,7 +214,7 @@ class CreateViewModel @Inject constructor(
             onSuccess = { note ->
                 note ?: return@fold
                 val title = note.title.orEmpty()
-                val body = bodyOf(note.content)
+                val body = noteBodyOf(note.content)
                 remoteRev = note.rev
                 savedSnapshot = TextSnapshot(title, body)
                 // 所属文件夹：优先用后端随 NoteView 返回的 folderName；缺名时回退本地已缓存的文件夹列表。
@@ -215,10 +239,6 @@ class CreateViewModel @Inject constructor(
             onFail = { logApiError("loadNote id=$noteId", it) },
         )
     }
-
-    /** 从 App content JSON（约定 `{"body": <文档字符串>}`）抽取正文；非该结构或解析失败回退空串。 */
-    private fun bodyOf(content: String): String =
-        runCatching { JSONObject(content).optString("body", "") }.getOrDefault("")
 
     /** ISO-8601 → epoch 毫秒；空或解析失败回退 null。 */
     private fun String?.toEpochMillisOrNull(): Long? =
