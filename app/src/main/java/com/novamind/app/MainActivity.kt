@@ -69,6 +69,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import kotlinx.coroutines.delay
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novamind.app.common.session.UserSessionManager
@@ -145,8 +146,14 @@ class MainActivity : FragmentActivity() {
                 BackHandler(
                     enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
                 ) {
-                    libraryAsSubpage = false
                     currentRoute = BottomNavDestination.Home.route
+                }
+                // Recent 二级页返回动画结束后再恢复底栏，避免转场中底栏提前出现。
+                LaunchedEffect(currentRoute, libraryAsSubpage) {
+                    if (libraryAsSubpage && currentRoute == BottomNavDestination.Home.route) {
+                        delay(450)
+                        libraryAsSubpage = false
+                    }
                 }
                 // 首启引导页
                 val appContext = LocalContext.current
@@ -209,6 +216,9 @@ class MainActivity : FragmentActivity() {
                             val openingRecentFromHome = libraryAsSubpage &&
                                 initialState == BottomNavDestination.Home.route &&
                                 targetState == BottomNavDestination.Library.route
+                            val closingRecentToHome = libraryAsSubpage &&
+                                initialState == BottomNavDestination.Library.route &&
+                                targetState == BottomNavDestination.Home.route
                             if (openingRecentFromHome) {
                                 // Home「Recent · See all」作为子页转场，节奏比底栏切页更舒缓。
                                 (slideInHorizontally(
@@ -221,6 +231,19 @@ class MainActivity : FragmentActivity() {
                                         animationSpec = tween(durationMillis = 450),
                                     ) { -it / 5 } + fadeOut(
                                         animationSpec = tween(durationMillis = 300),
+                                    ),
+                                )
+                            } else if (closingRecentToHome) {
+                                (slideInHorizontally(
+                                    animationSpec = tween(durationMillis = 450),
+                                ) { -it / 5 } + fadeIn(
+                                    animationSpec = tween(durationMillis = 300),
+                                    initialAlpha = 0.3f,
+                                )).togetherWith(
+                                    slideOutHorizontally(
+                                        animationSpec = tween(durationMillis = 450),
+                                    ) { it } + fadeOut(
+                                        animationSpec = tween(durationMillis = 350),
                                     ),
                                 )
                             } else if (!involvesCreate) {
@@ -305,7 +328,6 @@ class MainActivity : FragmentActivity() {
                                 // 子页进入时提供返回；底栏进入无返回键
                                 onBack = if (libraryAsSubpage) {
                                     {
-                                        libraryAsSubpage = false
                                         currentRoute = BottomNavDestination.Home.route
                                     }
                                 } else {
@@ -337,9 +359,11 @@ class MainActivity : FragmentActivity() {
                         )
                     }
 
-                    // 底部导航栏：全屏页或 Create 编辑页时滑出隐藏
+                    // 底部导航栏：全屏页、Create 编辑页或首页 Recent 二级页时滑出隐藏。
                     AnimatedVisibility(
-                        visible = !hideBottomNav && currentRoute != BottomNavDestination.Create.route,
+                        visible = !hideBottomNav &&
+                            currentRoute != BottomNavDestination.Create.route &&
+                            !libraryAsSubpage,
                         enter = slideInVertically { it } + fadeIn(),
                         exit = slideOutVertically { it } + fadeOut(),
                         modifier = Modifier.align(Alignment.BottomCenter),
