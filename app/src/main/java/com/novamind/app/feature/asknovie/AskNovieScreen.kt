@@ -251,14 +251,18 @@ fun AskNovieScreen(
     var isResponding by (chatVm?.isResponding ?: previewResponding) // 助手正在回复
     var sessionId by (chatVm?.sessionId ?: previewSessionId)         // 当前会话 id
     var customTitle by (chatVm?.customTitle ?: previewCustomTitle)   // 手动重命名的标题
-    // options Card 以底部弹层展示；记住已答/已关闭的消息位置，避免重组后反复弹出。
-    var handledOptionCardIndexes by remember(sessionId) { mutableStateOf(emptySet<Int>()) }
-    val latestOptionCard = messages.withIndex().lastOrNull { (_, message) ->
-        message.card is ChatCard.Options
+    // options / offer Card 以单选弹层展示；记住已答/已关闭的位置，避免重组后反复弹出。
+    var handledChoiceCardIndexes by remember(sessionId) { mutableStateOf(emptySet<Int>()) }
+    val latestChoiceCard = messages.withIndex().lastOrNull { (_, message) ->
+        message.card is ChatCard.Options || message.card is ChatCard.Offer
     }
-    val activeOptionCard = latestOptionCard?.takeIf { (index, _) ->
-        index !in handledOptionCardIndexes &&
-            messages.drop(index + 1).none { it.role == Role.User }
+    val activeChoiceCard = latestChoiceCard?.takeIf { (index, _) ->
+        val card = messages[index].card
+        index !in handledChoiceCardIndexes && when (card) {
+            // offer 接受后通过 action 继续，不产生用户气泡；后续已有消息即视为已处理。
+            is ChatCard.Offer -> index == messages.lastIndex
+            else -> messages.drop(index + 1).none { it.role == Role.User }
+        }
     }
     var showRename by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -849,15 +853,14 @@ fun AskNovieScreen(
                                 Box(modifier = itemModifier) {
                                     if (msg.role == Role.User) {
                                         UserBubble(msg)
-                                    } else if (msg.card is ChatCard.Options) {
-                                        // options 卡片由底部弹层承载，不在消息流重复渲染。
+                                    } else if (msg.card is ChatCard.Options || msg.card is ChatCard.Offer) {
+                                        // 强交互卡片由底部单选弹层承载，不在消息流重复渲染。
                                     } else if (msg.card != null) {
                                         SseCard(
                                             card = msg.card,
                                             onSendText = { answer ->
                                                 sendMessage(answer, emptyList())
                                             },
-                                            onAction = sendAction,
                                         )
                                     } else when (val b = msg.block) {
                                         // agentic 富内容块
@@ -1349,15 +1352,25 @@ fun AskNovieScreen(
         )
     }
 
-    activeOptionCard?.let { (index, message) ->
+    activeChoiceCard?.let { (index, message) ->
+        val card = message.card
+        val options = when (card) {
+            is ChatCard.Options -> card
+            is ChatCard.Offer -> card.asSingleSelectOptions()
+            else -> return@let
+        }
         OptionsCardSheet(
-            card = message.card as ChatCard.Options,
+            card = options,
             onSubmit = { answer ->
-                handledOptionCardIndexes = handledOptionCardIndexes + index
-                sendMessage(answer, emptyList())
+                handledChoiceCardIndexes = handledChoiceCardIndexes + index
+                if (card is ChatCard.Offer && answer == "Yes") {
+                    card.acceptAction()?.let(sendAction) ?: sendMessage(answer, emptyList())
+                } else {
+                    sendMessage(answer, emptyList())
+                }
             },
             onDismiss = {
-                handledOptionCardIndexes = handledOptionCardIndexes + index
+                handledChoiceCardIndexes = handledChoiceCardIndexes + index
             },
         )
     }

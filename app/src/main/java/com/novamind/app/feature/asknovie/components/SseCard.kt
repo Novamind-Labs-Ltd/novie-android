@@ -40,11 +40,10 @@ import com.novamind.app.ui.theme.AppTheme
 internal fun SseCard(
     card: ChatCard,
     onSendText: (String) -> Unit,
-    onAction: (String) -> Unit,
 ) {
     when (card) {
         is ChatCard.Options -> OptionsSseCard(card, onSendText)
-        is ChatCard.Offer -> OfferSseCard(card, onSendText, onAction)
+        is ChatCard.Offer -> Unit // 由 AskNovieScreen 的单选底部弹层展示。
         is ChatCard.Summary -> ReadOnlyCard(card.title, card.body)
         is ChatCard.Diagram -> MermaidDiagramCard(card)
         is ChatCard.CreateNote -> ReadOnlyCard(card.draftTitle, card.draftContent)
@@ -133,30 +132,6 @@ private fun OptionsSseCard(card: ChatCard.Options, onSendText: (String) -> Unit)
 }
 
 @Composable
-private fun OfferSseCard(
-    card: ChatCard.Offer,
-    onSendText: (String) -> Unit,
-    onAction: (String) -> Unit,
-) {
-    CardSurface {
-        Text(card.label, color = TextTitle, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        if (card.kind == "grilling") {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ActionButton("Yes", modifier = Modifier.weight(1f)) { onAction("start_grilling") }
-                ActionButton("No", modifier = Modifier.weight(1f)) { onSendText("Not right now") }
-            }
-        } else {
-            val action = when (card.kind) {
-                "summary" -> "pull_summary"
-                "note" -> "create_note_draft"
-                else -> null
-            }
-            if (action != null) ActionButton(card.label.ifBlank { "Continue" }) { onAction(action) }
-        }
-    }
-}
-
-@Composable
 private fun ReadOnlyCard(title: String, body: String) {
     CardSurface {
         if (title.isNotBlank()) Text(title, color = TextTitle, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -209,7 +184,6 @@ private fun OptionsSseCardPreview() {
                 select = "many",
             ),
             onSendText = {},
-            onAction = {},
         )
     }
 }

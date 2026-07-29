@@ -116,6 +116,24 @@ fun ClarifyQuestionSheet(
     )
 }
 
+/** `offer` 没有独立选项字段，统一转换成 Yes / Not right now 单选卡片。 */
+internal fun ChatCard.Offer.asSingleSelectOptions(): ChatCard.Options = ChatCard.Options(
+    prompt = label.ifBlank { "Would you like to continue?" },
+    items = listOf(
+        OptionItem(id = "accept", label = "Yes"),
+        OptionItem(id = "decline", label = "Not right now"),
+    ),
+    allowFreeText = false,
+    select = "one",
+)
+
+internal fun ChatCard.Offer.acceptAction(): String? = when (kind) {
+    "grilling" -> "start_grilling"
+    "summary" -> "pull_summary"
+    "note" -> "create_note_draft"
+    else -> null
+}
+
 @Composable
 private fun OptionsSheetContent(
     card: ChatCard.Options,
