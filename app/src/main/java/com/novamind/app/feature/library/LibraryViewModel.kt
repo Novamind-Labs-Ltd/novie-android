@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Library 页面 ViewModel。
@@ -32,7 +34,7 @@ import kotlinx.coroutines.launch
  * 笔记与文件夹均**由服务端驱动**，与首页保持一致：
  * - Recent 页笔记来自 `GET /notes`（[RemoteNoteRepository.listNotes]，活跃视图），与 [com.novamind.app.feature.home.HomeViewModel] 相同的映射（列表项不含正文，故 description/tags 留空）；
  * - 文件夹来自 `GET /folders`（[FoldersRepository]），create/rename/trash/reorder 走对应端点；
- * - 文件夹颜色为本地概念（服务端不带），仍由 [FolderRepository]（Room）按名维护并合并显示；
+ * - 文件夹颜色为本地概念（服务端不带），由 [FolderRepository]（Room）按服务端 folderId 维护；
  * - 每个文件夹的 noteCount 直接使用 `GET /folders` 返回的活跃笔记数，不依赖 Recent 的加载分页。
  */
 @HiltViewModel
@@ -51,12 +53,21 @@ class LibraryViewModel @Inject constructor(
     private val serverFolders = MutableStateFlow<List<RemoteFolder>>(emptyList())
     // 文件夹详情页：当前文件夹内笔记快照（按 folderId 独立拉取，与 Recent 解耦）
     private val folderNotesRaw = MutableStateFlow<List<RemoteNoteSummary>>(emptyList())
+    private var notesCursor: String? = null
+    private var foldersCursor: String? = null
+    private var notesGeneration = 0L
+    private var foldersGeneration = 0L
+    private var notesRequestJob: Job? = null
+    private var foldersRequestJob: Job? = null
+    private var refreshJob: Job? = null
+    private var reorderGeneration = 0L
+    private val reorderMutex = Mutex()
 
     init {
         // 三源合流：服务端笔记列表 × 本地文件夹颜色 × 服务端文件夹（存在性 / id / 排序 / 计数）
         combine(serverNotes, folderRepository.folders, serverFolders) { notes, stored, remote ->
             val folderNameById = remote.associate { it.id to it.name }
-            val colorByName = stored.associateBy { it.name }
+            val colorById = stored.associateBy { it.id }
             // 文件夹列表仅取服务端文件夹（不再有虚拟的 Unfiled 分组），按 sortOrder 排序
             val folders = remote
                 .sortedWith(compareBy({ it.sortOrder }, { it.name }))
@@ -65,7 +76,7 @@ class LibraryViewModel @Inject constructor(
                         id = rf.id,
                         name = rf.name,
                         noteCount = rf.noteCount.coerceIn(0, Int.MAX_VALUE.toLong()).toInt(),
-                        colorHex = colorByName[rf.name]?.colorHex,
+                        colorHex = colorById[rf.id]?.colorHex,
                     )
                 }
             notes.map { note -> note.toNoteItem(folderNameById[note.folderId]) } to folders
@@ -85,59 +96,98 @@ class LibraryViewModel @Inject constructor(
             }
             .launchIn(viewModelScope)
 
-        reload()
     }
 
     /** 静默重拉笔记与文件夹（每次进入 Library 时调用，与首页一致）。 */
     fun reload() {
-        loadNotes()
-        loadFolders()
+        cancelRefresh()
+        startNotesFirstPage()
+        startFoldersFirstPage()
     }
 
     /** 下拉刷新（Recent 页）：重拉笔记与文件夹，两者都结束后再关闭刷新态（与首页一致）。 */
     fun onRefresh() {
         if (_uiState.value.isRefreshing) return
-        _uiState.update { it.copy(isRefreshing = true) }
-        viewModelScope.launch {
-            val notesJob = launch { fetchNotes() }
-            val foldersJob = launch { fetchFolders() }
+        notesRequestJob?.cancel()
+        foldersRequestJob?.cancel()
+        val notesRequestGeneration = ++notesGeneration
+        val foldersRequestGeneration = ++foldersGeneration
+        notesCursor = null
+        foldersCursor = null
+        _uiState.update {
+            it.copy(
+                isRefreshing = true,
+                isLoadingMore = false,
+                isLoadingMoreFolders = false,
+                hasMoreNotes = false,
+                hasMoreFolders = false,
+            )
+        }
+        val notesJob = viewModelScope.launch { fetchNotes(notesRequestGeneration) }
+        val foldersJob = viewModelScope.launch { fetchFolders(foldersRequestGeneration) }
+        notesRequestJob = notesJob
+        foldersRequestJob = foldersJob
+        refreshJob = viewModelScope.launch {
             notesJob.join()
             foldersJob.join()
+            if (notesGeneration == notesRequestGeneration && foldersGeneration == foldersRequestGeneration) {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
+        }
+    }
+
+    private fun cancelRefresh() {
+        refreshJob?.cancel()
+        refreshJob = null
+        if (_uiState.value.isRefreshing) {
             _uiState.update { it.copy(isRefreshing = false) }
         }
     }
 
-    /** 拉取服务端笔记列表（活跃视图，GET /notes）。 */
-    private fun loadNotes() {
-        viewModelScope.launch { fetchNotes() }
-    }
-
     /** 拉取服务端文件夹列表（GET /folders），刷新 [serverFolders]。 */
     fun loadFolders() {
-        viewModelScope.launch { fetchFolders() }
+        cancelRefresh()
+        startFoldersFirstPage()
     }
 
-    // Recent 分页游标：下一页 cursor（null=已到底或尚未加载）
-    private var notesCursor: String? = null
+    private fun startNotesFirstPage() {
+        notesRequestJob?.cancel()
+        val generation = ++notesGeneration
+        notesCursor = null
+        _uiState.update { it.copy(hasMoreNotes = false, isLoadingMore = false) }
+        notesRequestJob = viewModelScope.launch { fetchNotes(generation) }
+    }
+
+    private fun startFoldersFirstPage() {
+        foldersRequestJob?.cancel()
+        val generation = ++foldersGeneration
+        foldersCursor = null
+        _uiState.update { it.copy(hasMoreFolders = false, isLoadingMoreFolders = false) }
+        foldersRequestJob = viewModelScope.launch { fetchFolders(generation) }
+    }
 
     /** 拉取第一页笔记（刷新 / 首次进入）：重置分页游标并整表替换。 */
-    private suspend fun fetchNotes() {
+    private suspend fun fetchNotes(generation: Long) {
         notesRepository.listNotes(
             trashed = false,
             limit = AppConfig.Paging.LIBRARY_RECENT_PAGE_SIZE,
             cursor = null,
         ).fold(
             onSuccess = { page ->
-                serverNotes.value = page?.items.orEmpty()
-                notesCursor = page?.nextCursor
-                _uiState.update {
-                    it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false, isInitialLoading = false)
+                if (notesGeneration == generation) {
+                    serverNotes.value = page?.items.orEmpty()
+                    notesCursor = page?.nextCursor
+                    _uiState.update {
+                        it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false, isInitialLoading = false)
+                    }
                 }
             },
             // 首次拉取无论成败都结束首屏加载态：失败则由骨架切到（空）内容/空态，不再卡骨架
             onFail = {
-                logApiError("loadNotes", it)
-                _uiState.update { it.copy(isInitialLoading = false) }
+                if (notesGeneration == generation) {
+                    logApiError("loadNotes", it)
+                    _uiState.update { it.copy(isInitialLoading = false, isLoadingMore = false) }
+                }
             },
         )
     }
@@ -145,69 +195,83 @@ class LibraryViewModel @Inject constructor(
     /** 上拉加载下一页：按游标取下 20 条并追加到现有列表（Recent 页触底时调用）。 */
     fun loadMoreNotes() {
         val cursor = notesCursor
+        val generation = notesGeneration
         // 无更多 / 正在加载 / 正在刷新 时不重复触发
         if (cursor == null || _uiState.value.isLoadingMore || _uiState.value.isRefreshing) return
         _uiState.update { it.copy(isLoadingMore = true) }
-        viewModelScope.launch {
+        notesRequestJob = viewModelScope.launch {
             notesRepository.listNotes(
                 trashed = false,
                 limit = AppConfig.Paging.LIBRARY_RECENT_PAGE_SIZE,
                 cursor = cursor,
             ).fold(
                 onSuccess = { page ->
-                    // 追加去重（按 id），避免游标边界重复
-                    val existing = serverNotes.value
-                    val seen = existing.mapTo(HashSet()) { it.id }
-                    serverNotes.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
-                    notesCursor = page?.nextCursor
-                    _uiState.update { it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false) }
+                    if (notesGeneration == generation && notesCursor == cursor) {
+                        // 追加去重（按 id），避免游标边界重复
+                        val existing = serverNotes.value
+                        val seen = existing.mapTo(HashSet()) { it.id }
+                        serverNotes.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
+                        notesCursor = page?.nextCursor
+                        _uiState.update { it.copy(hasMoreNotes = page?.nextCursor != null, isLoadingMore = false) }
+                    }
                 },
                 onFail = {
-                    logApiError("loadMoreNotes", it)
-                    _uiState.update { it.copy(isLoadingMore = false) }
+                    if (notesGeneration == generation && notesCursor == cursor) {
+                        logApiError("loadMoreNotes", it)
+                        _uiState.update { it.copy(isLoadingMore = false) }
+                    }
                 },
             )
         }
     }
 
-    // Folders 分页游标：下一页 cursor（null=已到底或尚未加载）
-    private var foldersCursor: String? = null
-
     /** 拉取第一页文件夹（刷新 / 首次进入）：重置分页游标并整表替换。 */
-    private suspend fun fetchFolders() {
+    private suspend fun fetchFolders(generation: Long) {
         foldersRepository.listFolders(
             limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
             cursor = null,
         ).fold(
             onSuccess = { page ->
-                serverFolders.value = page?.items.orEmpty()
-                foldersCursor = page?.nextCursor
-                _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+                if (foldersGeneration == generation) {
+                    serverFolders.value = page?.items.orEmpty()
+                    foldersCursor = page?.nextCursor
+                    _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+                }
             },
-            onFail = { logApiError("loadFolders", it) },
+            onFail = {
+                if (foldersGeneration == generation) {
+                    logApiError("loadFolders", it)
+                    _uiState.update { it.copy(isLoadingMoreFolders = false) }
+                }
+            },
         )
     }
 
     /** 上拉加载下一页文件夹：按游标取下 20 条并追加（Folders 页触底时调用）。 */
     fun loadMoreFolders() {
         val cursor = foldersCursor
+        val generation = foldersGeneration
         if (cursor == null || _uiState.value.isLoadingMoreFolders || _uiState.value.isRefreshing) return
         _uiState.update { it.copy(isLoadingMoreFolders = true) }
-        viewModelScope.launch {
+        foldersRequestJob = viewModelScope.launch {
             foldersRepository.listFolders(
                 limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
                 cursor = cursor,
             ).fold(
                 onSuccess = { page ->
-                    val existing = serverFolders.value
-                    val seen = existing.mapTo(HashSet()) { it.id }
-                    serverFolders.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
-                    foldersCursor = page?.nextCursor
-                    _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+                    if (foldersGeneration == generation && foldersCursor == cursor) {
+                        val existing = serverFolders.value
+                        val seen = existing.mapTo(HashSet()) { it.id }
+                        serverFolders.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
+                        foldersCursor = page?.nextCursor
+                        _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+                    }
                 },
                 onFail = {
-                    logApiError("loadMoreFolders", it)
-                    _uiState.update { it.copy(isLoadingMoreFolders = false) }
+                    if (foldersGeneration == generation && foldersCursor == cursor) {
+                        logApiError("loadMoreFolders", it)
+                        _uiState.update { it.copy(isLoadingMoreFolders = false) }
+                    }
                 },
             )
         }
@@ -218,14 +282,10 @@ class LibraryViewModel @Inject constructor(
     private var currentFolderId: String? = null
     private var folderNotesJob: Job? = null
 
-    /** 打开文件夹详情：按名称解析 folderId（Unfiled → "none"），拉取第一页笔记。 */
-    fun openFolder(folderName: String) {
+    /** 打开文件夹详情：直接使用服务端 folderId 拉取第一页笔记。 */
+    fun openFolder(folderId: String) {
         folderNotesJob?.cancel()
-        val fid = if (folderName == "Unfiled") {
-            "none"
-        } else {
-            serverFolders.value.firstOrNull { it.name == folderName }?.id
-        }
+        val fid = folderId.takeIf { id -> serverFolders.value.any { it.id == id } }
         currentFolderId = fid
         folderNotesCursor = null
         folderNotesRaw.value = emptyList()
@@ -233,7 +293,7 @@ class LibraryViewModel @Inject constructor(
             it.copy(folderNotes = emptyList(), folderNotesHasMore = false, folderNotesLoading = fid != null)
         }
         if (fid == null) {
-            AppLog.w(TAG) { "openFolder 找不到服务端文件夹 name=$folderName" }
+            AppLog.w(TAG) { "openFolder 找不到服务端文件夹 id=$folderId" }
             return
         }
         folderNotesJob = viewModelScope.launch {
@@ -314,8 +374,10 @@ class LibraryViewModel @Inject constructor(
         if (trimmed.isBlank()) return
         viewModelScope.launch {
             foldersRepository.createFolder(trimmed).fold(
-                onSuccess = {
-                    folderRepository.create(trimmed, colorHex)   // 本地存颜色，供列表合并显示
+                onSuccess = { created ->
+                    if (created != null) {
+                        folderRepository.upsert(created.id, created.name, colorHex)
+                    }
                     loadFolders()
                 },
                 onFail = { logApiError("createFolder", it) },
@@ -327,22 +389,20 @@ class LibraryViewModel @Inject constructor(
      * 重命名文件夹：PATCH {name}。服务端文件夹以 id 为身份，改名后其下笔记的 folderId 不变、
      * 归属自动跟随，无需逐条改写笔记。本地颜色记录同步改名，成功后重拉。
      */
-    fun renameFolder(oldName: String, newName: String) {
-        val from = oldName.trim()
+    fun renameFolder(folderId: String, newName: String) {
         val to = newName.trim()
-        // 「Unfiled」为虚拟分组，不可改名
-        if (from.isEmpty() || to.isEmpty() || from == "Unfiled" || from.equals(to, ignoreCase = true)) return
-        val id = serverFolders.value.firstOrNull { it.name == from }?.id ?: run {
-            AppLog.w(TAG) { "renameFolder 找不到服务端文件夹 name=$from" }
+        val folder = serverFolders.value.firstOrNull { it.id == folderId } ?: run {
+            AppLog.w(TAG) { "renameFolder 找不到服务端文件夹 id=$folderId" }
             return
         }
+        if (to.isEmpty() || folder.name.equals(to, ignoreCase = true)) return
         viewModelScope.launch {
-            foldersRepository.renameFolder(id, to).fold(
+            foldersRepository.renameFolder(folderId, to).fold(
                 onSuccess = {
-                    folderRepository.rename(from, to)
+                    folderRepository.rename(folderId, to)
                     loadFolders()
                 },
-                onFail = { logApiError("renameFolder id=$id", it) },
+                onFail = { logApiError("renameFolder id=$folderId", it) },
             )
         }
     }
@@ -351,25 +411,23 @@ class LibraryViewModel @Inject constructor(
      * 删除文件夹：PATCH {trashed:true} 移入回收站（服务端要求文件夹为空，非空会 40910）。
      * 本地清理颜色记录，成功后重拉。
      */
-    fun deleteFolder(name: String) {
-        val target = name.trim()
-        if (target.isEmpty() || target == "Unfiled") return
-        val id = serverFolders.value.firstOrNull { it.name == target }?.id ?: run {
-            AppLog.w(TAG) { "deleteFolder 找不到服务端文件夹 name=$target" }
+    fun deleteFolder(folderId: String) {
+        val folder = serverFolders.value.firstOrNull { it.id == folderId } ?: run {
+            AppLog.w(TAG) { "deleteFolder 找不到服务端文件夹 id=$folderId" }
             return
         }
         viewModelScope.launch {
-            foldersRepository.setTrashed(id, trashed = true).fold(
+            foldersRepository.setTrashed(folderId, trashed = true).fold(
                 onSuccess = {
-                    folderRepository.delete(target)
+                    folderRepository.delete(folderId)
                     loadFolders()
                 },
                 onFail = { result ->
                     if (result is ApiResult.BizError && result.code == BizCode.FOLDER_NOT_EMPTY) {
                         // noteCount 只统计活跃笔记；后端删除检查还包含回收站笔记，以事务内结果为最终真值。
-                        _uiState.update { it.copy(cannotDeleteFolderName = target) }
+                        _uiState.update { it.copy(cannotDeleteFolderName = folder.name) }
                     } else {
-                        logApiError("deleteFolder id=$id", result)
+                        logApiError("deleteFolder id=$folderId", result)
                     }
                 },
             )
@@ -381,40 +439,50 @@ class LibraryViewModel @Inject constructor(
     }
 
     /** 修改文件夹颜色：颜色为本地概念（服务端无该字段），持久化到本地库，随 Flow 立即刷新列表。 */
-    fun changeFolderColor(name: String, colorHex: String?) {
-        viewModelScope.launch { folderRepository.setColor(name, colorHex) }
+    fun changeFolderColor(folderId: String, colorHex: String?) {
+        val folder = serverFolders.value.firstOrNull { it.id == folderId } ?: return
+        viewModelScope.launch { folderRepository.setColor(folderId, folder.name, colorHex) }
     }
 
     /**
-     * 保存拖拽后的文件夹顺序：PUT /folders/order。把可见顺序里的文件夹名映射为服务端 id
-     * （虚拟分组如 Unfiled 无 id、自动跳过），成功后采用接口返回的权威首屏与分页游标。
+     * 保存拖拽后的文件夹顺序：PUT /folders/order。UI 直接回传服务端 id 顺序，
+     * 成功后采用接口返回的权威首屏与分页游标。
      */
-    fun reorderFolders(orderedNames: List<String>) {
-        val byName = serverFolders.value.associateBy { it.name }
-        val orderedIds = orderedNames.mapNotNull { byName[it]?.id }
+    fun reorderFolders(orderedFolderIds: List<String>) {
+        val byId = serverFolders.value.associateBy { it.id }
+        val orderedIds = orderedFolderIds.distinct().filter { it in byId }
         if (orderedIds.isEmpty()) return
+        val generation = ++reorderGeneration
         // 先改 UI（乐观更新）：按新顺序重排 serverFolders 并重写 sortOrder，列表立即呈现新顺序、不等网络
-        serverFolders.value = orderedNames
-            .mapNotNull { byName[it] }
+        serverFolders.value = orderedIds
+            .mapNotNull { byId[it] }
             .mapIndexed { i, f -> f.copy(sortOrder = i) }
-        // 再调接口；失败则重拉服务端真值回滚
+        // 串行提交：前一个请求结束后只发送最新等待顺序；旧响应不得覆盖最后一次拖拽结果。
         viewModelScope.launch {
-            foldersRepository.reorderFolders(orderedIds).fold(
-                onSuccess = { page ->
-                    serverFolders.value = page?.items.orEmpty()
-                    foldersCursor = page?.nextCursor
-                    _uiState.update {
-                        it.copy(
-                            hasMoreFolders = page?.nextCursor != null,
-                            isLoadingMoreFolders = false,
-                        )
-                    }
-                },
-                onFail = {         // 失败重拉服务端真值回滚
-                    logApiError("reorderFolders 回滚", it)
-                    loadFolders()
-                },
-            )
+            reorderMutex.withLock {
+                // 等锁期间又发生了拖拽，则当前顺序已过期，直接跳过网络提交。
+                if (reorderGeneration != generation) return@withLock
+                foldersRepository.reorderFolders(orderedIds).fold(
+                    onSuccess = { page ->
+                        if (reorderGeneration == generation) {
+                            serverFolders.value = page?.items.orEmpty()
+                            foldersCursor = page?.nextCursor
+                            _uiState.update {
+                                it.copy(
+                                    hasMoreFolders = page?.nextCursor != null,
+                                    isLoadingMoreFolders = false,
+                                )
+                            }
+                        }
+                    },
+                    onFail = {
+                        if (reorderGeneration == generation) {
+                            logApiError("reorderFolders 回滚", it)
+                            loadFolders()
+                        }
+                    },
+                )
+            }
         }
     }
 

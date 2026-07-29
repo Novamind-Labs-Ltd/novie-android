@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -12,7 +14,7 @@ import androidx.room.RoomDatabase
         FolderEntity::class,
         TagEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,   // 调试阶段：不导出 schema、不记录版本 JSON（上线前再开启并写迁移）
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,10 +38,18 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "novie.db",
                 )
+                    .addMigrations(MIGRATION_8_9)
                     // 调试阶段：schema 变更直接销毁重建，不写迁移
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { INSTANCE = it }
             }
+
+        /** 文件夹身份切换为服务端 id；移除名称唯一索引，保留其它本地数据与旧颜色记录。 */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS index_folders_name")
+            }
+        }
     }
 }

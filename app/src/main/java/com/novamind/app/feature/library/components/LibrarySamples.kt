@@ -11,8 +11,8 @@ internal val sampleNotes = listOf(
 )
 
 internal val sampleFolders = listOf(
-    LibraryFolder("Work", 8, colorHex = "#388E64"),
-    LibraryFolder("Projects", 5, colorHex = "#FF8C00"),
-    LibraryFolder("Personal", 3, colorHex = "#4A8292"),
-    LibraryFolder("Unfiled", 2),
+    LibraryFolder("folder-work", "Work", 8, colorHex = "#388E64"),
+    LibraryFolder("folder-projects", "Projects", 5, colorHex = "#FF8C00"),
+    LibraryFolder("folder-personal", "Personal", 3, colorHex = "#4A8292"),
+    LibraryFolder("folder-unfiled", "Unfiled", 2),
 )

@@ -132,13 +132,13 @@ fun LibraryScreen(
     onLoadMoreFolders: () -> Unit = {},   // Folders 页上拉触底 → 加载下一页
     onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
     onOpenNote: (String) -> Unit = {},   // 点击 Recent 笔记 → 进入笔记预览/编辑页
-    onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 进入该文件夹的笔记列表页
+    onOpenFolder: (String) -> Unit = {},   // 点击文件夹 → 回传 folderId，进入笔记列表页
     onCreateFolder: (name: String, colorHex: String?) -> Unit = { _, _ -> },   // Folders 页创建新文件夹
-    onReorderFolders: (List<String>) -> Unit = {},   // Folders 页拖拽排序后回传新顺序
-    onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },   // 文件夹「更多 → Rename」
-    onDeleteFolder: (String) -> Unit = {},   // 文件夹「更多 → Delete」
+    onReorderFolders: (List<String>) -> Unit = {},   // Folders 页拖拽排序后回传 folderId 顺序
+    onRenameFolder: (id: String, new: String) -> Unit = { _, _ -> },
+    onDeleteFolder: (String) -> Unit = {},   // 回传 folderId
     onCannotDeleteFolderDismiss: () -> Unit = {},
-    onChangeFolderColor: (name: String, colorHex: String?) -> Unit = { _, _ -> },   // 文件夹「更多 → Change color」
+    onChangeFolderColor: (id: String, colorHex: String?) -> Unit = { _, _ -> },
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
     onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
@@ -380,7 +380,7 @@ private fun LoadMoreFooter() {
 
 /**
  * Folders 页：按文件夹聚合的列表，空则显示提示。
- * 支持长按某行拖拽排序；松手后通过 [onReorder] 回传新的名称顺序。
+ * 支持长按某行拖拽排序；松手后通过 [onReorder] 回传新的 folderId 顺序。
  * 整页包裹下拉刷新（与首页 / Recent 页一致）：下拉重拉笔记与文件夹；空态也置于可滚动容器内以支持下拉。
  */
 @Composable
@@ -393,18 +393,17 @@ private fun FoldersPage(
     isLoadingMoreFolders: Boolean = false,
     onLoadMoreFolders: () -> Unit = {},
     onReorder: (List<String>) -> Unit = {},
-    onRenameFolder: (old: String, new: String) -> Unit = { _, _ -> },
+    onRenameFolder: (id: String, new: String) -> Unit = { _, _ -> },
     onDeleteFolder: (String) -> Unit = {},
     cannotDeleteFolderName: String? = null,
     onCannotDeleteFolderDismiss: () -> Unit = {},
-    onChangeFolderColor: (name: String, colorHex: String?) -> Unit = { _, _ -> },
+    onChangeFolderColor: (id: String, colorHex: String?) -> Unit = { _, _ -> },
 ) {
-    // 重命名 / 删除 / 改色目标文件夹名（null = 不显示对应弹窗）
+    // 重命名 / 删除 / 改色目标均保存服务端 folderId。
     var renameTarget by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<String?>(null) }
     var colorTarget by remember { mutableStateOf<String?>(null) }
-    // 当前左滑展开的文件夹名（同时最多一行展开；打开新行自动收起其它行）
-    var openSwipeName by remember { mutableStateOf<String?>(null) }
+    var openSwipeId by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     // 键盘适配：Activity 为 adjustNothing（窗口不重排），行内重命名弹键盘时需 Compose 侧自行让出空间——
     // 列表底部预留 IME 高度作滚动余量，并把被编辑行**逐帧瞬时**贴到键盘上沿（见下方 LaunchedEffect）。
@@ -419,7 +418,7 @@ private fun FoldersPage(
     val rowSpacingPx = with(density) { rowSpacing.roundToPx() }
 
     // 拖拽换序：sh.calvin.reorderable（长按整行拖动）。ordered 为本地顺序副本：拖动中由 onMove 改写、
-    // 非拖拽时从服务端 folders 同步；抬起（onDragStopped）时把顺序（文件夹名序列）提交给 onReorder。
+    // 非拖拽时从服务端 folders 同步；抬起时把 folderId 顺序提交给 onReorder。
     val haptics = LocalHapticFeedback.current
     val lazyListState = rememberLazyListState()
     var ordered by remember { mutableStateOf(folders) }
@@ -453,8 +452,8 @@ private fun FoldersPage(
     // ([rowSpacingPx]) 留白，不紧贴键盘。行只上移不下压（delta>0）。
     LaunchedEffect(renameTarget, imeBottomPx) {
         if (imeBottomPx <= 0) return@LaunchedEffect
-        renameTarget?.let { name ->
-            val idx = ordered.indexOfFirst { it.name == name }
+        renameTarget?.let { id ->
+            val idx = ordered.indexOfFirst { it.id == id }
             if (idx < 0) return@let
             // 该行若已滚出可视区才无动画定位（只在必要时跳，避免每帧硬跳）；正常刚点开时它是可见的
             if (lazyListState.layoutInfo.visibleItemsInfo.none { it.index == idx }) {
@@ -477,8 +476,8 @@ private fun FoldersPage(
             .pointerInput(Unit) {
                 // 点击空白区域收起已展开的左滑行：点在行 / 编辑删除按钮上的手势会被子级消费，
                 // detectTapGestures 仅在手势未被消费（即真正的空白处）时触发，故不影响正常点击、
-                // 左滑与列表滚动。收起本身交给 openSwipeName=null → 行内 LaunchedEffect(open) 回弹。
-                detectTapGestures { if (openSwipeName != null) openSwipeName = null }
+                // 左滑与列表滚动。收起本身交给 openSwipeId=null → 行内 LaunchedEffect(open) 回弹。
+                detectTapGestures { if (openSwipeId != null) openSwipeId = null }
             },
     ) {
         if (folders.isEmpty()) {
@@ -518,9 +517,9 @@ private fun FoldersPage(
                 bottom = maxOf(BottomNavContentInset, 16.dp + imeBottomDp),
             ),
         ) {
-            items(ordered, key = { it.name }) { folder ->
-            ReorderableItem(reorderState, key = folder.name) { _ ->
-                if (folder.name == renameTarget) {
+            items(ordered, key = { it.id }) { folder ->
+            ReorderableItem(reorderState, key = folder.id) { _ ->
+                if (folder.id == renameTarget) {
                     // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认（重命名态不参与拖拽）
                     FolderRenameRow(
                         initialName = folder.name,
@@ -528,12 +527,12 @@ private fun FoldersPage(
                         onConfirm = { newName ->
                             // 与其它已有文件夹重名（忽略大小写）→ 提示且不修改
                             val conflict = folders.any {
-                                it.name != folder.name && it.name.equals(newName, ignoreCase = true)
+                                it.id != folder.id && it.name.equals(newName, ignoreCase = true)
                             }
                             if (conflict) {
                                 ToastUtils.short(context, "Folder \"$newName\" already exists")
                             } else {
-                                onRenameFolder(folder.name, newName)
+                                onRenameFolder(folder.id, newName)
                                 renameTarget = null
                             }
                         },
@@ -544,22 +543,22 @@ private fun FoldersPage(
                     Box(
                         modifier = Modifier.longPressDraggableHandle(
                             onDragStarted = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
-                            onDragStopped = { onReorder(ordered.map { it.name }) },
+                            onDragStopped = { onReorder(ordered.map { it.id }) },
                         ),
                     ) {
                         FolderSwipeRow(
-                            open = openSwipeName == folder.name,
-                            onOpenChange = { opened -> openSwipeName = if (opened) folder.name else null },
-                            onEdit = { renameTarget = folder.name },
-                            onDelete = { deleteTarget = folder.name },
+                            open = openSwipeId == folder.id,
+                            onOpenChange = { opened -> openSwipeId = if (opened) folder.id else null },
+                            onEdit = { renameTarget = folder.id },
+                            onDelete = { deleteTarget = folder.id },
                         ) { isOpen, close ->
                             FolderRow(
                                 folder = folder,
                                 // 展开态点击整行先收起，避免误入文件夹
-                                onClick = { if (isOpen) close() else onOpenFolder(folder.name) },
-                                onRename = { renameTarget = folder.name },
-                                onChangeColor = { colorTarget = folder.name },
-                                onDelete = { deleteTarget = folder.name },
+                                onClick = { if (isOpen) close() else onOpenFolder(folder.id) },
+                                onRename = { renameTarget = folder.id },
+                                onChangeColor = { colorTarget = folder.id },
+                                onDelete = { deleteTarget = folder.id },
                             )
                         }
                     }
@@ -575,15 +574,16 @@ private fun FoldersPage(
     // 删除：文件夹内仍有笔记 → 提示不可删除；否则二次确认后删除
     if (cannotDeleteFolderName != null) {
         CannotDeleteFolderDialog(onDismiss = onCannotDeleteFolderDismiss)
-    } else deleteTarget?.let { target ->
-        val hasNotes = (folders.firstOrNull { it.name == target }?.noteCount ?: 0) > 0
+    } else deleteTarget?.let { targetId ->
+        val target = folders.firstOrNull { it.id == targetId }
+        val hasNotes = (target?.noteCount ?: 0) > 0
         if (hasNotes) {
             CannotDeleteFolderDialog(onDismiss = { deleteTarget = null })
         } else {
             DeleteFolderDialog(
-                folderName = target,
+                folderName = target?.name.orEmpty(),
                 onConfirm = {
-                    onDeleteFolder(target)
+                    onDeleteFolder(targetId)
                     deleteTarget = null
                 },
                 onDismiss = { deleteTarget = null },
@@ -592,12 +592,12 @@ private fun FoldersPage(
     }
 
     // 改颜色底部弹层
-    colorTarget?.let { target ->
-        val currentHex = folders.firstOrNull { it.name == target }?.colorHex
+    colorTarget?.let { targetId ->
+        val currentHex = folders.firstOrNull { it.id == targetId }?.colorHex
         ChangeFolderColorSheet(
             currentHex = currentHex,
             onPick = { hex ->
-                onChangeFolderColor(target, hex)
+                onChangeFolderColor(targetId, hex)
                 colorTarget = null
             },
             onDismiss = { colorTarget = null },
@@ -702,23 +702,23 @@ fun LibraryRoute(
     // 每次进入 Library（重新进入组合，如底栏切换 / 从编辑器返回）都静默重拉笔记与文件夹，与首页一致
     LaunchedEffect(Unit) { viewModel.reload() }
     // 当前进入的文件夹（详情页）；null = 显示 Library 主页（Recent/Folders）
-    var selectedFolder by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedFolderId by rememberSaveable { mutableStateOf<String?>(null) }
     // 分段标签状态提升到这里：进入文件夹详情再返回时仍停留在 Folders 页（不回到 Recent）
     val pagerState = rememberPagerState(pageCount = { 2 })
 
     // Home 的 Recent「See all」必须落到 Recent；底栏进入时仍恢复用户上次停留的标签。
     LaunchedEffect(openRecent) {
         if (openRecent) {
-            selectedFolder = null
+            selectedFolderId = null
             viewModel.closeFolder()
             pagerState.scrollToPage(0)
         }
     }
 
-    BackHandler(enabled = selectedFolder != null) { selectedFolder = null; viewModel.closeFolder() }
+    BackHandler(enabled = selectedFolderId != null) { selectedFolderId = null; viewModel.closeFolder() }
 
     AnimatedContent(
-        targetState = selectedFolder,
+        targetState = selectedFolderId,
         transitionSpec = {
             if (targetState != null) {
                 // 进入文件夹详情：从右侧推入
@@ -731,14 +731,15 @@ fun LibraryRoute(
             }
         },
         label = "library_folder_detail",
-    ) { folder ->
-        if (folder != null) {
+    ) { folderId ->
+        if (folderId != null) {
             // 进入文件夹详情时按 folderId 独立拉取该文件夹内笔记（与 Recent 分页解耦）
-            LaunchedEffect(folder) { viewModel.openFolder(folder) }
+            LaunchedEffect(folderId) { viewModel.openFolder(folderId) }
+            val folderName = uiState.folders.firstOrNull { it.id == folderId }?.name.orEmpty()
             FolderDetailScreen(
-                folderName = folder,
+                folderName = folderName,
                 notes = uiState.folderNotes,
-                onBack = { selectedFolder = null; viewModel.closeFolder() },
+                onBack = { selectedFolderId = null; viewModel.closeFolder() },
                 onOpenNote = onOpenNote,
                 hasMore = uiState.folderNotesHasMore,
                 isLoadingMore = uiState.folderNotesLoading,
@@ -759,7 +760,7 @@ fun LibraryRoute(
                 drawer = {
                     LibraryDrawer(
                         folders = uiState.folders,
-                        onOpenFolder = { name -> drawerOpen = false; selectedFolder = name },
+                        onOpenFolder = { id -> drawerOpen = false; selectedFolderId = id },
                         onOpenTagManager = { drawerOpen = false; onOpenTagManager() },
                         onOpenSharedWithMe = { drawerOpen = false; onOpenSharedWithMe() },
                         onOpenRecycleBin = { drawerOpen = false; onOpenRecycleBin() },
@@ -776,7 +777,7 @@ fun LibraryRoute(
                     onLoadMoreFolders = viewModel::loadMoreFolders,
                     onOpenSidebar = { drawerOpen = true },
                     onOpenNote = onOpenNote,
-                    onOpenFolder = { selectedFolder = it },
+                    onOpenFolder = { selectedFolderId = it },
                     onCreateFolder = viewModel::createFolder,
                     onReorderFolders = viewModel::reorderFolders,
                     onRenameFolder = viewModel::renameFolder,

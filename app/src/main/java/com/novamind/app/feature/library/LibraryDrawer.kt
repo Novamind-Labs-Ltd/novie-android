@@ -103,8 +103,8 @@ internal fun LibraryDrawer(
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
-                items(folders, key = { it.name }) { folder ->
-                    DrawerFolderItem(folder = folder, onClick = { onOpenFolder(folder.name) })
+                items(folders, key = { it.id }) { folder ->
+                    DrawerFolderItem(folder = folder, onClick = { onOpenFolder(folder.id) })
                 }
             }
 
@@ -195,9 +195,9 @@ private fun LibraryDrawerPreview() {
     AppTheme {
         LibraryDrawer(
             folders = listOf(
-                LibraryFolder("Work", 12),
-                LibraryFolder("Personal", 5, colorHex = "#388E64"),
-                LibraryFolder("Ideas", 3),
+                LibraryFolder("folder-work", "Work", 12),
+                LibraryFolder("folder-personal", "Personal", 5, colorHex = "#388E64"),
+                LibraryFolder("folder-ideas", "Ideas", 3),
             ),
             onOpenFolder = {},
             onOpenTagManager = {},
@@ -211,7 +211,7 @@ private fun LibraryDrawerPreview() {
 @Composable
 private fun DrawerFolderItemPreview() {
     AppTheme {
-        DrawerFolderItem(folder = LibraryFolder("Work", 12), onClick = {})
+        DrawerFolderItem(folder = LibraryFolder("folder-work", "Work", 12), onClick = {})
     }
 }
 

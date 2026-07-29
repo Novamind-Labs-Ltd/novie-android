@@ -1,13 +1,12 @@
 package com.novamind.app.data.db
 
 import androidx.room.Entity
-import androidx.room.Index
 import androidx.room.PrimaryKey
 
-/** 用户文件夹（持久化）：名称唯一（忽略大小写由上层保证），含颜色与排序位。 */
-@Entity(tableName = "folders", indices = [Index(value = ["name"], unique = true)])
+/** 用户文件夹的本地展示信息；主键与服务端 folder id 一致，名称允许为空或重复。 */
+@Entity(tableName = "folders")
 data class FolderEntity(
-    @PrimaryKey val id: String,          // 本地 UUID
+    @PrimaryKey val id: String,
     val name: String,
     /** 文件夹颜色 #RRGGBB；null = 默认 */
     val colorHex: String?,
