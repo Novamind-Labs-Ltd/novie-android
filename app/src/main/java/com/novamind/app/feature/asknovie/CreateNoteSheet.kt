@@ -65,14 +65,16 @@ import com.novamind.app.ui.theme.AppTheme
 @Composable
 fun CreateNoteSheet(
     initialTitle: String,
+    initialContent: String,
     folderName: String,
-    onCreate: (String) -> Unit,
+    onCreate: (String, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var title by remember {
         mutableStateOf(TextFieldValue(initialTitle, TextRange(initialTitle.length)))
     }
+    var content by remember(initialContent) { mutableStateOf(initialContent) }
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         snapshotFlow { sheetState.currentValue }.filter { it == SheetValue.Expanded }.first()
@@ -86,8 +88,10 @@ fun CreateNoteSheet(
         CreateNoteContent(
             title = title,
             onTitleChange = { title = it },
+            content = content,
+            onContentChange = { content = it },
             folderName = folderName,
-            onCreate = { onCreate(title.text.trim()) },
+            onCreate = { onCreate(title.text.trim(), content.trim()) },
             onCancel = onDismiss,
             focusRequester = focusRequester,
         )
@@ -98,6 +102,8 @@ fun CreateNoteSheet(
 private fun CreateNoteContent(
     title: TextFieldValue,
     onTitleChange: (TextFieldValue) -> Unit,
+    content: String,
+    onContentChange: (String) -> Unit,
     folderName: String,
     onCreate: () -> Unit,
     onCancel: () -> Unit,
@@ -158,6 +164,24 @@ private fun CreateNoteContent(
         }
 
         Spacer(Modifier.height(14.dp))
+        Text("Content", color = SubColor, fontSize = 13.sp)
+        Spacer(Modifier.height(8.dp))
+
+        Surface(color = FieldBg, shape = RoundedCornerShape(12.dp)) {
+            BasicTextField(
+                value = content,
+                onValueChange = onContentChange,
+                textStyle = TextStyle(color = TitleColor, fontSize = 15.sp, lineHeight = 22.sp),
+                cursorBrush = SolidColor(TitleColor),
+                minLines = 5,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, FieldBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MetaChip(R.drawable.ic_folder, folderName)
             MetaChip(R.drawable.ic_tag, "Tags")
@@ -197,6 +221,8 @@ private fun CreateNoteContentPreview() {
         CreateNoteContent(
             title = TextFieldValue("Team meeting 11 Jun 2026"),
             onTitleChange = {},
+            content = "Decisions and next steps from the meeting.",
+            onContentChange = {},
             folderName = "Team meetings",
             onCreate = {},
             onCancel = {},

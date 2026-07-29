@@ -273,6 +273,7 @@ fun AskNovieScreen(
     var showClarify by remember { mutableStateOf(false) }
     var showCreateNote by remember { mutableStateOf(false) }
     var createNoteTitle by remember { mutableStateOf("First CS hire") }
+    var createNoteContent by remember { mutableStateOf("") }
     var attachments by remember { mutableStateOf(initialAttachments) }   // 待发送附件
     var uploadingAttachmentPaths by remember { mutableStateOf(emptySet<String>()) }
     var showAttachMenu by remember { mutableStateOf(false) }             // 「+」选择菜单
@@ -583,10 +584,11 @@ fun AskNovieScreen(
     val onCreateNoteRequested: () -> Unit = {
         keyboardController?.hide()
         createNoteTitle = "First CS hire"
+        createNoteContent = ""
         showCreateNote = true
     }
     // 生成笔记确认：运行「创建笔记」技能 → 完成态 + 笔记卡片 + 收尾语
-    val onNoteCreated: (String) -> Unit = { title ->
+    val onNoteCreated: (String, String) -> Unit = { title, _ ->
         showCreateNote = false
         val finalTitle = title.ifBlank { "First CS hire" }
         responseJob = scope.launch {
@@ -862,6 +864,12 @@ fun AskNovieScreen(
                                                 sendMessage(answer, emptyList())
                                             },
                                             onAction = sendAction,
+                                            onSaveNoteDraft = { title, content ->
+                                                keyboardController?.hide()
+                                                createNoteTitle = title
+                                                createNoteContent = content
+                                                showCreateNote = true
+                                            },
                                         )
                                     } else when (val b = msg.block) {
                                         // agentic 富内容块
@@ -1380,8 +1388,9 @@ fun AskNovieScreen(
     if (showCreateNote) {
         CreateNoteSheet(
             initialTitle = createNoteTitle,
+            initialContent = createNoteContent,
             folderName = "Team meetings",
-            onCreate = { onNoteCreated(it) },
+            onCreate = onNoteCreated,
             onDismiss = { showCreateNote = false },
         )
     }

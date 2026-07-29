@@ -76,6 +76,7 @@ sealed interface ChatCard {
     data class Summary(val title: String, val body: String, val saveable: Boolean) : ChatCard
     data class Offer(val kind: String, val label: String) : ChatCard
     data class CreateNote(val draftTitle: String, val draftContent: String) : ChatCard
+    data class SaveNote(val draftTitle: String, val draftContent: String) : ChatCard
     data class Note(val noteId: String, val title: String) : ChatCard
 }
 
@@ -285,6 +286,7 @@ object AskNovieChat {
             "summary" -> ChatCard.Summary(str("title"), str("body"), bool("saveable", true))
             "offer" -> ChatCard.Offer(str("kind"), str("label"))
             "create_note" -> ChatCard.CreateNote(str("draft_title"), str("draft_content"))
+            "save_note" -> ChatCard.SaveNote(str("draft_title"), str("draft_content"))
             "note" -> str("note_id").takeIf(String::isNotBlank)?.let { ChatCard.Note(it, str("title")) }
             else -> null
         }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -29,12 +30,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.feature.asknovie.data.ChatCard
 import com.novamind.app.feature.asknovie.data.OptionItem
+import com.novamind.app.R
 import com.novamind.app.ui.theme.AppTheme
 
 /** Ask Novie `event: card` 的通用渲染入口。 */
@@ -43,6 +46,7 @@ internal fun SseCard(
     card: ChatCard,
     onSendText: (String) -> Unit,
     onAction: (String) -> Unit,
+    onSaveNoteDraft: (title: String, content: String) -> Unit,
 ) {
     when (card) {
         is ChatCard.Options -> OptionsSseCard(card, onSendText)
@@ -50,7 +54,57 @@ internal fun SseCard(
         is ChatCard.Summary -> SummarySseCard(card, onSave = { onAction("create_note_draft") })
         is ChatCard.Diagram -> MermaidDiagramCard(card)
         is ChatCard.CreateNote -> ReadOnlyCard(card.draftTitle, card.draftContent)
+        is ChatCard.SaveNote -> SaveNoteSseCard(card, onSaveNoteDraft)
         is ChatCard.Note -> ReadOnlyCard(card.title, "Note saved")
+    }
+}
+
+/** Figma 862:62429：正文下方的 Save as note 操作，不使用 Summary 白色卡片容器。 */
+@Composable
+private fun SaveNoteSseCard(
+    card: ChatCard.SaveNote,
+    onSave: (title: String, content: String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        val displayContent = card.draftContent.ifBlank { card.draftTitle }
+        if (displayContent.isNotBlank()) {
+            Text(
+                text = displayContent,
+                color = TextTitle,
+                fontSize = 16.sp,
+                lineHeight = 24.sp,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Dark)
+                .clickable { onSave(card.draftTitle, card.draftContent) }
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_pencil_line),
+                    contentDescription = null,
+                    tint = OnDark,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = "Save as note",
+                    color = OnDark,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
     }
 }
 
@@ -258,6 +312,7 @@ private fun OptionsSseCardPreview() {
             ),
             onSendText = {},
             onAction = {},
+            onSaveNoteDraft = { _, _ -> },
         )
     }
 }
@@ -274,6 +329,22 @@ private fun SummarySseCardPreview() {
                     saveable = true,
                 ),
                 onSave = {},
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Save note card")
+@Composable
+private fun SaveNoteSseCardPreview() {
+    AppTheme {
+        Box(Modifier.padding(16.dp)) {
+            SaveNoteSseCard(
+                card = ChatCard.SaveNote(
+                    draftTitle = "Nova customer success",
+                    draftContent = "A few things to sharpen the picture. What does CS look like at Nova today?",
+                ),
+                onSave = { _, _ -> },
             )
         }
     }

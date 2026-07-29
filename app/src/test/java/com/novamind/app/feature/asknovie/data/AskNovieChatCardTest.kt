@@ -55,6 +55,17 @@ class AskNovieChatCardTest {
     }
 
     @Test
+    fun `save note card stays distinct from create note`() {
+        val card = AskNovieChat.parseCard(
+            json.parseToJsonElement(
+                """{"card_type":"save_note","draft_title":"Plan","draft_content":"Next steps"}""",
+            ).jsonObject,
+        )
+
+        assertEquals(ChatCard.SaveNote("Plan", "Next steps"), card)
+    }
+
+    @Test
     fun `unknown card type is skipped`() {
         val card = AskNovieChat.parseCard(
             json.parseToJsonElement("""{"card_type":"future_card"}""").jsonObject,
