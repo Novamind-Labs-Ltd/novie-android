@@ -11,7 +11,7 @@ import java.time.LocalDateTime
 data class CalendarEvent(
     val id: String,
     val title: String,
-    /** 全天事件为 true，此时 [start] / [end] 为当天 00:00 仅作占位。 */
+    /** 全天事件为 true，此时 [start] / [end] 是包含式起止日期的 00:00。 */
     val isAllDay: Boolean,
     val start: LocalDateTime,
     val end: LocalDateTime,
@@ -120,7 +120,7 @@ fun CalendarReminder.leadLabel(): String {
 
 /**
  * 事件是否已结束（视为「已完成」）。日历事件本身没有完成状态，此处以结束时间是否早于当前时间近似。
- * 全天事件的 [CalendarEvent.start] / [CalendarEvent.end] 仅为 00:00 占位，故按日期判断：当天结束后才算过去。
+ * 全天事件的 [CalendarEvent.start] / [CalendarEvent.end] 是包含式日期的 00:00，故按结束日期判断。
  */
 val CalendarEvent.isPast: Boolean
     get() = if (isAllDay) end.toLocalDate().isBefore(LocalDate.now())

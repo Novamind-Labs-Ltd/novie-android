@@ -28,8 +28,9 @@ data class TodayAgenda(
  * 抽出日历页的「静默授权 + 取数」核心逻辑，供首页 Up next 等复用，避免各处重复实现，
  * 也让首页获得与日历页一致的静默续期能力（token 过期自动重取一次）。
  *
- * 只读、尽力而为：未连接 / 未授权 / 网络错误一律返回空议程，不抛异常，
- * 也**不修改**连接绑定状态（建立/切换绑定仍由 Calendar 页负责）。
+ * 尽力而为：未连接 / 未授权 / 网络错误一律返回空议程，不抛异常。若本地绑定丢失但
+ * 当前登录账号仍可静默授权，则用 Google 主日历返回的真实邮箱补建绑定，让首页和 Calendar 页
+ * 共享同一连接状态；显式建立/切换其他账号仍由交互式授权入口负责。
  */
 @Singleton
 class TodayAgendaUseCase @Inject constructor(
@@ -57,19 +58,42 @@ class TodayAgendaUseCase @Inject constructor(
         includeTasks: Boolean,
     ): TodayAgenda {
         // 账号：优先已绑定账号，否则探测当前登录账户（只读，不建立绑定）
+        val appUserKey = UserSessionManager.current.userKey
         val account = (bindingStore.accountEmail?.takeIf { bindingStore.isConnected }
-            ?: UserSessionManager.current.userKey)?.takeIf { it.isNotBlank() }
+            ?: appUserKey)?.takeIf { it.isNotBlank() }
             ?: return TodayAgenda()
 
         // 有账号但静默授权失败 → 未授权（accountAvailable=true 供 UI 展示「连接」按钮）
         if (!acquireTokenSilently(account)) return TodayAgenda(accountAvailable = true)
 
+        // 首页可能在绑定被清除后，凭 Google 已有授权静默恢复成功。此时必须补建绑定，
+        // 否则首页能读取议程，而 Calendar 页仍会因 isConnected=false 显示连接按钮。
+        val authorizedAccount = if (bindingStore.isConnected) {
+            account
+        } else {
+            resolveAndBindAuthorizedAccount(appUserKey) ?: return TodayAgenda(accountAvailable = true)
+        }
+
         return TodayAgenda(
-            events = fetchEvents(start, endExclusive, account),
+            events = fetchEvents(start, endExclusive, authorizedAccount),
             tasks = if (includeTasks) safe { tasksRepository.tasksOn(start) } else emptyList(),
             authorized = true,
             accountAvailable = true,
         )
+    }
+
+    private suspend fun resolveAndBindAuthorizedAccount(expectedAppUserKey: String?): String? = try {
+        calendarRepository.currentAccountEmail()
+            .takeIf { it.isNotBlank() }
+            // 授权期间若 App 登录账号发生切换，丢弃旧结果，不能绑定到新用户。
+            ?.takeIf { UserSessionManager.current.userKey == expectedAppUserKey }
+            ?.also { googleEmail ->
+                bindingStore.bind(googleEmail, expectedAppUserKey)
+            }
+    } catch (c: CancellationException) {
+        throw c
+    } catch (_: Exception) {
+        null
     }
 
     /** 拉会议：401 过期时清 token → 静默重取 → 再试一次；仍失败返回空。 */

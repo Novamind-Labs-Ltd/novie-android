@@ -68,7 +68,7 @@ class GoogleCalendarRepositoryImpl(
                 location = event.location.orEmpty(),
                 description = event.description.orEmpty(),
                 start = event.start.toApiDateTime(event.isAllDay),
-                // 全天事件 end.date 为排他次日；定时事件直接用结束时刻。
+                // 领域模型的全天 end 是包含式最后一天；Google end.date 要求排他次日。
                 end = if (event.isAllDay) {
                     event.end.toLocalDate().plusDays(1).toApiDate()
                 } else {
@@ -113,7 +113,16 @@ class GoogleCalendarRepositoryImpl(
         val startDt = start ?: return null
         val isAllDay = startDt.dateTime == null && startDt.date != null
         val startLocal = startDt.toLocalDateTime() ?: return null
-        val endLocal = end?.toLocalDateTime() ?: startLocal
+        val endLocal = if (isAllDay) {
+            // Google 全天事件的 end.date 是排他的；领域层统一保存为包含式最后一天，
+            // 避免 UI/编辑流程把单日事件误判成跨两天。异常数据至少回退到开始日。
+            end?.date
+                ?.let { runCatching { LocalDate.parse(it).minusDays(1).atStartOfDay() }.getOrNull() }
+                ?.takeIf { !it.isBefore(startLocal) }
+                ?: startLocal
+        } else {
+            end?.toLocalDateTime() ?: startLocal
+        }
         val domainType = CalendarEventType.fromApi(eventType)
         // 会议判定：常规事件 且（有除自己外的邀请人 或 有会议链接）。
         // 仅有自己（self）在 attendees 里的独立事件不算会议；链接看 hangoutLink 或 conferenceData。
