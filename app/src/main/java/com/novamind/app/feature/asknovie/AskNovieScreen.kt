@@ -223,6 +223,7 @@ fun AskNovieScreen(
     var imeWasVisible by remember { mutableStateOf(false) }
     var imeAnchorIndex by remember { mutableIntStateOf(listState.firstVisibleItemIndex) }
     var imeAnchorOffset by remember { mutableIntStateOf(listState.firstVisibleItemScrollOffset) }
+    var pendingSendAnchor by remember { mutableStateOf(false) }
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             imeWasVisible = true
@@ -232,7 +233,7 @@ fun AskNovieScreen(
                 imeAnchorIndex = index
                 imeAnchorOffset = offset
             }
-        } else if (imeWasVisible) {
+        } else if (imeWasVisible && !pendingSendAnchor) {
             withFrameNanos { }
             val totalItems = listState.layoutInfo.totalItemsCount
             if (totalItems > 0) {
@@ -241,6 +242,9 @@ fun AskNovieScreen(
                     imeAnchorOffset,
                 )
             }
+            imeWasVisible = false
+        } else if (!imeVisible) {
+            // 发送消息时由发送锚点接管位置，避免键盘恢复逻辑与滚动到顶部互相覆盖。
             imeWasVisible = false
         }
     }
@@ -273,13 +277,7 @@ fun AskNovieScreen(
     // 仿 ChatGPT：刚发送的用户消息滚到顶部（自增以触发滚动，即使位置相同）
     var sendTick by remember { mutableIntStateOf(0) }
     var anchorIndex by remember { mutableIntStateOf(0) }
-    // 本轮保持底部留白：发送后置 true，回复不足一屏也保留占位以免文字跳动；新建/切换会话时复位。
-    var keepBottomSpace by remember { mutableStateOf(false) }
     var bottomSpacerPx by remember { mutableIntStateOf(0) }
-    // 列表项间距（与 LazyColumn 的 Arrangement.spacedBy 一致）
-    val listItemSpacingPx = with(LocalDensity.current) {
-        AppConfig.AskNovie.LIST_ITEM_SPACING_DP.dp.roundToPx()
-    }
     val imageCount = attachments.count { it.type == AttachType.Image }
     val remainingImageSlots = (AppConfig.AskNovie.MAX_IMAGES - imageCount).coerceAtLeast(0)
     val imageLimitMessage = "You can attach up to ${AppConfig.AskNovie.MAX_IMAGES} images."
@@ -431,10 +429,12 @@ fun AskNovieScreen(
             uploadingAttachmentPaths.isEmpty() &&
             (prompt.isNotEmpty() || atts.isNotEmpty())
         ) {
+            // 与用户消息同一帧建立回复画布，避免等滚动协程启动后才出现占位。
+            bottomSpacerPx = listState.layoutInfo.viewportSize.height.coerceAtLeast(0)
             messages = messages + ChatMessage(Role.User, prompt, atts)
             anchorIndex = messages.lastIndex   // 刚发送的用户消息位置
+            pendingSendAnchor = true
             sendTick++                          // 触发「滚动到顶部」
-            keepBottomSpace = true              // 本轮保留底部留白
 
             onSend(prompt)
 
@@ -452,7 +452,6 @@ fun AskNovieScreen(
         if (!isResponding && !isStreaming) {
             keyboardController?.hide()
             focusManager.clearFocus()
-            keepBottomSpace = true
             chatVm?.startStreamingReply(prompt = "", action = action)
         }
     }
@@ -472,19 +471,18 @@ fun AskNovieScreen(
     }
 
     // 发送后：把刚发送的用户消息平滑滚到顶部（仿 ChatGPT「新一页」，底部占位腾出空间供回复生成）。
-    LaunchedEffect(sendTick) {
-        if (sendTick > 0) {
-            listState.animateScrollToItem(anchorIndex)
-            // 等待用户消息完成布局后固定本轮底部留白。流式 Markdown 高度持续变化时若同步缩小
-            // Spacer，会让 LazyColumn 每帧同时重测消息和占位，形成可见闪动。
+    LaunchedEffect(sendTick, imeVisible) {
+        if (sendTick > 0 && pendingSendAnchor && !imeVisible) {
+            // 键盘收起会改变 LazyColumn 视口；以 imeVisible 为 effect key，确保新视口出现后
+            // 明确执行一次顶部定位，而不是在协程里等待不会更新的布尔快照。
             withFrameNanos { }
-            val info = listState.layoutInfo
-            val anchor = info.visibleItemsInfo.firstOrNull { it.index == anchorIndex }
-            bottomSpacerPx = if (keepBottomSpace && anchor != null) {
-                (info.viewportSize.height - anchor.size - listItemSpacingPx).coerceAtLeast(0)
-            } else {
-                0
-            }
+
+            // ChatGPT 式交互：先在用户消息下方预留一整屏，确保最后一条消息拥有足够的
+            // 可滚动距离；如果先滚动再加 Spacer，LazyColumn 会受底部边界限制而无法顶到顶部。
+            bottomSpacerPx = listState.layoutInfo.viewportSize.height.coerceAtLeast(0)
+            withFrameNanos { }
+            listState.animateScrollToItem(anchorIndex, scrollOffset = 0)
+            pendingSendAnchor = false
         }
     }
 
@@ -493,14 +491,6 @@ fun AskNovieScreen(
         withFrameNanos { }
         val lastIndex = listState.layoutInfo.totalItemsCount - 1
         if (lastIndex >= 0) listState.scrollToItem(lastIndex)
-    }
-
-    // 底部留白只服务于本轮回复生成过程；回复完成后立即移除，避免空白一直保留。
-    LaunchedEffect(isResponding, isStreaming) {
-        if (!isResponding && !isStreaming) {
-            keepBottomSpace = false
-            bottomSpacerPx = 0
-        }
     }
 
     // 保存当前会话到本地（含实时 / 部分回复）。切断或切换会话前调用，避免丢失正在生成的内容。
@@ -533,7 +523,7 @@ fun AskNovieScreen(
         }
         input = ""
         attachments = emptyList()
-        keepBottomSpace = false
+        bottomSpacerPx = 0
     }
 
     LaunchedEffect(newSessionRequestId) {
@@ -704,7 +694,7 @@ fun AskNovieScreen(
                                 // 流式消息的高度持续变化，若保留 animateItem 会每次触发位置动画，
                                 // 与 Markdown 重新测量叠加后造成页面抖动。仅流式期间关闭。
                                 val itemModifier = Modifier.fillMaxWidth().let { base ->
-                                    if (isTypingAssistant) base else base.animateItem()
+                                    if (isResponding || isStreaming) base else base.animateItem()
                                 }
                                 Box(modifier = itemModifier) {
                                     if (msg.role == Role.User) {
@@ -758,7 +748,7 @@ fun AskNovieScreen(
                             }
                             if (isResponding) {
                                 item(key = "typing") {
-                                    Box(modifier = Modifier.animateItem()) { TypingIndicator() }
+                                    Box { TypingIndicator() }
                                 }
                             }
                             // 底部占位：只填满本轮内容之外的剩余视口（仿 ChatGPT），整轮保留，
@@ -1147,7 +1137,7 @@ fun AskNovieScreen(
                 }
                 input = ""
                 attachments = emptyList()
-                keepBottomSpace = false
+                bottomSpacerPx = 0
             },
         )
     }
@@ -1188,7 +1178,7 @@ fun AskNovieScreen(
                 }
                 input = ""
                 attachments = emptyList()
-                keepBottomSpace = false
+                bottomSpacerPx = 0
                 showDeleteConfirm = false
                 onDelete()
             },
