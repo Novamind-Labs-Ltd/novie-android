@@ -61,7 +61,13 @@ class LibraryViewModel @Inject constructor(
     private var foldersRequestJob: Job? = null
     private var refreshJob: Job? = null
     private var reorderGeneration = 0L
-    private val reorderMutex = Mutex()
+    /**
+     * 串行化所有会读写 [serverFolders] 的远端请求。
+     *
+     * 仅靠 foldersGeneration / reorderGeneration 只能阻止同类旧响应；共用互斥锁后，刷新与分页会在
+     * 已经发出的 reorder 完成后再读取服务端，reorder 则会先取消旧读取，避免跨请求覆盖新状态。
+     */
+    private val foldersRequestMutex = Mutex()
 
     init {
         // 三源合流：服务端笔记列表 × 本地文件夹颜色 × 服务端文件夹（存在性 / id / 排序 / 计数）
@@ -112,6 +118,8 @@ class LibraryViewModel @Inject constructor(
         foldersRequestJob?.cancel()
         val notesRequestGeneration = ++notesGeneration
         val foldersRequestGeneration = ++foldersGeneration
+        // 新读取接管文件夹状态，尚未应用的 reorder 响应必须失效。
+        ++reorderGeneration
         notesCursor = null
         foldersCursor = null
         _uiState.update {
@@ -161,6 +169,8 @@ class LibraryViewModel @Inject constructor(
     private fun startFoldersFirstPage() {
         foldersRequestJob?.cancel()
         val generation = ++foldersGeneration
+        // 新读取接管文件夹状态，尚未应用的 reorder 响应必须失效。
+        ++reorderGeneration
         foldersCursor = null
         _uiState.update { it.copy(hasMoreFolders = false, isLoadingMoreFolders = false) }
         foldersRequestJob = viewModelScope.launch { fetchFolders(generation) }
@@ -227,24 +237,27 @@ class LibraryViewModel @Inject constructor(
 
     /** 拉取第一页文件夹（刷新 / 首次进入）：重置分页游标并整表替换。 */
     private suspend fun fetchFolders(generation: Long) {
-        foldersRepository.listFolders(
-            limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
-            cursor = null,
-        ).fold(
-            onSuccess = { page ->
-                if (foldersGeneration == generation) {
-                    serverFolders.value = page?.items.orEmpty()
-                    foldersCursor = page?.nextCursor
-                    _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
-                }
-            },
-            onFail = {
-                if (foldersGeneration == generation) {
-                    logApiError("loadFolders", it)
-                    _uiState.update { it.copy(isLoadingMoreFolders = false) }
-                }
-            },
-        )
+        foldersRequestMutex.withLock {
+            if (foldersGeneration != generation) return@withLock
+            foldersRepository.listFolders(
+                limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
+                cursor = null,
+            ).fold(
+                onSuccess = { page ->
+                    if (foldersGeneration == generation) {
+                        serverFolders.value = page?.items.orEmpty()
+                        foldersCursor = page?.nextCursor
+                        _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+                    }
+                },
+                onFail = {
+                    if (foldersGeneration == generation) {
+                        logApiError("loadFolders", it)
+                        _uiState.update { it.copy(isLoadingMoreFolders = false) }
+                    }
+                },
+            )
+        }
     }
 
     /** 上拉加载下一页文件夹：按游标取下 20 条并追加（Folders 页触底时调用）。 */
@@ -254,26 +267,29 @@ class LibraryViewModel @Inject constructor(
         if (cursor == null || _uiState.value.isLoadingMoreFolders || _uiState.value.isRefreshing) return
         _uiState.update { it.copy(isLoadingMoreFolders = true) }
         foldersRequestJob = viewModelScope.launch {
-            foldersRepository.listFolders(
-                limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
-                cursor = cursor,
-            ).fold(
-                onSuccess = { page ->
-                    if (foldersGeneration == generation && foldersCursor == cursor) {
-                        val existing = serverFolders.value
-                        val seen = existing.mapTo(HashSet()) { it.id }
-                        serverFolders.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
-                        foldersCursor = page?.nextCursor
-                        _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
-                    }
-                },
-                onFail = {
-                    if (foldersGeneration == generation && foldersCursor == cursor) {
-                        logApiError("loadMoreFolders", it)
-                        _uiState.update { it.copy(isLoadingMoreFolders = false) }
-                    }
-                },
-            )
+            foldersRequestMutex.withLock {
+                if (foldersGeneration != generation || foldersCursor != cursor) return@withLock
+                foldersRepository.listFolders(
+                    limit = AppConfig.Paging.LIBRARY_FOLDERS_PAGE_SIZE,
+                    cursor = cursor,
+                ).fold(
+                    onSuccess = { page ->
+                        if (foldersGeneration == generation && foldersCursor == cursor) {
+                            val existing = serverFolders.value
+                            val seen = existing.mapTo(HashSet()) { it.id }
+                            serverFolders.value = existing + page?.items.orEmpty().filter { seen.add(it.id) }
+                            foldersCursor = page?.nextCursor
+                            _uiState.update { it.copy(hasMoreFolders = page?.nextCursor != null, isLoadingMoreFolders = false) }
+                        }
+                    },
+                    onFail = {
+                        if (foldersGeneration == generation && foldersCursor == cursor) {
+                            logApiError("loadMoreFolders", it)
+                            _uiState.update { it.copy(isLoadingMoreFolders = false) }
+                        }
+                    },
+                )
+            }
         }
     }
 
@@ -452,19 +468,26 @@ class LibraryViewModel @Inject constructor(
         val byId = serverFolders.value.associateBy { it.id }
         val orderedIds = orderedFolderIds.distinct().filter { it in byId }
         if (orderedIds.isEmpty()) return
+        cancelRefresh()
+        // reorder 接管文件夹状态：取消列表请求并使其即使已返回也无法再落入 UI。
+        foldersRequestJob?.cancel()
+        foldersRequestJob = null
+        val foldersRequestGeneration = ++foldersGeneration
         val generation = ++reorderGeneration
+        foldersCursor = null
+        _uiState.update { it.copy(hasMoreFolders = false, isLoadingMoreFolders = false) }
         // 先改 UI（乐观更新）：按新顺序重排 serverFolders 并重写 sortOrder，列表立即呈现新顺序、不等网络
         serverFolders.value = orderedIds
             .mapNotNull { byId[it] }
             .mapIndexed { i, f -> f.copy(sortOrder = i) }
         // 串行提交：前一个请求结束后只发送最新等待顺序；旧响应不得覆盖最后一次拖拽结果。
         viewModelScope.launch {
-            reorderMutex.withLock {
+            foldersRequestMutex.withLock {
                 // 等锁期间又发生了拖拽，则当前顺序已过期，直接跳过网络提交。
-                if (reorderGeneration != generation) return@withLock
+                if (reorderGeneration != generation || foldersGeneration != foldersRequestGeneration) return@withLock
                 foldersRepository.reorderFolders(orderedIds).fold(
                     onSuccess = { page ->
-                        if (reorderGeneration == generation) {
+                        if (reorderGeneration == generation && foldersGeneration == foldersRequestGeneration) {
                             serverFolders.value = page?.items.orEmpty()
                             foldersCursor = page?.nextCursor
                             _uiState.update {
@@ -476,7 +499,7 @@ class LibraryViewModel @Inject constructor(
                         }
                     },
                     onFail = {
-                        if (reorderGeneration == generation) {
+                        if (reorderGeneration == generation && foldersGeneration == foldersRequestGeneration) {
                             logApiError("reorderFolders 回滚", it)
                             loadFolders()
                         }
