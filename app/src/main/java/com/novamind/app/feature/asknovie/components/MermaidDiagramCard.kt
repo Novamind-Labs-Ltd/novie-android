@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,9 +47,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
-import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
-import coil.request.ImageRequest
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.feature.asknovie.data.ChatCard
 import com.novamind.app.ui.theme.AppTheme
@@ -120,11 +116,20 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
                 val cached = cachedDiagram
                 val cachedSvg = cached?.svg
                 if (cachedSvg != null) {
-                    CachedDiagramImage(
-                        svg = cachedSvg,
-                        heightDp = cached.heightDp,
-                        cacheKey = cacheKey,
-                    )
+                    // Mermaid mindmap 等图形会用 foreignObject 承载文字；Coil 的 SVG
+                    // 解码器会丢弃这部分内容。缓存命中后仍交给本地 WebView 展示 SVG，
+                    // 但不重新运行 Mermaid 布局，兼顾文字完整性与稳定高度。
+                    key("cached", cacheKey, retryToken) {
+                        MermaidWebView(
+                            source = card.mermaid,
+                            theme = theme,
+                            zoomEnabled = false,
+                            cachedDiagram = cached,
+                            onRendered = { rendered = true },
+                            onCached = {},
+                            onError = { renderError = it },
+                        )
+                    }
                 } else key(card.mermaid, theme, retryToken) {
                     MermaidWebView(
                         source = card.mermaid,
@@ -155,25 +160,6 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
             onDismiss = { showFullscreen = false },
         )
     }
-}
-
-@Composable
-private fun CachedDiagramImage(svg: String, heightDp: Int, cacheKey: String) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val request = remember(svg, cacheKey) {
-        ImageRequest.Builder(context)
-            .data(svg.encodeToByteArray())
-            .decoderFactory(SvgDecoder.Factory())
-            .memoryCacheKey("mermaid-svg:$cacheKey")
-            .crossfade(false)
-            .build()
-    }
-    AsyncImage(
-        model = request,
-        contentDescription = "Diagram",
-        modifier = Modifier.fillMaxWidth().height(heightDp.dp),
-        contentScale = ContentScale.Fit,
-    )
 }
 
 @Composable
