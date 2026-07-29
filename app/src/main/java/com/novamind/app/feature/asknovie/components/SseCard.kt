@@ -51,7 +51,7 @@ internal fun SseCard(
     card: ChatCard,
     onSendText: (String) -> Unit,
     onAction: (String) -> Unit,
-    onSaveNoteDraft: (title: String, content: String) -> Unit,
+    onSaveNoteDraft: (ChatCard.SaveNote) -> Unit,
     notePreview: NoteCardPreview?,
     onOpenNote: (noteId: String) -> Unit,
 ) {
@@ -136,7 +136,7 @@ private fun formatNoteDate(value: String): String? = runCatching {
 @Composable
 private fun SaveNoteSseCard(
     card: ChatCard.SaveNote,
-    onSave: (title: String, content: String) -> Unit,
+    onSave: (ChatCard.SaveNote) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -156,7 +156,7 @@ private fun SaveNoteSseCard(
                 .height(32.dp)
                 .clip(RoundedCornerShape(50))
                 .background(Dark)
-                .clickable { onSave(card.draftTitle, card.draftContent) }
+                .clickable { onSave(card) }
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -385,7 +385,7 @@ private fun OptionsSseCardPreview() {
             ),
             onSendText = {},
             onAction = {},
-            onSaveNoteDraft = { _, _ -> },
+            onSaveNoteDraft = {},
             notePreview = null,
             onOpenNote = {},
         )
@@ -419,7 +419,7 @@ private fun SaveNoteSseCardPreview() {
                     draftTitle = "Nova customer success",
                     draftContent = "A few things to sharpen the picture. What does CS look like at Nova today?",
                 ),
-                onSave = { _, _ -> },
+                onSave = {},
             )
         }
     }

@@ -50,6 +50,7 @@ import com.novamind.app.ui.theme.AppTheme
  */
 @Composable
 internal fun SkillStatusRow(label: String, working: Boolean = true) {
+    val isCreatingNote = label == "Creating notes now.."
     val transition = rememberInfiniteTransition(label = "skill")
     val alpha by transition.animateFloat(
         initialValue = if (working) 0.4f else 1f,
@@ -59,15 +60,20 @@ internal fun SkillStatusRow(label: String, working: Boolean = true) {
     )
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (isCreatingNote) 21.dp else 10.dp),
     ) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.ic_skill_dots),
             contentDescription = null,
             tint = TextTitle.copy(alpha = if (working) alpha else 1f),
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(if (isCreatingNote) 24.dp else 18.dp),
         )
-        Text(label, color = TextTitle, fontSize = 15.sp)
+        Text(
+            text = label,
+            color = TextTitle,
+            fontSize = if (isCreatingNote) 14.sp else 15.sp,
+            fontWeight = if (isCreatingNote) FontWeight.Medium else FontWeight.Normal,
+        )
     }
 }
 

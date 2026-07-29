@@ -116,6 +116,8 @@ class MainActivity : FragmentActivity() {
                 var createReturnRoute by rememberSaveable {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
+                // Create 详情页的上一层是否为 Ask Novie 覆盖页；与底部 route 一起组成返回栈。
+                var createReturnsToAskNovie by rememberSaveable { mutableStateOf(false) }
                 // Library 作为子页进入（首页 See all）：显示返回键、可回上一页
                 var libraryAsSubpage by rememberSaveable { mutableStateOf(false) }
                 // 全屏页（图片预览等）打开时隐藏底栏
@@ -123,7 +125,10 @@ class MainActivity : FragmentActivity() {
                 // 三个全屏覆盖层：Ask Novie（底栏品牌按钮）、回收站 / 标签管理（Library 侧栏）
                 var showAskNovie by rememberSaveable { mutableStateOf(false) }
                 var askNovieNewSessionRequestId by rememberSaveable { mutableStateOf(0L) }
-                BackHandler(enabled = showAskNovie) { showAskNovie = false }
+                BackHandler(enabled = showAskNovie) {
+                    createReturnsToAskNovie = false
+                    showAskNovie = false
+                }
                 var showRecycleBin by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = showRecycleBin) { showRecycleBin = false }
                 var showTagManager by rememberSaveable { mutableStateOf(false) }
@@ -176,10 +181,12 @@ class MainActivity : FragmentActivity() {
                             is DeepLinkTarget.Tab -> {
                                 currentRoute = target.route
                                 editingNoteId = null
+                                createReturnsToAskNovie = false
                             }
                             is DeepLinkTarget.Note -> {
                                 editingNoteId = target.noteId
                                 createReturnRoute = BottomNavDestination.Home.route
+                                createReturnsToAskNovie = false
                                 currentRoute = BottomNavDestination.Create.route
                             }
                         }
@@ -245,6 +252,7 @@ class MainActivity : FragmentActivity() {
                                 onNoteClick = { noteId ->
                                     editingNoteId = noteId
                                     createReturnRoute = BottomNavDestination.Home.route
+                                    createReturnsToAskNovie = false
                                     currentRoute = BottomNavDestination.Create.route
                                 },
                                 onNotesSeeAll = {
@@ -254,6 +262,7 @@ class MainActivity : FragmentActivity() {
                                 // 首页「Ask Novie」入口每次创建新会话；底栏速拨仍继续当前会话。
                                 onAskNovie = {
                                     askNovieNewSessionRequestId += 1L
+                                    createReturnsToAskNovie = false
                                     showAskNovie = true
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
@@ -269,6 +278,9 @@ class MainActivity : FragmentActivity() {
                                 onBack = {
                                     editingNoteId = null
                                     currentRoute = createReturnRoute
+                                    if (createReturnsToAskNovie) {
+                                        showAskNovie = true
+                                    }
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
                             )
@@ -277,11 +289,13 @@ class MainActivity : FragmentActivity() {
                                 onCreateNote = {
                                     editingNoteId = null
                                     createReturnRoute = BottomNavDestination.Library.route
+                                    createReturnsToAskNovie = false
                                     currentRoute = BottomNavDestination.Create.route
                                 },
                                 onOpenNote = { noteId ->
                                     editingNoteId = noteId
                                     createReturnRoute = BottomNavDestination.Library.route
+                                    createReturnsToAskNovie = false
                                     currentRoute = BottomNavDestination.Create.route
                                 },
                                 // 抽屉打开时隐藏底栏，让抽屉盖住底栏
@@ -343,10 +357,14 @@ class MainActivity : FragmentActivity() {
                             onCreate = {
                                 editingNoteId = null
                                 createReturnRoute = currentRoute
+                                createReturnsToAskNovie = false
                                 currentRoute = BottomNavDestination.Create.route
                             },
                             // 中央「+」速拨：Ask Novie
-                            onAskNovie = { showAskNovie = true },
+                            onAskNovie = {
+                                createReturnsToAskNovie = false
+                                showAskNovie = true
+                            },
                             expanded = navExpanded,
                             onExpandedChange = { navExpanded = it },
                         )
@@ -355,17 +373,29 @@ class MainActivity : FragmentActivity() {
                     // Ask Novie（全屏覆盖，自带返回）
                     AnimatedVisibility(
                         visible = showAskNovie,
-                        enter = slideInHorizontally { it } + fadeIn(),
-                        exit = slideOutHorizontally { it } + fadeOut(),
+                        enter = slideInHorizontally(
+                            animationSpec = tween(durationMillis = 360),
+                        ) { width ->
+                            if (createReturnsToAskNovie) -width / 3 else width
+                        } + fadeIn(animationSpec = tween(durationMillis = 240)),
+                        exit = slideOutHorizontally(
+                            animationSpec = tween(durationMillis = 360),
+                        ) { width ->
+                            if (createReturnsToAskNovie) -width / 3 else width
+                        } + fadeOut(animationSpec = tween(durationMillis = 240)),
                     ) {
                         AskNovieScreen(
                             // 问候语用当前登录用户昵称（全局 UserSession），不写死。
                             userName = userSession.profile?.displayName,
                             newSessionRequestId = askNovieNewSessionRequestId,
-                            onBack = { showAskNovie = false },
+                            onBack = {
+                                createReturnsToAskNovie = false
+                                showAskNovie = false
+                            },
                             onOpenNote = { noteId ->
                                 editingNoteId = noteId
                                 createReturnRoute = currentRoute
+                                createReturnsToAskNovie = true
                                 showAskNovie = false
                                 currentRoute = BottomNavDestination.Create.route
                             },

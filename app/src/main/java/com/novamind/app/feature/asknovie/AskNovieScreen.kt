@@ -872,11 +872,9 @@ fun AskNovieScreen(
                                                 sendMessage(answer, emptyList())
                                             },
                                             onAction = sendAction,
-                                            onSaveNoteDraft = { title, content ->
+                                            onSaveNoteDraft = { card ->
                                                 keyboardController?.hide()
-                                                createNoteTitle = title
-                                                createNoteContent = content
-                                                showCreateNote = true
+                                                chatVm?.saveNoteDraft(card)
                                             },
                                             notePreview = (msg.card as? ChatCard.Note)?.let {
                                                 notePreviews[it.noteId]
