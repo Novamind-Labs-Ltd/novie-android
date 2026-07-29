@@ -1,6 +1,7 @@
 package com.novamind.app.feature.asknovie.components
 
 import android.content.Intent
+import android.util.LruCache
 import com.novamind.app.util.ToastUtils
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -216,6 +217,7 @@ internal fun AssistantText(
     text: String,
     showAvatar: Boolean = false,
     isTyping: Boolean = false,
+    deferMarkdown: Boolean = false,
 ) {
     val haptics = LocalHapticFeedback.current
     var lastHapticAt by remember { mutableLongStateOf(0L) }
@@ -244,6 +246,7 @@ internal fun AssistantText(
                 AssistantMessageContent(
                     text = text,
                     isStreaming = isTyping,
+                    deferMarkdown = deferMarkdown,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -254,6 +257,7 @@ internal fun AssistantText(
                 AssistantMessageContent(
                     text = text,
                     isStreaming = isTyping,
+                    deferMarkdown = deferMarkdown,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -267,6 +271,16 @@ internal fun AssistantText(
 
 private const val TYPEWRITER_HAPTIC_INTERVAL_MS = 100L
 
+private object MarkdownRenderCache {
+    private val values = object : LruCache<String, State.Success>(500_000) {
+        override fun sizeOf(key: String, value: State.Success): Int = key.length
+    }
+
+    @Synchronized fun get(content: String): State.Success? = values.get(content)
+
+    @Synchronized fun put(content: String, state: State.Success) = values.put(content, state)
+}
+
 /**
  * SSE 流式期间只把已结束的段落交给 Markdown，正在增长的尾段使用稳定 Text。
  * 避免未闭合 Markdown 每批字符都替换整棵渲染树；流结束后再渲染完整 Markdown。
@@ -275,6 +289,7 @@ private const val TYPEWRITER_HAPTIC_INTERVAL_MS = 100L
 private fun AssistantMessageContent(
     text: String,
     isStreaming: Boolean,
+    deferMarkdown: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val paragraphBoundary = if (isStreaming) text.lastIndexOf("\n\n") else -1
@@ -295,7 +310,7 @@ private fun AssistantMessageContent(
 
     Column(modifier = modifier) {
         if (completedMarkdown.isNotEmpty()) {
-            StableMarkdown(content = completedMarkdown)
+            StableMarkdown(content = completedMarkdown, deferParsing = deferMarkdown)
         }
         if (activeTail.isNotEmpty()) {
             Text(
@@ -315,21 +330,30 @@ private fun AssistantMessageContent(
 @Composable
 private fun StableMarkdown(
     content: String,
+    deferParsing: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val flavour = remember { GFMFlavourDescriptor() }
     val parser = remember(flavour) { MarkdownParser(flavour) }
     val referenceLinkHandler = remember { ReferenceLinkHandlerImpl() }
-    var renderedState by remember { mutableStateOf<State.Success?>(null) }
+    var renderedState by remember { mutableStateOf(MarkdownRenderCache.get(content)) }
 
-    LaunchedEffect(content, flavour, parser, referenceLinkHandler) {
+    LaunchedEffect(content, deferParsing, flavour, parser, referenceLinkHandler) {
+        MarkdownRenderCache.get(content)?.let {
+            renderedState = it
+            return@LaunchedEffect
+        }
+        if (deferParsing) return@LaunchedEffect
         parseMarkdownFlow(
             content = content,
             flavour = flavour,
             parser = parser,
             referenceLinkHandler = referenceLinkHandler,
         ).collect { state ->
-            if (state is State.Success) renderedState = state
+            if (state is State.Success) {
+                MarkdownRenderCache.put(content, state)
+                renderedState = state
+            }
         }
     }
 

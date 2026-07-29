@@ -161,6 +161,7 @@ dependencies {
     // UI 组件 / 内容渲染
     // 图片加载
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
     // 富文本编辑器（文本块内的加粗/斜体/列表引擎）
     implementation(libs.richeditor.compose)
     // 列表拖拽排序（sh.calvin.reorderable）

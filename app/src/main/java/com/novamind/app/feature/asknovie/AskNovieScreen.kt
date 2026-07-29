@@ -275,6 +275,7 @@ fun AskNovieScreen(
     // 全屏图片预览：当前图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     val listState = rememberLazyListState()
+    val isListScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
     val density = LocalDensity.current
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
 
@@ -828,6 +829,14 @@ fun AskNovieScreen(
                             itemsIndexed(
                                 items = messages,
                                 key = { index, _ -> "message-$index" },
+                                contentType = { _, message ->
+                                    when {
+                                        message.role == Role.User -> "user"
+                                        message.card != null -> "card"
+                                        message.block != null -> "block"
+                                        else -> "assistant"
+                                    }
+                                },
                             ) { index, msg ->
                                 val isTypingAssistant =
                                     isStreaming && index == messages.lastIndex && msg.role == Role.Assistant
@@ -864,6 +873,7 @@ fun AskNovieScreen(
                                                 msg.text,
                                                 showAvatar = true,
                                                 isTyping = isTypingAssistant,
+                                                deferMarkdown = isListScrolling,
                                             )
                                             msg.dim -> Text(
                                                 msg.text,
@@ -875,6 +885,7 @@ fun AskNovieScreen(
                                                 // 在消息 item 的组合域内读取，避免流式文字变化使整个 Screen 失效。
                                                 text = if (isTypingAssistant) streamingTextState.value else msg.text,
                                                 isTyping = isTypingAssistant,
+                                                deferMarkdown = isListScrolling,
                                             )
                                         }
                                     }

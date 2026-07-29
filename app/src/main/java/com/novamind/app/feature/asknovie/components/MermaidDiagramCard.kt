@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,10 +48,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.feature.asknovie.data.ChatCard
 import com.novamind.app.ui.theme.AppTheme
 import java.io.ByteArrayInputStream
+import java.security.MessageDigest
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -86,7 +91,7 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
     var renderError by remember(card.mermaid, retryToken) { mutableStateOf<String?>(null) }
     var showSource by remember(card.mermaid) { mutableStateOf(false) }
     var showFullscreen by remember(card.mermaid) { mutableStateOf(false) }
-    val cacheKey = remember(card.mermaid, theme) { "$theme:${card.mermaid}" }
+    val cacheKey = remember(card.mermaid, theme) { diagramCacheKey(card.mermaid, theme) }
     var cachedDiagram by remember(cacheKey, retryToken) {
         mutableStateOf(MermaidRenderCache.get(cacheKey))
     }
@@ -112,7 +117,15 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
                     onRetry = { retryToken++ },
                 )
             } else {
-                key(card.mermaid, theme, retryToken) {
+                val cached = cachedDiagram
+                val cachedSvg = cached?.svg
+                if (cachedSvg != null) {
+                    CachedDiagramImage(
+                        svg = cachedSvg,
+                        heightDp = cached.heightDp,
+                        cacheKey = cacheKey,
+                    )
+                } else key(card.mermaid, theme, retryToken) {
                     MermaidWebView(
                         source = card.mermaid,
                         theme = theme,
@@ -142,6 +155,25 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
             onDismiss = { showFullscreen = false },
         )
     }
+}
+
+@Composable
+private fun CachedDiagramImage(svg: String, heightDp: Int, cacheKey: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val request = remember(svg, cacheKey) {
+        ImageRequest.Builder(context)
+            .data(svg.encodeToByteArray())
+            .decoderFactory(SvgDecoder.Factory())
+            .memoryCacheKey("mermaid-svg:$cacheKey")
+            .crossfade(false)
+            .build()
+    }
+    AsyncImage(
+        model = request,
+        contentDescription = "Diagram",
+        modifier = Modifier.fillMaxWidth().height(heightDp.dp),
+        contentScale = ContentScale.Fit,
+    )
 }
 
 @Composable
@@ -363,6 +395,11 @@ private fun decodeResult(title: String): JSONObject? = runCatching {
 private fun decodeJavascriptString(value: String?): String? = runCatching {
     JSONTokener(value.orEmpty()).nextValue() as? String
 }.getOrNull()?.takeIf(String::isNotBlank)
+
+private fun diagramCacheKey(source: String, theme: String): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest("$theme:$source".encodeToByteArray())
+    return Base64.encodeToString(digest, Base64.NO_WRAP or Base64.URL_SAFE)
+}
 
 internal fun validateMermaidSource(source: String): String? = when {
     source.isBlank() -> "The diagram source is empty."
