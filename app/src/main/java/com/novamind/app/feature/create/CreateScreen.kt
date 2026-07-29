@@ -70,6 +70,7 @@ import com.novamind.app.feature.create.components.NoteContentEditor
 import com.novamind.app.feature.create.components.NoteTipBanner
 import com.novamind.app.feature.create.components.PolishBodySkeleton
 import com.novamind.app.feature.create.components.PolishDecisionBar
+import com.novamind.app.feature.create.components.PolishResultContent
 import com.novamind.app.feature.create.components.PolishStatusBanner
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.UploadState
@@ -484,7 +485,8 @@ fun CreateScreen(
                     onContentChanged = emitContent,
                     readOnly = showRecordingBar || readOnly || uiState.isTranscribing || polishActive,
                     bodyContent = when {
-                        polishActive -> { { PolishBodySkeleton() } }
+                        polishCompleted -> { { PolishResultContent(pendingPolish?.second.orEmpty()) } }
+                        polishing -> { { PolishBodySkeleton() } }
                         uiState.isTranscribing -> { { AudioTranscriptionContent() } }
                         else -> null
                     },

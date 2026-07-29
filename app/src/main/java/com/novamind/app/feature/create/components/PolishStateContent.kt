@@ -101,6 +101,22 @@ internal fun PolishBodySkeleton(modifier: Modifier = Modifier) {
     }
 }
 
+/** 润色成功后的只读预览；按钮悬浮在底部，因此保留足够尾部空间避免正文被遮挡。 */
+@Composable
+internal fun PolishResultContent(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier
+            .fillMaxWidth()
+            .background(BackgroundColors.Page.secondary.current())
+            .padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 130.dp),
+        color = TextColors.Primary.default.current(),
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        fontWeight = FontWeight.Normal,
+    )
+}
+
 @Composable
 internal fun PolishDecisionBar(
     onReject: () -> Unit,
@@ -155,6 +171,7 @@ private fun PolishStatesPreview() {
             PolishStatusBanner(completed = false)
             PolishBodySkeleton()
             PolishStatusBanner(completed = true)
+            PolishResultContent("Polished content is shown here.\n\nThe user can review it before accepting.")
             PolishDecisionBar(onReject = {}, onAccept = {})
         }
     }
