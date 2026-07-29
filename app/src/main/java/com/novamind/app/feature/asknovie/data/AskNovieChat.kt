@@ -2,6 +2,7 @@ package com.novamind.app.feature.asknovie.data
 
 import android.os.SystemClock
 import com.novamind.app.BuildConfig
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.HttpLoggers
@@ -257,8 +258,10 @@ object AskNovieChat {
                                 System.currentTimeMillis(),
                                 "yyyy-MM-dd HH:mm:ss.SSS",
                             )
-                            AppLog.i(TAG) {
-                                "chat SSE 收到 time=$receivedAt event=$name data=$rawData"
+                            if (BuildConfig.DEBUG && AppConfig.AskNovie.ENABLE_SSE_RESPONSE_LOG) {
+                                AppLog.i(TAG) {
+                                    "chat SSE response time=$receivedAt event=$name data=$rawData"
+                                }
                             }
                             val ev = parseFrame(name, rawData)
                             if (ev is ChatStreamEvent.TextDelta) textFrameCount++
@@ -357,7 +360,9 @@ object AskNovieChat {
      */
     private fun extractDeltaText(element: JsonElement): String? {
         val text = extractDeltaTextValue(element)
-        AppLog.i(TAG) { "chat SSE delta 提取结果 text=${text.orEmpty()}" }
+        if (BuildConfig.DEBUG && AppConfig.AskNovie.ENABLE_SSE_RESPONSE_LOG) {
+            AppLog.i(TAG) { "chat SSE parsed text=${text.orEmpty()}" }
+        }
         return text
     }
 
