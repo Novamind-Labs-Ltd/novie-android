@@ -43,11 +43,11 @@ interface FoldersApi {
 
     /**
      * 拖拽重排序：在单事务内按 `orderedIds` 重写调用者所有活跃文件夹的 `sortOrder`。
-     * 成功 HTTP 204（无响应体，绕过信封）；客户端随后重拉 [list] 取新顺序。
+     * 成功 HTTP 200，返回重排后的首屏 [FolderPageViewDto]（包含 noteCount 与 nextCursor）。
      * `orderedIds` 缺失/超 1000 → 400/40001；含重复 id → 400；含未知/非本人/已回收 id → 404/40407。
      */
     @PUT("api/v1.0/folders/order")
-    suspend fun reorder(@Body body: ReorderFoldersRequestDto): Response<ApiResponse<Unit>>
+    suspend fun reorder(@Body body: ReorderFoldersRequestDto): Response<ApiResponse<FolderPageViewDto>>
 }
 
 /** 文件夹视图（FolderView）。 */

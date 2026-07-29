@@ -387,7 +387,7 @@ class LibraryViewModel @Inject constructor(
 
     /**
      * 保存拖拽后的文件夹顺序：PUT /folders/order。把可见顺序里的文件夹名映射为服务端 id
-     * （虚拟分组如 Unfiled 无 id、自动跳过），提交后重拉列表以服务端 sortOrder 呈现新顺序。
+     * （虚拟分组如 Unfiled 无 id、自动跳过），成功后采用接口返回的权威首屏与分页游标。
      */
     fun reorderFolders(orderedNames: List<String>) {
         val byName = serverFolders.value.associateBy { it.name }
@@ -400,7 +400,16 @@ class LibraryViewModel @Inject constructor(
         // 再调接口；失败则重拉服务端真值回滚
         viewModelScope.launch {
             foldersRepository.reorderFolders(orderedIds).fold(
-                onSuccess = { },   // 已乐观更新，无需再刷
+                onSuccess = { page ->
+                    serverFolders.value = page?.items.orEmpty()
+                    foldersCursor = page?.nextCursor
+                    _uiState.update {
+                        it.copy(
+                            hasMoreFolders = page?.nextCursor != null,
+                            isLoadingMoreFolders = false,
+                        )
+                    }
+                },
                 onFail = {         // 失败重拉服务端真值回滚
                     logApiError("reorderFolders 回滚", it)
                     loadFolders()

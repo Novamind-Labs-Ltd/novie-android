@@ -47,15 +47,17 @@ class RemoteFoldersRepository : FoldersRepository {
     override suspend fun setTrashed(id: String, trashed: Boolean): ApiResult<RemoteFolder> =
         patch(id, PatchFolderRequestDto(trashed = trashed), op = "setTrashed")
 
-    override suspend fun reorderFolders(orderedIds: List<String>): ApiResult<Unit> {
+    override suspend fun reorderFolders(orderedIds: List<String>): ApiResult<RemoteFolderPage> {
         AppLog.i(TAG) { "reorderFolders 开始 count=${orderedIds.size}" }
         return apiCall {
             NetworkModule.foldersApi.reorder(ReorderFoldersRequestDto(orderedIds = orderedIds))
         }.mapLogged(
             tag = TAG,
             op = "reorderFolders",
-            transform = { Unit },
-            successLog = { "reorderFolders 成功 count=${orderedIds.size}" },
+            transform = { it?.toDomain() ?: RemoteFolderPage(emptyList(), null) },
+            successLog = {
+                "reorderFolders 成功 count=${it?.items?.size} hasNext=${it?.nextCursor != null}"
+            },
         )
     }
 

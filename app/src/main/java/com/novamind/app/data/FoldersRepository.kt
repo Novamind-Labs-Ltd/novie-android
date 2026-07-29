@@ -23,8 +23,9 @@ interface FoldersRepository {
     suspend fun setTrashed(id: String, trashed: Boolean): ApiResult<RemoteFolder>
 
     /**
-     * 拖拽重排序（PUT /folders/order）：按 [orderedIds] 顺序重写活跃文件夹的 sortOrder。成功无数据（HTTP 204）。
+     * 拖拽重排序（PUT /folders/order）：按 [orderedIds] 顺序重写活跃文件夹的 sortOrder。
+     * 成功返回重排后的文件夹首屏（HTTP 200），可直接刷新列表、计数与分页游标。
      * 含重复/未知/非本人/已回收 id → 业务错误。
      */
-    suspend fun reorderFolders(orderedIds: List<String>): ApiResult<Unit>
+    suspend fun reorderFolders(orderedIds: List<String>): ApiResult<RemoteFolderPage>
 }
