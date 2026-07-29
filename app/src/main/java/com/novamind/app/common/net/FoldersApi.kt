@@ -56,6 +56,8 @@ data class FolderDto(
     val id: String,
     val name: String? = null,
     val sortOrder: Int = 0,
+    /** 该文件夹的活跃笔记数，不包含回收站笔记。 */
+    val noteCount: Long = 0,
 )
 
 /** 文件夹列表分页视图（FolderPageView）：条目 + 下一页游标。 */

@@ -79,6 +79,7 @@ class RemoteFoldersRepository : FoldersRepository {
         id = id,
         name = name.orEmpty(),
         sortOrder = sortOrder,
+        noteCount = noteCount,
     )
 
     private companion object {

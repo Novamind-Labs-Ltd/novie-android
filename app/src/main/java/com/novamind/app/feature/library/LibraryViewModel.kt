@@ -41,7 +41,7 @@ import org.json.JSONObject
  * - Recent 页笔记来自 `GET /notes`（[RemoteNoteRepository.listNotes]，活跃视图），与 [com.novamind.app.feature.home.HomeViewModel] 相同的映射（列表项不含正文，故 description/tags 留空）；
  * - 文件夹来自 `GET /folders`（[FoldersRepository]），create/rename/trash/reorder 走对应端点；
  * - 文件夹颜色为本地概念（服务端不带），仍由 [FolderRepository]（Room）按名维护并合并显示；
- * - 每个文件夹的 noteCount 由服务端笔记按 folderId → 文件夹名聚合得到。
+ * - 每个文件夹的 noteCount 直接使用 `GET /folders` 返回的活跃笔记数，不依赖 Recent 的加载分页。
  */
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
@@ -64,11 +64,9 @@ class LibraryViewModel @Inject constructor(
     private val folderNotesRaw = MutableStateFlow<List<RemoteNoteSummary>>(emptyList())
 
     init {
-        // 四源合流：服务端笔记（列表 + 计数）× 本地文件夹（颜色兜底）× 服务端文件夹（存在性 / id / 排序）× 详情增强（缩略图）
+        // 四源合流：服务端笔记列表 × 本地文件夹（颜色兜底）× 服务端文件夹（存在性 / id / 排序 / 计数）× 详情增强（缩略图）
         combine(serverNotes, folderRepository.folders, serverFolders, noteExtras) { notes, stored, remote, extras ->
             val folderNameById = remote.associate { it.id to it.name }
-            // 计数按文件夹名聚合；无文件夹（folderId=null 或未匹配到服务端文件夹）的笔记 key 为 null，不计入任何文件夹
-            val counts = notes.groupingBy { folderNameById[it.folderId] }.eachCount()
             val colorByName = stored.associateBy { it.name }
             // 文件夹列表仅取服务端文件夹（不再有虚拟的 Unfiled 分组），按 sortOrder 排序
             val folders = remote
@@ -77,7 +75,7 @@ class LibraryViewModel @Inject constructor(
                     LibraryFolder(
                         id = rf.id,
                         name = rf.name,
-                        noteCount = counts[rf.name] ?: 0,
+                        noteCount = rf.noteCount.coerceIn(0, Int.MAX_VALUE.toLong()).toInt(),
                         colorHex = colorByName[rf.name]?.colorHex,
                     )
                 }
@@ -381,7 +379,7 @@ class LibraryViewModel @Inject constructor(
                 },
                 onFail = { result ->
                     if (result is ApiResult.BizError && result.code == BizCode.FOLDER_NOT_EMPTY) {
-                        // 本地 noteCount 仅是已加载分页的提示；以后端事务内空检查为最终真值。
+                        // noteCount 只统计活跃笔记；后端删除检查还包含回收站笔记，以事务内结果为最终真值。
                         _uiState.update { it.copy(cannotDeleteFolderName = target) }
                     } else {
                         logApiError("deleteFolder id=$id", result)

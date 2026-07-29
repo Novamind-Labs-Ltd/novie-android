@@ -9,6 +9,8 @@ data class RemoteFolder(
     val id: String,
     val name: String,
     val sortOrder: Int,
+    /** 服务端统计的活跃笔记数，不包含回收站笔记。 */
+    val noteCount: Long,
 )
 
 /**
