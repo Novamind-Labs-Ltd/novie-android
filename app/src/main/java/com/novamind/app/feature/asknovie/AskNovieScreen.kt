@@ -871,7 +871,10 @@ fun AskNovieScreen(
                                             onSendText = { answer ->
                                                 sendMessage(answer, emptyList())
                                             },
-                                            onAction = sendAction,
+                                            onSaveSummary = { card ->
+                                                keyboardController?.hide()
+                                                chatVm?.saveSummary(card)
+                                            },
                                             onSaveNoteDraft = { card ->
                                                 keyboardController?.hide()
                                                 chatVm?.saveNoteDraft(card)

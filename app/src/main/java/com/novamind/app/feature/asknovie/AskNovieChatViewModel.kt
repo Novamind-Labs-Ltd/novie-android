@@ -116,7 +116,14 @@ class AskNovieChatViewModel @Inject constructor(
         AskNovieAttachmentRepository.uploadAndAttach(sessionId.value, attachment)
 
     /** 保存 SSE `save_note` 草稿，并将原卡片依次替换为 Figma loading 与保存成功 UI。 */
-    fun saveNoteDraft(card: ChatCard.SaveNote) {
+    fun saveNoteDraft(card: ChatCard.SaveNote) =
+        saveNoteCard(card, card.draftTitle, card.draftContent)
+
+    /** Summary 的 Save as note 直接写入 Agent `/v1/save-note`，不触发 create_note_draft。 */
+    fun saveSummary(card: ChatCard.Summary) =
+        saveNoteCard(card, card.title, card.body)
+
+    private fun saveNoteCard(card: ChatCard, draftTitle: String, draftContent: String) {
         val targetSessionId = sessionId.value
         if (noteSaveJobs.containsKey(targetSessionId)) return
         val cardIndex = sessionMessages[targetSessionId].orEmpty().indexOfLast { it.card == card }
@@ -136,15 +143,15 @@ class AskNovieChatViewModel @Inject constructor(
         val job = viewModelScope.launch {
             var completed = false
             try {
-                val noteDocument = NoteDocument.fromMarkdown(card.draftContent)
+                val noteDocument = NoteDocument.fromMarkdown(draftContent)
                 AskNovieChat.saveNote(
                     conversationId = targetSessionId,
-                    title = card.draftTitle,
+                    title = draftTitle,
                     content = noteDocument,
                     preview = NoteDocument.previewText(noteDocument),
                 ).onSuccess { note ->
                     val title = note.title.ifBlank {
-                        card.draftTitle.ifBlank { "Untitled note" }
+                        draftTitle.ifBlank { "Untitled note" }
                     }
                     notePreviews.value = notePreviews.value + (
                         note.noteId to NoteCardPreview(

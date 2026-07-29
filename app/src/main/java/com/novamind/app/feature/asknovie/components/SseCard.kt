@@ -51,7 +51,7 @@ import java.util.Locale
 internal fun SseCard(
     card: ChatCard,
     onSendText: (String) -> Unit,
-    onAction: (String) -> Unit,
+    onSaveSummary: (ChatCard.Summary) -> Unit,
     onSaveNoteDraft: (ChatCard.SaveNote) -> Unit,
     notePreview: NoteCardPreview?,
     onOpenNote: (noteId: String) -> Unit,
@@ -59,7 +59,7 @@ internal fun SseCard(
     when (card) {
         is ChatCard.Options -> OptionsSseCard(card, onSendText)
         is ChatCard.Offer -> Unit // 由 AskNovieScreen 的单选底部弹层展示。
-        is ChatCard.Summary -> SummarySseCard(card, onSave = { onAction("create_note_draft") })
+        is ChatCard.Summary -> SummarySseCard(card, onSave = { onSaveSummary(card) })
         is ChatCard.Diagram -> MermaidDiagramCard(card)
         is ChatCard.CreateNote -> ReadOnlyCard(card.draftTitle, card.draftContent)
         is ChatCard.SaveNote -> SaveNoteSseCard(card, onSaveNoteDraft)
@@ -382,7 +382,7 @@ private fun OptionsSseCardPreview() {
                 select = "many",
             ),
             onSendText = {},
-            onAction = {},
+            onSaveSummary = {},
             onSaveNoteDraft = {},
             notePreview = null,
             onOpenNote = {},
