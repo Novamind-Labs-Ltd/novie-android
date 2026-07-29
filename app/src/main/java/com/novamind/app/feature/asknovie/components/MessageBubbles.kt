@@ -128,7 +128,10 @@ internal fun AudioBubble(att: Attachment) {
 
 /** 用户消息：图片、文件、语音和文本均靠右展示。 */
 @Composable
-internal fun UserBubble(msg: ChatMessage) {
+internal fun UserBubble(
+    msg: ChatMessage,
+    onImageClick: (paths: List<String>, index: Int) -> Unit = { _, _ -> },
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         val imageAttachments = msg.attachments.filter { it.type == AttachType.Image }
         if (imageAttachments.isNotEmpty()) {
@@ -140,11 +143,14 @@ internal fun UserBubble(msg: ChatMessage) {
                     .padding(bottom = if (msg.text.isNotEmpty()) 6.dp else 0.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
             ) {
-                imageAttachments.forEach { attachment ->
+                imageAttachments.forEachIndexed { index, attachment ->
                     AttachmentChip(
                         att = attachment,
                         onRemove = {},
                         showRemove = false,
+                        onClick = {
+                            onImageClick(imageAttachments.map(Attachment::path), index)
+                        },
                     )
                 }
             }

@@ -213,6 +213,8 @@ fun AskNovieScreen(
     var showAttachMenu by remember { mutableStateOf(false) }             // 「+」选择菜单
     // 全屏图片预览：当前图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
+    var previewPaths by remember { mutableStateOf<List<String>>(emptyList()) }
+    var previewCanDelete by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val isListScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
     val density = LocalDensity.current
@@ -747,7 +749,16 @@ fun AskNovieScreen(
                                 }
                                 Box(modifier = itemModifier) {
                                     if (msg.role == Role.User) {
-                                        UserBubble(msg)
+                                        UserBubble(
+                                            msg = msg,
+                                            onImageClick = { paths, index ->
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                previewPaths = paths
+                                                previewCanDelete = false
+                                                previewIndex = index
+                                            },
+                                        )
                                     } else if (msg.card is ChatCard.Options || msg.card is ChatCard.Offer) {
                                         // 强交互卡片由底部单选弹层承载，不在消息流重复渲染。
                                     } else if (msg.card != null) {
@@ -893,6 +904,10 @@ fun AskNovieScreen(
                                                     // 打开全屏预览前收起键盘并清焦点
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
+                                                    previewPaths = attachments
+                                                        .filter { it.type == AttachType.Image }
+                                                        .map { it.path }
+                                                    previewCanDelete = true
                                                     previewIndex = idx
                                                 }
                                             },
@@ -1101,12 +1116,11 @@ fun AskNovieScreen(
         }
 
         // 图片附件全屏预览（覆盖整页）：左右滑动 / 缩放 / 下拉关闭 / 删除，进出带淡入缩放转场
-        val imagePaths = attachments.filter { it.type == AttachType.Image }.map { it.path }
         // 退出动画期间 previewIndex 已置空，用上一次的快照继续渲染避免闪白
         var lastPreviewPaths by remember { mutableStateOf<List<String>>(emptyList()) }
         var lastPreviewIndex by remember { mutableIntStateOf(0) }
         if (previewIndex != null) {
-            lastPreviewPaths = imagePaths
+            lastPreviewPaths = previewPaths
             lastPreviewIndex = previewIndex!!
         }
         androidx.compose.animation.AnimatedVisibility(
@@ -1120,15 +1134,21 @@ fun AskNovieScreen(
                 targetScale = AppConfig.AskNovie.IMAGE_PREVIEW_INITIAL_SCALE,
             ),
         ) {
-            val shownPaths = if (previewIndex != null) imagePaths else lastPreviewPaths
+            val shownPaths = if (previewIndex != null) previewPaths else lastPreviewPaths
             ImagePreviewScreen(
                 paths = shownPaths,
                 initialIndex = lastPreviewIndex,
-                onDelete = { page ->
-                    shownPaths.getOrNull(page)?.let { path ->
-                        attachments =
-                            attachments.filterNot { it.type == AttachType.Image && it.path == path }
+                onDelete = if (previewCanDelete) {
+                    { page ->
+                        shownPaths.getOrNull(page)?.let { path ->
+                            attachments = attachments.filterNot {
+                                it.type == AttachType.Image && it.path == path
+                            }
+                            previewPaths = previewPaths.filterNot { it == path }
+                        }
                     }
+                } else {
+                    null
                 },
                 deleteTitle = "Remove image?",
                 deleteMessage = "This will remove the image from your message.",
