@@ -149,33 +149,31 @@ private fun SaveNoteSseCard(
         if (displayContent.isNotBlank()) {
             MarkdownContent(content = displayContent, modifier = Modifier.fillMaxWidth())
         }
-        if (card.saveable) {
-            Box(
-                modifier = Modifier
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Dark)
-                    .clickable { onSave(card) }
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center,
+        Box(
+            modifier = Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Dark)
+                .clickable { onSave(card) }
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_pencil_line),
-                        contentDescription = null,
-                        tint = OnDark,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text = "Save as note",
-                        color = OnDark,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
+                Icon(
+                    painter = painterResource(R.drawable.ic_pencil_line),
+                    contentDescription = null,
+                    tint = OnDark,
+                    modifier = Modifier.size(16.dp),
+                )
+                Text(
+                    text = "Save as note",
+                    color = OnDark,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         }
     }
