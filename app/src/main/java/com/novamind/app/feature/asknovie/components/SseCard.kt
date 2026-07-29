@@ -147,12 +147,7 @@ private fun SaveNoteSseCard(
     ) {
         val displayContent = card.draftContent.ifBlank { card.draftTitle }
         if (displayContent.isNotBlank()) {
-            Text(
-                text = displayContent,
-                color = TextTitle,
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
-            )
+            MarkdownContent(content = displayContent, modifier = Modifier.fillMaxWidth())
         }
         Box(
             modifier = Modifier

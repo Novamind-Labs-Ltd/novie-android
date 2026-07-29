@@ -1,5 +1,13 @@
 package com.novamind.app.feature.create.editor
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.json.JSONObject
 
 /**
@@ -14,14 +22,16 @@ object NoteDocument {
         // 非 JSON 文档：按旧版纯文本原样返回
         if (!raw.trimStart().startsWith("{")) return raw
         return try {
-            val arr = JSONObject(raw).getJSONArray("blocks")
+            val arr = Json.parseToJsonElement(raw).jsonObject["blocks"]?.jsonArray ?: return raw
             val sb = StringBuilder()
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
-                val piece = when (o.optString("type")) {
-                    "text" -> o.optString("text")
+            arr.forEach { element ->
+                val block = element.jsonObject
+                fun value(key: String) = block[key]?.jsonPrimitive?.contentOrNull.orEmpty()
+                val piece = when (value("type")) {
+                    "text" -> value("text")
                     "image" -> "[Image]"
-                    "file" -> o.optString("name").ifBlank { "Document" }.let { "[$it]" }
+                    "file" -> value("name").ifBlank { "Document" }.let { "[$it]" }
+                    "markdown" -> markdownPlainText(value("content"))
                     else -> ""
                 }
                 if (piece.isNotEmpty()) {
@@ -34,6 +44,33 @@ object NoteDocument {
             raw
         }
     }
+
+    /** 将 Ask Novie 返回的 Markdown 保存成编辑器原生 Markdown 块文档。 */
+    fun fromMarkdown(markdown: String): String = buildJsonObject {
+        put(
+            "blocks",
+            buildJsonArray {
+                add(
+                    buildJsonObject {
+                        put("type", "markdown")
+                        put("content", markdown)
+                    }
+                )
+            },
+        )
+    }.toString()
+
+    private fun markdownPlainText(markdown: String): String = markdown
+        .replace(Regex("!\\[([^]]*)]\\([^)]*\\)"), "$1")
+        .replace(Regex("\\[([^]]+)]\\([^)]*\\)"), "$1")
+        .lineSequence()
+        .map { line ->
+            line.replace(Regex("^\\s{0,3}(#{1,6}|>|[-+*]|\\d+[.)])\\s+"), "")
+                .replace(Regex("[*_~`]+"), "")
+                .trimEnd()
+        }
+        .joinToString("\n")
+        .trim()
 
     /** 取正文文档里的第一张图片路径；没有图片或为旧版纯文本时返回 null。 */
     fun firstImagePath(raw: String?): String? {

@@ -136,7 +136,8 @@ class AskNovieChatViewModel @Inject constructor(
         val job = viewModelScope.launch {
             var completed = false
             try {
-                when (val result = notesRepository.createNote(card.draftTitle, card.draftContent)) {
+                val noteDocument = NoteDocument.fromMarkdown(card.draftContent)
+                when (val result = notesRepository.createNote(card.draftTitle, noteDocument)) {
                     is ApiResult.Success -> {
                         result.data?.let { note ->
                             val title = note.title?.takeIf(String::isNotBlank)
