@@ -137,49 +137,48 @@ class AskNovieChatViewModel @Inject constructor(
             var completed = false
             try {
                 val noteDocument = NoteDocument.fromMarkdown(card.draftContent)
-                when (val result = notesRepository.createNote(card.draftTitle, noteDocument)) {
-                    is ApiResult.Success -> {
-                        result.data?.let { note ->
-                            val title = note.title?.takeIf(String::isNotBlank)
-                                ?: card.draftTitle.ifBlank { "Untitled note" }
-                            notePreviews.value = notePreviews.value + (
-                                note.id to NoteCardPreview(
-                                    title = title,
-                                    body = noteCardBody(note.content, note.preview, card.draftContent),
-                                    updatedAt = note.updatedAt,
-                                )
+                AskNovieChat.saveNote(
+                    conversationId = targetSessionId,
+                    title = card.draftTitle,
+                    content = noteDocument,
+                    preview = NoteDocument.previewText(noteDocument),
+                ).onSuccess { note ->
+                    val title = note.title.ifBlank {
+                        card.draftTitle.ifBlank { "Untitled note" }
+                    }
+                    notePreviews.value = notePreviews.value + (
+                        note.noteId to NoteCardPreview(
+                            title = title,
+                            body = NoteDocument.previewText(noteDocument),
+                            updatedAt = null,
+                        )
+                    )
+                    updateSessionMessages(targetSessionId) { current ->
+                        current.toMutableList().also { messages ->
+                            messages.removeAt(cardIndex)
+                            messages.addAll(
+                                cardIndex,
+                                listOf(
+                                    ChatMessage(
+                                        role = Role.Assistant,
+                                        text = "Creation of $title note is done.",
+                                        dim = true,
+                                    ),
+                                    ChatMessage(
+                                        role = Role.Assistant,
+                                        text = "",
+                                        card = ChatCard.Note(note.noteId, title),
+                                    ),
+                                    ChatMessage(
+                                        role = Role.Assistant,
+                                        text = "Anything else you want to sharpen, or ready to move on?",
+                                        showAvatar = true,
+                                    ),
+                                ),
                             )
-                            updateSessionMessages(targetSessionId) { current ->
-                                current.toMutableList().also { messages ->
-                                    messages.removeAt(cardIndex)
-                                    messages.addAll(
-                                        cardIndex,
-                                        listOf(
-                                            ChatMessage(
-                                                role = Role.Assistant,
-                                                text = "Creation of $title note is done.",
-                                                dim = true,
-                                            ),
-                                            ChatMessage(
-                                                role = Role.Assistant,
-                                                text = "",
-                                                card = ChatCard.Note(note.id, title),
-                                            ),
-                                            ChatMessage(
-                                                role = Role.Assistant,
-                                                text = "Anything else you want to sharpen, or ready to move on?",
-                                                showAvatar = true,
-                                            ),
-                                        ),
-                                    )
-                                }
-                            }
-                            completed = true
                         }
                     }
-                    is ApiResult.BizError,
-                    is ApiResult.NetworkError,
-                    -> Unit
+                    completed = true
                 }
             } finally {
                 if (!completed) {
