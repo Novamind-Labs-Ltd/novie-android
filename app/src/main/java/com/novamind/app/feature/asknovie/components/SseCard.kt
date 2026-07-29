@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -108,6 +109,8 @@ private fun NoteSseCard(
                         color = TextSub,
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 if (!dateLabel.isNullOrBlank()) {

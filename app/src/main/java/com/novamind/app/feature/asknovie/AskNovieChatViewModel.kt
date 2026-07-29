@@ -12,6 +12,7 @@ import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository
 import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository.VoiceTranscription
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import com.novamind.app.feature.asknovie.data.ChatCard
+import com.novamind.app.feature.create.editor.NoteDocument
 import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -19,12 +20,26 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 data class NoteCardPreview(
     val title: String,
     val body: String,
     val updatedAt: String?,
 )
+
+/** 从云端 Note 的 content 信封中提取卡片正文；旧数据或异常结构回退 preview/草稿。 */
+internal fun noteCardBody(content: String, preview: String?, fallback: String = ""): String {
+    val document = runCatching {
+        Json.parseToJsonElement(content).jsonObject["body"]?.jsonPrimitive?.contentOrNull.orEmpty()
+    }.getOrDefault("")
+    return NoteDocument.previewText(document).trim()
+        .ifBlank { preview.orEmpty().trim() }
+        .ifBlank { NoteDocument.previewText(fallback).trim() }
+}
 
 private const val DISPLAY_CHUNK_SIZE = 4
 private const val DISPLAY_INTERVAL_MS = 64L
@@ -68,7 +83,7 @@ class AskNovieChatViewModel @Inject constructor(
                                 notePreviews.value = notePreviews.value + (
                                     noteId to NoteCardPreview(
                                         title = note.title.orEmpty(),
-                                        body = note.preview.orEmpty(),
+                                        body = noteCardBody(note.content, note.preview),
                                         updatedAt = note.updatedAt,
                                     )
                                 )
@@ -129,7 +144,7 @@ class AskNovieChatViewModel @Inject constructor(
                             notePreviews.value = notePreviews.value + (
                                 note.id to NoteCardPreview(
                                     title = title,
-                                    body = note.preview ?: card.draftContent,
+                                    body = noteCardBody(note.content, note.preview, card.draftContent),
                                     updatedAt = note.updatedAt,
                                 )
                             )
