@@ -156,7 +156,7 @@ private fun OptionsSheetContent(
             .padding(horizontal = 16.dp, vertical = 24.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().height(30.dp).padding(horizontal = 12.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 30.dp).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -165,7 +165,7 @@ private fun OptionsSheetContent(
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
