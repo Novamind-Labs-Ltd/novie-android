@@ -18,6 +18,7 @@ object AppConfig {
         const val MAX_IMAGES = 5
         const val VOICE_TRANSCRIPTION_STEP_DELAY_MS = 60L
         const val LIST_ITEM_SPACING_DP = 14
+        const val LIST_VERTICAL_PADDING_DP = 12
         const val IMAGE_PREVIEW_ENTER_MS = 220
         const val IMAGE_PREVIEW_EXIT_MS = 180
         const val IMAGE_PREVIEW_INITIAL_SCALE = 0.92f

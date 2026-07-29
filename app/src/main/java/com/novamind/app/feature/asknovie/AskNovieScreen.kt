@@ -113,6 +113,7 @@ import com.novamind.app.util.PermissionUtils
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
@@ -278,6 +279,12 @@ fun AskNovieScreen(
     var sendTick by remember { mutableIntStateOf(0) }
     var anchorIndex by remember { mutableIntStateOf(0) }
     var bottomSpacerPx by remember { mutableIntStateOf(0) }
+    val listSpacingPx = with(LocalDensity.current) {
+        AppConfig.AskNovie.LIST_ITEM_SPACING_DP.dp.roundToPx()
+    }
+    val listBottomPaddingPx = with(LocalDensity.current) {
+        AppConfig.AskNovie.LIST_VERTICAL_PADDING_DP.dp.roundToPx()
+    }
     val imageCount = attachments.count { it.type == AttachType.Image }
     val remainingImageSlots = (AppConfig.AskNovie.MAX_IMAGES - imageCount).coerceAtLeast(0)
     val imageLimitMessage = "You can attach up to ${AppConfig.AskNovie.MAX_IMAGES} images."
@@ -481,8 +488,50 @@ fun AskNovieScreen(
             // 可滚动距离；如果先滚动再加 Spacer，LazyColumn 会受底部边界限制而无法顶到顶部。
             bottomSpacerPx = listState.layoutInfo.viewportSize.height.coerceAtLeast(0)
             withFrameNanos { }
-            listState.animateScrollToItem(anchorIndex, scrollOffset = 0)
+            listState.scrollToItem(anchorIndex, scrollOffset = 0)
+
+            // 用户消息可见后按实际高度收敛占位：只保留当前屏幕剩余空间，避免完整
+            // viewport Spacer 叠加用户消息和 padding 后形成可滚入的空白屏。
+            withFrameNanos { }
+            val layoutInfo = listState.layoutInfo
+            val turnItems = layoutInfo.visibleItemsInfo.filter {
+                it.index >= anchorIndex && it.key != "bottom-spacer"
+            }
+            if (turnItems.any { it.index == anchorIndex }) {
+                bottomSpacerPx = (
+                    layoutInfo.viewportSize.height -
+                        turnItems.sumOf { it.size } -
+                        listSpacingPx * turnItems.size -
+                        listBottomPaddingPx
+                    ).coerceAtLeast(0)
+                withFrameNanos { }
+                listState.scrollToItem(anchorIndex, scrollOffset = 0)
+            }
             pendingSendAnchor = false
+        }
+    }
+
+    // 回复内容增长时持续消费预留空间。只要本轮内容未超过一屏，滚动到底部就会让最后一条
+    // 用户消息恰好位于顶部；超过一屏后占位归零，回复按正常长内容滚动。
+    LaunchedEffect(sendTick, anchorIndex) {
+        if (sendTick == 0) return@LaunchedEffect
+        snapshotFlow {
+            val info = listState.layoutInfo
+            val turnItems = info.visibleItemsInfo.filter {
+                it.index >= anchorIndex && it.key != "bottom-spacer"
+            }
+            if (turnItems.none { it.index == anchorIndex }) {
+                null
+            } else {
+                (
+                    info.viewportSize.height -
+                        turnItems.sumOf { it.size } -
+                        listSpacingPx * turnItems.size -
+                        listBottomPaddingPx
+                    ).coerceAtLeast(0)
+            }
+        }.distinctUntilChanged().collect { requiredSpacerPx ->
+            requiredSpacerPx?.let { bottomSpacerPx = it }
         }
     }
 
@@ -670,7 +719,7 @@ fun AskNovieScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(
                                 horizontal = 16.dp,
-                                vertical = 12.dp,
+                                vertical = AppConfig.AskNovie.LIST_VERTICAL_PADDING_DP.dp,
                             ),
                             verticalArrangement = Arrangement.spacedBy(
                                 AppConfig.AskNovie.LIST_ITEM_SPACING_DP.dp,
