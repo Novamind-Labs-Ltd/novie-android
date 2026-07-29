@@ -66,7 +66,7 @@ private val calendarBodyHeight = 264.dp
  * 自定义日期选择弹窗（Figma 1032-42991）：不再用 Material3 DatePicker（其日历宽固定 360dp、
  * 无法随屏等比），改为自绘——7 列按 weight 均分，日历随弹窗宽度等比填满，贴合设计比例。
  *
- * 结构：头部「Mon, Jan 17」+ 铅笔图标 · 月份「January 2024」(点开切年份) + 上/下月箭头 ·
+ * 结构：头部「Mon, Jan 17」· 月份「January 2024」(点开切年份) + 上/下月箭头 ·
  * 周标题 · 日期网格（选中日 #242424 实心圆、今天绿色描边）· 底部 Cancel / Ok。
  *
  * 供 AddTaskScreen / EditMeetingScreen 等复用。
@@ -102,7 +102,7 @@ internal fun AppDatePickerDialog(
             shadowElevation = 8.dp,
         ) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-                // ── 头部：选中日期 + 铅笔（装饰，M3 的文本输入切换暂不实现）──────────
+                // ── 头部：选中日期 ────────────────────────────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -113,19 +113,8 @@ internal fun AppDatePickerDialog(
                         text = selected.format(headlineFormatter),
                         fontSize = 32.sp,
                         color = ColorTextTitle,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    Box(
-                        modifier = Modifier.size(40.dp).clip(CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_pencil_line),
-                            contentDescription = null,
-                            tint = ColorTextTitle,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
                 }
 
                 // ── 控制条：月份标签（点开/收起年份）+ 上/下月箭头 ──────────────────
@@ -139,7 +128,6 @@ internal fun AppDatePickerDialog(
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { yearMode = !yearMode }
                             .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -147,14 +135,6 @@ internal fun AppDatePickerDialog(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = monthGreen,
-                        )
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow_down),
-                            contentDescription = "Toggle year picker",
-                            tint = monthGreen,
-                            modifier = Modifier
-                                .size(20.dp)
-                                .graphicsLayer { rotationZ = if (yearMode) 180f else 0f },
                         )
                     }
                     if (!yearMode) {
