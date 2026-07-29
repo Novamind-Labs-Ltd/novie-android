@@ -59,7 +59,6 @@ class AskNovieChatViewModel @Inject constructor(
     val streamingText = mutableStateOf("")
     val isResponding = mutableStateOf(false)
     val isStreaming = mutableStateOf(false)
-    val responseJob = mutableStateOf<Job?>(null)
     val sessionId = mutableStateOf(UUID.randomUUID().toString())
     val customTitle = mutableStateOf<String?>(null)
     val notePreviews = mutableStateOf<Map<String, NoteCardPreview>>(emptyMap())
@@ -404,7 +403,6 @@ class AskNovieChatViewModel @Inject constructor(
         if (sessionId.value != changedSessionId) return
         isResponding.value = changedSessionId in respondingSessions
         isStreaming.value = changedSessionId in streamingSessions
-        responseJob.value = streamJobs[changedSessionId] ?: noteSaveJobs[changedSessionId]
         streamingText.value = sessionStreamingTexts[changedSessionId].orEmpty()
     }
 

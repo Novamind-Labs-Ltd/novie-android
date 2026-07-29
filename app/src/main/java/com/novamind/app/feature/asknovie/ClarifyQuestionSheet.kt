@@ -92,30 +92,6 @@ fun OptionsCardSheet(
     }
 }
 
-/** 保留脚本化 agentic 演示入口，视觉与真实 SSE options Card 一致。 */
-@Composable
-fun ClarifyQuestionSheet(
-    question: String,
-    options: List<String>,
-    onSelect: (Int, String) -> Unit,
-    onSubmitOther: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    OptionsCardSheet(
-        card = ChatCard.Options(
-            prompt = question,
-            items = options.mapIndexed { index, label -> OptionItem(index.toString(), label) },
-            allowFreeText = true,
-            select = "one",
-        ),
-        onSubmit = { answer ->
-            val index = options.indexOf(answer)
-            if (index >= 0) onSelect(index, answer) else onSubmitOther(answer)
-        },
-        onDismiss = onDismiss,
-    )
-}
-
 /** `offer` 没有独立选项字段，统一转换成 Yes / Not right now 单选卡片。 */
 internal fun ChatCard.Offer.asSingleSelectOptions(): ChatCard.Options = ChatCard.Options(
     prompt = label.ifBlank { "Would you like to continue?" },

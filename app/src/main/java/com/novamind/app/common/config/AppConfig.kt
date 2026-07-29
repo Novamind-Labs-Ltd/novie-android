@@ -5,9 +5,30 @@ import com.novamind.app.ui.colors.Palette
 
 /**
  * 应用级可调参数集中处。把分散在各处的“魔法数字”收拢到这里，方便后续统一调整。
- * 按领域分组：[Editor]、[Network]、[Media]、[Pdf]、[Folder]、[RecycleBin]、[Debug]。
+ * 按领域分组：[AskNovie]、[Editor]、[Network]、[Media]、[Pdf]、[Folder]、[RecycleBin]、[Debug]。
  */
 object AppConfig {
+
+    /** Ask Novie 的输入限制、流式展示与页面动画参数。 */
+    object AskNovie {
+        const val MAX_VOICE_SECONDS = 60
+        const val MAX_IMAGES = 5
+        const val VOICE_TRANSCRIPTION_STEP_DELAY_MS = 60L
+        const val LIST_ITEM_SPACING_DP = 14
+        const val IMAGE_PREVIEW_ENTER_MS = 220
+        const val IMAGE_PREVIEW_EXIT_MS = 180
+        const val IMAGE_PREVIEW_INITIAL_SCALE = 0.92f
+        const val HISTORY_ENTER_MS = 300
+        const val HISTORY_EXIT_MS = 260
+        const val OVERLAY_FADE_MS = 180
+        const val SCROLL_TO_BOTTOM_STEP_MS = 240
+
+        val SUGGESTIONS = listOf(
+            "Help me brainstorm",
+            "Who have I promised to follow up with?",
+            "Summarize my notes",
+        )
+    }
 
     /** 文件夹相关配置。 */
     object Folder {

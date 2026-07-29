@@ -79,19 +79,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.feature.asknovie.components.AssistantText
 import com.novamind.app.feature.asknovie.components.AttachmentChip
 import com.novamind.app.feature.asknovie.components.BareIconButton
 import com.novamind.app.feature.asknovie.components.Bg
 import com.novamind.app.feature.asknovie.components.Card
 import com.novamind.app.feature.asknovie.components.ComposerRoundButton
-import com.novamind.app.feature.asknovie.components.CreateNoteCta
 import com.novamind.app.feature.asknovie.components.Dark
 import com.novamind.app.feature.asknovie.components.Hint
 import com.novamind.app.feature.asknovie.components.ModelPill
 import com.novamind.app.feature.asknovie.components.MoreMenu
-import com.novamind.app.feature.asknovie.components.NoteResultCard
-import com.novamind.app.feature.asknovie.components.QuadrantDiagram
 import com.novamind.app.feature.asknovie.components.ScrollToBottomButton
 import com.novamind.app.feature.asknovie.components.SendButton
 import com.novamind.app.feature.asknovie.components.SkillStatusRow
@@ -119,18 +117,6 @@ import kotlinx.coroutines.launch
 
 // 配色与视觉组件统一在 feature/asknovie/components 包；本文件只做屏幕编排。
 
-private const val ASK_NOVIE_MAX_VOICE_SECONDS = 60
-private const val ASK_NOVIE_MAX_IMAGES = 5
-private const val VOICE_TRANSCRIPTION_STEP_DELAY_MS = 60L
-
-/** 预设快捷建议（点击填入输入框）。 */
-private val suggestions = listOf(
-    "Help me brainstorm",
-    "Who have I promised to follow up with?",
-    "Summarize my notes",
-)
-
-
 /** 查询 content uri 的展示文件名。 */
 private fun queryDisplayName(context: android.content.Context, uri: android.net.Uri): String? =
     runCatching {
@@ -138,61 +124,6 @@ private fun queryDisplayName(context: android.content.Context, uri: android.net.
             uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null,
         )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
     }.getOrNull()
-
-/** 临时 mock 回复（后续替换为真实接口）。 */
-private fun mockReply(prompt: String): String {
-    val p = prompt.lowercase()
-    val offTopic =
-        listOf("movie", "cinema", "weather", "news", "stock", "score", "lottery")
-    if (offTopic.any { p.contains(it) }) {
-        return "That’s a bit outside my current scope. I’m best at helping with " +
-                "project management, strategic planning, brainstorming, and creative tasks. " +
-                "Is there something in those areas I can help you with instead?"
-    }
-    return "Here’s a quick take on “${prompt.trim()}”. " +
-            "(This is a mock reply for now — I’ll connect to the real assistant later.) " +
-            "Want me to break it into next steps?"
-}
-
-/**
- * 是否触发 agentic 工具流演示（澄清 → visualise 技能 → 生成笔记）。
- * 命中这些短语即进入脚本化演示（对应 Figma「look back on this year」场景）。
- */
-private fun isAgenticTrigger(prompt: String): Boolean {
-    val p = prompt.lowercase()
-    return listOf("look back", "lookback", "cs hire", "first cs", "visualise", "visualize", "cs look like")
-        .any { p.contains(it) }
-}
-
-/** agentic 演示用的内联象限图数据（对应 Figma「First CS hire」）。 */
-private val DEMO_QUADRANT = ChatBlock.Quadrant(
-    title = "First CS hire — seniority × specialization",
-    subtitle = "Sarah's framing, visualized",
-    topAxis = "Onboarding-focused",
-    bottomAxis = "Generalist",
-    leftAxis = "Junior",
-    rightAxis = "Senior",
-    cells = listOf(
-        QuadrantCell(
-            "Junior + focused",
-            listOf("Cheap, narrow coaching cost", "Scope is the role", "— training window is bounded"),
-            highlight = true,
-            badge = "◆ SARAH'S TARGET",
-        ),
-        QuadrantCell(
-            "Senior + focused",
-            listOf("Expensive, low coaching cost", "Senior for a narrow scope", "— may feel small to them"),
-        ),
-        QuadrantCell(
-            "Junior + broad",
-            listOf("Cheap but heavy coaching", "Broad CS scope + junior", "≈ 10 hrs/week back on you"),
-        ),
-        QuadrantCell(
-            "Senior + broad",
-            listOf("Expensive AND scope creep risk", "Senior generalists", "reshape the role"),
-        ),
-    ),
-)
 
 /**
  * Ask Novie 聊天入口页：顶部返回/历史/更多，中部问候或对话列表，底部快捷建议 + 输入框。
@@ -236,7 +167,6 @@ fun AskNovieScreen(
     val previewResponding = remember { mutableStateOf(initialResponding) }
     val previewNotePreviews = remember { mutableStateOf<Map<String, NoteCardPreview>>(emptyMap()) }
     val previewStreaming = remember { mutableStateOf(false) }
-    val previewResponseJob = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     val previewSessionId = remember { mutableStateOf("preview-session") }
     val previewCustomTitle = remember { mutableStateOf<String?>(null) }
     // 首次进入用初始/预览参数播种；之后保留既有会话（回到页面不重置）。
@@ -277,11 +207,6 @@ fun AskNovieScreen(
     // 底部模型胶囊：当前模型 + 选择弹窗
     var selectedModel by rememberSaveable { mutableStateOf("Opus 4.8") }
     var showModelPicker by remember { mutableStateOf(false) }
-    // agentic 工具流弹窗：澄清问题 / 生成笔记
-    var showClarify by remember { mutableStateOf(false) }
-    var showCreateNote by remember { mutableStateOf(false) }
-    var createNoteTitle by remember { mutableStateOf("First CS hire") }
-    var createNoteContent by remember { mutableStateOf("") }
     var attachments by remember { mutableStateOf(initialAttachments) }   // 待发送附件
     var uploadingAttachmentPaths by remember { mutableStateOf(emptySet<String>()) }
     var showAttachMenu by remember { mutableStateOf(false) }             // 「+」选择菜单
@@ -345,7 +270,6 @@ fun AskNovieScreen(
     val inputFocusRequester = remember { FocusRequester() }
     val context = LocalContext.current
     var isStreaming by (chatVm?.isStreaming ?: previewStreaming) // 逐字输出中
-    var responseJob by (chatVm?.responseJob ?: previewResponseJob) // 当前回复协程
     // 仿 ChatGPT：刚发送的用户消息滚到顶部（自增以触发滚动，即使位置相同）
     var sendTick by remember { mutableIntStateOf(0) }
     var anchorIndex by remember { mutableIntStateOf(0) }
@@ -353,12 +277,14 @@ fun AskNovieScreen(
     var keepBottomSpace by remember { mutableStateOf(false) }
     var bottomSpacerPx by remember { mutableIntStateOf(0) }
     // 列表项间距（与 LazyColumn 的 Arrangement.spacedBy 一致）
-    val listItemSpacingPx = with(LocalDensity.current) { 14.dp.roundToPx() }
+    val listItemSpacingPx = with(LocalDensity.current) {
+        AppConfig.AskNovie.LIST_ITEM_SPACING_DP.dp.roundToPx()
+    }
     val imageCount = attachments.count { it.type == AttachType.Image }
-    val remainingImageSlots = (ASK_NOVIE_MAX_IMAGES - imageCount).coerceAtLeast(0)
-    val imageLimitMessage = "You can attach up to $ASK_NOVIE_MAX_IMAGES images."
+    val remainingImageSlots = (AppConfig.AskNovie.MAX_IMAGES - imageCount).coerceAtLeast(0)
+    val imageLimitMessage = "You can attach up to ${AppConfig.AskNovie.MAX_IMAGES} images."
     val addAndUploadImage: (Attachment) -> Unit = { attachment ->
-        if (attachments.count { it.type == AttachType.Image } >= ASK_NOVIE_MAX_IMAGES) {
+        if (attachments.count { it.type == AttachType.Image } >= AppConfig.AskNovie.MAX_IMAGES) {
             runCatching { java.io.File(attachment.path).delete() }
             ToastUtils.short(context, imageLimitMessage)
         } else {
@@ -446,7 +372,7 @@ fun AskNovieScreen(
     }
     // 启动系统相机（先建目标文件拿到可写 URI）
     val launchCamera: () -> Unit = {
-        if (attachments.count { it.type == AttachType.Image } >= ASK_NOVIE_MAX_IMAGES) {
+        if (attachments.count { it.type == AttachType.Image } >= AppConfig.AskNovie.MAX_IMAGES) {
             ToastUtils.short(context, imageLimitMessage)
         } else {
             ImageStore.createCaptureTarget(context)?.let { (path, uri) ->
@@ -497,7 +423,7 @@ fun AskNovieScreen(
         }
     }
 
-    // 追加用户消息（含附件）→ mock 回复（逐字输出 + 打字振动）；生成期间不接受新发送，可「停止」取消。
+    // 追加用户消息（含附件），回复由 Activity 级 ViewModel 持续消费 SSE。
     val sendMessage: (String, List<Attachment>) -> Unit = { prompt, atts ->
         if (
             !isResponding &&
@@ -512,36 +438,13 @@ fun AskNovieScreen(
 
             onSend(prompt)
 
-            if (isAgenticTrigger(prompt)) {
-                // agentic 演示：助手先追问一句，再弹出澄清问题弹窗
-                isResponding = true
-                responseJob = scope.launch {
-                    try {
-                        delay(600)
-                        isResponding = false
-                        messages = messages + ChatMessage(
-                            Role.Assistant,
-                            "A few things to sharpen the picture. What does CS look like at " +
-                                "Nova today — mostly onboarding new customers, ongoing account " +
-                                "work, or reactive support?",
-                        )
-                        delay(300)
-                        showClarify = true
-                    } finally {
-                        isResponding = false
-                    }
-                }
-            } else {
-                // SSE 由 Activity 级 ViewModel 消费，切走页面或切换 App 窗口不会丢失服务端增量。
-                chatVm?.startStreamingReply(prompt, atts)
-            }
+            chatVm?.startStreamingReply(prompt, atts)
         }
     }
 
     // 停止当前回复生成（保留已输出的部分内容）
     val stopResponse: () -> Unit = {
         chatVm?.stopStreamingReply()
-        responseJob?.cancel()
     }
 
     // Card 操作/常驻入口通过 action 重新进入同一会话，不伪造空的用户气泡。
@@ -565,65 +468,6 @@ fun AskNovieScreen(
             sendMessage(prompt, atts)
             focusManager.clearFocus()
             keyboardController?.hide()
-        }
-    }
-
-    // ── agentic 工具流（脚本化演示）：澄清 → visualise 技能 → 生成笔记 ──
-    // 澄清作答：记录答案 → 运行 visualise 技能 → 象限图 → 「Create as a note」按钮
-    val onClarifyAnswered: (String) -> Unit = { answer ->
-        showClarify = false
-        messages = messages + ChatMessage(Role.User, answer)
-        anchorIndex = messages.lastIndex
-        sendTick++
-        keepBottomSpace = true
-        responseJob = scope.launch {
-            isResponding = true
-            messages = messages + ChatMessage(
-                Role.Assistant, "", block = ChatBlock.SkillStatus("using visualise skill"),
-            )
-            delay(1200)
-            messages = messages + ChatMessage(Role.Assistant, "", block = DEMO_QUADRANT)
-            delay(500)
-            messages = messages + ChatMessage(Role.Assistant, "", block = ChatBlock.CreateNoteCta)
-            isResponding = false
-        }
-    }
-    // 「Create as a note」：打开生成笔记弹窗
-    val onCreateNoteRequested: () -> Unit = {
-        keyboardController?.hide()
-        createNoteTitle = "First CS hire"
-        createNoteContent = ""
-        showCreateNote = true
-    }
-    // 生成笔记确认：运行「创建笔记」技能 → 完成态 + 笔记卡片 + 收尾语
-    val onNoteCreated: (String, String) -> Unit = { title, _ ->
-        showCreateNote = false
-        val finalTitle = title.ifBlank { "First CS hire" }
-        responseJob = scope.launch {
-            isResponding = true
-            messages = messages + ChatMessage(
-                Role.Assistant, "", block = ChatBlock.SkillStatus("Creating notes now.."),
-            )
-            delay(1200)
-            messages = messages + ChatMessage(
-                Role.Assistant, "Creation of $finalTitle note is done.", dim = true,
-            )
-            messages = messages + ChatMessage(
-                Role.Assistant, "",
-                block = ChatBlock.NoteResult(
-                    title = finalTitle,
-                    body = "Junior + focused hire. Cheap, narrow coaching cost; " +
-                        "scope is the role; training window is bounded.",
-                    dateLabel = "AUG 1   10:00AM",
-                ),
-            )
-            delay(300)
-            messages = messages + ChatMessage(
-                Role.Assistant,
-                "Anything else you want to sharpen, or ready to move on?",
-                showAvatar = true,
-            )
-            isResponding = false
         }
     }
 
@@ -818,7 +662,7 @@ fun AskNovieScreen(
                         if (!isRecording) {
                             Spacer(Modifier.height(28.dp))
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                suggestions.forEach { s ->
+                                AppConfig.AskNovie.SUGGESTIONS.forEach { s ->
                                     SuggestionChip(text = s, onClick = {
                                         keyboardController?.hide()
                                         focusManager.clearFocus()
@@ -838,7 +682,9 @@ fun AskNovieScreen(
                                 horizontal = 16.dp,
                                 vertical = 12.dp,
                             ),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(
+                                AppConfig.AskNovie.LIST_ITEM_SPACING_DP.dp,
+                            ),
                         ) {
                             itemsIndexed(
                                 items = messages,
@@ -885,13 +731,7 @@ fun AskNovieScreen(
                                             onOpenNote = onOpenNote,
                                         )
                                     } else when (val b = msg.block) {
-                                        // agentic 富内容块
                                         is ChatBlock.SkillStatus -> SkillStatusRow(b.label, b.working)
-                                        is ChatBlock.Quadrant -> QuadrantDiagram(b)
-                                        is ChatBlock.NoteResult -> NoteResultCard(b, onClick = {
-                                            ToastUtils.short(context, "Opening note…")
-                                        })
-                                        ChatBlock.CreateNoteCta -> CreateNoteCta(onClick = onCreateNoteRequested)
                                         // 纯文本助手消息（收尾语带花标、状态行为灰字）
                                         null -> when {
                                             msg.showAvatar -> AssistantText(
@@ -1141,7 +981,7 @@ fun AskNovieScreen(
                             }
                         },
                         onUpload = { path, dur ->
-                            if (dur > ASK_NOVIE_MAX_VOICE_SECONDS) {
+                            if (dur > AppConfig.AskNovie.MAX_VOICE_SECONDS) {
                                 ToastUtils.short(
                                     context,
                                     "Voice input can be up to 60 seconds.",
@@ -1175,7 +1015,7 @@ fun AskNovieScreen(
                                                 .filter { it.isNotBlank() }
                                                 .joinToString(" ")
                                             if (index < steps.lastIndex) {
-                                                delay(VOICE_TRANSCRIPTION_STEP_DELAY_MS)
+                                                delay(AppConfig.AskNovie.VOICE_TRANSCRIPTION_STEP_DELAY_MS)
                                             }
                                         }
                                         // 中间步骤只用于逐步覆盖展示；最终强制以数组末项为准。
@@ -1232,8 +1072,14 @@ fun AskNovieScreen(
         }
         androidx.compose.animation.AnimatedVisibility(
             visible = previewIndex != null,
-            enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.92f),
-            exit = fadeOut(tween(180)) + scaleOut(tween(180), targetScale = 0.92f),
+            enter = fadeIn(tween(AppConfig.AskNovie.IMAGE_PREVIEW_ENTER_MS)) + scaleIn(
+                tween(AppConfig.AskNovie.IMAGE_PREVIEW_ENTER_MS),
+                initialScale = AppConfig.AskNovie.IMAGE_PREVIEW_INITIAL_SCALE,
+            ),
+            exit = fadeOut(tween(AppConfig.AskNovie.IMAGE_PREVIEW_EXIT_MS)) + scaleOut(
+                tween(AppConfig.AskNovie.IMAGE_PREVIEW_EXIT_MS),
+                targetScale = AppConfig.AskNovie.IMAGE_PREVIEW_INITIAL_SCALE,
+            ),
         ) {
             val shownPaths = if (previewIndex != null) imagePaths else lastPreviewPaths
             ImagePreviewScreen(
@@ -1277,12 +1123,12 @@ fun AskNovieScreen(
         visible = showHistory,
         enter = slideInHorizontally(
             initialOffsetX = { fullWidth -> fullWidth },
-            animationSpec = tween(durationMillis = 300),
-        ) + fadeIn(animationSpec = tween(durationMillis = 180)),
+            animationSpec = tween(durationMillis = AppConfig.AskNovie.HISTORY_ENTER_MS),
+        ) + fadeIn(animationSpec = tween(durationMillis = AppConfig.AskNovie.OVERLAY_FADE_MS)),
         exit = slideOutHorizontally(
             targetOffsetX = { fullWidth -> fullWidth },
-            animationSpec = tween(durationMillis = 260),
-        ) + fadeOut(animationSpec = tween(durationMillis = 180)),
+            animationSpec = tween(durationMillis = AppConfig.AskNovie.HISTORY_EXIT_MS),
+        ) + fadeOut(animationSpec = tween(durationMillis = AppConfig.AskNovie.OVERLAY_FADE_MS)),
     ) {
         ChatHistoryScreen(
             onBack = { showHistory = false },
@@ -1358,22 +1204,6 @@ fun AskNovieScreen(
         )
     }
 
-    // 澄清问题弹窗（agentic 工具流）
-    if (showClarify) {
-        ClarifyQuestionSheet(
-            question = "What does CS look like at Nova today?",
-            options = listOf(
-                "Mostly onboarding",
-                "Ongoing account work",
-                "Reactive support",
-                "Mix",
-            ),
-            onSelect = { _, opt -> onClarifyAnswered(opt) },
-            onSubmitOther = { onClarifyAnswered(it) },
-            onDismiss = { showClarify = false },
-        )
-    }
-
     activeChoiceCard?.let { (index, message) ->
         val card = message.card
         val options = when (card) {
@@ -1402,16 +1232,6 @@ fun AskNovieScreen(
         )
     }
 
-    // 生成笔记弹窗（agentic 工具流）
-    if (showCreateNote) {
-        CreateNoteSheet(
-            initialTitle = createNoteTitle,
-            initialContent = createNoteContent,
-            folderName = "Team meetings",
-            onCreate = onNoteCreated,
-            onDismiss = { showCreateNote = false },
-        )
-    }
 }
 
 /**
@@ -1425,7 +1245,10 @@ private suspend fun LazyListState.smoothScrollToBottom() {
             .coerceAtLeast(1f)
         val consumed = animateScrollBy(
             step,
-            animationSpec = tween(durationMillis = 240, easing = LinearEasing)
+            animationSpec = tween(
+                durationMillis = AppConfig.AskNovie.SCROLL_TO_BOTTOM_STEP_MS,
+                easing = LinearEasing,
+            ),
         )
         if (consumed == 0f) break   // 已到底 / 滚不动：退出，防止死循环
     }
