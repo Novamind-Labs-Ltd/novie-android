@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -40,14 +42,85 @@ import com.novamind.app.ui.theme.AppTheme
 internal fun SseCard(
     card: ChatCard,
     onSendText: (String) -> Unit,
+    onAction: (String) -> Unit,
 ) {
     when (card) {
         is ChatCard.Options -> OptionsSseCard(card, onSendText)
         is ChatCard.Offer -> Unit // 由 AskNovieScreen 的单选底部弹层展示。
-        is ChatCard.Summary -> ReadOnlyCard(card.title, card.body)
+        is ChatCard.Summary -> SummarySseCard(card, onSave = { onAction("create_note_draft") })
         is ChatCard.Diagram -> MermaidDiagramCard(card)
         is ChatCard.CreateNote -> ReadOnlyCard(card.draftTitle, card.draftContent)
         is ChatCard.Note -> ReadOnlyCard(card.title, "Note saved")
+    }
+}
+
+/** Figma 1514:57572：结构化 Summary 卡片与保存 Note 入口。 */
+@Composable
+private fun SummarySseCard(card: ChatCard.Summary, onSave: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Card,
+        shape = RoundedCornerShape(12.dp),
+        shadowElevation = 4.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.End,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(6.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(SummaryBadgeBg)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "Summary",
+                        color = SummaryBadgeText,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (card.title.isNotBlank()) {
+                        Text(
+                            text = card.title,
+                            color = TextTitle,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    if (card.body.isNotBlank()) {
+                        MarkdownContent(content = card.body, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                if (card.saveable) {
+                    HorizontalDivider(color = FieldBorder)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Dark)
+                            .clickable(onClick = onSave)
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "Save as note",
+                            color = OnDark,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -184,6 +257,24 @@ private fun OptionsSseCardPreview() {
                 select = "many",
             ),
             onSendText = {},
+            onAction = {},
         )
+    }
+}
+
+@Preview(showBackground = true, name = "Summary card")
+@Composable
+private fun SummarySseCardPreview() {
+    AppTheme {
+        Box(Modifier.padding(16.dp)) {
+            SummarySseCard(
+                card = ChatCard.Summary(
+                    title = "Nova certification — early shape",
+                    body = "A concise summary of the plan and next steps.",
+                    saveable = true,
+                ),
+                onSave = {},
+            )
+        }
     }
 }

@@ -381,6 +381,12 @@ private fun StableMarkdown(
     }
 }
 
+/** Card 等非聊天正文场景复用同一套 Markdown 解析与有界缓存。 */
+@Composable
+internal fun MarkdownContent(content: String, modifier: Modifier = Modifier) {
+    StableMarkdown(content = content, deferParsing = false, modifier = modifier)
+}
+
 /** 助手回复下方的操作行：复制 / 分享 / 朗读。 */
 @Composable
 private fun AssistantActions(text: String) {

@@ -861,6 +861,7 @@ fun AskNovieScreen(
                                             onSendText = { answer ->
                                                 sendMessage(answer, emptyList())
                                             },
+                                            onAction = sendAction,
                                         )
                                     } else when (val b = msg.block) {
                                         // agentic 富内容块

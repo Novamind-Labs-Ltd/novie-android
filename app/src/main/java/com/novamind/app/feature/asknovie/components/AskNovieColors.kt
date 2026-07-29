@@ -73,6 +73,12 @@ internal val QuadrantHighlightBg: Color
     @Composable @ReadOnlyComposable get() = BackgroundColors.Success.tertiary.current()
 internal val QuadrantHighlightText: Color
     @Composable @ReadOnlyComposable get() = TextColors.Success.default.current()
+// Summary 标签使用 Figma palette/green-200；深色主题使用更深的绿色表面。
+private val SummaryBadgeColor = DualColor(Palette.green200, Palette.green700)
+internal val SummaryBadgeBg: Color
+    @Composable @ReadOnlyComposable get() = SummaryBadgeColor.current()
+internal val SummaryBadgeText: Color
+    @Composable @ReadOnlyComposable get() = TextColors.Success.default.current()
 // 发送按钮绿（Figma icon/brand/default #1B6B45 = forrest-600）。
 internal val SendGreen: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Brand.default.current()
