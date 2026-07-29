@@ -65,7 +65,6 @@ class AskNovieChatViewModel @Inject constructor(
 
     private val sessionMessages = mutableMapOf<String, List<ChatMessage>>()
     private val streamJobs = mutableMapOf<String, Job>()
-    private val noteSaveJobs = mutableMapOf<String, Job>()
     private val respondingSessions = mutableSetOf<String>()
     private val streamingSessions = mutableSetOf<String>()
     private val sessionStreamingTexts = mutableMapOf<String, String>()
@@ -114,104 +113,22 @@ class AskNovieChatViewModel @Inject constructor(
     suspend fun uploadAttachment(attachment: Attachment): Result<String> =
         AskNovieAttachmentRepository.uploadAndAttach(sessionId.value, attachment)
 
-    /** 保存 SSE `save_note` 草稿，并将原卡片依次替换为 Figma loading 与保存成功 UI。 */
-    fun saveNoteDraft(card: ChatCard.SaveNote) =
-        saveNoteCard(card, card.draftTitle, card.draftContent)
-
-    /** Summary 的 Save as note 直接写入 Agent `/v1/save-note`，不触发 create_note_draft。 */
-    fun saveSummary(card: ChatCard.Summary) =
-        saveNoteCard(card, card.title, card.body)
-
-    private fun saveNoteCard(card: ChatCard, draftTitle: String, draftContent: String) {
+    /** Save as note 点击后立即隐藏该卡片操作，避免重复发送 action；状态随会话持久化。 */
+    fun markSaveActionHandled(card: ChatCard) {
         val targetSessionId = sessionId.value
-        if (noteSaveJobs.containsKey(targetSessionId)) return
         val cardIndex = sessionMessages[targetSessionId].orEmpty().indexOfLast { it.card == card }
         if (cardIndex < 0) return
-
         updateSessionMessages(targetSessionId) { current ->
-            current.toMutableList().also { messages ->
-                messages[cardIndex] = ChatMessage(
-                    role = Role.Assistant,
-                    text = "",
-                    block = ChatBlock.SkillStatus("Creating notes now.."),
-                )
+            current.toMutableList().also { list ->
+                val handledCard = when (card) {
+                    is ChatCard.Summary -> card.copy(saveable = false)
+                    is ChatCard.SaveNote -> card.copy(saveable = false)
+                    else -> card
+                }
+                list[cardIndex] = list[cardIndex].copy(card = handledCard)
             }
         }
-        respondingSessions += targetSessionId
-
-        val job = viewModelScope.launch {
-            var completed = false
-            try {
-                val noteDocument = NoteDocument.fromMarkdown(draftContent)
-                AskNovieChat.saveNote(
-                    conversationId = targetSessionId,
-                    title = draftTitle,
-                    content = noteDocument,
-                    preview = NoteDocument.previewText(noteDocument),
-                ).onSuccess { note ->
-                    val title = note.title.ifBlank {
-                        draftTitle.ifBlank { "Untitled note" }
-                    }
-                    notePreviews.value = notePreviews.value + (
-                        note.noteId to NoteCardPreview(
-                            title = title,
-                            body = NoteDocument.previewText(noteDocument),
-                            updatedAt = null,
-                        )
-                    )
-                    updateSessionMessages(targetSessionId) { current ->
-                        current.toMutableList().also { messages ->
-                            messages.removeAt(cardIndex)
-                            messages.addAll(
-                                cardIndex,
-                                listOf(
-                                    ChatMessage(
-                                        role = Role.Assistant,
-                                        text = "Creation of $title note is done.",
-                                        dim = true,
-                                    ),
-                                    ChatMessage(
-                                        role = Role.Assistant,
-                                        text = "",
-                                        card = ChatCard.Note(note.noteId, title),
-                                    ),
-                                    ChatMessage(
-                                        role = Role.Assistant,
-                                        text = "Anything else you want to sharpen, or ready to move on?",
-                                        showAvatar = true,
-                                    ),
-                                ),
-                            )
-                        }
-                    }
-                    completed = true
-                }
-            } finally {
-                if (!completed) {
-                    updateSessionMessages(targetSessionId) { current ->
-                        current.toMutableList().also { messages ->
-                            if (cardIndex in messages.indices) {
-                                messages[cardIndex] = ChatMessage(Role.Assistant, "", card = card)
-                                messages.add(
-                                    cardIndex + 1,
-                                    ChatMessage(
-                                        Role.Assistant,
-                                        "Could not save the note. Please try again.",
-                                        dim = true,
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                }
-                noteSaveJobs.remove(targetSessionId)
-                respondingSessions -= targetSessionId
-                persistSession(targetSessionId)
-                refreshActiveSession(targetSessionId)
-            }
-        }
-        noteSaveJobs[targetSessionId] = job
-        refreshActiveSession(targetSessionId)
+        persistSession(targetSessionId)
     }
 
     /** 同一个首页进入事件只消费一次，避免页面重新进入组合时重复创建空会话。 */
@@ -367,7 +284,6 @@ class AskNovieChatViewModel @Inject constructor(
     fun stopStreamingReply() {
         val activeSessionId = sessionId.value
         streamJobs.remove(activeSessionId)?.cancel()
-        noteSaveJobs.remove(activeSessionId)?.cancel()
         respondingSessions -= activeSessionId
         streamingSessions -= activeSessionId
         persistSession(activeSessionId)
@@ -378,7 +294,6 @@ class AskNovieChatViewModel @Inject constructor(
     fun deleteCurrentSession() {
         val deletedSessionId = sessionId.value
         streamJobs.remove(deletedSessionId)?.cancel()
-        noteSaveJobs.remove(deletedSessionId)?.cancel()
         respondingSessions -= deletedSessionId
         streamingSessions -= deletedSessionId
         sessionMessages.remove(deletedSessionId)

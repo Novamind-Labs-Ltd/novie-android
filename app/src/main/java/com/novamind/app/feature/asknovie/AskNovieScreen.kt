@@ -767,11 +767,13 @@ fun AskNovieScreen(
                                             },
                                             onSaveSummary = { card ->
                                                 keyboardController?.hide()
-                                                chatVm?.saveSummary(card)
+                                                chatVm?.markSaveActionHandled(card)
+                                                sendAction("save_note")
                                             },
                                             onSaveNoteDraft = { card ->
                                                 keyboardController?.hide()
-                                                chatVm?.saveNoteDraft(card)
+                                                chatVm?.markSaveActionHandled(card)
+                                                sendAction("save_note")
                                             },
                                             notePreview = (msg.card as? ChatCard.Note)?.let {
                                                 notePreviews[it.noteId]

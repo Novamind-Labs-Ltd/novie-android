@@ -180,6 +180,7 @@ object ChatSessionStore {
                 put("card_type", "save_note")
                 put("draft_title", card.draftTitle)
                 put("draft_content", card.draftContent)
+                put("saveable", card.saveable)
             }
             is ChatCard.Note -> {
                 put("card_type", "note")
@@ -217,7 +218,9 @@ object ChatSessionStore {
             o.optString("draft_title"), o.optString("draft_content"),
         )
         "save_note" -> ChatCard.SaveNote(
-            o.optString("draft_title"), o.optString("draft_content"),
+            o.optString("draft_title"),
+            o.optString("draft_content"),
+            o.optBoolean("saveable", true),
         )
         "note" -> o.optString("note_id").takeIf(String::isNotBlank)?.let {
             ChatCard.Note(it, o.optString("title"))

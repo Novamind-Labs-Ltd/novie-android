@@ -44,15 +44,6 @@ data class ChatRequest(
     val action: String? = null,
 )
 
-/** `POST /v1/save-note` 请求体；身份与组织范围由 Auth0 token 派生。 */
-@Serializable
-private data class SaveNoteRequest(
-    @SerialName("conversation_id") val conversationId: String,
-    val title: String,
-    val content: JsonObject,
-    val preview: String,
-)
-
 /** SSE 一帧解析后的事件（events.py：text / card / status / error / done）。 */
 sealed interface ChatStreamEvent {
     /** 文本增量（打字机）。 */
@@ -86,7 +77,11 @@ sealed interface ChatCard {
     data class Summary(val title: String, val body: String, val saveable: Boolean) : ChatCard
     data class Offer(val kind: String, val label: String) : ChatCard
     data class CreateNote(val draftTitle: String, val draftContent: String) : ChatCard
-    data class SaveNote(val draftTitle: String, val draftContent: String) : ChatCard
+    data class SaveNote(
+        val draftTitle: String,
+        val draftContent: String,
+        val saveable: Boolean = true,
+    ) : ChatCard
     data class Note(val noteId: String, val title: String) : ChatCard
 }
 
@@ -115,54 +110,6 @@ object AskNovieChat {
             }
             .readTimeout(0, TimeUnit.SECONDS) // SSE 长连：不读超时
             .build()
-    }
-
-    /**
-     * 确认保存 Agent 产出的笔记草稿。
-     *
-     * 与 `/v1/chat` 不同，该接口返回普通 JSON `note` 卡片，不应按 SSE 读取。
-     */
-    suspend fun saveNote(
-        conversationId: String,
-        title: String,
-        content: String,
-        preview: String,
-    ): Result<ChatCard.Note> = kotlinx.coroutines.withContext(Dispatchers.IO) {
-        try {
-            val contentObject = json.parseToJsonElement(content).jsonObject
-            val payload = json.encodeToString(
-                SaveNoteRequest(conversationId, title, contentObject, preview),
-            )
-            val request = Request.Builder()
-                .url(ApiConfig.agentBaseUrl + "v1/save-note")
-                .header("Accept", "application/json")
-                .post(payload.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            val call = NetworkModule.okHttpClient.newCall(request)
-            currentCoroutineContext()[Job]?.invokeOnCompletion { runCatching { call.cancel() } }
-            val card = call.execute().use { response ->
-                val body = response.body?.string().orEmpty()
-                if (!response.isSuccessful) {
-                    val errorCode = runCatching {
-                        json.parseToJsonElement(body).jsonObject["code"]
-                            ?.jsonPrimitive?.contentOrNull
-                    }.getOrNull()
-                    error("save-note failed: ${errorCode ?: "http_${response.code}"}")
-                }
-                val card = runCatching {
-                    parseCard(json.parseToJsonElement(body).jsonObject)
-                }.getOrNull()
-                require(card is ChatCard.Note) { "save-note response is not a note card" }
-                card
-            }
-            Result.success(card)
-        } catch (c: kotlinx.coroutines.CancellationException) {
-            throw c
-        } catch (t: Throwable) {
-            AppLog.w(TAG) { "save-note failed: ${t.message}" }
-            Result.failure(t)
-        }
     }
 
     /**
@@ -346,7 +293,11 @@ object AskNovieChat {
             "summary" -> ChatCard.Summary(str("title"), str("body"), bool("saveable", true))
             "offer" -> ChatCard.Offer(str("kind"), str("label"))
             "create_note" -> ChatCard.CreateNote(str("draft_title"), str("draft_content"))
-            "save_note" -> ChatCard.SaveNote(str("draft_title"), str("draft_content"))
+            "save_note" -> ChatCard.SaveNote(
+                str("draft_title"),
+                str("draft_content"),
+                bool("saveable", true),
+            )
             "note" -> str("note_id").takeIf(String::isNotBlank)?.let { ChatCard.Note(it, str("title")) }
             else -> null
         }
