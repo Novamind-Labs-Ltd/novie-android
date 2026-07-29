@@ -14,8 +14,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +34,7 @@ import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.CalendarEventType
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.feature.calendar.components.AgendaSection
+import com.novamind.app.feature.calendar.components.AppDatePickerDialog
 import com.novamind.app.feature.calendar.components.BgPage
 import com.novamind.app.feature.calendar.components.ColorBorder
 import com.novamind.app.feature.calendar.components.ColorCardBg
@@ -78,6 +83,7 @@ fun CalendarScreen(
     // 周起始改为周日（Figma：S M T W T F S）
     val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
     val dateLabel = selectedDate.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH))
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
 
     // 下拉刷新：与首页一致的自定义平级刷新（非系统 PullToRefreshBox）+ status-loading 图标；
     // 仅已连接时真正触发拉取（未连接/游客态下 Refresh 为 no-op）。
@@ -140,7 +146,15 @@ fun CalendarScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text(dateLabel, fontSize = 20.sp, color = ColorTextTitle)
+                    Text(
+                        text = dateLabel,
+                        fontSize = 20.sp,
+                        color = ColorTextTitle,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showDatePicker = true }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                    )
                     NavArrow(left = true) { onEvent(CalendarUiEvent.PrevWeek) }
                     NavArrow(left = false) { onEvent(CalendarUiEvent.NextWeek) }
                 }
@@ -338,6 +352,17 @@ fun CalendarScreen(
         }
             }
         }
+    }
+
+    if (showDatePicker) {
+        AppDatePickerDialog(
+            initialDate = selectedDate,
+            onConfirm = { date ->
+                showDatePicker = false
+                onEvent(CalendarUiEvent.DateSelected(date))
+            },
+            onDismiss = { showDatePicker = false },
+        )
     }
 }
 
