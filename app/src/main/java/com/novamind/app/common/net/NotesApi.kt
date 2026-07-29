@@ -138,11 +138,15 @@ data class NoteListItemDto(
     val trashed: Boolean = false,
     /** 移入回收站时间；null=活跃。 */
     val deletedAt: String? = null,
-    /**
-     * 缩略图预签名下载 URL（后端 NOV-3644：取最早一张非 FAILED 的 IMAGE 附件、320px JPEG）。
-     * null = 无图片附件 / 缩略图尚未生成或失败 / 预签名失败。始终返回该字段，值常为 null。
-     */
-    val thumbnailUrl: String? = null,
+    /** 所有已生成完成的图片缩略图，按附件创建时间从早到晚排列。 */
+    val thumbnails: List<NoteThumbnailDto> = emptyList(),
+)
+
+/** 笔记列表中的单张缩略图；[thumbnailUrl] 是短期有效的预签名下载地址。 */
+@Serializable
+data class NoteThumbnailDto(
+    val attachmentId: String,
+    val thumbnailUrl: String,
 )
 
 /** 创建笔记请求体：`title` 可选(≤255)，`content` 必填，`preview` 可选（纯文本摘要，null=不设）。 */

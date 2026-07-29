@@ -178,7 +178,8 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         folderId = folderId,
         trashed = trashed,
         deletedAt = deletedAt,
-        thumbnailUrl = thumbnailUrl,
+        // 后端按附件创建时间升序返回全部可用缩略图；列表统一取第一张作为封面。
+        thumbnailUrl = thumbnails.firstOrNull()?.thumbnailUrl,
     )
 
     private fun NoteDto.toDomain(): RemoteNote = RemoteNote(
