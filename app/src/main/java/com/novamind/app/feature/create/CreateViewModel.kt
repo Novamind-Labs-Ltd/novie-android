@@ -505,22 +505,27 @@ class CreateViewModel @Inject constructor(
                 ).fold(
                     onSuccess = { outcome ->
                         outcome?.note?.rev?.let { remoteRev = it }
-                        savedSnapshot = current
                         outcome?.note?.updatedAt?.toEpochMillisOrNull()?.let { ua ->
                             _uiState.update { it.copy(updatedAt = ua) }
                         }
-                        if (outcome?.applied == false) {
-                            AppLog.w(TAG) { "updateNote 落后未生效 id=$id serverRev=${outcome.note?.rev}（latest-wins，已同步服务端 rev）" }
-                        } else {
-                            AppLog.i(TAG) { "updateNote 成功 id=$id newRev=${outcome?.note?.rev}" }
+                        if (outcome?.applied == true) {
+                            // 只有服务端确认本次 latest-wins 更新生效，才能把本地内容标记为已保存。
+                            // 冲突时保留旧快照，使后续自动保存/离页保存继续重试当前本地内容。
+                            savedSnapshot = current
+                            AppLog.i(TAG) { "updateNote 成功 id=$id newRev=${outcome.note?.rev}" }
                             ok = true
+                        } else {
+                            AppLog.w(TAG) { "updateNote 落后未生效 id=$id serverRev=${outcome?.note?.rev}（latest-wins，已同步服务端 rev）" }
                         }
                     },
                     onFail = { notifyError("updateNote id=$id", it, "Save failed", "Network error, note not saved") },
                 )
             }
-            // 正文落盘后做附件对账（笔记已有 id 时）：正文里已上传的图片挂上、移除的摘掉
-            _uiState.value.editingNoteId?.let { noteId -> reconcileAttachments(noteId, state.body) }
+            // 仅在正文确实落盘后做附件对账，避免保存失败/版本冲突时提前挂载或摘除附件，
+            // 导致服务端正文与附件关系不一致。
+            if (ok) {
+                _uiState.value.editingNoteId?.let { noteId -> reconcileAttachments(noteId, state.body) }
+            }
         } finally {
             _uiState.update { it.copy(isSaving = false) }
         }
