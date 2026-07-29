@@ -40,6 +40,7 @@ import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.ui.theme.novieMarkdownTypography
 
 @Composable
 internal fun MarkdownBlockView(
@@ -134,7 +135,10 @@ internal fun MarkdownBlockView(
                     )
                 } else {
                     // 渲染视图（m3 变体，跟随 Material3 主题）
-                    Markdown(content = block.content)
+                    Markdown(
+                        content = block.content,
+                        typography = novieMarkdownTypography(),
+                    )
                 }
             }
         }

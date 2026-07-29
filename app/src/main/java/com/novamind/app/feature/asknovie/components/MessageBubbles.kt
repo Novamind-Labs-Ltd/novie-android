@@ -56,6 +56,7 @@ import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.model.ReferenceLinkHandlerImpl
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.parseMarkdownFlow
+import com.novamind.app.ui.theme.novieMarkdownTypography
 import com.novamind.app.R
 import com.novamind.app.feature.asknovie.AttachType
 import com.novamind.app.feature.asknovie.Attachment
@@ -361,6 +362,7 @@ private fun StableMarkdown(
         Markdown(
             state = state,
             modifier = modifier,
+            typography = novieMarkdownTypography(),
         )
     }
 
