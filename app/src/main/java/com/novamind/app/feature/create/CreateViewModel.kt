@@ -19,6 +19,8 @@ import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.Folder
 import com.novamind.app.feature.create.model.TextSnapshot
 import com.novamind.app.feature.create.model.TranscriptionInsert
+import com.novamind.app.feature.create.data.PolishRepository
+import com.novamind.app.common.net.PolishRequestDto
 import com.novamind.app.feature.create.tag.Tag
 import com.novamind.app.util.ColorUtils
 import com.novamind.app.util.ColorUtils.toHex
@@ -762,6 +764,9 @@ class CreateViewModel @Inject constructor(
      */
     suspend fun uploadImage(path: String, contentType: String): Result<String> =
         uploadSemaphore.withPermit { filesRepository.uploadFile(File(path), contentType) }
+
+    /** 调用 agent 的无状态润色接口；编辑器快照和结果回填由 UI 层的 NoteEditorState 管理。 */
+    suspend fun polish(request: PolishRequestDto): Result<String> = PolishRepository.polish(request)
 
     /** 打开已有笔记时拉附件：初始化已挂载集合与 fileId→URL 映射（供编辑器渲染兜底）。 */
     private suspend fun fetchAttachments(noteId: String) {

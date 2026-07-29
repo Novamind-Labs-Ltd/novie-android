@@ -86,6 +86,11 @@ object NetworkModule {
         retrofit(ApiConfig.apiBaseUrl).create(AskNovieTranscribeApi::class.java)
     }
 
+    /** 笔记 AI 润色：前端携 Auth0 token 直连 agent 的一次性 JSON 接口。 */
+    val polishApi: PolishApi by lazy {
+        retrofit(ApiConfig.agentBaseUrl).create(PolishApi::class.java)
+    }
+
     /** Ask Novie 会话级图片/PDF 附件。 */
     val conversationAttachmentsApi: ConversationAttachmentsApi by lazy {
         retrofit(ApiConfig.apiBaseUrl).create(ConversationAttachmentsApi::class.java)

@@ -12,6 +12,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import com.mohamedrejeb.richeditor.model.RichTextState
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.common.net.PolishRequestDto
+import com.novamind.app.common.net.PolishSelectionDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -28,6 +30,13 @@ sealed interface EditorBlock {
 
 /** AI「Polishing」骨架占位目标：[blockId] 文本块内 [start, end) 字符区间。 */
 data class PolishTarget(val blockId: String, val start: Int, val end: Int)
+
+/** 发起请求时的不可变快照，用于避免等待 AI 时用户编辑导致结果覆盖新内容。 */
+data class PolishSnapshot(
+    val request: PolishRequestDto,
+    val target: PolishTarget?,
+    val originalText: String,
+)
 
 /**
  * 文本块，内含库 [RichTextState]。正文以 **HTML** 持久化（保留加粗/斜体/列表/颜色等富文本）：
@@ -170,6 +179,65 @@ class NoteEditorState {
     fun clearPolish() {
         polishTarget = null
         polishAll = false
+    }
+
+    /** 根据当前骨架目标生成 agent 请求，同时保留用于并发校验的原文快照。 */
+    fun polishSnapshot(): PolishSnapshot? {
+        polishTarget?.let { target ->
+            val block = _blocks.firstOrNull { it.id == target.blockId } as? TextBlock ?: return null
+            val text = block.rich.annotatedString.text
+            if (target.start !in 0..text.length || target.end !in target.start..text.length) return null
+            val selected = text.substring(target.start, target.end)
+            return PolishSnapshot(
+                request = PolishRequestDto(
+                    selection = PolishSelectionDto(
+                        before = text.substring(0, target.start),
+                        target = selected,
+                        after = text.substring(target.end),
+                    ),
+                ),
+                target = target,
+                originalText = selected,
+            )
+        }
+        if (!polishAll) return null
+        return plainText.takeIf { it.isNotBlank() }?.let {
+            PolishSnapshot(PolishRequestDto(text = it), target = null, originalText = it)
+        }
+    }
+
+    /** 仅在请求目标仍保持原样时应用结果；返回 false 表示内容在请求期间已变化。 */
+    fun matchesPolishSnapshot(snapshot: PolishSnapshot): Boolean {
+        val target = snapshot.target
+        if (target == null) return plainText == snapshot.originalText
+        val block = _blocks.firstOrNull { it.id == target.blockId } as? TextBlock ?: return false
+        val text = block.rich.annotatedString.text
+        return target.start >= 0 && target.end <= text.length &&
+            text.substring(target.start, target.end) == snapshot.originalText
+    }
+
+    /** 仅在请求目标仍保持原样时应用结果；返回 false 表示内容在请求期间已变化。 */
+    fun applyPolish(snapshot: PolishSnapshot, polished: String): Boolean {
+        val result = polished.trim()
+        if (result.isEmpty()) return false
+        val target = snapshot.target
+        if (target != null) {
+            val block = _blocks.firstOrNull { it.id == target.blockId } as? TextBlock ?: return false
+            val text = block.rich.annotatedString.text
+            if (target.end > text.length || text.substring(target.start, target.end) != snapshot.originalText) {
+                return false
+            }
+            block.rich.setText(text.substring(0, target.start) + result + text.substring(target.end))
+            runCatching { block.rich.selection = TextRange(target.start + result.length) }
+        } else {
+            if (plainText != snapshot.originalText) return false
+            val textBlocks = _blocks.filterIsInstance<TextBlock>()
+            val first = textBlocks.firstOrNull() ?: return false
+            first.rich.setText(result)
+            textBlocks.drop(1).forEach { it.rich.setText("") }
+        }
+        clearPolish()
+        return true
     }
 
     /** 请求焦点到首个文本块（新建笔记进入时调用，用于自动弹出键盘） */

@@ -68,20 +68,26 @@ import com.novamind.app.feature.create.components.FormattingToolbar
 import com.novamind.app.ui.components.ImagePreviewScreen
 import com.novamind.app.feature.create.components.NoteContentEditor
 import com.novamind.app.feature.create.components.NoteTipBanner
+import com.novamind.app.feature.create.components.PolishBodySkeleton
+import com.novamind.app.feature.create.components.PolishDecisionBar
+import com.novamind.app.feature.create.components.PolishStatusBanner
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.UploadState
 import com.novamind.app.feature.create.model.TranscriptionInsert
+import com.novamind.app.common.net.PolishRequestDto
 import com.novamind.app.feature.create.folder.FolderPickerSheet
 import com.novamind.app.feature.create.tag.TagPickerSheet
 import com.novamind.app.feature.create.editor.ImageStore
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.editor.NoteEditorState
+import com.novamind.app.feature.create.editor.PolishSnapshot
 import com.novamind.app.feature.create.editor.RichSpan
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.FileUtils
 import com.novamind.app.util.PermissionUtils
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -104,6 +110,10 @@ fun CreateScreen(
     // 图片上传：给本地路径 + contentType，返回服务端 fileId（由 CreateRoute 接 ViewModel）
     onUploadImage: suspend (String, String) -> Result<String> = { _, _ ->
         Result.failure(IllegalStateException("upload not wired"))
+    },
+    // AI 润色：由 Route 接 ViewModel，Screen 只负责编辑器快照与结果回填。
+    onPolish: suspend (PolishRequestDto) -> Result<String> = {
+        Result.failure(IllegalStateException("polish not wired"))
     },
     // 附件 fileId → 签名下载 URL（打开已有笔记后由 ViewModel 提供，供本地图失效时兜底渲染）
     attachmentUrls: Map<String, String> = emptyMap(),
@@ -169,7 +179,11 @@ fun CreateScreen(
 
     // 图文正文编辑器状态（文本 + 图片块），文档 JSON 同步给 ViewModel
     val editor = remember { NoteEditorState() }
-    val polishing = editor.isPolishing
+    var pendingPolish by remember { mutableStateOf<Pair<PolishSnapshot, String>?>(null) }
+    var polishJob by remember { mutableStateOf<Job?>(null) }
+    val polishing = editor.isPolishing && pendingPolish == null
+    val polishCompleted = pendingPolish != null
+    val polishActive = editor.isPolishing
     // 字数上限：仅统计正文（标题另有独立上限 TITLE_MAX_CHARS，不计入总字数）
     val maxInputChars = AppConfig.Editor.MAX_INPUT_CHARS
     val bodyLen = editor.textLength
@@ -402,10 +416,15 @@ fun CreateScreen(
 
     // 返回优先级：录音条 → 骨架 → 保存返回；预览/弹窗各自处理返回
     BackHandler(enabled = showRecordingBar) { showRecordingBar = false }
-    BackHandler(enabled = polishing) { editor.clearPolish() }
+    BackHandler(enabled = polishActive) {
+        polishJob?.cancel()
+        polishJob = null
+        pendingPolish = null
+        editor.clearPolish()
+    }
     BackHandler(
         enabled = previewIndex == null && !showAttachSheet && !showDeleteConfirm &&
-                !showRecordingBar && !polishing && !showShare
+                !showRecordingBar && !polishActive && !showShare
     ) {
         keyboardController?.hide()
         // 只读态直接返回不落盘；编辑态返回即保存
@@ -422,8 +441,8 @@ fun CreateScreen(
         ) {
             // ── 顶部操作行 ────────────────────────────────────────────────
             CreateTopBar(
-                canUndo = uiState.canUndo,
-                canRedo = uiState.canRedo,
+                canUndo = uiState.canUndo && !polishActive,
+                canRedo = uiState.canRedo && !polishActive,
                 onBack = {
                     keyboardController?.hide()
                     // 只读态直接返回（不落盘）；编辑态返回即保存
@@ -447,7 +466,7 @@ fun CreateScreen(
                 },
                 // 编辑进入（打开已有笔记）：即使无内容也可用「更多」→ 删除 / 改颜色；
                 // 新建页保持原样：仅笔记非空时可用。
-                moreEnabled = isEditing || !noteEmpty,
+                moreEnabled = !polishActive && (isEditing || !noteEmpty),
                 readOnly = readOnly,
                 onRestore = onRestore,
                 onDeleteForever = { showDeleteConfirm = true },   // 二次确认后彻底删除
@@ -463,15 +482,19 @@ fun CreateScreen(
                 NoteContentEditor(
                     state = editor,
                     onContentChanged = emitContent,
-                    readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中：正文不可编辑、不弹键盘
-                    bodyContent = if (uiState.isTranscribing) {
-                        { AudioTranscriptionContent() }
-                    } else null,
+                    readOnly = showRecordingBar || readOnly || uiState.isTranscribing || polishActive,
+                    bodyContent = when {
+                        polishActive -> { { PolishBodySkeleton() } }
+                        uiState.isTranscribing -> { { AudioTranscriptionContent() } }
+                        else -> null
+                    },
                     bodyCharLimit = maxInputChars,   // 正文上限独立，不再扣减标题字数
                     // 字数达/超上限：红色提示条吸顶，随正文向上滚动常驻顶部（回收站只读态不展示）
-                    stickyBanner = if (!readOnly && totalChars >= maxInputChars) {
-                        { NoteTipBanner(maxChars = maxInputChars) }
-                    } else null,
+                    stickyBanner = when {
+                        polishActive -> { { PolishStatusBanner(completed = polishCompleted) } }
+                        !readOnly && totalChars >= maxInputChars -> { { NoteTipBanner(maxChars = maxInputChars) } }
+                        else -> null
+                    },
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
                     onImageClick = { id ->
                         keyboardController?.hide()
@@ -507,7 +530,7 @@ fun CreateScreen(
                                     }
                                 }
                             },
-                            readOnly = showRecordingBar || readOnly || uiState.isTranscribing,   // 录音 / 回收站只读 / 转写中不可编辑
+                            readOnly = showRecordingBar || readOnly || uiState.isTranscribing || polishActive,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
@@ -563,7 +586,7 @@ fun CreateScreen(
         }
 
         // ── 格式工具栏：悬浮在键盘上方，与录音条互斥 ──────────
-        if ((imeVisible || forceToolbarVisible) && !showRecordingBar && !readOnly) {
+        if ((imeVisible || forceToolbarVisible) && !showRecordingBar && !readOnly && !polishActive) {
             FormattingToolbar(
                 onHideKeyboard = { keyboardController?.hide() },
                 onVoice = onVoiceClicked,
@@ -584,8 +607,31 @@ fun CreateScreen(
                     }
                 },
                 onMagic = {
-                    // 有选区只对选区做骨架，否则全文；不清焦点以保留选区
-                    editor.startPolish()
+                    // 有选区只润色选区，否则润色全文；请求期间展示既有扫光骨架。
+                    if (!editor.isPolishing && editor.startPolish()) {
+                        val snapshot = editor.polishSnapshot()
+                        if (snapshot == null) {
+                            editor.clearPolish()
+                        } else {
+                            polishJob = scope.launch {
+                                onPolish(snapshot.request).fold(
+                                    onSuccess = { polished ->
+                                        if (editor.matchesPolishSnapshot(snapshot)) {
+                                            pendingPolish = snapshot to polished
+                                        } else {
+                                            editor.clearPolish()
+                                            ToastUtils.short(context, "Text changed before polish completed")
+                                        }
+                                    },
+                                    onFailure = { error ->
+                                        editor.clearPolish()
+                                        ToastUtils.short(context, error.message ?: "Polish failed")
+                                    },
+                                )
+                                polishJob = null
+                            }
+                        }
+                    }
                 },
                 onBulletList = { editor.insertListMarker(numbered = false); emitContent() },
                 onNumberedList = { editor.insertListMarker(numbered = true); emitContent() },
@@ -596,9 +642,30 @@ fun CreateScreen(
             )
         }
 
+        if (polishCompleted) {
+            val pending = pendingPolish
+            PolishDecisionBar(
+                onReject = {
+                    pendingPolish = null
+                    editor.clearPolish()
+                },
+                onAccept = {
+                    if (pending != null && editor.applyPolish(pending.first, pending.second)) {
+                        pendingPolish = null
+                        emitContent()
+                    } else {
+                        pendingPolish = null
+                        editor.clearPolish()
+                        ToastUtils.short(context, "Text changed before polish completed")
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+
         // ── 字数计数：右下角「当前/上限」，达上限标红；只读态不展示 ──
         // 低于展示阈值显示实际字数；达到/超过阈值则统一显示为上限（避免临近上限时数字频繁跳动）。
-        if (!showRecordingBar && !readOnly) {
+        if (!showRecordingBar && !readOnly && !polishActive) {
             val toolbarShown = (imeVisible || forceToolbarVisible)
             // 设计：右下角持续展示「已用/上限」（千分位），超限标红。
             val displayCount = "%,d/%,d".format(totalChars, maxInputChars)

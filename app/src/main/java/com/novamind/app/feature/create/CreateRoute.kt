@@ -99,6 +99,7 @@ fun CreateRoute(
             onRestore = onRestore,
             onDeleteForever = onDeleteForever,
             onUploadImage = viewModel::uploadImage,
+            onPolish = viewModel::polish,
             attachmentUrls = attachmentUrls,
             onUploadRecording = viewModel::uploadRecording,
             onCancelUploadRecording = viewModel::cancelAudioUpload,
