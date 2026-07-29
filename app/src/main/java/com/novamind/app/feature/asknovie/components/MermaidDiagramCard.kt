@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -47,6 +48,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
+import com.novamind.app.R
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.feature.asknovie.data.ChatCard
 import com.novamind.app.ui.theme.AppTheme
@@ -115,37 +117,45 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
             } else {
                 val cached = cachedDiagram
                 val cachedSvg = cached?.svg
-                if (cachedSvg != null) {
-                    // Mermaid mindmap 等图形会用 foreignObject 承载文字；Coil 的 SVG
-                    // 解码器会丢弃这部分内容。缓存命中后仍交给本地 WebView 展示 SVG，
-                    // 但不重新运行 Mermaid 布局，兼顾文字完整性与稳定高度。
-                    key("cached", cacheKey, retryToken) {
+                Box {
+                    if (cachedSvg != null) {
+                        // Mermaid mindmap 等图形会用 foreignObject 承载文字；缓存命中后仍交给
+                        // 本地 WebView 展示 SVG，但不重新运行 Mermaid 布局。
+                        key("cached", cacheKey, retryToken) {
+                            MermaidWebView(
+                                source = card.mermaid,
+                                theme = theme,
+                                zoomEnabled = false,
+                                cachedDiagram = cached,
+                                onRendered = { rendered = true },
+                                onCached = {},
+                                onError = { renderError = it },
+                            )
+                        }
+                    } else key(card.mermaid, theme, retryToken) {
                         MermaidWebView(
                             source = card.mermaid,
                             theme = theme,
                             zoomEnabled = false,
-                            cachedDiagram = cached,
+                            cachedDiagram = cachedDiagram,
                             onRendered = { rendered = true },
-                            onCached = {},
+                            onCached = {
+                                MermaidRenderCache.put(cacheKey, it)
+                                cachedDiagram = it
+                            },
                             onError = { renderError = it },
                         )
                     }
-                } else key(card.mermaid, theme, retryToken) {
-                    MermaidWebView(
-                        source = card.mermaid,
-                        theme = theme,
-                        zoomEnabled = false,
-                        cachedDiagram = cachedDiagram,
-                        onRendered = { rendered = true },
-                        onCached = {
-                            MermaidRenderCache.put(cacheKey, it)
-                            cachedDiagram = it
-                        },
-                        onError = { renderError = it },
-                    )
-                }
-                if (rendered) {
-                    TextButton(onClick = { showFullscreen = true }) { Text("Open full screen") }
+                    if (rendered) {
+                        // AndroidView 会消费触摸事件，用透明 Compose 层承接点击进入全屏。
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable(onClickLabel = "Open diagram full screen") {
+                                    showFullscreen = true
+                                },
+                        )
+                    }
                 }
             }
         }
@@ -312,7 +322,11 @@ private fun MermaidFullscreenDialog(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    TextButton(onClick = onDismiss) { Text("Close") }
+                    BareIconButton(
+                        iconRes = R.drawable.ic_close,
+                        desc = "Close",
+                        onClick = onDismiss,
+                    )
                 }
                 if (error == null) {
                     MermaidWebView(
