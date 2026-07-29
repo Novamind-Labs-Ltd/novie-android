@@ -804,14 +804,6 @@ fun CreateScreen(
             ImagePreviewScreen(
                 paths = if (previewIndex != null) liveImages else lastPreviewPaths,
                 initialIndex = lastPreviewIndex,
-                onDelete = { page ->
-                    // 按序号删除对应图片块（liveImages 可能含网络 URL，不能按 path 匹配）
-                    editor.blocks.filterIsInstance<ImageBlock>().getOrNull(page)?.let {
-                        editor.removeBlock(it.id)
-                        emitContent()
-                    }
-                },
-                deleteMessage = "This will remove the image from the note.",
                 onBack = { previewIndex = null },
             )
         }

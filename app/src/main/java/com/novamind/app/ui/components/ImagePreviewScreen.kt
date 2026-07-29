@@ -2,7 +2,6 @@ package com.novamind.app.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
@@ -17,14 +16,16 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -58,6 +59,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -67,27 +69,16 @@ import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.novamind.app.R
-import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.Palette
-import com.novamind.app.ui.colors.TextColors
-import com.novamind.app.ui.colors.current
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 
-// 配色：统一引用 ui/colors 设计系统令牌，随主题深浅自动解析（不使用硬编码颜色）
-private val PreviewBg: Color
-    @Composable @androidx.compose.runtime.ReadOnlyComposable
-    get() = BackgroundColors.Page.default.current()
-private val PreviewText: Color
-    @Composable @androidx.compose.runtime.ReadOnlyComposable
-    get() = TextColors.Primary.default.current()
-private val PreviewBtnBg: Color
-    @Composable @androidx.compose.runtime.ReadOnlyComposable
-    get() = BackgroundColors.Surface.default.current()
-
-// 沉浸态背景：图片预览通用惯例，两主题都用纯黑（取 Palette，非硬编码）
-private val ImmersiveBg: Color = Palette.black
+// Figma 1541:58490：预览器始终使用固定深色画布和 on-dark 前景，不随 App 深浅主题切换。
+private val PreviewBg: Color = Palette.gray800
+private val PreviewText: Color = Palette.sand300
+private val PreviewBtnBg: Color = Palette.white
+private val PreviewCloseIcon: Color = Palette.neutral800
 
 /**
  * 图片预览全屏页：左右滑动翻页（[HorizontalPager]）、双指缩放 / 双击放大、下拉关闭，
@@ -96,18 +87,12 @@ private val ImmersiveBg: Color = Palette.black
  * @param paths 全部图片的有序路径
  * @param initialIndex 进入时显示的图片下标
  * @param onBack 关闭预览
- * @param onDelete 删除第 index 张图片；为 null 时隐藏删除按钮
- * @param deleteTitle / deleteMessage / deleteConfirmLabel 删除二次确认文案（按场景定制）
  */
 @Composable
 fun ImagePreviewScreen(
     paths: List<String>,
     initialIndex: Int,
     onBack: () -> Unit,
-    onDelete: ((Int) -> Unit)? = null,
-    deleteTitle: String = "Delete image?",
-    deleteMessage: String = "This will remove the image.",
-    deleteConfirmLabel: String = "Delete",
 ) {
     if (paths.isEmpty()) {
         // 没有可显示的图片（例如删到空）：直接关闭
@@ -138,9 +123,6 @@ fun ImagePreviewScreen(
                 )
             }
     }
-
-    // 删除确认弹窗
-    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // 缩放 / 平移状态（当前页）。手势期间直接同步更新 state（最跟手、无协程开销），
     // 双击用动画过渡。offset 始终夹紧在边界内，避免拖出空白。
@@ -220,13 +202,8 @@ fun ImagePreviewScreen(
         }
     }
 
-    // 沉浸模式：单击切换。开启时背景变黑、隐藏顶栏（顶部/底部留黑边）
+    // 沉浸模式：单击切换顶栏；画布始终保持 Figma 指定的 #242424。
     var immersive by remember { mutableStateOf(false) }
-    val bgColor by animateColorAsState(
-        targetValue = if (immersive) ImmersiveBg else PreviewBg,
-        animationSpec = tween(220),
-        label = "previewBg",
-    )
 
     // 下拉关闭：竖直拖拽距离（仅向下）。图片随之缩小、背景渐隐，露出下层页面（近共享元素）
     var dragDownY by remember { mutableFloatStateOf(0f) }
@@ -236,7 +213,7 @@ fun ImagePreviewScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(bgColor.copy(alpha = 1f - dismissProgress * 0.85f))
+            .background(PreviewBg.copy(alpha = 1f - dismissProgress * 0.85f))
             // 下拉关闭手势：未放大时生效；向下拖动 → 关闭，向上忽略
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -358,9 +335,10 @@ fun ImagePreviewScreen(
                 AsyncImage(
                     model = previewModel(paths[page]),
                     contentDescription = "Image ${page + 1}",
-                    contentScale = ContentScale.Fit,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .height(437.dp)
                         .graphicsLayer {
                             scaleX = pageScale
                             scaleY = pageScale
@@ -371,7 +349,7 @@ fun ImagePreviewScreen(
             }
         }
 
-        // 顶栏：返回 | N of M | 删除（沉浸模式下淡出隐藏）
+        // 顶栏：左侧 N of M，右侧 36dp 白色关闭按钮（Figma 1541:58706）。
         AnimatedVisibility(
             visible = !immersive && dragDownY == 0f,
             enter = fadeIn(tween(220)),
@@ -381,53 +359,32 @@ fun ImagePreviewScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                CircleIconButton(R.drawable.ic_arrow_back, "Back", onClick = onBack)
                 Text(
                     text = "${pagerState.currentPage + 1} of ${paths.size}",
                     fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                    fontWeight = FontWeight.Medium,
                     color = PreviewText,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
                 )
-                if (onDelete != null) {
-                    CircleIconButton(R.drawable.ic_delete, "Delete", onClick = {
-                        showDeleteConfirm = true
-                    })
-                } else {
-                    // 占位，保持标题居中
-                    Box(modifier = Modifier.size(44.dp))
-                }
+                Spacer(modifier = Modifier.width(24.dp))
+                CloseButton(onClick = onBack)
             }
-        }
-
-        // 删除二次确认
-        if (showDeleteConfirm && onDelete != null) {
-            DeleteConfirmSheet(
-                onConfirm = {
-                    showDeleteConfirm = false
-                    onDelete(pagerState.currentPage)
-                },
-                onDismiss = { showDeleteConfirm = false },
-                title = deleteTitle,
-                message = deleteMessage,
-                confirmLabel = deleteConfirmLabel,
-            )
         }
     }
 }
 
 @Composable
-private fun CircleIconButton(
-    iconResId: Int,
-    contentDescription: String,
-    onClick: () -> Unit,
-) {
-    Surface(shape = CircleShape, color = PreviewBtnBg, shadowElevation = 2.dp) {
+private fun CloseButton(onClick: () -> Unit) {
+    Surface(shape = CircleShape, color = PreviewBtnBg) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(36.dp)
                 .clip(CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -437,10 +394,10 @@ private fun CircleIconButton(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                painter = painterResource(id = iconResId),
-                contentDescription = contentDescription,
-                tint = PreviewText,
-                modifier = Modifier.size(20.dp),
+                painter = painterResource(id = R.drawable.ic_close),
+                contentDescription = "Close",
+                tint = PreviewCloseIcon,
+                modifier = Modifier.size(24.dp),
             )
         }
     }
@@ -457,7 +414,6 @@ private fun ImagePreviewScreenPreview() {
             paths = listOf("/sample/a.jpg", "/sample/b.jpg"),
             initialIndex = 0,
             onBack = {},
-            onDelete = {},
         )
     }
 }

@@ -214,7 +214,6 @@ fun AskNovieScreen(
     // 全屏图片预览：当前图片在「图片附件」中的下标（null 表示不显示）
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     var previewPaths by remember { mutableStateOf<List<String>>(emptyList()) }
-    var previewCanDelete by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val isListScrolling by remember { derivedStateOf { listState.isScrollInProgress } }
     val density = LocalDensity.current
@@ -755,7 +754,6 @@ fun AskNovieScreen(
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
                                                 previewPaths = paths
-                                                previewCanDelete = false
                                                 previewIndex = index
                                             },
                                         )
@@ -907,7 +905,6 @@ fun AskNovieScreen(
                                                     previewPaths = attachments
                                                         .filter { it.type == AttachType.Image }
                                                         .map { it.path }
-                                                    previewCanDelete = true
                                                     previewIndex = idx
                                                 }
                                             },
@@ -1138,21 +1135,6 @@ fun AskNovieScreen(
             ImagePreviewScreen(
                 paths = shownPaths,
                 initialIndex = lastPreviewIndex,
-                onDelete = if (previewCanDelete) {
-                    { page ->
-                        shownPaths.getOrNull(page)?.let { path ->
-                            attachments = attachments.filterNot {
-                                it.type == AttachType.Image && it.path == path
-                            }
-                            previewPaths = previewPaths.filterNot { it == path }
-                        }
-                    }
-                } else {
-                    null
-                },
-                deleteTitle = "Remove image?",
-                deleteMessage = "This will remove the image from your message.",
-                deleteConfirmLabel = "Remove",
                 onBack = { previewIndex = null },
             )
         }
