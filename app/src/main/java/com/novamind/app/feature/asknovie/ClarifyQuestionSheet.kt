@@ -134,6 +134,16 @@ internal fun ChatCard.Offer.acceptAction(): String? = when (kind) {
     else -> null
 }
 
+/** diagram 暂无服务端 action；用可读请求重入对话，避免发送无语义的 "Yes"。 */
+internal fun ChatCard.Offer.acceptText(): String? = when (kind) {
+    "diagram" -> label.ifBlank { "Create a diagram." }
+    else -> null
+}
+
+/** 未知 kind 按卡片协议跳过，等待新版本客户端支持。 */
+internal fun ChatCard.Offer.isSupported(): Boolean =
+    kind == "summary" || kind == "note" || kind == "diagram" || kind == "grilling"
+
 @Composable
 private fun OptionsSheetContent(
     card: ChatCard.Options,

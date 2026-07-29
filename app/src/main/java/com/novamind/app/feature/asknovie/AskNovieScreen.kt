@@ -268,7 +268,7 @@ fun AskNovieScreen(
         val card = messages[index].card
         index !in handledChoiceCardIndexes && when (card) {
             // offer 接受后通过 action 继续，不产生用户气泡；后续已有消息即视为已处理。
-            is ChatCard.Offer -> index == messages.lastIndex
+            is ChatCard.Offer -> card.isSupported() && index == messages.lastIndex
             else -> messages.drop(index + 1).none { it.role == Role.User }
         }
     }
@@ -1386,7 +1386,12 @@ fun AskNovieScreen(
             onSubmit = { answer ->
                 handledChoiceCardIndexes = handledChoiceCardIndexes + index
                 if (card is ChatCard.Offer && answer == "Yes") {
-                    card.acceptAction()?.let(sendAction) ?: sendMessage(answer, emptyList())
+                    val action = card.acceptAction()
+                    val text = card.acceptText()
+                    when {
+                        action != null -> sendAction(action)
+                        text != null -> sendMessage(text, emptyList())
+                    }
                 } else {
                     sendMessage(answer, emptyList())
                 }

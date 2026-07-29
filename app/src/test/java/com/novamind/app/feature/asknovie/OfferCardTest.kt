@@ -26,7 +26,19 @@ class OfferCardTest {
     }
 
     @Test
-    fun `unknown offer kind falls back to text answer`() {
+    fun `diagram offer uses its label as meaningful chat input`() {
+        val offer = ChatCard.Offer("diagram", "Turn this into a diagram")
+
+        assertNull(offer.acceptAction())
+        assertEquals("Turn this into a diagram", offer.acceptText())
+    }
+
+    @Test
+    fun `unknown offer kind is unsupported`() {
+        val offer = ChatCard.Offer("future_kind", "Continue?")
+
+        assertFalse(offer.isSupported())
         assertNull(ChatCard.Offer("future_kind", "Continue?").acceptAction())
+        assertNull(ChatCard.Offer("future_kind", "Continue?").acceptText())
     }
 }
