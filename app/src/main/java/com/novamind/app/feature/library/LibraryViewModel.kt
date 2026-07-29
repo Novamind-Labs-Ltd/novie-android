@@ -7,20 +7,16 @@ import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.BizCode
 import com.novamind.app.common.net.response.fold
-import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.FolderRepository
 import com.novamind.app.data.FoldersRepository
 import com.novamind.app.data.RemoteNoteRepository
-import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.folder.RemoteFolder
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.io.File
 import java.time.Instant
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,10 +25,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
 
 /**
  * Library 页面 ViewModel。
@@ -48,7 +40,6 @@ class LibraryViewModel @Inject constructor(
     private val folderRepository: FolderRepository,
     private val foldersRepository: FoldersRepository,
     private val notesRepository: RemoteNoteRepository,
-    private val attachmentsRepository: AttachmentsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
@@ -58,14 +49,12 @@ class LibraryViewModel @Inject constructor(
     private val serverNotes = MutableStateFlow<List<RemoteNoteSummary>>(emptyList())
     // 服务端文件夹快照（GET /folders）
     private val serverFolders = MutableStateFlow<List<RemoteFolder>>(emptyList())
-    // 按需解析的笔记「详情增强」（首图缩略图），key = "id@updatedAt"；纳入合流，解析完成后自动回填
-    private val noteExtras = MutableStateFlow<Map<String, NoteExtras>>(emptyMap())
     // 文件夹详情页：当前文件夹内笔记快照（按 folderId 独立拉取，与 Recent 解耦）
     private val folderNotesRaw = MutableStateFlow<List<RemoteNoteSummary>>(emptyList())
 
     init {
-        // 四源合流：服务端笔记列表 × 本地文件夹（颜色兜底）× 服务端文件夹（存在性 / id / 排序 / 计数）× 详情增强（缩略图）
-        combine(serverNotes, folderRepository.folders, serverFolders, noteExtras) { notes, stored, remote, extras ->
+        // 三源合流：服务端笔记列表 × 本地文件夹颜色 × 服务端文件夹（存在性 / id / 排序 / 计数）
+        combine(serverNotes, folderRepository.folders, serverFolders) { notes, stored, remote ->
             val folderNameById = remote.associate { it.id to it.name }
             val colorByName = stored.associateBy { it.name }
             // 文件夹列表仅取服务端文件夹（不再有虚拟的 Unfiled 分组），按 sortOrder 排序
@@ -79,22 +68,20 @@ class LibraryViewModel @Inject constructor(
                         colorHex = colorByName[rf.name]?.colorHex,
                     )
                 }
-            notes.map { note -> note.toNoteItem(folderNameById[note.folderId], extras) } to folders
+            notes.map { note -> note.toNoteItem(folderNameById[note.folderId]) } to folders
         }
             .onEach { (noteItems, folders) ->
                 _uiState.update { it.copy(notes = noteItems, folders = folders) }
-                resolveNoteExtras(noteItems)   // 按需拉正文详情解析首图（已缓存的跳过）
             }
             .launchIn(viewModelScope)
 
-        // 文件夹详情笔记合流：原始快照 × 服务端文件夹（名称映射）× 详情增强（缩略图）
-        combine(folderNotesRaw, serverFolders, noteExtras) { raw, remote, extras ->
+        // 文件夹详情笔记合流：原始快照 × 服务端文件夹名称映射
+        combine(folderNotesRaw, serverFolders) { raw, remote ->
             val folderNameById = remote.associate { it.id to it.name }
-            raw.map { it.toNoteItem(folderNameById[it.folderId], extras) }
+            raw.map { it.toNoteItem(folderNameById[it.folderId]) }
         }
             .onEach { items ->
                 _uiState.update { it.copy(folderNotes = items) }
-                resolveNoteExtras(items)
             }
             .launchIn(viewModelScope)
 
@@ -444,52 +431,8 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    // ── 笔记「详情增强」按需解析（与首页一致）─────────────────────────────
-    // 列表接口优先提供 thumbnailUrl；仅在缩略图缺失（如尚未生成）时拉正文详情解析首图
-    // （本地文件优先，失效则用 fileId 换签名 URL）。结果按 id@updatedAt 缓存（改动 bump updatedAt → 自动失效）。
-    // 为纯 UI 增强、失败静默；并发上限 4。
-    private data class NoteExtras(val imagePath: String?)
-    private val thumbSemaphore = Semaphore(4)
-
-    private fun resolveNoteExtras(items: List<NoteItem>) {
-        val cache = noteExtras.value
-        items.filter { it.imagePath == null }.forEach { item ->
-            val key = "${item.id}@${item.updatedAt}"
-            if (cache.containsKey(key)) return@forEach   // 已解析（含解析为无图）→ 跳过
-            viewModelScope.launch {
-                val extras = thumbSemaphore.withPermit { fetchNoteExtras(item.id) } ?: NoteExtras(null)
-                noteExtras.update { it + (key to extras) }   // 回填 → 触发合流重算，缩略图落到对应笔记
-            }
-        }
-    }
-
-    private suspend fun fetchNoteExtras(noteId: String): NoteExtras? {
-        val note = when (val r = notesRepository.getNote(noteId)) {
-            is ApiResult.Success -> r.data
-            else -> null
-        } ?: return null
-        // 服务端 content 约定为 {"body": <文档 JSON 字符串>}，先解包出正文文档
-        val body = runCatching { JSONObject(note.content).optString("body", "") }
-            .getOrDefault("").ifBlank { note.content }
-        return NoteExtras(resolveThumb(noteId, body))
-    }
-
-    private suspend fun resolveThumb(noteId: String, body: String): String? {
-        // 本地首图存在 → 直接用本地路径（即时、离线可看）
-        NoteDocument.firstImagePath(body)?.let { p ->
-            if (withContext(Dispatchers.IO) { File(p).exists() }) return p
-        }
-        // 本地失效 → 用首图 fileId 换签名下载 URL
-        val fid = NoteDocument.firstImageFileId(body) ?: return null
-        val atts = when (val r = attachmentsRepository.list(noteId)) {
-            is ApiResult.Success -> r.data
-            else -> null
-        } ?: return null
-        return atts.firstOrNull { it.fileId == fid }?.downloadUrl
-    }
-
-    /** 列表项领域模型 → UI 模型。列表缩略图优先，缺失时由 [noteExtras] 按需回填。 */
-    private fun RemoteNoteSummary.toNoteItem(folderName: String?, extras: Map<String, NoteExtras>): NoteItem {
+    /** 列表项领域模型 → UI 模型；缩略图只使用列表接口返回的 thumbnailUrl。 */
+    private fun RemoteNoteSummary.toNoteItem(folderName: String?): NoteItem {
         val updated = updatedAt.toEpochMillisOrZero()
         return NoteItem(
             id = id,
@@ -501,7 +444,7 @@ class LibraryViewModel @Inject constructor(
                 .trim(),
             tags = emptyList(),
             borderColor = ColorUtils.parseHexColor(borderColorHex),
-            imagePath = thumbnailUrl ?: extras["$id@$updated"]?.imagePath,
+            imagePath = thumbnailUrl,
             folderName = folderName,
             createdAt = createdAt.toEpochMillisOrZero(),
             updatedAt = updated,
