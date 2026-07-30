@@ -474,6 +474,21 @@ fun AskNovieScreen(
         }
     }
 
+    // Offer 选择仍按协议发送空 input + action，但把用户选中的文字展示在聊天列表中。
+    val sendChoiceAction: (String, String) -> Unit = { action, selectedText ->
+        if (!isResponding && !isStreaming) {
+            bottomSpacerPx = listState.layoutInfo.viewportSize.height.coerceAtLeast(0)
+            messages = messages + ChatMessage(Role.User, selectedText)
+            anchorIndex = messages.lastIndex
+            pendingSendAnchor = true
+            sendTick++
+            onSend(selectedText)
+            keyboardController?.hide()
+            focusManager.clearFocus()
+            chatVm?.startStreamingReply(prompt = "", action = action)
+        }
+    }
+
     // 输入框发送：取当前文本 + 附件，发送后清空
     val send: () -> Unit = {
         val prompt = input.trim()
@@ -1266,7 +1281,7 @@ fun AskNovieScreen(
                     val action = card.acceptAction()
                     val text = card.acceptText()
                     when {
-                        action != null -> sendAction(action)
+                        action != null -> sendChoiceAction(action, answer)
                         text != null -> sendMessage(text, emptyList())
                     }
                 } else {
