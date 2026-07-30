@@ -1,6 +1,5 @@
 package com.novamind.app.feature.home
 
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.novamind.app.R
@@ -11,7 +10,6 @@ import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.common.net.response.fold
 import com.novamind.app.common.net.response.getOrNull
 import com.novamind.app.common.session.UserSessionManager
-import com.novamind.app.data.AttachmentsRepository
 import com.novamind.app.data.RemoteNoteRepository
 import com.novamind.app.data.calendar.CalendarEvent
 import com.novamind.app.data.calendar.TodayAgenda
@@ -22,19 +20,15 @@ import com.novamind.app.data.calendar.isPast
 import com.novamind.app.data.tasks.CalendarTask
 import com.novamind.app.data.tasks.GoogleTasksRepository
 import com.novamind.app.feature.calendar.CalendarBindingStore
-import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.util.ColorUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.io.File
-import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,14 +37,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val notesRepository: RemoteNoteRepository,
-    private val attachmentsRepository: AttachmentsRepository,
     private val todayAgenda: TodayAgendaUseCase,
     private val tasksRepository: GoogleTasksRepository,
     private val calendarRepository: GoogleCalendarRepository,
@@ -132,7 +122,6 @@ class HomeViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(notes = items, errorMessage = null)
                     }
-                    resolveNoteExtras(items)
                 },
                 onFail = { result ->
                     val message = when (result) {
@@ -170,7 +159,6 @@ class HomeViewModel @Inject constructor(
                             errorMessage = null,
                         )
                     }
-                    resolveNoteExtras(items)
                 },
                 onFail = { result ->
                     val message = when (result) {
@@ -431,73 +419,6 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { tasksRepository.deleteTask(task.listId, task.id) }
             loadUpcoming()
-        }
-    }
-
-    // ── 首页笔记缩略图「兜底」按需解析 ────────────────────────────────────
-    // 边框色与缩略图现已随列表接口（RemoteNoteSummary.borderColorHex / thumbnailUrl）直接返回，
-    // 一般无需再拉详情。此处仅为**兜底**：列表未给缩略图（thumbnailUrl=null，如缩略图尚在生成）时，
-    // 拉一次 getNote 用正文首图解析（本地文件优先，失效则用 fileId 换签名 URL）。
-    // 因此只对 imagePath 仍为空的条目发起请求，避免每次进首页 N+1 次 getNote。
-    // 结果按 id@updatedAt 缓存（改动会 bump updatedAt → 自动失效），纯 UI 增强、失败静默。
-    private data class NoteExtras(val imagePath: String?, val borderColor: Color?)
-    private val extrasCache = mutableMapOf<String, NoteExtras>()
-    private val thumbSemaphore = Semaphore(4)
-
-    private fun resolveNoteExtras(items: List<NoteItem>) {
-        // 列表已带缩略图的条目跳过（imagePath 非空即来自 thumbnailUrl）。
-        items.filter { it.imagePath == null }.forEach { item ->
-            val key = "${item.id}@${item.updatedAt}"
-            extrasCache[key]?.let { applyExtras(item.id, it); return@forEach }   // 命中缓存直接回填
-            viewModelScope.launch {
-                val extras = thumbSemaphore.withPermit { fetchNoteExtras(item.id) } ?: NoteExtras(null, null)
-                extrasCache[key] = extras
-                applyExtras(item.id, extras)
-            }
-        }
-    }
-
-    private suspend fun fetchNoteExtras(noteId: String): NoteExtras? {
-        val note = when (val r = notesRepository.getNote(noteId)) {
-            is ApiResult.Success -> r.data
-            else -> null
-        } ?: return null
-        val border = ColorUtils.parseHexColor(note.borderColorHex)
-        // 服务端 content 约定为 {"body": <文档 JSON 字符串>}，先解包出正文文档
-        val body = runCatching { JSONObject(note.content).optString("body", "") }
-            .getOrDefault("").ifBlank { note.content }
-        val imagePath = resolveThumb(noteId, body)
-        return NoteExtras(imagePath, border)
-    }
-
-    private suspend fun resolveThumb(noteId: String, body: String): String? {
-        // 本地首图存在 → 直接用本地路径（即时、离线可看）
-        NoteDocument.firstImagePath(body)?.let { p ->
-            if (withContext(Dispatchers.IO) { File(p).exists() }) return p
-        }
-        // 本地失效 → 用首图 fileId 换签名下载 URL
-        val fid = NoteDocument.firstImageFileId(body) ?: return null
-        val atts = when (val r = attachmentsRepository.list(noteId)) {
-            is ApiResult.Success -> r.data
-            else -> null
-        } ?: return null
-        return atts.firstOrNull { it.fileId == fid }?.downloadUrl
-    }
-
-    private fun applyExtras(id: String, extras: NoteExtras) {
-        _uiState.update { s ->
-            s.copy(
-                notes = s.notes.map {
-                    if (it.id == id) {
-                        it.copy(
-                            imagePath = it.imagePath ?: extras.imagePath,
-                            borderColor = it.borderColor ?: extras.borderColor,
-                        )
-                    } else {
-                        it
-                    }
-                },
-            )
         }
     }
 
