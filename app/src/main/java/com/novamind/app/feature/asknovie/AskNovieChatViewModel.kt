@@ -125,6 +125,16 @@ class AskNovieChatViewModel @Inject constructor(
         startStreamingReply(prompt = "", action = "save_note")
     }
 
+    /** 记录选项卡已提交或关闭，避免页面重建和历史会话恢复后重复弹出。 */
+    fun markChoiceCardHandled(index: Int) {
+        val targetSessionId = sessionId.value
+        updateSessionMessages(targetSessionId) { current ->
+            if (index !in current.indices || current[index].card == null) current
+            else current.toMutableList().also { it[index] = it[index].copy(cardHandled = true) }
+        }
+        persistSession(targetSessionId)
+    }
+
     /** 同一个首页进入事件只消费一次，避免页面重新进入组合时重复创建空会话。 */
     fun consumeNewSessionRequest(requestId: Long): Boolean {
         if (requestId <= 0L || requestId == handledNewSessionRequestId) return false

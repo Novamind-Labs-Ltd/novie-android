@@ -190,18 +190,26 @@ fun AskNovieScreen(
             messages.mapNotNull { (it.card as? ChatCard.Note)?.noteId }.toSet(),
         )
     }
-    // options / offer Card 以单选弹层展示；记住已答/已关闭的位置，避免重组后反复弹出。
-    var handledChoiceCardIndexes by remember(sessionId) { mutableStateOf(emptySet<Int>()) }
+    // options / offer Card 以单选弹层展示；已答/已关闭状态随消息持久化。
     val latestChoiceCard = messages.withIndex().lastOrNull { (_, message) ->
         message.card is ChatCard.Options || message.card is ChatCard.Offer
     }
-    val activeChoiceCard = latestChoiceCard?.takeIf { (index, _) ->
-        val card = messages[index].card
-        index !in handledChoiceCardIndexes && when (card) {
+    val activeChoiceCard = latestChoiceCard?.takeIf { (index, message) ->
+        val card = message.card
+        !message.cardHandled && when (card) {
             // 服务端可能在 offer 后继续输出助手文本；只有出现新的用户消息才视为已处理。
             is ChatCard.Offer ->
                 card.isSupported() && messages.drop(index + 1).none { it.role == Role.User }
             else -> messages.drop(index + 1).none { it.role == Role.User }
+        }
+    }
+    val markChoiceCardHandled: (Int) -> Unit = { index ->
+        if (chatVm != null) {
+            chatVm.markChoiceCardHandled(index)
+        } else if (index in messages.indices) {
+            messages = messages.toMutableList().also {
+                it[index] = it[index].copy(cardHandled = true)
+            }
         }
     }
     var showRename by remember { mutableStateOf(false) }
@@ -1252,7 +1260,7 @@ fun AskNovieScreen(
         OptionsCardSheet(
             card = options,
             onSubmit = { answer ->
-                handledChoiceCardIndexes = handledChoiceCardIndexes + index
+                markChoiceCardHandled(index)
                 if (card is ChatCard.Offer && answer == "Yes") {
                     val action = card.acceptAction()
                     val text = card.acceptText()
@@ -1265,7 +1273,7 @@ fun AskNovieScreen(
                 }
             },
             onDismiss = {
-                handledChoiceCardIndexes = handledChoiceCardIndexes + index
+                markChoiceCardHandled(index)
             },
         )
     }

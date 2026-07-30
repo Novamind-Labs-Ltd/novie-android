@@ -28,8 +28,10 @@ data class ChatMessage(
     val attachments: List<Attachment> = emptyList(),
     // 富内容块（非文本消息）；为空则按普通文本渲染。不持久化。
     val block: ChatBlock? = null,
-    // SSE 交互卡片；卡片内容会持久化，临时选中状态不持久化。
+    // SSE 交互卡片；卡片内容会持久化。
     val card: ChatCard? = null,
+    // 交互卡片已提交或关闭；持久化后返回页面/历史会话时不再重复弹出。
+    val cardHandled: Boolean = false,
     // 助手消息是否显示花标头像（用于总结/收尾语气的消息）。
     val showAvatar: Boolean = false,
     // 是否为灰字状态行（如「Creation … is done.」），不带操作行。
@@ -116,6 +118,7 @@ object ChatSessionStore {
             }
         })
         m.card?.let { put("card", cardToJson(it)) }
+        if (m.cardHandled) put("cardHandled", true)
     }
 
     private fun messageFromJson(o: JSONObject): ChatMessage {
@@ -134,6 +137,7 @@ object ChatSessionStore {
             text = o.optString("text", ""),
             attachments = atts,
             card = o.optJSONObject("card")?.let(::cardFromJson),
+            cardHandled = o.optBoolean("cardHandled", false),
         )
     }
 
