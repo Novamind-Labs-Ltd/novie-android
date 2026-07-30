@@ -261,11 +261,22 @@ class MainActivity : FragmentActivity() {
                                     else -> toIndex >= fromIndex
                                 }
                                 if (forward) {
-                                    (slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f))
-                                        .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut())
+                                    // Create 是不透明详情页：只做位移，避免新旧页面同时半透明造成文字/卡片叠影。
+                                    slideInHorizontally(
+                                        animationSpec = tween(durationMillis = 300),
+                                    ) { it }.togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = tween(durationMillis = 300),
+                                        ) { -it / 3 },
+                                    )
                                 } else {
-                                    (slideInHorizontally { -it / 3 } + fadeIn(initialAlpha = 0.3f))
-                                        .togetherWith(slideOutHorizontally { it } + fadeOut())
+                                    slideInHorizontally(
+                                        animationSpec = tween(durationMillis = 300),
+                                    ) { -it / 3 }.togetherWith(
+                                        slideOutHorizontally(
+                                            animationSpec = tween(durationMillis = 300),
+                                        ) { it },
+                                    )
                                 }
                             }
                         },
