@@ -63,17 +63,25 @@ class HomeViewModel @Inject constructor(
     private val _openNote = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val openNote = _openNote.asSharedFlow()
     private val meetingNoteActions = mutableSetOf<String>()
+    private var notesRequested = false
+    private var lastNoteRefreshRequestId = 0L
 
     fun onSearchQueryChange(query: String) {
         // TODO: filter
     }
 
     /**
-     * 静默重拉：每次回到首页（HomeRoute 重新进入组合）时调用。
-     * 同时刷新云端笔记与今日日历（会议/任务）；进行中则跳过笔记重复请求。
+     * Home 进入组合时调用。笔记首次进入加载一次；只有编辑页返回时递增的
+     * [noteRefreshRequestId] 才会再次触发笔记请求，普通二级页返回不会重拉笔记。
+     * 日历仍在每次回到 Home 时刷新，避免 Up next 长时间使用旧数据。
      */
-    fun reload() {
-        if (!_uiState.value.isLoading) loadNotes(isRefresh = false)
+    fun onHomeEntered(noteRefreshRequestId: Long) {
+        val shouldLoadNotes = !notesRequested || noteRefreshRequestId > lastNoteRefreshRequestId
+        if (shouldLoadNotes) {
+            notesRequested = true
+            lastNoteRefreshRequestId = noteRefreshRequestId
+            if (!_uiState.value.isLoading) loadNotes(isRefresh = false)
+        }
         loadUpcoming()
     }
 

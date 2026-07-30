@@ -53,6 +53,7 @@ private enum class HomeOverlay { None, Notifications, Upcoming, Permissions, Ava
 
 @Composable
 fun HomeRoute(
+    noteRefreshRequestId: Long = 0L,
     onUpcomingSeeAll: () -> Unit = {},
     onNotesSeeAll: () -> Unit = {},
     onNoteClick: (noteId: String) -> Unit = {},
@@ -72,8 +73,8 @@ fun HomeRoute(
     val scope = rememberCoroutineScope()
     val calendarAuthManager = remember { GoogleCalendarAuthManager(context) }
 
-    // 每次回到首页（HomeRoute 重新进入组合，如底栏切换 / 从编辑器返回）都静默重拉笔记列表
-    LaunchedEffect(Unit) { viewModel.reload() }
+    // 普通二级页返回仅重拉 Up next；只有宿主在编辑页返回时递增请求号才刷新笔记。
+    LaunchedEffect(noteRefreshRequestId) { viewModel.onHomeEntered(noteRefreshRequestId) }
     val currentOnNoteClick by rememberUpdatedState(onNoteClick)
     LaunchedEffect(viewModel) {
         viewModel.openNote.collect { noteId -> currentOnNoteClick(noteId) }

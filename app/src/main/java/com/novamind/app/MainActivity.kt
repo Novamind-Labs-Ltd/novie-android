@@ -113,6 +113,8 @@ class MainActivity : FragmentActivity() {
                     mutableStateOf(BottomNavDestination.Home.route)
                 }
                 var editingNoteId by rememberSaveable { mutableStateOf<String?>(null) }
+                // 仅从笔记编辑页返回 Home 时递增，驱动首页笔记列表刷新。
+                var homeNoteRefreshRequestId by rememberSaveable { mutableStateOf(0L) }
                 // Create 的来源页，返回时回到该页
                 var createReturnRoute by rememberSaveable {
                     mutableStateOf(BottomNavDestination.Home.route)
@@ -272,6 +274,7 @@ class MainActivity : FragmentActivity() {
                         saveableStateHolder.SaveableStateProvider(route) {
                         when (route) {
                             BottomNavDestination.Home.route -> HomeRoute(
+                                noteRefreshRequestId = homeNoteRefreshRequestId,
                                 onNoteClick = { noteId ->
                                     editingNoteId = noteId
                                     createReturnRoute = BottomNavDestination.Home.route
@@ -299,6 +302,9 @@ class MainActivity : FragmentActivity() {
                             BottomNavDestination.Create.route -> CreateRoute(
                                 noteId = editingNoteId,
                                 onBack = {
+                                    if (createReturnRoute == BottomNavDestination.Home.route) {
+                                        homeNoteRefreshRequestId += 1L
+                                    }
                                     editingNoteId = null
                                     currentRoute = createReturnRoute
                                     if (createReturnsToAskNovie) {
