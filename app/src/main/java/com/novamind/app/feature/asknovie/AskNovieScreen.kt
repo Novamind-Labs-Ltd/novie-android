@@ -198,8 +198,9 @@ fun AskNovieScreen(
     val activeChoiceCard = latestChoiceCard?.takeIf { (index, _) ->
         val card = messages[index].card
         index !in handledChoiceCardIndexes && when (card) {
-            // offer 接受后通过 action 继续，不产生用户气泡；后续已有消息即视为已处理。
-            is ChatCard.Offer -> card.isSupported() && index == messages.lastIndex
+            // 服务端可能在 offer 后继续输出助手文本；只有出现新的用户消息才视为已处理。
+            is ChatCard.Offer ->
+                card.isSupported() && messages.drop(index + 1).none { it.role == Role.User }
             else -> messages.drop(index + 1).none { it.role == Role.User }
         }
     }
