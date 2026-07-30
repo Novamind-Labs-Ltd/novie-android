@@ -190,17 +190,18 @@ fun AskNovieScreen(
             messages.mapNotNull { (it.card as? ChatCard.Note)?.noteId }.toSet(),
         )
     }
-    // options / offer Card 以单选弹层展示；已答/已关闭状态随消息持久化。
-    val latestChoiceCard = messages.withIndex().lastOrNull { (_, message) ->
-        message.card is ChatCard.Options || message.card is ChatCard.Offer
+    // 只检查最后一轮用户对话之后的 SSE 卡片；已答/已关闭状态随消息持久化。
+    val lastUserMessageIndex = messages.indexOfLast { it.role == Role.User }
+    val latestChoiceCard = messages.withIndex().lastOrNull { (index, message) ->
+        index > lastUserMessageIndex &&
+            message.role == Role.Assistant &&
+            (message.card is ChatCard.Options || message.card is ChatCard.Offer)
     }
-    val activeChoiceCard = latestChoiceCard?.takeIf { (index, message) ->
-        val card = message.card
-        !message.cardHandled && when (card) {
-            // 服务端可能在 offer 后继续输出助手文本；只有出现新的用户消息才视为已处理。
-            is ChatCard.Offer ->
-                card.isSupported() && messages.drop(index + 1).none { it.role == Role.User }
-            else -> messages.drop(index + 1).none { it.role == Role.User }
+    val activeChoiceCard = latestChoiceCard?.takeIf { (_, message) ->
+        !message.cardHandled && when (val card = message.card) {
+            is ChatCard.Offer -> card.isSupported()
+            is ChatCard.Options -> true
+            else -> false
         }
     }
     val markChoiceCardHandled: (Int) -> Unit = { index ->
