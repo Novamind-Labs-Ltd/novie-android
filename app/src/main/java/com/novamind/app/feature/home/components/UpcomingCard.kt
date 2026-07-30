@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,7 +57,10 @@ internal fun UpcomingCard(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = ColorTimeStamp,
-                        modifier = Modifier.width(34.dp),
+                        // 时间必须保持完整单行；用最小宽度而非固定宽度，兼容系统字体放大。
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.widthIn(min = 48.dp),
                     )
                 }
                 Column(
@@ -104,6 +107,25 @@ internal fun UpcomingCard(
                 }
             }
         }
+    }
+}
+
+@Preview(
+    showBackground = true,
+    backgroundColor = 0xFFF3F1EB,
+    name = "Home · Up next Card (large font)",
+    widthDp = 360,
+    fontScale = 1.5f,
+)
+@Composable
+private fun UpcomingCardLargeFontPreview() {
+    AppTheme {
+        UpcomingCard(
+            item = UpcomingItem("4", "Today", "", R.drawable.ic_upcoming_meeting, time = "10:30"),
+            showAction = true,
+            actionLabel = "View notes",
+            modifier = Modifier.padding(16.dp),
+        )
     }
 }
 
