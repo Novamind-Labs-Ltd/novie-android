@@ -9,8 +9,8 @@ import java.io.File
 import java.util.UUID
 
 /**
- * 基于 [MediaRecorder] 的录音器：**单文件、不分片**，录制为原始 AAC（ADTS，`.aac`）
- * 写入应用内部存储，MIME 对齐后端 `audio/aac`。支持开始/暂停/继续/停止/取消
+ * 基于 [MediaRecorder] 的录音器：**单文件、不分片**，按 [format] 录制 AAC 或 M4A。
+ * 写入应用内部存储。支持开始/暂停/继续/停止/取消
  * （暂停继续需 API 24+，本应用 minSdk 26 满足）。
  *
  * 编码参数集中在 [AppConfig.Media]：码率 [AppConfig.Media.AUDIO_BITRATE]、
@@ -23,6 +23,7 @@ import java.util.UUID
  */
 class AudioRecorder(
     private val context: Context,
+    private val format: AudioRecordingFormat = AudioRecordingFormat.AAC,
     private val onMaxDurationReached: (() -> Unit)? = null,
 ) {
 
@@ -37,7 +38,7 @@ class AudioRecorder(
     fun start(): Boolean = try {
         File(context.filesDir, AUDIO_DIR).mkdirs()
         sessionId = UUID.randomUUID().toString()
-        val out = File(context.filesDir, "$AUDIO_DIR/voice_$sessionId.aac")
+        val out = File(context.filesDir, "$AUDIO_DIR/voice_$sessionId.${format.fileExtension}")
         outputFile = out
 
         @Suppress("DEPRECATION")
@@ -48,8 +49,7 @@ class AudioRecorder(
         }
         rec.apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
-            // 原始 AAC（ADTS, .aac），MIME=audio/aac，匹配后端 files 允许类型。
-            setOutputFormat(MediaRecorder.OutputFormat.AAC_ADTS)
+            setOutputFormat(format.outputFormat)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             setAudioEncodingBitRate(AppConfig.Media.AUDIO_BITRATE)
             setAudioSamplingRate(AppConfig.Media.AUDIO_SAMPLE_RATE)

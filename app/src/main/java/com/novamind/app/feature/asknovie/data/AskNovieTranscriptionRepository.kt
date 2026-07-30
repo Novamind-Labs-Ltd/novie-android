@@ -1,6 +1,6 @@
 package com.novamind.app.feature.asknovie.data
 
-import com.novamind.app.common.config.AppConfig
+import com.novamind.app.common.audio.AudioRecordingFormat
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.response.ApiResult
@@ -28,7 +28,7 @@ object AskNovieTranscriptionRepository {
         val audio = MultipartBody.Part.createFormData(
             name = "audio",
             filename = file.name,
-            body = file.asRequestBody(AppConfig.Media.AUDIO_MIME.toMediaType()),
+            body = file.asRequestBody(AudioRecordingFormat.M4A.mimeType.toMediaType()),
         )
         val declaredDuration = (durationSeconds * 1_000L)
             .toString()

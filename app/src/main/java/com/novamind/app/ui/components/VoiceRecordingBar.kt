@@ -57,6 +57,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.tooling.preview.Preview
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
+import com.novamind.app.common.audio.AudioRecordingFormat
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
@@ -159,6 +160,7 @@ sealed interface RecordingUploadOutcome {
  * @param compact 紧凑输入框模式（Ask Novie 使用）；为 false 时保持 Create 页的大型录音面板。
  * @param autoStart 组件进入后是否立即开始录音。
  * @param sendingLabel 上传处理中的状态文案；Ask Novie 使用 “Transcribing…” 表达语音转文字。
+ * @param recordingFormat 录音封装格式；笔记默认 AAC，Ask Novie 使用 M4A。
  */
 @Composable
 fun VoiceRecordingBar(
@@ -169,6 +171,7 @@ fun VoiceRecordingBar(
     compact: Boolean = false,
     autoStart: Boolean = false,
     sendingLabel: String = "Sending…",
+    recordingFormat: AudioRecordingFormat = AudioRecordingFormat.AAC,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val snapshot by com.novamind.app.common.audio.RecordingController.state
@@ -235,7 +238,7 @@ fun VoiceRecordingBar(
         sending = false
         pendingUpload = null
         com.novamind.app.common.audio.RecordingController.reset()
-        com.novamind.app.common.audio.RecordingService.start(context)
+        com.novamind.app.common.audio.RecordingService.start(context, recordingFormat)
         started = true
     }
 

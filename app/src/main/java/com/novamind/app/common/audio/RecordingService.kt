@@ -35,9 +35,7 @@ import kotlinx.coroutines.withContext
 class RecordingService : Service() {
 
     // 达最大时长（30min）自动停止：回调在 MediaRecorder 线程触发，切回 service 主作用域收尾。
-    private val recorder by lazy {
-        AudioRecorder(this) { scope.launch { handleStop() } }
-    }
+    private var recorder: AudioRecorder? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var loop: Job? = null
 
@@ -50,7 +48,11 @@ class RecordingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> handleStart()
+            ACTION_START -> handleStart(
+                format = intent.getStringExtra(EXTRA_FORMAT)
+                    ?.let { runCatching { AudioRecordingFormat.valueOf(it) }.getOrNull() }
+                    ?: AudioRecordingFormat.AAC,
+            )
             ACTION_PAUSE -> handlePause()
             ACTION_RESUME -> handleResume()
             ACTION_STOP -> handleStop()
@@ -60,8 +62,10 @@ class RecordingService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun handleStart() {
+    private fun handleStart(format: AudioRecordingFormat) {
         if (RecordingController.state.value.active) return
+
+        recorder = AudioRecorder(this, format) { scope.launch { handleStop() } }
 
         // 先起前台（满足 startForegroundService 5s 内必须 startForeground 的约束），
         // 再在 IO 线程做「空间预检 + 清理」，据结果决定真正开录或中止。
@@ -78,7 +82,7 @@ class RecordingService : Service() {
                 finishService()
                 return@launch
             }
-            if (!recorder.start()) {
+            if (recorder?.start() != true) {
                 // 启动失败（如权限被收回）：上报取消并退出。
                 RecordingController.update { it.copy(active = false, cancelled = true) }
                 finishService()
@@ -97,7 +101,7 @@ class RecordingService : Service() {
     private fun handlePause() {
         if (!RecordingController.state.value.active || paused) return
         paused = true
-        recorder.pause()
+        recorder?.pause()
         RecordingController.update { it.copy(paused = true) }
         updateNotification()
     }
@@ -105,7 +109,7 @@ class RecordingService : Service() {
     private fun handleResume() {
         if (!RecordingController.state.value.active || !paused) return
         paused = false
-        recorder.resume()
+        recorder?.resume()
         RecordingController.update { it.copy(paused = false) }
         updateNotification()
     }
@@ -114,7 +118,8 @@ class RecordingService : Service() {
         // 重入保护：用户停止与 30min 自动停止可能并发，仅首次生效。
         if (!RecordingController.state.value.active) return
         loop?.cancel()
-        val path = recorder.stop()
+        val path = recorder?.stop()
+        recorder = null
         val result = path?.let { RecordingResult(it, elapsed, peak, voicedMs = voicedTicks * TICK_MS) }
         RecordingController.update {
             it.copy(active = false, paused = false, result = result, cancelled = result == null)
@@ -124,7 +129,8 @@ class RecordingService : Service() {
 
     private fun handleCancel() {
         loop?.cancel()
-        recorder.cancel()
+        recorder?.cancel()
+        recorder = null
         RecordingController.update { it.copy(active = false, paused = false, cancelled = true) }
         finishService()
     }
@@ -140,7 +146,7 @@ class RecordingService : Service() {
                 if (paused) continue
                 accMillis += TICK_MS
                 elapsed = (accMillis / 1000).toInt()
-                val amp = recorder.maxAmplitude()
+                val amp = recorder?.maxAmplitude() ?: 0
                 if (amp > peak) peak = amp
                 // 该窗口振幅超过说话电平 → 记一次有声（暂停时 continue 已跳过,不计入）
                 if (amp >= AppConfig.Media.VOICE_LEVEL) voicedTicks++
@@ -268,16 +274,27 @@ class RecordingService : Service() {
         const val ACTION_RESUME = "com.novamind.app.recording.RESUME"
         const val ACTION_STOP = "com.novamind.app.recording.STOP"
         const val ACTION_CANCEL = "com.novamind.app.recording.CANCEL"
+        private const val EXTRA_FORMAT = "recording_format"
 
         /** 开始录音（启动前台服务）。 */
-        fun start(context: Context) = send(context, ACTION_START, foreground = true)
+        fun start(
+            context: Context,
+            format: AudioRecordingFormat = AudioRecordingFormat.AAC,
+        ) = send(context, ACTION_START, foreground = true, format = format)
         fun pause(context: Context) = send(context, ACTION_PAUSE)
         fun resume(context: Context) = send(context, ACTION_RESUME)
         fun stop(context: Context) = send(context, ACTION_STOP)
         fun cancel(context: Context) = send(context, ACTION_CANCEL)
 
-        private fun send(context: Context, action: String, foreground: Boolean = false) {
-            val intent = Intent(context, RecordingService::class.java).setAction(action)
+        private fun send(
+            context: Context,
+            action: String,
+            foreground: Boolean = false,
+            format: AudioRecordingFormat? = null,
+        ) {
+            val intent = Intent(context, RecordingService::class.java)
+                .setAction(action)
+                .apply { format?.let { putExtra(EXTRA_FORMAT, it.name) } }
             if (foreground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {

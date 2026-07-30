@@ -1125,6 +1125,7 @@ fun AskNovieScreen(
                         compact = true,
                         autoStart = true,
                         sendingLabel = "Transcribing…",
+                        recordingFormat = com.novamind.app.common.audio.AudioRecordingFormat.M4A,
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter),
