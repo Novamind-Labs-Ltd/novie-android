@@ -127,7 +127,8 @@ fun LibraryScreen(
     uiState: LibraryUiState,
     onCreateNote: () -> Unit = {},
     onToggleViewMode: () -> Unit = {},
-    onRefresh: () -> Unit = {},   // Recent 页下拉刷新 → 重拉笔记与文件夹
+    onRefreshNotes: () -> Unit = {},   // Recent 页下拉刷新 → 只重拉笔记
+    onRefreshFolders: () -> Unit = {},   // Folders 页下拉刷新 → 只重拉文件夹
     onLoadMore: () -> Unit = {},   // Recent 页上拉触底 → 加载下一页
     onLoadMoreFolders: () -> Unit = {},   // Folders 页上拉触底 → 加载下一页
     onOpenSidebar: () -> Unit = {},   // 点击左上角侧栏按钮 → 由宿主（Route）打开抽屉
@@ -230,14 +231,14 @@ fun LibraryScreen(
                     uiState = uiState,
                     onCreateNote = onCreateNote,
                     onOpenNote = onOpenNote,
-                    onRefresh = onRefresh,
+                    onRefresh = onRefreshNotes,
                     onLoadMore = onLoadMore,
                 )
                 else -> FoldersPage(
                     folders = uiState.folders,
                     onOpenFolder = onOpenFolder,
-                    isRefreshing = uiState.isRefreshing,
-                    onRefresh = onRefresh,
+                    isRefreshing = uiState.isRefreshingFolders,
+                    onRefresh = onRefreshFolders,
                     hasMoreFolders = uiState.hasMoreFolders,
                     isLoadingMoreFolders = uiState.isLoadingMoreFolders,
                     onLoadMoreFolders = onLoadMoreFolders,
@@ -272,7 +273,7 @@ fun LibraryScreen(
 
 /**
  * Recent 页：无笔记显示空状态；有笔记按 viewMode 显示双列网格或单列列表。点击笔记进入预览/编辑页。
- * 整页包裹下拉刷新（与首页一致）：下拉重拉笔记与文件夹；空态也置于可滚动容器内以支持下拉。
+ * 整页包裹下拉刷新（与首页一致）：下拉只重拉笔记；空态也置于可滚动容器内以支持下拉。
  */
 @Composable
 private fun RecentPage(
@@ -304,7 +305,7 @@ private fun RecentPage(
     }
 
     AppPullToRefresh(
-        isRefreshing = uiState.isRefreshing,
+        isRefreshing = uiState.isRefreshingNotes,
         onRefresh = onRefresh,
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -772,7 +773,8 @@ fun LibraryRoute(
                     uiState = uiState,
                     onCreateNote = onCreateNote,
                     onToggleViewMode = viewModel::toggleViewMode,
-                    onRefresh = viewModel::onRefresh,
+                    onRefreshNotes = viewModel::refreshNotes,
+                    onRefreshFolders = viewModel::refreshFolders,
                     onLoadMore = viewModel::loadMoreNotes,
                     onLoadMoreFolders = viewModel::loadMoreFolders,
                     onOpenSidebar = { drawerOpen = true },

@@ -59,7 +59,8 @@ class LibraryViewModel @Inject constructor(
     private var foldersGeneration = 0L
     private var notesRequestJob: Job? = null
     private var foldersRequestJob: Job? = null
-    private var refreshJob: Job? = null
+    private var notesRefreshJob: Job? = null
+    private var foldersRefreshJob: Job? = null
     private var reorderGeneration = 0L
     /**
      * 串行化所有会读写 [serverFolders] 的远端请求。
@@ -106,55 +107,78 @@ class LibraryViewModel @Inject constructor(
 
     /** 静默重拉笔记与文件夹（每次进入 Library 时调用，与首页一致）。 */
     fun reload() {
-        cancelRefresh()
+        cancelNotesRefresh()
+        cancelFoldersRefresh()
         startNotesFirstPage()
         startFoldersFirstPage()
     }
 
-    /** 下拉刷新（Recent 页）：重拉笔记与文件夹，两者都结束后再关闭刷新态（与首页一致）。 */
-    fun onRefresh() {
-        if (_uiState.value.isRefreshing) return
+    /** Recent 页下拉刷新：只重拉笔记，不触碰文件夹列表。 */
+    fun refreshNotes() {
+        if (_uiState.value.isRefreshingNotes) return
         notesRequestJob?.cancel()
-        foldersRequestJob?.cancel()
-        val notesRequestGeneration = ++notesGeneration
-        val foldersRequestGeneration = ++foldersGeneration
-        // 新读取接管文件夹状态，尚未应用的 reorder 响应必须失效。
-        ++reorderGeneration
+        val generation = ++notesGeneration
         notesCursor = null
-        foldersCursor = null
         _uiState.update {
             it.copy(
-                isRefreshing = true,
+                isRefreshingNotes = true,
                 isLoadingMore = false,
-                isLoadingMoreFolders = false,
                 hasMoreNotes = false,
-                hasMoreFolders = false,
             )
         }
-        val notesJob = viewModelScope.launch { fetchNotes(notesRequestGeneration) }
-        val foldersJob = viewModelScope.launch { fetchFolders(foldersRequestGeneration) }
-        notesRequestJob = notesJob
-        foldersRequestJob = foldersJob
-        refreshJob = viewModelScope.launch {
-            notesJob.join()
-            foldersJob.join()
-            if (notesGeneration == notesRequestGeneration && foldersGeneration == foldersRequestGeneration) {
-                _uiState.update { it.copy(isRefreshing = false) }
+        val requestJob = viewModelScope.launch { fetchNotes(generation) }
+        notesRequestJob = requestJob
+        notesRefreshJob = viewModelScope.launch {
+            requestJob.join()
+            if (notesGeneration == generation) {
+                _uiState.update { it.copy(isRefreshingNotes = false) }
             }
         }
     }
 
-    private fun cancelRefresh() {
-        refreshJob?.cancel()
-        refreshJob = null
-        if (_uiState.value.isRefreshing) {
-            _uiState.update { it.copy(isRefreshing = false) }
+    /** Folders 页下拉刷新：只重拉文件夹，不触碰 Recent 笔记。 */
+    fun refreshFolders() {
+        if (_uiState.value.isRefreshingFolders) return
+        foldersRequestJob?.cancel()
+        val generation = ++foldersGeneration
+        ++reorderGeneration
+        foldersCursor = null
+        _uiState.update {
+            it.copy(
+                isRefreshingFolders = true,
+                isLoadingMoreFolders = false,
+                hasMoreFolders = false,
+            )
+        }
+        val requestJob = viewModelScope.launch { fetchFolders(generation) }
+        foldersRequestJob = requestJob
+        foldersRefreshJob = viewModelScope.launch {
+            requestJob.join()
+            if (foldersGeneration == generation) {
+                _uiState.update { it.copy(isRefreshingFolders = false) }
+            }
+        }
+    }
+
+    private fun cancelNotesRefresh() {
+        notesRefreshJob?.cancel()
+        notesRefreshJob = null
+        if (_uiState.value.isRefreshingNotes) {
+            _uiState.update { it.copy(isRefreshingNotes = false) }
+        }
+    }
+
+    private fun cancelFoldersRefresh() {
+        foldersRefreshJob?.cancel()
+        foldersRefreshJob = null
+        if (_uiState.value.isRefreshingFolders) {
+            _uiState.update { it.copy(isRefreshingFolders = false) }
         }
     }
 
     /** 拉取服务端文件夹列表（GET /folders），刷新 [serverFolders]。 */
     fun loadFolders() {
-        cancelRefresh()
+        cancelFoldersRefresh()
         startFoldersFirstPage()
     }
 
@@ -207,7 +231,7 @@ class LibraryViewModel @Inject constructor(
         val cursor = notesCursor
         val generation = notesGeneration
         // 无更多 / 正在加载 / 正在刷新 时不重复触发
-        if (cursor == null || _uiState.value.isLoadingMore || _uiState.value.isRefreshing) return
+        if (cursor == null || _uiState.value.isLoadingMore || _uiState.value.isRefreshingNotes) return
         _uiState.update { it.copy(isLoadingMore = true) }
         notesRequestJob = viewModelScope.launch {
             notesRepository.listNotes(
@@ -264,7 +288,7 @@ class LibraryViewModel @Inject constructor(
     fun loadMoreFolders() {
         val cursor = foldersCursor
         val generation = foldersGeneration
-        if (cursor == null || _uiState.value.isLoadingMoreFolders || _uiState.value.isRefreshing) return
+        if (cursor == null || _uiState.value.isLoadingMoreFolders || _uiState.value.isRefreshingFolders) return
         _uiState.update { it.copy(isLoadingMoreFolders = true) }
         foldersRequestJob = viewModelScope.launch {
             foldersRequestMutex.withLock {
@@ -468,7 +492,7 @@ class LibraryViewModel @Inject constructor(
         val byId = serverFolders.value.associateBy { it.id }
         val orderedIds = orderedFolderIds.distinct().filter { it in byId }
         if (orderedIds.isEmpty()) return
-        cancelRefresh()
+        cancelFoldersRefresh()
         // reorder 接管文件夹状态：取消列表请求并使其即使已返回也无法再落入 UI。
         foldersRequestJob?.cancel()
         foldersRequestJob = null
