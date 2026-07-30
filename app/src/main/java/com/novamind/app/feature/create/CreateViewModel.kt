@@ -167,8 +167,6 @@ class CreateViewModel @Inject constructor(
             .sample(AppConfig.Editor.SAVE_MAX_INTERVAL_MS)
             .onEach { saveNow() }
             .launchIn(viewModelScope)
-        // 文件夹选择列表来自服务端 GET /folders（进入时拉一次；打开选择器 / 新建后再刷新）
-        loadFolders()
         // 标签选择列表来自持久化标签库（实时）
         tagRepository.tags
             .onEach { stored ->
