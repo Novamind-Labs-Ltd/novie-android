@@ -35,12 +35,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mikepenz.markdown.m3.Markdown
 import com.novamind.app.R
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.ui.theme.novieMarkdownTypography
 
 @Composable
 internal fun PolishStatusBanner(completed: Boolean, modifier: Modifier = Modifier) {
@@ -104,16 +106,13 @@ internal fun PolishBodySkeleton(modifier: Modifier = Modifier) {
 /** 润色成功后的只读预览；按钮悬浮在底部，因此保留足够尾部空间避免正文被遮挡。 */
 @Composable
 internal fun PolishResultContent(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
+    Markdown(
+        content = text,
+        typography = novieMarkdownTypography(),
         modifier = modifier
             .fillMaxWidth()
             .background(BackgroundColors.Page.secondary.current())
             .padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 130.dp),
-        color = TextColors.Primary.default.current(),
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        fontWeight = FontWeight.Normal,
     )
 }
 

@@ -216,7 +216,12 @@ class NoteEditorState {
             text.substring(target.start, target.end) == snapshot.originalText
     }
 
-    /** 仅在请求目标仍保持原样时应用结果；返回 false 表示内容在请求期间已变化。 */
+    /**
+     * 仅在请求目标仍保持原样时应用结果；返回 false 表示内容在请求期间已变化。
+     *
+     * Polish 返回 Markdown，必须保留为 [MarkdownBlock] 才会经过 Markdown 渲染器。
+     * 全文润色替换所有普通文本块；选区润色则把原文本块拆成「前文 / Markdown / 后文」。
+     */
     fun applyPolish(snapshot: PolishSnapshot, polished: String): Boolean {
         val result = polished.trim()
         if (result.isEmpty()) return false
@@ -227,14 +232,28 @@ class NoteEditorState {
             if (target.end > text.length || text.substring(target.start, target.end) != snapshot.originalText) {
                 return false
             }
-            block.rich.setText(text.substring(0, target.start) + result + text.substring(target.end))
-            runCatching { block.rich.selection = TextRange(target.start + result.length) }
+            val index = _blocks.indexOf(block)
+            val before = text.substring(0, target.start)
+            val after = text.substring(target.end)
+            val replacement = buildList<EditorBlock> {
+                if (before.isNotEmpty()) add(TextBlock(initialText = before, id = block.id))
+                add(MarkdownBlock(result))
+                if (after.isNotEmpty()) {
+                    add(TextBlock(initialText = after, id = if (before.isEmpty()) block.id else UUID.randomUUID().toString()))
+                }
+            }
+            _blocks.removeAt(index)
+            _blocks.addAll(index, replacement)
+            appendTrailingTextIfNeeded()
+            focusedTextId = (_blocks.getOrNull(index + replacement.size - 1) as? TextBlock)?.id
         } else {
             if (plainText != snapshot.originalText) return false
-            val textBlocks = _blocks.filterIsInstance<TextBlock>()
-            val first = textBlocks.firstOrNull() ?: return false
-            first.rich.setText(result)
-            textBlocks.drop(1).forEach { it.rich.setText("") }
+            val firstTextIndex = _blocks.indexOfFirst { it is TextBlock }
+            if (firstTextIndex < 0) return false
+            _blocks.removeAll { it is TextBlock }
+            _blocks.add(firstTextIndex, MarkdownBlock(result))
+            appendTrailingTextIfNeeded()
+            focusedTextId = (_blocks.lastOrNull { it is TextBlock } as? TextBlock)?.id
         }
         clearPolish()
         return true
