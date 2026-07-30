@@ -106,7 +106,7 @@ internal fun ChatCard.Offer.asSingleSelectOptions(): ChatCard.Options = ChatCard
 internal fun ChatCard.Offer.acceptAction(): String? = when (kind) {
     "grilling" -> "start_grilling"
     "summary" -> "pull_summary"
-    "note" -> "create_note_draft"
+    "note" -> "save_note"
     else -> null
 }
 

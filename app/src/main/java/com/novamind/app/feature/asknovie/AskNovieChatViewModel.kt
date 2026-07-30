@@ -65,7 +65,6 @@ class AskNovieChatViewModel @Inject constructor(
 
     private val sessionMessages = mutableMapOf<String, List<ChatMessage>>()
     private val streamJobs = mutableMapOf<String, Job>()
-    private val noteSaveJobs = mutableMapOf<String, Job>()
     private val respondingSessions = mutableSetOf<String>()
     private val streamingSessions = mutableSetOf<String>()
     private val sessionStreamingTexts = mutableMapOf<String, String>()
@@ -114,104 +113,16 @@ class AskNovieChatViewModel @Inject constructor(
     suspend fun uploadAttachment(attachment: Attachment): Result<String> =
         AskNovieAttachmentRepository.uploadAndAttach(sessionId.value, attachment)
 
-    /** 保存 SSE `save_note` 草稿，并将原卡片依次替换为 Figma loading 与保存成功 UI。 */
-    fun saveNoteDraft(card: ChatCard.SaveNote) =
-        saveNoteCard(card, card.draftTitle, card.draftContent)
-
-    /** Summary 的 Save as note 直接写入 Agent `/v1/save-note`，不触发 create_note_draft。 */
-    fun saveSummary(card: ChatCard.Summary) =
-        saveNoteCard(card, card.title, card.body)
-
-    private fun saveNoteCard(card: ChatCard, draftTitle: String, draftContent: String) {
+    /** Summary 一键保存：先隐藏入口防止重复落库，再复用当前会话的 `/v1/chat` SSE。 */
+    fun saveSummary(card: ChatCard.Summary) {
         val targetSessionId = sessionId.value
-        if (noteSaveJobs.containsKey(targetSessionId)) return
-        val cardIndex = sessionMessages[targetSessionId].orEmpty().indexOfLast { it.card == card }
-        if (cardIndex < 0) return
-
+        if (streamJobs.containsKey(targetSessionId)) return
         updateSessionMessages(targetSessionId) { current ->
-            current.toMutableList().also { messages ->
-                messages[cardIndex] = ChatMessage(
-                    role = Role.Assistant,
-                    text = "",
-                    block = ChatBlock.SkillStatus("Creating notes now.."),
-                )
+            current.map { message ->
+                if (message.card == card) message.copy(card = card.copy(saveable = false)) else message
             }
         }
-        respondingSessions += targetSessionId
-
-        val job = viewModelScope.launch {
-            var completed = false
-            try {
-                val noteDocument = NoteDocument.fromMarkdown(draftContent)
-                AskNovieChat.saveNote(
-                    conversationId = targetSessionId,
-                    title = draftTitle,
-                    content = noteDocument,
-                    preview = NoteDocument.previewText(noteDocument),
-                ).onSuccess { note ->
-                    val title = note.title.ifBlank {
-                        draftTitle.ifBlank { "Untitled note" }
-                    }
-                    notePreviews.value = notePreviews.value + (
-                        note.noteId to NoteCardPreview(
-                            title = title,
-                            body = NoteDocument.previewText(noteDocument),
-                            updatedAt = null,
-                        )
-                    )
-                    updateSessionMessages(targetSessionId) { current ->
-                        current.toMutableList().also { messages ->
-                            messages.removeAt(cardIndex)
-                            messages.addAll(
-                                cardIndex,
-                                listOf(
-                                    ChatMessage(
-                                        role = Role.Assistant,
-                                        text = "Creation of $title note is done.",
-                                        dim = true,
-                                    ),
-                                    ChatMessage(
-                                        role = Role.Assistant,
-                                        text = "",
-                                        card = ChatCard.Note(note.noteId, title),
-                                    ),
-                                    ChatMessage(
-                                        role = Role.Assistant,
-                                        text = "Anything else you want to sharpen, or ready to move on?",
-                                        showAvatar = true,
-                                    ),
-                                ),
-                            )
-                        }
-                    }
-                    completed = true
-                }
-            } finally {
-                if (!completed) {
-                    updateSessionMessages(targetSessionId) { current ->
-                        current.toMutableList().also { messages ->
-                            if (cardIndex in messages.indices) {
-                                messages[cardIndex] = ChatMessage(Role.Assistant, "", card = card)
-                                messages.add(
-                                    cardIndex + 1,
-                                    ChatMessage(
-                                        Role.Assistant,
-                                        "Could not save the note. Please try again.",
-                                        dim = true,
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                }
-                noteSaveJobs.remove(targetSessionId)
-                respondingSessions -= targetSessionId
-                persistSession(targetSessionId)
-                refreshActiveSession(targetSessionId)
-            }
-        }
-        noteSaveJobs[targetSessionId] = job
-        refreshActiveSession(targetSessionId)
+        startStreamingReply(prompt = "", action = "save_note")
     }
 
     /** 同一个首页进入事件只消费一次，避免页面重新进入组合时重复创建空会话。 */
@@ -236,7 +147,18 @@ class AskNovieChatViewModel @Inject constructor(
 
         val job = viewModelScope.launch {
             var textMessageIndex: Int? = null
+            var noteStatusIndex: Int? = null
             var streamFailure: ChatStreamEvent.Failure? = null
+
+            fun removeNoteStatus() {
+                val index = noteStatusIndex ?: return
+                updateSessionMessages(targetSessionId) { current ->
+                    if (index !in current.indices) current else current.toMutableList().also {
+                        it.removeAt(index)
+                    }
+                }
+                noteStatusIndex = null
+            }
 
             fun ensureBubble() {
                 if (textMessageIndex == null) {
@@ -255,6 +177,7 @@ class AskNovieChatViewModel @Inject constructor(
                 for (event in displayQueue) {
                     when (event) {
                         is ChatStreamEvent.TextDelta -> {
+                            removeNoteStatus()
                             ensureBubble()
                             event.delta.displayChunks(DISPLAY_CHUNK_SIZE).forEach { chunk ->
                                 val updatedText = sessionStreamingTexts[targetSessionId].orEmpty() + chunk
@@ -265,10 +188,34 @@ class AskNovieChatViewModel @Inject constructor(
                                 delay(DISPLAY_INTERVAL_MS)
                             }
                         }
-                        is ChatStreamEvent.Card -> updateSessionMessages(targetSessionId) {
-                            it + ChatMessage(Role.Assistant, "", card = event.card)
+                        is ChatStreamEvent.Card -> updateSessionMessages(targetSessionId) { current ->
+                            val statusIndex = noteStatusIndex
+                            if (event.card is ChatCard.Note && statusIndex != null && statusIndex in current.indices) {
+                                current.toMutableList().also {
+                                    it[statusIndex] = ChatMessage(Role.Assistant, "", card = event.card)
+                                }.also { noteStatusIndex = null }
+                            } else {
+                                current + ChatMessage(Role.Assistant, "", card = event.card)
+                            }
                         }
-                        else -> Unit
+                        is ChatStreamEvent.Status -> {
+                            if (event.skill == "note" && noteStatusIndex == null) {
+                                noteStatusIndex = sessionMessages[targetSessionId].orEmpty().size
+                                updateSessionMessages(targetSessionId) {
+                                    it + ChatMessage(
+                                        role = Role.Assistant,
+                                        text = "",
+                                        block = ChatBlock.SkillStatus(
+                                            event.label?.takeIf(String::isNotBlank)
+                                                ?: "Creating notes now…",
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                        is ChatStreamEvent.Failure,
+                        is ChatStreamEvent.Done,
+                        -> Unit
                     }
                 }
             }
@@ -295,11 +242,11 @@ class AskNovieChatViewModel @Inject constructor(
                         when (event) {
                             is ChatStreamEvent.TextDelta,
                             is ChatStreamEvent.Card,
+                            is ChatStreamEvent.Status,
                             -> displayQueue.send(event)
                             is ChatStreamEvent.Failure -> {
                                 streamFailure = event
                             }
-                            is ChatStreamEvent.Status,
                             is ChatStreamEvent.Done,
                             -> Unit
                         }
@@ -310,6 +257,7 @@ class AskNovieChatViewModel @Inject constructor(
                 displayJob.join()
 
                 streamFailure?.let { failure ->
+                    removeNoteStatus()
                     ensureBubble()
                     val message = when (failure.code) {
                         "grilling_unavailable" ->
@@ -367,7 +315,6 @@ class AskNovieChatViewModel @Inject constructor(
     fun stopStreamingReply() {
         val activeSessionId = sessionId.value
         streamJobs.remove(activeSessionId)?.cancel()
-        noteSaveJobs.remove(activeSessionId)?.cancel()
         respondingSessions -= activeSessionId
         streamingSessions -= activeSessionId
         persistSession(activeSessionId)
@@ -378,7 +325,6 @@ class AskNovieChatViewModel @Inject constructor(
     fun deleteCurrentSession() {
         val deletedSessionId = sessionId.value
         streamJobs.remove(deletedSessionId)?.cancel()
-        noteSaveJobs.remove(deletedSessionId)?.cancel()
         respondingSessions -= deletedSessionId
         streamingSessions -= deletedSessionId
         sessionMessages.remove(deletedSessionId)

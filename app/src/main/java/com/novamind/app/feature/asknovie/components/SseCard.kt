@@ -52,7 +52,6 @@ internal fun SseCard(
     card: ChatCard,
     onSendText: (String) -> Unit,
     onSaveSummary: (ChatCard.Summary) -> Unit,
-    onSaveNoteDraft: (ChatCard.SaveNote) -> Unit,
     notePreview: NoteCardPreview?,
     onOpenNote: (noteId: String) -> Unit,
 ) {
@@ -61,8 +60,6 @@ internal fun SseCard(
         is ChatCard.Offer -> Unit // 由 AskNovieScreen 的单选底部弹层展示。
         is ChatCard.Summary -> SummarySseCard(card, onSave = { onSaveSummary(card) })
         is ChatCard.Diagram -> MermaidDiagramCard(card)
-        is ChatCard.CreateNote -> ReadOnlyCard(card.draftTitle, card.draftContent)
-        is ChatCard.SaveNote -> SaveNoteSseCard(card, onSaveNoteDraft)
         is ChatCard.Note -> NoteSseCard(card, notePreview, onOpenNote)
     }
 }
@@ -75,8 +72,9 @@ private fun NoteSseCard(
     onOpenNote: (noteId: String) -> Unit,
 ) {
     val title = preview?.title?.takeIf(String::isNotBlank) ?: card.title
-    val body = preview?.body.orEmpty()
-    val dateLabel = remember(preview?.updatedAt) { preview?.updatedAt?.let(::formatNoteDate) }
+    val body = preview?.body?.takeIf(String::isNotBlank) ?: card.description
+    val timestamp = preview?.updatedAt ?: card.createdAt
+    val dateLabel = remember(timestamp) { timestamp?.let(::formatNoteDate) }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -134,50 +132,6 @@ private fun formatNoteDate(value: String): String? = runCatching {
     val clock = time.format(DateTimeFormatter.ofPattern("h:mma", Locale.ENGLISH))
     "$date   $clock"
 }.getOrNull()
-
-/** Figma 862:62429：正文下方的 Save as note 操作，不使用 Summary 白色卡片容器。 */
-@Composable
-private fun SaveNoteSseCard(
-    card: ChatCard.SaveNote,
-    onSave: (ChatCard.SaveNote) -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        val displayContent = card.draftContent.ifBlank { card.draftTitle }
-        if (displayContent.isNotBlank()) {
-            MarkdownContent(content = displayContent, modifier = Modifier.fillMaxWidth())
-        }
-        Box(
-            modifier = Modifier
-                .height(32.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Dark)
-                .clickable { onSave(card) }
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_pencil_line),
-                    contentDescription = null,
-                    tint = OnDark,
-                    modifier = Modifier.size(16.dp),
-                )
-                Text(
-                    text = "Save as note",
-                    color = OnDark,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-        }
-    }
-}
 
 /** Figma 1514:57572：结构化 Summary 卡片与保存 Note 入口。 */
 @Composable
@@ -383,7 +337,6 @@ private fun OptionsSseCardPreview() {
             ),
             onSendText = {},
             onSaveSummary = {},
-            onSaveNoteDraft = {},
             notePreview = null,
             onOpenNote = {},
         )
@@ -407,29 +360,18 @@ private fun SummarySseCardPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Save note card")
-@Composable
-private fun SaveNoteSseCardPreview() {
-    AppTheme {
-        Box(Modifier.padding(16.dp)) {
-            SaveNoteSseCard(
-                card = ChatCard.SaveNote(
-                    draftTitle = "Nova customer success",
-                    draftContent = "A few things to sharpen the picture. What does CS look like at Nova today?",
-                ),
-                onSave = {},
-            )
-        }
-    }
-}
-
 @Preview(showBackground = true, name = "Saved note card")
 @Composable
 private fun NoteSseCardPreview() {
     AppTheme {
         Box(Modifier.padding(16.dp)) {
             NoteSseCard(
-                card = ChatCard.Note(noteId = "note-1", title = "Q3 KPIs"),
+                card = ChatCard.Note(
+                    noteId = "note-1",
+                    title = "Q3 KPIs",
+                    description = "Discussed Q3 KPIs. John to finalize the report by Thursday.",
+                    createdAt = "2026-08-01T10:00:00Z",
+                ),
                 preview = NoteCardPreview(
                     title = "Q3 KPIs",
                     body = "Discussed Q3 KPIs. John to finalize the report by Thursday.",

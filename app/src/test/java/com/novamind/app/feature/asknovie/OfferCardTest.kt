@@ -21,7 +21,7 @@ class OfferCardTest {
     @Test
     fun `known offer kind maps to action`() {
         assertEquals("pull_summary", ChatCard.Offer("summary", "Summary?").acceptAction())
-        assertEquals("create_note_draft", ChatCard.Offer("note", "Note?").acceptAction())
+        assertEquals("save_note", ChatCard.Offer("note", "Note?").acceptAction())
         assertEquals("start_grilling", ChatCard.Offer("grilling", "Start?").acceptAction())
     }
 

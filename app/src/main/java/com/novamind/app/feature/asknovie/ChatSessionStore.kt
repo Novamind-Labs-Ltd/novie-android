@@ -171,20 +171,12 @@ object ChatSessionStore {
                 put("kind", card.kind)
                 put("label", card.label)
             }
-            is ChatCard.CreateNote -> {
-                put("card_type", "create_note")
-                put("draft_title", card.draftTitle)
-                put("draft_content", card.draftContent)
-            }
-            is ChatCard.SaveNote -> {
-                put("card_type", "save_note")
-                put("draft_title", card.draftTitle)
-                put("draft_content", card.draftContent)
-            }
             is ChatCard.Note -> {
                 put("card_type", "note")
                 put("note_id", card.noteId)
                 put("title", card.title)
+                put("description", card.description)
+                card.createdAt?.let { put("created_at", it) }
             }
         }
     }
@@ -213,14 +205,13 @@ object ChatSessionStore {
             o.optString("title"), o.optString("body"), o.optBoolean("saveable", true),
         )
         "offer" -> ChatCard.Offer(o.optString("kind"), o.optString("label"))
-        "create_note" -> ChatCard.CreateNote(
-            o.optString("draft_title"), o.optString("draft_content"),
-        )
-        "save_note" -> ChatCard.SaveNote(
-            o.optString("draft_title"), o.optString("draft_content"),
-        )
         "note" -> o.optString("note_id").takeIf(String::isNotBlank)?.let {
-            ChatCard.Note(it, o.optString("title"))
+            ChatCard.Note(
+                noteId = it,
+                title = o.optString("title"),
+                description = o.optString("description"),
+                createdAt = o.optString("created_at").takeIf(String::isNotBlank),
+            )
         }
         else -> null
     }

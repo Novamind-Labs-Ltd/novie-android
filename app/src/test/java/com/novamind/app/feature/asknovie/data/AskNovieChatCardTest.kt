@@ -55,14 +55,17 @@ class AskNovieChatCardTest {
     }
 
     @Test
-    fun `save note card stays distinct from create note`() {
+    fun `note card parses saved note metadata`() {
         val card = AskNovieChat.parseCard(
             json.parseToJsonElement(
-                """{"card_type":"save_note","draft_title":"Plan","draft_content":"Next steps"}""",
+                """{"card_type":"note","note_id":"note-1","title":"Plan","description":"Next steps","created_at":"2026-07-30T01:00:00Z"}""",
             ).jsonObject,
         )
 
-        assertEquals(ChatCard.SaveNote("Plan", "Next steps"), card)
+        assertEquals(
+            ChatCard.Note("note-1", "Plan", "Next steps", "2026-07-30T01:00:00Z"),
+            card,
+        )
     }
 
     @Test
