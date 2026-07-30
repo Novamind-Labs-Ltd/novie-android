@@ -182,6 +182,7 @@ fun AskNovieScreen(
     var messages by (chatVm?.messages ?: previewMessages)
     val streamingTextState = chatVm?.streamingText ?: previewStreamingText
     var isResponding by (chatVm?.isResponding ?: previewResponding) // 助手正在回复
+    var isStreaming by (chatVm?.isStreaming ?: previewStreaming)    // 逐字输出中
     var sessionId by (chatVm?.sessionId ?: previewSessionId)         // 当前会话 id
     var customTitle by (chatVm?.customTitle ?: previewCustomTitle)   // 手动重命名的标题
     val notePreviews by (chatVm?.notePreviews ?: previewNotePreviews)
@@ -198,7 +199,9 @@ fun AskNovieScreen(
             (message.card is ChatCard.Options || message.card is ChatCard.Offer)
     }
     val activeChoiceCard = latestChoiceCard?.takeIf { (_, message) ->
-        !message.cardHandled && when (val card = message.card) {
+        // card 帧可能早于 SSE done 到达。等待网络接流和本地打字机队列都收束后再弹出，
+        // 否则用户点击会被发送门禁拦截，并在标记 handled 后永久丢失本次选择。
+        !isResponding && !isStreaming && !message.cardHandled && when (val card = message.card) {
             is ChatCard.Offer -> card.isSupported()
             is ChatCard.Options -> true
             else -> false
@@ -285,7 +288,6 @@ fun AskNovieScreen(
     val focusManager = LocalFocusManager.current
     val inputFocusRequester = remember { FocusRequester() }
     val context = LocalContext.current
-    var isStreaming by (chatVm?.isStreaming ?: previewStreaming) // 逐字输出中
     // 仿 ChatGPT：刚发送的用户消息滚到顶部（自增以触发滚动，即使位置相同）
     var sendTick by remember { mutableIntStateOf(0) }
     var anchorIndex by remember { mutableIntStateOf(0) }
