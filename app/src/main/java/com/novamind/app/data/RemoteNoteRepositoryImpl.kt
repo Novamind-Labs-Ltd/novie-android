@@ -2,6 +2,7 @@ package com.novamind.app.data
 
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.CreateNoteRequestDto
+import com.novamind.app.common.net.EmptyRecycleBinResultDto
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.NoteDto
 import com.novamind.app.common.net.NoteListItemDto
@@ -138,6 +139,19 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         )
     }
 
+    override suspend fun emptyRecycleBin(): ApiResult<EmptyRecycleBinResult> {
+        AppLog.i(TAG) { "emptyRecycleBin 开始" }
+        return apiCall { NetworkModule.notesApi.emptyRecycleBin() }.mapLogged(
+            tag = TAG,
+            op = "emptyRecycleBin",
+            transform = { it?.toDomain() },
+            successLog = {
+                "emptyRecycleBin 成功 purged=${it?.purged} deferred=${it?.deferred} " +
+                    "failed=${it?.failed} remaining=${it?.remaining}"
+            },
+        )
+    }
+
     override suspend fun setBorderColor(id: String, borderColorHex: String?): ApiResult<RemoteNote> {
         AppLog.i(TAG) { "setBorderColor 开始 id=$id hex=$borderColorHex" }
         return apiCall {
@@ -166,6 +180,13 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
     private fun NotePageViewDto.toDomain(): RemoteNotePage = RemoteNotePage(
         items = items.map { it.toSummary() },
         nextCursor = nextCursor,
+    )
+
+    private fun EmptyRecycleBinResultDto.toDomain(): EmptyRecycleBinResult = EmptyRecycleBinResult(
+        purged = purged,
+        deferred = deferred,
+        failed = failed,
+        remaining = remaining,
     )
 
     private fun NoteListItemDto.toSummary(): RemoteNoteSummary = RemoteNoteSummary(

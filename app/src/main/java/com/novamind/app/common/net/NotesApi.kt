@@ -84,6 +84,13 @@ interface NotesApi {
     suspend fun delete(@Path("id") id: String): Response<ApiResponse<Unit>>
 
     /**
+     * 清空当前用户的回收站。服务端批量处理所有已回收笔记并返回汇总；单条失败不会中断整批。
+     * `remaining=true` 表示超过单次处理上限，服务端回收站中仍可能有更多笔记。
+     */
+    @DELETE("api/v1.0/notes/recycle-bin")
+    suspend fun emptyRecycleBin(): Response<ApiResponse<EmptyRecycleBinResultDto>>
+
+    /**
      * 设置/清除笔记边框色。`borderColorHex` 需匹配 `^#[0-9A-Fa-f]{6}$`；
      * 传 null（信封省略字段）表示清除颜色。返回变更后的 NoteView。
      * 格式非法 → 400/40001；笔记不存在 → 404/40401。
@@ -147,6 +154,15 @@ data class NoteListItemDto(
 data class NoteThumbnailDto(
     val attachmentId: String,
     val thumbnailUrl: String,
+)
+
+/** 清空回收站结果。 */
+@Serializable
+data class EmptyRecycleBinResultDto(
+    val purged: Int = 0,
+    val deferred: Int = 0,
+    val failed: Int = 0,
+    val remaining: Boolean = false,
 )
 
 /** 创建笔记请求体：`title` 可选(≤255)，`content` 必填，`preview` 可选（纯文本摘要，null=不设）。 */

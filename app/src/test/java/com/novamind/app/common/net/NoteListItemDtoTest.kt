@@ -25,4 +25,16 @@ class NoteListItemDtoTest {
         assertEquals("attachment-1", dto.thumbnails.single().attachmentId)
         assertEquals("https://example.com/thumbnail.jpg", dto.thumbnails.single().thumbnailUrl)
     }
+
+    @Test
+    fun `decodes empty recycle bin summary`() {
+        val dto = Json.decodeFromString<EmptyRecycleBinResultDto>(
+            """{"purged":3,"deferred":1,"failed":2,"remaining":true}""",
+        )
+
+        assertEquals(3, dto.purged)
+        assertEquals(1, dto.deferred)
+        assertEquals(2, dto.failed)
+        assertEquals(true, dto.remaining)
+    }
 }

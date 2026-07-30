@@ -61,9 +61,19 @@ interface RemoteNoteRepository {
      */
     suspend fun deleteNote(id: String): ApiResult<Unit>
 
+    /** 一次请求清空当前用户的回收站，返回服务端批量处理汇总。 */
+    suspend fun emptyRecycleBin(): ApiResult<EmptyRecycleBinResult>
+
     /**
      * 设置/清除笔记边框色（PATCH /notes/{id}/border-color）。
      * [borderColorHex] 需为 `#RRGGBB`，null=清除。返回变更后的 [RemoteNote]（含新 rev）。
      */
     suspend fun setBorderColor(id: String, borderColorHex: String?): ApiResult<RemoteNote>
 }
+
+data class EmptyRecycleBinResult(
+    val purged: Int,
+    val deferred: Int,
+    val failed: Int,
+    val remaining: Boolean,
+)
