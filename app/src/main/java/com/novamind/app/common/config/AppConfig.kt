@@ -81,7 +81,7 @@ object AppConfig {
         /** 标题超长 Toast 的最小间隔（毫秒）：达上限后连续按键只在此间隔内提示一次。 */
         const val TITLE_LIMIT_TOAST_INTERVAL_MS = 1500L
 
-        /** 字数计数展示阈值：低于此值显示实际字数，达到/超过则统一显示为上限 [MAX_INPUT_CHARS]。 */
+        /** 字数计数展示阈值：低于此值隐藏，达到后显示「当前字数/上限」。 */
         const val COUNT_DISPLAY_THRESHOLD = 40000
 
         /** 列表（有序/无序）左缩进（约一个 tab）；富文本库默认约 38，偏大。 */

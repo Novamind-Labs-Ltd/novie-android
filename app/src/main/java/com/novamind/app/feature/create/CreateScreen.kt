@@ -677,11 +677,11 @@ fun CreateScreen(
             )
         }
 
-        // ── 字数计数：右下角「当前/上限」，达上限标红；只读态不展示 ──
-        // 低于展示阈值显示实际字数；达到/超过阈值则统一显示为上限（避免临近上限时数字频繁跳动）。
-        if (!showRecordingBar && !readOnly && !polishActive) {
+        // ── 字数计数：达到 40,000 字后才显示右下角「当前/上限」，达上限标红 ──
+        if (!showRecordingBar && !readOnly && !polishActive &&
+            totalChars >= AppConfig.Editor.COUNT_DISPLAY_THRESHOLD
+        ) {
             val toolbarShown = (imeVisible || forceToolbarVisible)
-            // 设计：右下角持续展示「已用/上限」（千分位），超限标红。
             val displayCount = "%,d/%,d".format(totalChars, maxInputChars)
             Text(
                 text = displayCount,
