@@ -1,7 +1,7 @@
 package com.novamind.app.common.net
 
+import com.novamind.app.BuildConfig
 import com.novamind.app.common.config.AppConfig
-import com.novamind.app.common.net.ApiTls
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
  * 网络层单例：集中构建 [OkHttpClient] 与 [Retrofit]，对外暴露 [apiService]。
  *
  * - 公用头部：[CommonHeadersInterceptor]（复用 [CommonHeaders] 字段口径）；
- * - TLS：复用 [ApiTls] 的钉定主机名校验（对无 SAN 的 IP 接口放宽主机名绑定，仍校验证书指纹）；
+ * - TLS：Release 复用 [ApiTls] 的钉定主机名校验；Debug 使用系统默认校验以支持 Charles；
  * - 日志：仅 Debug 变体注入（见 [HttpLoggers]，release 为空实现）；
  * - 转换器：kotlinx.serialization（[json]）；动态 URL 场景响应取 ResponseBody 原文，故 baseUrl 仅作占位。
  */
@@ -37,7 +37,11 @@ object NetworkModule {
             .connectTimeout(AppConfig.Network.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(AppConfig.Network.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(AppConfig.Network.WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .hostnameVerifier(ApiTls.PINNED_HOSTNAME_VERIFIER)
+            .apply {
+                // Debug 由 network_security_config 信任用户 CA，允许 Charles 代理 HTTPS；
+                // Release 保留测试 IP 的证书指纹校验，不放宽生产 TLS 策略。
+                if (!BuildConfig.DEBUG) hostnameVerifier(ApiTls.PINNED_HOSTNAME_VERIFIER)
+            }
             .addInterceptor(CommonHeadersInterceptor())
             .addInterceptor(AuthInterceptor())
             // 401 → 用 refresh_token 静默续期并重试一次（续期钩子由认证层注入）
