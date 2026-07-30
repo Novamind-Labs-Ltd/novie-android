@@ -11,9 +11,6 @@ object AppConfig {
 
     /** Ask Novie 的输入限制、流式展示与页面动画参数。 */
     object AskNovie {
-        /** Debug 包是否输出 SSE 原始响应帧与解析后的文字；不使用 BODY logger，避免缓冲长连接。 */
-        const val ENABLE_SSE_RESPONSE_LOG = true
-
         const val MAX_VOICE_SECONDS = 60
         const val MAX_IMAGES = 5
         const val VOICE_TRANSCRIPTION_STEP_DELAY_MS = 60L

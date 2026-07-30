@@ -1,14 +1,10 @@
 package com.novamind.app.feature.asknovie.data
 
-import android.os.SystemClock
-import com.novamind.app.BuildConfig
-import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.net.ApiConfig
 import com.novamind.app.common.net.HttpLoggers
 import com.novamind.app.common.net.NetworkModule
 import com.novamind.app.common.net.TokenProvider
-import com.novamind.app.util.TimeUtils
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -147,12 +143,6 @@ object AskNovieChat {
 
         try {
             call.execute().use { resp ->
-            if (BuildConfig.DEBUG) {
-                // 不使用 HttpLoggingInterceptor：只读取已建立请求的 Header，
-                // 不触碰 response body，避免 SSE 被整体缓冲。
-                AppLog.i(TAG) { "chat HTTP request headers=${resp.request.headers}" }
-                AppLog.i(TAG) { "chat HTTP response headers=${resp.headers}" }
-            }
             if (!resp.isSuccessful) {
                 // 开流前错误：JSON `{code}` + HTTP 状态码
                 val body = runCatching { resp.body?.string() }.getOrNull()
@@ -164,10 +154,6 @@ object AskNovieChat {
                 emit(ChatStreamEvent.Done("error"))
                 return@flow
             }
-            AppLog.i(TAG) {
-                "chat 开流成功 http=${resp.code} httpMessage=${resp.message}" +
-                    if (BuildConfig.DEBUG) " message=$input" else ""
-            }
             val source = resp.body?.source()
             if (source == null) {
                 emit(ChatStreamEvent.Failure("empty_body", null))
@@ -175,10 +161,6 @@ object AskNovieChat {
                 return@flow
             }
 
-            val streamOpenedAt = SystemClock.elapsedRealtime()
-            var lastFrameAt = streamOpenedAt
-            var frameCount = 0
-            var textFrameCount = 0
             var eventName: String? = null
             val data = StringBuilder()
             while (currentCoroutineContext().isActive) {
@@ -189,34 +171,9 @@ object AskNovieChat {
                         val name = eventName
                         if (name != null) {
                             val rawData = data.toString()
-                            val frameAt = SystemClock.elapsedRealtime()
-                            frameCount++
-                            val gapMs = frameAt - lastFrameAt
-                            val elapsedMs = frameAt - streamOpenedAt
-                            lastFrameAt = frameAt
-                            AppLog.i(TAG) {
-                                "chat SSE 帧 #$frameCount event=$name elapsedMs=$elapsedMs " +
-                                    "gapMs=$gapMs dataChars=${rawData.length}"
-                            }
-                            // 记录服务端原始帧，包含文本增量与状态/done，便于还原 SSE 返回。
-                            // AppLog 会在写入各 Sink 前统一做 PII 脱敏。
-                            val receivedAt = TimeUtils.format(
-                                System.currentTimeMillis(),
-                                "yyyy-MM-dd HH:mm:ss.SSS",
-                            )
-                            if (BuildConfig.DEBUG && AppConfig.AskNovie.ENABLE_SSE_RESPONSE_LOG) {
-                                AppLog.i(TAG) {
-                                    "chat SSE response time=$receivedAt event=$name data=$rawData"
-                                }
-                            }
                             val ev = parseFrame(name, rawData)
-                            if (ev is ChatStreamEvent.TextDelta) textFrameCount++
                             if (ev != null) emit(ev)
                             if (ev is ChatStreamEvent.Done) {
-                                AppLog.i(TAG) {
-                                    "chat SSE 结束 reason=done frames=$frameCount " +
-                                        "textFrames=$textFrameCount durationMs=$elapsedMs"
-                                }
                                 return@flow
                             }
                         }
@@ -231,11 +188,6 @@ object AskNovieChat {
                     }
                     // 其它字段（id: / retry:）忽略
                 }
-            }
-            AppLog.i(TAG) {
-                "chat SSE 结束 reason=connection_closed frames=$frameCount " +
-                    "textFrames=$textFrameCount " +
-                    "durationMs=${SystemClock.elapsedRealtime() - streamOpenedAt}"
             }
             }
         } catch (c: kotlinx.coroutines.CancellationException) {
@@ -309,13 +261,7 @@ object AskNovieChat {
      * 若 text 内含 sentences 数组，按顺序展开 sentences[].sentence.text。
      * UI 只消费文字，时间戳等结构化字段不进入消息正文。
      */
-    private fun extractDeltaText(element: JsonElement): String? {
-        val text = extractDeltaTextValue(element)
-        if (BuildConfig.DEBUG && AppConfig.AskNovie.ENABLE_SSE_RESPONSE_LOG) {
-            AppLog.i(TAG) { "chat SSE parsed text=${text.orEmpty()}" }
-        }
-        return text
-    }
+    private fun extractDeltaText(element: JsonElement): String? = extractDeltaTextValue(element)
 
     /** 递归展开结构化 delta；与上层日志分离，避免每个 sentence 重复打印。 */
     private fun extractDeltaTextValue(element: JsonElement): String? = when (element) {
