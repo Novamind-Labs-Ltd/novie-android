@@ -89,6 +89,7 @@ import com.novamind.app.util.PermissionUtils
 import com.novamind.app.util.TimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -181,10 +182,21 @@ fun CreateScreen(
     // 图文正文编辑器状态（文本 + 图片块），文档 JSON 同步给 ViewModel
     val editor = remember { NoteEditorState() }
     var pendingPolish by remember { mutableStateOf<Pair<PolishSnapshot, String>?>(null) }
+    var showAudioUploadBar by remember { mutableStateOf(false) }
     var polishJob by remember { mutableStateOf<Job?>(null) }
     val polishing = editor.isPolishing && pendingPolish == null
     val polishCompleted = pendingPolish != null
     val polishActive = editor.isPolishing
+
+    // 上传开始后先保持安静；超过 10 秒仍未完成才展示进度卡片，快速上传不打扰用户。
+    LaunchedEffect(uiState.isUploadingAudio) {
+        if (uiState.isUploadingAudio) {
+            delay(AUDIO_UPLOAD_BAR_DELAY_MS)
+            showAudioUploadBar = true
+        } else {
+            showAudioUploadBar = false
+        }
+    }
     // 字数上限：仅统计正文（标题另有独立上限 TITLE_MAX_CHARS，不计入总字数）
     val maxInputChars = AppConfig.Editor.MAX_INPUT_CHARS
     val bodyLen = editor.textLength
@@ -693,7 +705,7 @@ fun CreateScreen(
         ) {
             // 源录音上传进度条：录音发送后直传云端时展示，可取消
             AnimatedVisibility(
-                visible = uiState.isUploadingAudio,
+                visible = uiState.isUploadingAudio && showAudioUploadBar,
                 enter = fadeIn() + slideInVertically { it },
                 exit = fadeOut() + slideOutVertically { it },
             ) {
@@ -827,6 +839,8 @@ fun CreateScreen(
 
     }
 }
+
+private const val AUDIO_UPLOAD_BAR_DELAY_MS = 10_000L
 
 /**
  * 云端音频转写中的正文状态，按 Figma「new conversation」页面呈现：
