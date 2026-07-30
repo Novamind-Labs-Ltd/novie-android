@@ -524,7 +524,6 @@ private fun FoldersPage(
                     // 行内重命名：× 取消 + 输入框 + 绿色 ✓ 确认（重命名态不参与拖拽）
                     FolderRenameRow(
                         initialName = folder.name,
-                        colorHex = folder.colorHex,
                         onConfirm = { newName ->
                             // 与其它已有文件夹重名（忽略大小写）→ 提示且不修改
                             val conflict = folders.any {

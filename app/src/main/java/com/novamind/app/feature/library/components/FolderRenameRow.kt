@@ -43,10 +43,9 @@ import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
-import com.novamind.app.util.ColorUtils
 
 /**
- * 行内重命名行（Figma 879-26572）：× 取消 + 输入框（内含文件夹图标 + 自动聚焦文本框，强描边）
+ * 行内重命名行（Figma 879-26572）：× 取消 + 自动聚焦文本框（编辑态隐藏文件夹图标，强描边）
  * + 绿色实心圆形 ✓ 确认。确认回传非空的新名。
  */
 @Composable
@@ -55,7 +54,6 @@ internal fun FolderRenameRow(
     onConfirm: (String) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
-    colorHex: String? = null,
 ) {
     // 用 TextFieldValue 让初始光标停在文本末尾
     var value by remember(initialName) {
@@ -63,7 +61,6 @@ internal fun FolderRenameRow(
     }
     val trimmed = value.text.trim()
     val canConfirm = trimmed.isNotEmpty()
-    val accent = ColorUtils.parseHexColor(colorHex) ?: folderAccentFor(initialName)
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -88,7 +85,7 @@ internal fun FolderRenameRow(
                 .clip(CircleShape)
                 .clickable(onClick = onCancel),
         )
-        // 输入框（#fcfaf6 圆角、强描边聚焦态）：文件夹图标 + 文本框
+        // 输入框（#fcfaf6 圆角、强描边聚焦态）；编辑时不显示文件夹图标
         Surface(
             modifier = Modifier
                 .weight(1f)
@@ -99,23 +96,8 @@ internal fun FolderRenameRow(
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(accent.copy(alpha = 0.30f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_folder_line),
-                        contentDescription = null,
-                        tint = ColorTextTitle,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
                 BasicTextField(
                     value = value,
                     // 限制文件夹名最大长度（超出即不接受新增字符）
@@ -154,6 +136,6 @@ internal fun FolderRenameRow(
 @Composable
 private fun FolderRenameRowPreview() {
     AppTheme {
-        FolderRenameRow(initialName = "Work", onConfirm = {}, onCancel = {}, colorHex = null)
+        FolderRenameRow(initialName = "Work", onConfirm = {}, onCancel = {})
     }
 }
