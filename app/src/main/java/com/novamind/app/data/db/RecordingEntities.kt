@@ -34,7 +34,7 @@ data class RecordingEntity(
     val noteId: String,
     val createdAt: Long,
     val durationMs: Long,
-    val path: String,                    // 内部存储绝对路径（单文件 .m4a；兼容历史 .aac）
+    val path: String,                    // 内部存储绝对路径（单文件 .aac；兼容历史 .m4a）
     val bytes: Long,                     // 文件字节数
     val sha256: String,                  // 整段文件完整性
     val uploadStatus: String = UploadStatus.LOCAL_ONLY.name,
