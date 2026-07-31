@@ -554,8 +554,15 @@ private fun FoldersPage(
                         ) { isOpen, close ->
                             FolderRow(
                                 folder = folder,
-                                // 展开态点击整行先收起，避免误入文件夹
-                                onClick = { if (isOpen) close() else onOpenFolder(folder.id) },
+                                // 有其它行正在重命名时，本次点击只取消编辑并消费，不进入文件夹；
+                                // 无编辑态时，展开态点击整行先收起，普通态才进入详情。
+                                onClick = {
+                                    when {
+                                        renameTarget != null -> renameTarget = null
+                                        isOpen -> close()
+                                        else -> onOpenFolder(folder.id)
+                                    }
+                                },
                                 onRename = { renameTarget = folder.id },
                                 onChangeColor = { colorTarget = folder.id },
                                 onDelete = { deleteTarget = folder.id },
