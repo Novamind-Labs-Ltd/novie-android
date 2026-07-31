@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -130,13 +131,15 @@ internal fun ChatCard.Offer.isSupported(): Boolean =
 private fun OptionsSheetContent(
     card: ChatCard.Options,
     progressLabel: String? = null,
+    initialOther: String = "",
     onSubmit: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isMany = card.select == "many"
     var selectedIds by remember(card) { mutableStateOf(emptySet<String>()) }
-    var other by remember(card) { mutableStateOf("") }
+    var other by remember(card, initialOther) { mutableStateOf(initialOther) }
+    var isOtherFocused by remember(card) { mutableStateOf(false) }
     val selectedLabels = card.items.filterIndexed { index, item ->
         item.id.ifBlank { index.toString() } in selectedIds
     }.map(OptionItem::label)
@@ -301,42 +304,67 @@ private fun OptionsSheetContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (card.allowFreeText) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_edit_square),
-                        contentDescription = null,
-                        tint = TitleColor,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (!isOtherFocused && other.isEmpty()) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_edit_square),
+                            contentDescription = null,
+                            tint = TitleColor,
+                            modifier = Modifier.size(24.dp),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(max = 96.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
                         if (other.isEmpty()) Text(
                             "Something else…",
                             color = SubColor,
-                            fontSize = 16.sp
+                            fontSize = 16.sp,
+                            lineHeight = 24.sp,
                         )
                         BasicTextField(
                             value = other,
                             onValueChange = { other = it },
-                            textStyle = TextStyle(color = TitleColor, fontSize = 16.sp),
+                            textStyle = TextStyle(
+                                color = TitleColor,
+                                fontSize = 16.sp,
+                                lineHeight = 24.sp,
+                            ),
                             cursorBrush = SolidColor(TitleColor),
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = false,
+                            minLines = 1,
+                            maxLines = 4,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { isOtherFocused = it.isFocused },
                         )
                     }
                     Spacer(Modifier.width(8.dp))
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
-                SheetSendButton(enabled = answer.isNotBlank()) { onSubmit(answer) }
+                SheetSendButton(
+                    enabled = answer.isNotBlank(),
+                    modifier = Modifier.align(Alignment.Bottom),
+                ) {
+                    onSubmit(answer)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SheetSendButton(enabled: Boolean, onClick: () -> Unit) {
+private fun SheetSendButton(
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(36.dp)
             .clip(CircleShape)
             .background(if (enabled) SendGreen else DisabledBtnBg)
@@ -437,6 +465,33 @@ private fun OptionsSheetMultilinePreview() {
                 select = "many",
             ),
             progressLabel = "2/2",
+            onSubmit = {},
+            onClose = {},
+        )
+    }
+}
+
+@Preview(
+    name = "Options - multiline input",
+    showBackground = true,
+    backgroundColor = 0xFFF3F1EB,
+    widthDp = 412,
+)
+@Composable
+private fun OptionsSheetMultilineInputPreview() {
+    AppTheme {
+        OptionsSheetContent(
+            card = ChatCard.Options(
+                prompt = "Anything else you want to add?",
+                items = listOf(
+                    OptionItem(id = "0", label = "Keep the current plan"),
+                    OptionItem(id = "1", label = "Adjust the priorities"),
+                ),
+                allowFreeText = true,
+                select = "many",
+            ),
+            progressLabel = "2/2",
+            initialOther = "I also want to keep the first milestone,\nbut move the second one to next month.\nPlease include the updated owner.",
             onSubmit = {},
             onClose = {},
         )
