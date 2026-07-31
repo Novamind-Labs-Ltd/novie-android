@@ -185,6 +185,9 @@ fun VoiceRecordingBar(
     var showNoVoice by remember { mutableStateOf(false) }
     // 点 Send 后的上传中状态：停止指令已下发、等待服务回写结果 / 上传中。期间全部控件禁用。
     var sending by remember { mutableStateOf(false) }
+    // 点击发送后锁定本次录音时长。CreateScreen 的真实上传发生在 onConfirm 之后，
+    // 即使 RecordingController 先被重置，卡片仍保持该时长，直到上传成功关闭组件。
+    var submittedDurationSeconds by remember { mutableStateOf<Int?>(null) }
     // 上传失败：保留已落盘的录音（path, duration），显示重试按钮可重传。
     var pendingUpload by remember { mutableStateOf<Pair<String, Int>?>(null) }
     // 上传中或待重试的文件；组件离开组合时兜底删除，避免临时音频残留。
@@ -236,6 +239,7 @@ fun VoiceRecordingBar(
         levels = List(WAVE_BARS) { WAVE_BASELINE }
         showNoVoice = false
         sending = false
+        submittedDurationSeconds = null
         pendingUpload = null
         com.novamind.app.common.audio.RecordingController.reset()
         com.novamind.app.common.audio.RecordingService.start(context, recordingFormat)
@@ -262,6 +266,7 @@ fun VoiceRecordingBar(
     LaunchedEffect(snapshot.result, snapshot.cancelled) {
         val result = snapshot.result
         if (result != null) {
+            submittedDurationSeconds = result.durationSeconds
             com.novamind.app.common.audio.RecordingController.consumeResult()
             when {
                 // 太短：丢弃（防御：通知栏「停止」可能在 3s 内触发）
@@ -307,7 +312,7 @@ fun VoiceRecordingBar(
     }
     RecordingBarContent(
         levels = levels,
-        elapsed = pendingUpload?.second ?: elapsed,
+        elapsed = pendingUpload?.second ?: submittedDurationSeconds ?: elapsed,
         paused = paused,
         phase = phase,
         sendEnabled = elapsed >= MIN_RECORD_SECONDS,   // 不足 3 秒禁止发送
@@ -337,6 +342,7 @@ fun VoiceRecordingBar(
         },
         onSend = {
             // 进入上传中：停止由服务下发，完成 / 无声判定在状态回写后统一处理
+            submittedDurationSeconds = elapsed
             sending = true
             com.novamind.app.common.audio.RecordingService.stop(context)
         },
