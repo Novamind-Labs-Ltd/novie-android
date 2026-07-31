@@ -336,7 +336,7 @@ private fun OptionsSheetContent(
                             cursorBrush = SolidColor(TitleColor),
                             singleLine = false,
                             minLines = 1,
-                            maxLines = 4,
+                            maxLines = 8,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { isOtherFocused = it.isFocused },
