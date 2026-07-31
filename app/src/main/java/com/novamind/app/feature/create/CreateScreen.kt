@@ -72,6 +72,7 @@ import com.novamind.app.feature.create.components.PolishBodySkeleton
 import com.novamind.app.feature.create.components.PolishDecisionBar
 import com.novamind.app.feature.create.components.PolishResultContent
 import com.novamind.app.feature.create.components.PolishStatusBanner
+import com.novamind.app.feature.asknovie.NoteAskNovieSheet
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.UploadState
 import com.novamind.app.feature.create.model.TranscriptionInsert
@@ -161,6 +162,8 @@ fun CreateScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showAttachSheet by remember { mutableStateOf(false) }
     var showRecordingBar by remember { mutableStateOf(false) }
+    var showNoteAskNovie by remember { mutableStateOf(false) }
+    var noteAskBody by remember { mutableStateOf("") }
     // 上传成功事件到达 → 关闭录音面板（面板在确认后保持显示，直到这里收到成功）
     LaunchedEffect(recordingUploaded) {
         recordingUploaded?.collect { showRecordingBar = false }
@@ -169,8 +172,8 @@ fun CreateScreen(
     var previewIndex by remember { mutableStateOf<Int?>(null) }
     var showShare by remember { mutableStateOf(false) }
     // 全屏层（预览/录音/分享）打开时通知宿主隐藏底部导航
-    LaunchedEffect(previewIndex != null || showRecordingBar || showShare) {
-        onFullscreenChange(previewIndex != null || showRecordingBar || showShare)
+    LaunchedEffect(previewIndex != null || showRecordingBar || showShare || showNoteAskNovie) {
+        onFullscreenChange(previewIndex != null || showRecordingBar || showShare || showNoteAskNovie)
     }
     DisposableEffect(Unit) { onDispose { onFullscreenChange(false) } }
 
@@ -695,6 +698,50 @@ fun CreateScreen(
             )
         }
 
+        // 编辑已有笔记且正文超过 200 字时，展示底部居中的 Ask Novie 胶囊按钮。
+        if (isEditing && totalChars > NOTE_ASK_NOVIE_MIN_CHARS && !readOnly &&
+            !showRecordingBar && !polishActive && !showShare && previewIndex == null
+        ) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(
+                        bottom = if (imeVisible || forceToolbarVisible) 84.dp else 20.dp,
+                    )
+                    .height(56.dp),
+                shape = RoundedCornerShape(296.dp),
+                color = TextColors.Primary.default.current(),
+                onClick = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                    noteAskBody = NoteDocument.previewText(editor.documentJson)
+                    showNoteAskNovie = true
+                },
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_ask_novie),
+                        contentDescription = null,
+                        tint = TextColors.Primary.onDark.current(),
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Text(
+                        text = "Ask Novie",
+                        color = TextColors.Primary.onDark.current(),
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+
         // ── 底部堆叠：上传进度条（§7）在上，录音板在下 ──
         // 录音板自带 navigationBarsPadding；仅当录音板不在时才给整列补底部系统栏留白。
         Column(
@@ -746,6 +793,14 @@ fun CreateScreen(
                 onFolderSelect = { onEvent(CreateEvent.FolderSelected(it)) },
                 onNewFolder = { onEvent(CreateEvent.NewFolderCreated(it)) },
                 onDismiss = { onEvent(CreateEvent.DismissFolderPicker) },
+            )
+        }
+
+        if (showNoteAskNovie) {
+            NoteAskNovieSheet(
+                noteTitle = uiState.title,
+                noteBody = noteAskBody,
+                onDismiss = { showNoteAskNovie = false },
             )
         }
 
@@ -841,6 +896,7 @@ fun CreateScreen(
 }
 
 private const val AUDIO_UPLOAD_BAR_DELAY_MS = 10_000L
+private const val NOTE_ASK_NOVIE_MIN_CHARS = 200
 
 /**
  * 云端音频转写中的正文状态，按 Figma「new conversation」页面呈现：
@@ -998,6 +1054,37 @@ private fun CreateScreenPreview() {
             uiState = CreateUiState(),
             onEvent = {},
             forceToolbarVisible = true,
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    name = "Editing · Ask Novie",
+)
+@Composable
+private fun CreateScreenAskNoviePreview() {
+    val previewBody = """
+        Discussed Q3 marketing campaign, reviewed competitor analysis, brainstormed new product
+        features, planned a team offsite at Mount Serenity, and finalized the budget for the
+        upcoming product launch.
+
+        Felix will lead the hero campaign where we will host in Hong Kong, Jerry will be attending
+        the first event. We will also be hosting a team building event at the Grand Arabelle Hotel.
+        I will be sending out calendar invites shortly. Please RSVP by Friday.
+    """.trimIndent()
+
+    AppTheme {
+        CreateScreen(
+            uiState = CreateUiState(
+                editingNoteId = "preview-note",
+                title = "Q3 marketing campaign",
+                body = previewBody,
+                updatedAt = System.currentTimeMillis(),
+            ),
+            onEvent = {},
+            isEditing = true,
         )
     }
 }
