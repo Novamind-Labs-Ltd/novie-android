@@ -219,8 +219,8 @@ class NoteEditorState {
     /**
      * 仅在请求目标仍保持原样时应用结果；返回 false 表示内容在请求期间已变化。
      *
-     * Polish 返回 Markdown，必须保留为 [MarkdownBlock] 才会经过 Markdown 渲染器。
-     * 全文润色替换所有普通文本块；选区润色则把原文本块拆成「前文 / Markdown / 后文」。
+     * Polish 返回 Markdown，但结果属于普通正文，不应显示成导入 `.md` 文件的附件卡片。
+     * 因此先转成富文本 HTML，再写回 [TextBlock]。
      */
     fun applyPolish(snapshot: PolishSnapshot, polished: String): Boolean {
         val result = polished.trim()
@@ -232,28 +232,19 @@ class NoteEditorState {
             if (target.end > text.length || text.substring(target.start, target.end) != snapshot.originalText) {
                 return false
             }
-            val index = _blocks.indexOf(block)
             val before = text.substring(0, target.start)
             val after = text.substring(target.end)
-            val replacement = buildList<EditorBlock> {
-                if (before.isNotEmpty()) add(TextBlock(initialText = before, id = block.id))
-                add(MarkdownBlock(result))
-                if (after.isNotEmpty()) {
-                    add(TextBlock(initialText = after, id = if (before.isEmpty()) block.id else UUID.randomUUID().toString()))
-                }
-            }
-            _blocks.removeAt(index)
-            _blocks.addAll(index, replacement)
-            appendTrailingTextIfNeeded()
-            focusedTextId = (_blocks.getOrNull(index + replacement.size - 1) as? TextBlock)?.id
+            block.rich.setHtml(
+                MarkdownRichText.toHtml(before) +
+                    MarkdownRichText.toHtml(result) +
+                    MarkdownRichText.toHtml(after),
+            )
         } else {
             if (plainText != snapshot.originalText) return false
-            val firstTextIndex = _blocks.indexOfFirst { it is TextBlock }
-            if (firstTextIndex < 0) return false
-            _blocks.removeAll { it is TextBlock }
-            _blocks.add(firstTextIndex, MarkdownBlock(result))
-            appendTrailingTextIfNeeded()
-            focusedTextId = (_blocks.lastOrNull { it is TextBlock } as? TextBlock)?.id
+            val textBlocks = _blocks.filterIsInstance<TextBlock>()
+            val first = textBlocks.firstOrNull() ?: return false
+            first.rich.setHtml(MarkdownRichText.toHtml(result))
+            textBlocks.drop(1).forEach { it.rich.setText("") }
         }
         clearPolish()
         return true
@@ -485,10 +476,18 @@ class NoteEditorState {
             (0 until arr.length()).mapNotNull { i ->
                 val obj = arr.getJSONObject(i)
                 when (obj.optString("type")) {
-                    "text" -> TextBlock(
-                        initialText = obj.optString("text"),
-                        initialHtml = obj.optString("html").ifBlank { null },
-                    )
+                    "text" -> {
+                        val text = obj.optString("text")
+                        val html = obj.optString("html").ifBlank { null }
+                        TextBlock(
+                            initialText = text,
+                            initialHtml = if (MarkdownRichText.containsSyntax(text)) {
+                                MarkdownRichText.toHtml(text)
+                            } else {
+                                html
+                            },
+                        )
+                    }
                     "image" -> {
                         val path = obj.optString("path")
                         val fid = obj.optString("fileId").ifBlank { null }
