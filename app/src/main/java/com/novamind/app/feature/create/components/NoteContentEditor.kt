@@ -48,6 +48,7 @@ fun NoteContentEditor(
     onImageClick: (String) -> Unit = {},        // 点击图片块（传块 id）→ 进入预览
     onImageRetry: (ImageBlock) -> Unit = {},    // 图片上传失败后点击重试
     header: (@Composable () -> Unit)? = null,   // 随正文一起滚动的头部（标题 / folder / tags 等）
+    headerFocused: Boolean = false,             // 标题获得焦点时把 header 滚回可见区域
     bodyContent: (@Composable () -> Unit)? = null, // 替换正文块的临时状态（如音频转写中）
     stickyBanner: (@Composable () -> Unit)? = null,  // 吸顶提示条（如字数超限）：跟随头部后、向上滚动时常驻顶部
     readOnly: Boolean = false,                  // 录音期间等场景：正文不可编辑、点击不弹键盘
@@ -72,6 +73,11 @@ fun NoteContentEditor(
     // 键盘弹出 / 工具栏顶边变化时（遮挡线有效），主动把焦点光标滚到可见
     LaunchedEffect(coverTopWindowY) {
         if (coverTopWindowY != Float.MAX_VALUE) revealFocused?.invoke()
+    }
+    LaunchedEffect(headerFocused, coverTopWindowY) {
+        if (headerFocused && header != null) {
+            listState.animateScrollToItem(0)
+        }
     }
 
     val singleEmpty = state.blocks.size == 1 &&

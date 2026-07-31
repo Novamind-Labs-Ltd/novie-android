@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -164,6 +165,7 @@ fun CreateScreen(
     var showRecordingBar by remember { mutableStateOf(false) }
     var showNoteAskNovie by remember { mutableStateOf(false) }
     var noteAskBody by remember { mutableStateOf("") }
+    var titleFocused by remember { mutableStateOf(false) }
     // 上传成功事件到达 → 关闭录音面板（面板在确认后保持显示，直到这里收到成功）
     LaunchedEffect(recordingUploaded) {
         recordingUploaded?.collect { showRecordingBar = false }
@@ -560,6 +562,7 @@ fun CreateScreen(
                             readOnly = showRecordingBar || readOnly || uiState.isTranscribing || polishActive,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .onFocusChanged { titleFocused = it.isFocused }
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
                             textStyle = TextStyle(
                                 fontSize = 24.sp,
@@ -599,6 +602,7 @@ fun CreateScreen(
                             readOnly = readOnly,
                         )
                     },
+                    headerFocused = titleFocused,
                     modifier = Modifier
                         .fillMaxSize()
                         .then(
