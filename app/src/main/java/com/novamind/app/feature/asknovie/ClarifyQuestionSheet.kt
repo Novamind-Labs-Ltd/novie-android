@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -64,6 +65,7 @@ import com.novamind.app.ui.theme.AppTheme
 @Composable
 fun OptionsCardSheet(
     card: ChatCard.Options,
+    progressLabel: String? = null,
     onSubmit: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -83,10 +85,14 @@ fun OptionsCardSheet(
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             OptionsSheetContent(
                 card = card,
+                progressLabel = progressLabel,
                 onSubmit = onSubmit,
                 onClose = onDismiss,
-                // Figma 1389:46559：弹层最高约为可用屏高的 70%。
-                modifier = Modifier.heightIn(max = maxHeight * 0.7f),
+                // 单选稿 1389:46499 约占可用屏高 78%；多选稿 1389:46617 内容更长，
+                // 可扩展到 90%。超过上限时仅中间选项列表滚动。
+                modifier = Modifier.heightIn(
+                    max = maxHeight * if (card.select == "many") 0.9f else 0.78f,
+                ),
             )
         }
     }
@@ -123,6 +129,7 @@ internal fun ChatCard.Offer.isSupported(): Boolean =
 @Composable
 private fun OptionsSheetContent(
     card: ChatCard.Options,
+    progressLabel: String? = null,
     onSubmit: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -142,8 +149,12 @@ private fun OptionsSheetContent(
             .padding(horizontal = 16.dp, vertical = 24.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 30.dp).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 30.dp)
+                .padding(horizontal = 12.dp),
+            // 标题最多两行时，进度与关闭按钮仍固定贴齐标题首行顶部。
+            verticalAlignment = Alignment.Top,
         ) {
             Text(
                 text = card.prompt,
@@ -156,6 +167,15 @@ private fun OptionsSheetContent(
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(12.dp))
+            progressLabel?.let {
+                Text(
+                    text = it,
+                    color = SubColor,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                )
+                Spacer(Modifier.width(12.dp))
+            }
             Icon(
                 painter = painterResource(R.drawable.ic_close),
                 contentDescription = "Close",
@@ -171,7 +191,9 @@ private fun OptionsSheetContent(
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider(color = FieldBorder, thickness = 1.dp)
+        Spacer(Modifier.height(8.dp))
 
         // 标题和底部输入区固定；只有选项列表在超过最大高度时滚动。
         LazyColumn(
@@ -195,7 +217,8 @@ private fun OptionsSheetContent(
                             indication = ripple(),
                         ) {
                             if (isMany) {
-                                selectedIds = if (selected) selectedIds - itemId else selectedIds + itemId
+                                selectedIds =
+                                    if (selected) selectedIds - itemId else selectedIds + itemId
                             } else {
                                 onSubmit(item.label)
                             }
@@ -205,7 +228,9 @@ private fun OptionsSheetContent(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            // 标记与右侧标题第一行顶部对齐（文字列自身有 4dp top padding）。
+                            .offset(y = 8.dp)
+                            .size(20.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
                                 when {
@@ -232,7 +257,7 @@ private fun OptionsSheetContent(
                                 painter = painterResource(R.drawable.ic_check),
                                 contentDescription = null,
                                 tint = OnSendGreen,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(14.dp),
                             )
                         } else if (!isMany) {
                             Text(
@@ -245,8 +270,10 @@ private fun OptionsSheetContent(
                     }
                     Spacer(Modifier.width(10.dp))
                     Column(
-                        modifier = Modifier.weight(1f).padding(vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         Text(
                             item.label,
@@ -269,7 +296,7 @@ private fun OptionsSheetContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (card.allowFreeText) {
@@ -281,7 +308,11 @@ private fun OptionsSheetContent(
                     )
                     Spacer(Modifier.width(12.dp))
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                        if (other.isEmpty()) Text("Something else…", color = SubColor, fontSize = 16.sp)
+                        if (other.isEmpty()) Text(
+                            "Something else…",
+                            color = SubColor,
+                            fontSize = 16.sp
+                        )
                         BasicTextField(
                             value = other,
                             onValueChange = { other = it },
@@ -326,13 +357,14 @@ private fun OptionsSheetContentPreview() {
     AppTheme {
         OptionsSheetContent(
             card = ChatCard.Options(
-                prompt = "Example question here",
+                prompt = "Example question hereExample question hereExample question here",
                 items = (1..4).map {
-                    OptionItem("${it - 1}", "Option $it title", "Description shows here.")
+                    OptionItem("${it - 1}", "Option $it title", "Description shows here.Description shows hereDescription shows hereDescription shows here")
                 },
                 allowFreeText = true,
-                select = "one",
+                select = "many",
             ),
+            progressLabel = "1/2",
             onSubmit = {},
             onClose = {},
         )

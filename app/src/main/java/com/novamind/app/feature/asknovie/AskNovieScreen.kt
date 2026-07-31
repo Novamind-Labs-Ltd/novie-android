@@ -198,6 +198,11 @@ fun AskNovieScreen(
             message.role == Role.Assistant &&
             (message.card is ChatCard.Options || message.card is ChatCard.Offer)
     }
+    val latestTurnOptionCards = messages.withIndex().filter { (index, message) ->
+        index > lastUserMessageIndex &&
+            message.role == Role.Assistant &&
+            message.card is ChatCard.Options
+    }
     val activeChoiceCard = latestChoiceCard?.takeIf { (_, message) ->
         // card 帧可能早于 SSE done 到达。等待网络接流和本地打字机队列都收束后再弹出，
         // 否则用户点击会被发送门禁拦截，并在标记 handled 后永久丢失本次选择。
@@ -1278,6 +1283,12 @@ fun AskNovieScreen(
         }
         OptionsCardSheet(
             card = options,
+            progressLabel = if (card is ChatCard.Options) {
+                val position = latestTurnOptionCards.indexOfFirst { it.index == index }
+                if (position >= 0) "${position + 1}/${latestTurnOptionCards.size}" else null
+            } else {
+                null
+            },
             onSubmit = { answer ->
                 markChoiceCardHandled(index)
                 if (card is ChatCard.Offer && answer == "Yes") {
