@@ -249,14 +249,14 @@ fun AddTaskScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 24.dp)
+                    .height(48.dp)
                     .clip(RoundedCornerShape(50))
                     .background(ColorSurface)
                     .clickable {
                         hideKeyboard()
                         onToggleCompleted()
-                    }
-                    .padding(vertical = 14.dp),
+                    },
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -281,13 +281,13 @@ fun AddTaskScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
+                .height(48.dp)
                 .clip(RoundedCornerShape(100))
                 .background(if (canSave) ButtonColors.Primary.background.current() else ColorBorder)
                 .clickable(enabled = canSave) {
                     hideKeyboard()
                     onSave(title.trim(), initialNotes.trim().ifBlank { null }, due)
-                }
-                .padding(vertical = 12.dp),
+                },
             contentAlignment = Alignment.Center,
         ) {
             Text(

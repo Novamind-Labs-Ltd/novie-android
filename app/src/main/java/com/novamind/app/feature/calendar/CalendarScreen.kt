@@ -97,12 +97,12 @@ fun CalendarScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(top = 16.dp, bottom = 8.dp),
+                .padding(horizontal = 28.dp, vertical = 14.dp)
+                .padding(top = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Calendar", fontSize = 28.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
+            Text("Calendar", fontSize = 32.sp, fontWeight = FontWeight.Medium, color = ColorTextTitle)
             PillIcon(R.drawable.ic_add, "Add") { onEvent(CalendarUiEvent.AddTaskClicked) }
         }
 
