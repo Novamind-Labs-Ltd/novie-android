@@ -161,8 +161,8 @@ fun LibraryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // Figma top_info：状态栏后 36dp，左右 28dp，36dp 内容行，底部 14dp。
-                .padding(start = 28.dp, end = 28.dp, top = 36.dp, bottom = 14.dp)
+                // 与 Profile 顶部对齐：状态栏后 22dp，左右 28dp，36dp 内容行，底部 14dp。
+                .padding(start = 28.dp, end = 28.dp, top = 22.dp, bottom = 14.dp)
                 .height(36.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
