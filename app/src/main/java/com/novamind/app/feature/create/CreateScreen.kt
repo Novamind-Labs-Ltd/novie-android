@@ -701,7 +701,8 @@ fun CreateScreen(
         // 编辑已有笔记且正文超过 200 字时，展示底部居中的 Ask Novie 胶囊按钮。
         if (isEditing && uiState.editingNoteId != null &&
             totalChars > NOTE_ASK_NOVIE_MIN_CHARS && !readOnly &&
-            !showRecordingBar && !polishActive && !showShare && previewIndex == null
+            !imeVisible && !showRecordingBar && !polishActive &&
+            !showShare && previewIndex == null
         ) {
             Surface(
                 modifier = Modifier
@@ -709,7 +710,7 @@ fun CreateScreen(
                     .imePadding()
                     .navigationBarsPadding()
                     .padding(
-                        bottom = if (imeVisible || forceToolbarVisible) 84.dp else 20.dp,
+                        bottom = if (forceToolbarVisible) 84.dp else 20.dp,
                     )
                     .height(56.dp),
                 shape = RoundedCornerShape(296.dp),

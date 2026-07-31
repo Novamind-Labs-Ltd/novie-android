@@ -35,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +70,8 @@ fun NoteAskNovieSheet(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -90,6 +94,8 @@ fun NoteAskNovieSheet(
     fun send() {
         val question = input.trim()
         if (question.isEmpty() || responding) return
+        keyboardController?.hide()
+        focusManager.clearFocus()
         input = ""
         messages = messages + ChatMessage(Role.User, question)
         responding = true
