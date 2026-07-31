@@ -156,6 +156,7 @@ fun NoteAskNovieSheet(
                     mode = "chat",
                     conversationId = conversationId,
                     input = request,
+                    noteId = noteId,
                 ).collect { event ->
                     when (event) {
                         is ChatStreamEvent.TextDelta -> streamingText += event.delta

@@ -38,6 +38,8 @@ data class ChatRequest(
     @SerialName("attachment_ids") val attachmentIds: List<String> = emptyList(),
     /** 卡片操作重入当前 chat / brainstorm 会话。 */
     val action: String? = null,
+    /** 从笔记编辑页进入时携带；普通 Ask Novie 会话不传。 */
+    @SerialName("note_id") val noteId: String? = null,
 )
 
 /** SSE 一帧解析后的事件（events.py：text / card / status / error / done）。 */
@@ -117,17 +119,25 @@ object AskNovieChat {
         input: String,
         attachmentIds: List<String> = emptyList(),
         action: String? = null,
+        noteId: String? = null,
     ): Flow<ChatStreamEvent> = flow {
         val payload = json.encodeToString(
-            ChatRequest(mode, conversationId, input, attachmentIds, action),
+            ChatRequest(
+                mode = mode,
+                conversationId = conversationId,
+                input = input,
+                attachmentIds = attachmentIds,
+                action = action,
+                noteId = noteId,
+            ),
         )
         val url = ApiConfig.agentBaseUrl + "v1/chat"
         // 请求前日志：不打 input 原文（用户内容，PII），只记长度与关键路由/鉴权状态，便于排查
         // 开流前错误（如 401 invalid_token / 403 not_registered）。hasToken 反映是否会带 Bearer。
         AppLog.i(TAG) {
-            "chat 请求前 url=$url env=${ApiConfig.env.label} mode=$mode conv=$conversationId " +
+                "chat 请求前 url=$url env=${ApiConfig.env.label} mode=$mode conv=$conversationId " +
                 "action=${action ?: "-"} inputLen=${input.length} " +
-                "attachmentCount=${attachmentIds.size} " +
+                "attachmentCount=${attachmentIds.size} noteId=${noteId ?: "-"} " +
                 "hasToken=${!TokenProvider.accessToken.isNullOrBlank()}"
         }
         val request = Request.Builder()
