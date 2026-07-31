@@ -711,7 +711,7 @@ fun CreateScreen(
         // 编辑已有笔记且正文超过 200 字时，展示底部居中的 Ask Novie 胶囊按钮。
         if (isEditing && uiState.editingNoteId != null &&
             totalChars > NOTE_ASK_NOVIE_MIN_CHARS && !readOnly &&
-            !imeVisible && !showRecordingBar && !polishActive &&
+            !imeVisible && !showRecordingBar && !uiState.isTranscribing && !polishActive &&
             !showShare && previewIndex == null
         ) {
             Surface(
