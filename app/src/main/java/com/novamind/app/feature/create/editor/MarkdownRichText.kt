@@ -6,16 +6,25 @@ internal object MarkdownRichText {
     private val blockSyntax = Regex(
         pattern = "(?m)^\\s*(#{1,6}\\s+|[-+*]\\s+|\\d+[.)]\\s+|>\\s+|```)",
     )
+    private val flattenedHeadingSyntax = Regex("\\s+#{1,6}\\s+")
     private val inlineSyntax = Regex("(\\*\\*[^*]+\\*\\*|__[^_]+__|`[^`]+`|\\[[^]]+]\\([^)]+\\))")
 
-    fun containsSyntax(text: String): Boolean = blockSyntax.containsMatchIn(text) || inlineSyntax.containsMatchIn(text)
+    fun containsSyntax(text: String): Boolean =
+        blockSyntax.containsMatchIn(text) ||
+            flattenedHeadingSyntax.containsMatchIn(text) ||
+            inlineSyntax.containsMatchIn(text)
 
     fun toHtml(markdown: String): String {
         if (markdown.isEmpty()) return ""
-        val normalized = markdown
+        var normalized = markdown
             // 兼容历史 TextBlock：富文本编辑器曾把 Markdown 的块级换行压成空格。
             .replace(Regex("^(\\s*#{1,6}\\s+.+?)\\s{2,}(?=(?:\\*\\*|__))"), "$1\n")
             .replace(Regex("\\s+-\\s+(?=(?:\\*\\*|__))"), "\n- ")
+        if (flattenedHeadingSyntax.containsMatchIn(normalized)) {
+            normalized = normalized
+                .replace(Regex("\\s+(?=#{1,6}\\s+)"), "\n")
+                .replace(Regex("\\s+-\\s+"), "\n- ")
+        }
         val output = StringBuilder()
         var listTag: String? = null
 

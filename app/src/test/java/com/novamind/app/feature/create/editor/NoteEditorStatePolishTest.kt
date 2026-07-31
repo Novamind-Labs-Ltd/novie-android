@@ -25,6 +25,17 @@ class NoteEditorStatePolishTest {
     }
 
     @Test
+    fun `flattened headings bypass malformed legacy html`() {
+        val text = "用户登录流程图 ### 1. 登录方式选择 可选择： - 账号密码登录 - 手机验证码登录"
+
+        assertTrue(MarkdownRichText.containsSyntax(text))
+        assertEquals(
+            "<p>用户登录流程图</p><h3>1. 登录方式选择 可选择：</h3><ul><li>账号密码登录</li><li>手机验证码登录</li></ul>",
+            MarkdownRichText.toHtml(text),
+        )
+    }
+
+    @Test
     fun `whole note polish stays a text block`() {
         val state = NoteEditorState()
         val snapshot = PolishSnapshot(
