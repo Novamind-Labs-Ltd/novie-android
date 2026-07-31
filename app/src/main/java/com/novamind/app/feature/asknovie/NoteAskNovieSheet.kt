@@ -1,5 +1,7 @@
 package com.novamind.app.feature.asknovie
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,6 +46,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.common.audio.AudioRecordingFormat
+import com.novamind.app.common.config.AppConfig
+import com.novamind.app.common.net.response.ApiResult
 import com.novamind.app.feature.asknovie.components.AssistantText
 import com.novamind.app.feature.asknovie.components.Bg
 import com.novamind.app.feature.asknovie.components.ComposerRoundButton
@@ -53,11 +58,17 @@ import com.novamind.app.feature.asknovie.components.TextTitle
 import com.novamind.app.feature.asknovie.components.TypingIndicator
 import com.novamind.app.feature.asknovie.components.UserBubble
 import com.novamind.app.feature.asknovie.data.AskNovieChat
+import com.novamind.app.feature.asknovie.data.AskNovieTranscriptionRepository
 import com.novamind.app.feature.asknovie.data.ChatStreamEvent
 import com.novamind.app.ui.colors.BackgroundColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.components.RecordingUploadOutcome
+import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.ui.theme.AppTheme
+import com.novamind.app.util.PermissionUtils
+import com.novamind.app.util.ToastUtils
 import java.util.UUID
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** 编辑页内基于当前笔记上下文的 Ask Novie 对话弹层（Figma 1656:36837）。 */
@@ -90,12 +101,32 @@ fun NoteAskNovieSheet(
     }
     var streamingText by remember { mutableStateOf("") }
     var responding by remember { mutableStateOf(false) }
+    var isRecording by remember { mutableStateOf(false) }
+
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* 录音不依赖通知授权结果；只影响前台录音通知是否可见。 */ }
+    val ensureNotificationPermission = {
+        if (PermissionUtils.needsNotificationPermission(context)) {
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    val recordPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            ensureNotificationPermission()
+            isRecording = true
+        } else {
+            ToastUtils.short(context, "Microphone permission is required to record audio")
+        }
+    }
 
     fun send() {
         val question = input.trim()
         if (question.isEmpty() || responding) return
+        focusManager.clearFocus(force = true)
         keyboardController?.hide()
-        focusManager.clearFocus()
         input = ""
         messages = messages + ChatMessage(Role.User, question)
         responding = true
@@ -211,12 +242,118 @@ fun NoteAskNovieSheet(
                 }
             }
 
-            NoteAskComposer(
-                input = input,
-                onInputChange = { input = it },
-                responding = responding,
-                onSend = ::send,
-            )
+            if (isRecording) {
+                VoiceRecordingBar(
+                    onCancel = { isRecording = false },
+                    onConfirm = { path, _ ->
+                        isRecording = false
+                        runCatching { java.io.File(path).delete() }
+                        if (input.isBlank()) {
+                            ToastUtils.short(
+                                context,
+                                "We couldn't hear any speech. Please try again.",
+                            )
+                        } else {
+                            send()
+                        }
+                    },
+                    onUpload = { path, durationSeconds ->
+                        when {
+                            durationSeconds > AppConfig.AskNovie.MAX_VOICE_SECONDS -> {
+                                ToastUtils.short(context, "Voice input can be up to 60 seconds.")
+                                RecordingUploadOutcome.DiscardFailure
+                            }
+                            !java.io.File(path).isFile -> {
+                                ToastUtils.short(
+                                    context,
+                                    "The recording is unavailable. Please record again.",
+                                )
+                                RecordingUploadOutcome.DiscardFailure
+                            }
+                            else -> when (
+                                val result = AskNovieTranscriptionRepository.transcribe(
+                                    path,
+                                    durationSeconds,
+                                )
+                            ) {
+                                is ApiResult.Success -> {
+                                    val transcription = result.data
+                                    if (transcription?.text.isNullOrBlank()) {
+                                        ToastUtils.short(
+                                            context,
+                                            "We couldn't hear any speech. Please try again.",
+                                        )
+                                        RecordingUploadOutcome.DiscardFailure
+                                    } else {
+                                        val baseInput = input.trimEnd()
+                                        transcription.partialTexts
+                                            .ifEmpty { listOf(transcription.text) }
+                                            .forEachIndexed { index, partialText ->
+                                                input = listOf(baseInput, partialText)
+                                                    .filter { it.isNotBlank() }
+                                                    .joinToString(" ")
+                                                if (index < transcription.partialTexts.lastIndex) {
+                                                    delay(
+                                                        AppConfig.AskNovie
+                                                            .VOICE_TRANSCRIPTION_STEP_DELAY_MS,
+                                                    )
+                                                }
+                                            }
+                                        input = listOf(baseInput, transcription.text)
+                                            .filter { it.isNotBlank() }
+                                            .joinToString(" ")
+                                        RecordingUploadOutcome.Success
+                                    }
+                                }
+                                is ApiResult.BizError -> {
+                                    ToastUtils.short(
+                                        context,
+                                        result.message ?: "Couldn't transcribe the recording.",
+                                    )
+                                    if (
+                                        result.httpStatus >= 500 ||
+                                        result.httpStatus == 408 ||
+                                        result.httpStatus == 429
+                                    ) {
+                                        RecordingUploadOutcome.RetryableFailure
+                                    } else {
+                                        RecordingUploadOutcome.DiscardFailure
+                                    }
+                                }
+                                is ApiResult.NetworkError -> {
+                                    ToastUtils.short(
+                                        context,
+                                        "Couldn't transcribe the recording. Please retry.",
+                                    )
+                                    RecordingUploadOutcome.RetryableFailure
+                                }
+                            }
+                        }
+                    },
+                    compact = true,
+                    autoStart = true,
+                    sendingLabel = "Transcribing…",
+                    recordingFormat = AudioRecordingFormat.M4A,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                NoteAskComposer(
+                    input = input,
+                    onInputChange = { input = it },
+                    responding = responding,
+                    onVoice = {
+                        focusManager.clearFocus(force = true)
+                        keyboardController?.hide()
+                        if (PermissionUtils.hasAudioPermission(context)) {
+                            ensureNotificationPermission()
+                            isRecording = true
+                        } else {
+                            recordPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    onSend = ::send,
+                )
+            }
         }
     }
 }
@@ -226,6 +363,7 @@ private fun NoteAskComposer(
     input: String,
     onInputChange: (String) -> Unit,
     responding: Boolean,
+    onVoice: () -> Unit,
     onSend: () -> Unit,
 ) {
     Surface(
@@ -259,7 +397,7 @@ private fun NoteAskComposer(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ComposerRoundButton(R.drawable.ic_mic, "Voice", onClick = {})
+                    ComposerRoundButton(R.drawable.ic_mic, "Voice", onClick = onVoice)
                     SendButton(enabled = input.isNotBlank() && !responding, onClick = onSend)
                 }
             }
@@ -271,6 +409,12 @@ private fun NoteAskComposer(
 @Composable
 private fun NoteAskNovieSheetPreview() {
     AppTheme {
-        NoteAskComposer(input = "", onInputChange = {}, responding = false, onSend = {})
+        NoteAskComposer(
+            input = "",
+            onInputChange = {},
+            responding = false,
+            onVoice = {},
+            onSend = {},
+        )
     }
 }
