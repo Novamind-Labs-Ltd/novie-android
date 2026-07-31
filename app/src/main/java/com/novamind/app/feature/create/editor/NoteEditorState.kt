@@ -52,7 +52,7 @@ class TextBlock(
         // 收窄到约一个 tab（见 AppConfig.Editor.LIST_INDENT）。listIndent 同时作用于有序/无序列表。
         config.listIndent = AppConfig.Editor.LIST_INDENT
         when {
-            !initialHtml.isNullOrBlank() -> setHtml(initialHtml)
+            !initialHtml.isNullOrBlank() -> setHtml(EditorHtml.normalize(initialHtml))
             initialText.isNotEmpty() -> setText(initialText)
         }
     }
@@ -235,15 +235,17 @@ class NoteEditorState {
             val before = text.substring(0, target.start)
             val after = text.substring(target.end)
             block.rich.setHtml(
-                MarkdownRichText.toHtml(before) +
-                    MarkdownRichText.toHtml(result) +
-                    MarkdownRichText.toHtml(after),
+                EditorHtml.normalize(
+                    MarkdownRichText.toHtml(before) +
+                        MarkdownRichText.toHtml(result) +
+                        MarkdownRichText.toHtml(after),
+                ),
             )
         } else {
             if (plainText != snapshot.originalText) return false
             val textBlocks = _blocks.filterIsInstance<TextBlock>()
             val first = textBlocks.firstOrNull() ?: return false
-            first.rich.setHtml(MarkdownRichText.toHtml(result))
+            first.rich.setHtml(EditorHtml.normalize(MarkdownRichText.toHtml(result)))
             textBlocks.drop(1).forEach { it.rich.setText("") }
         }
         clearPolish()
@@ -546,9 +548,9 @@ class NoteEditorState {
         val tail = _blocks.lastOrNull()
         if (tail is TextBlock) {
             val existing = tail.rich.toHtml()
-            tail.rich.setHtml(if (existing.isBlank()) html else "$existing$html")
+            tail.rich.setHtml(EditorHtml.normalize(if (existing.isBlank()) html else "$existing$html"))
         } else {
-            _blocks.add(TextBlock(initialHtml = html))
+            _blocks.add(TextBlock(initialHtml = EditorHtml.normalize(html)))
             appendTrailingTextIfNeeded()
         }
     }

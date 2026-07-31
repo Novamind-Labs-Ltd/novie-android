@@ -8,6 +8,18 @@ import org.junit.Test
 class NoteEditorStatePolishTest {
 
     @Test
+    fun `editor html caps oversized heading spans`() {
+        val html = "<p><span style=\"font-size: 32.0px;\"><b>Title</b></span></p>" +
+            "<p><span style=\"font-size: 24.0px;\"><b>Section</b></span></p>"
+
+        assertEquals(
+            "<p><span style=\"font-size: 20px;\"><b>Title</b></span></p>" +
+                "<p><span style=\"font-size: 18px;\"><b>Section</b></span></p>",
+            EditorHtml.normalize(html),
+        )
+    }
+
+    @Test
     fun `markdown syntax converts to inline rich text html`() {
         val html = MarkdownRichText.toHtml("# Title\n\n- First\n- **Second**")
 
