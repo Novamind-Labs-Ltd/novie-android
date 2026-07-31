@@ -59,7 +59,7 @@ internal fun NoteCard(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // 更新时间：今天 HH:mm / 今年 MM-dd / 跨年 yyyy-MM-dd
+            // 更新时间：同年显示日/月/时间，跨年显示日/月/年。
             Text(
                 text = TimeUtils.smart(note.updatedAt),
                 fontSize = 11.sp,

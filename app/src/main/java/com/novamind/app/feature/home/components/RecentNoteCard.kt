@@ -30,7 +30,6 @@ import com.novamind.app.ui.colors.Palette
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
-import java.util.Locale
 
 /**
  * 首页「Recent notes」纵向全幅卡片（content_notes）：标题（可选）+ 摘要（可选）+ 日期/时间；
@@ -86,26 +85,16 @@ internal fun RecentNoteCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // ── 日期 · 时间（AUG 1 · 10:00AM）───────────────────────────
-                Row(
-                    modifier = Modifier.padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    val stamp = note.updatedAt.takeIf { it > 0L } ?: note.createdAt
-                    if (stamp > 0L) {
-                        Text(
-                            text = TimeUtils.format(stamp, "MMM d", Locale.ENGLISH).uppercase(Locale.ENGLISH),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorTimeStamp,
-                        )
-                        Text(
-                            text = TimeUtils.format(stamp, "h:mma", Locale.ENGLISH),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorTimeStamp,
-                        )
-                    }
+                // 同年：1 AUG 10:18AM；跨年：1 AUG 2025。
+                val stamp = note.updatedAt.takeIf { it > 0L } ?: note.createdAt
+                if (stamp > 0L) {
+                    Text(
+                        text = TimeUtils.smart(stamp),
+                        modifier = Modifier.padding(top = 6.dp),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorTimeStamp,
+                    )
                 }
             }
 
