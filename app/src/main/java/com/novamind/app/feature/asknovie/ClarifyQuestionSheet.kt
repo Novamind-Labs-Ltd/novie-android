@@ -229,8 +229,8 @@ private fun OptionsSheetContent(
                     Box(
                         modifier = Modifier
                             // 标记与右侧标题第一行顶部对齐（文字列自身有 4dp top padding）。
-                            .offset(y = 8.dp)
-                            .size(20.dp)
+                            .offset(y = 4.dp)
+                            .size(if (isMany) 20.dp else 28.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
                                 when {
@@ -264,6 +264,7 @@ private fun OptionsSheetContent(
                                 text = "${index + 1}",
                                 color = TitleColor,
                                 fontSize = 14.sp,
+                                lineHeight = 14.sp,
                                 fontWeight = FontWeight.Medium,
                             )
                         }
@@ -351,7 +352,12 @@ private fun SheetSendButton(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFF3F1EB)
+@Preview(
+    name = "Options - long content",
+    showBackground = true,
+    backgroundColor = 0xFFF3F1EB,
+    widthDp = 412,
+)
 @Composable
 private fun OptionsSheetContentPreview() {
     AppTheme {
@@ -365,6 +371,72 @@ private fun OptionsSheetContentPreview() {
                 select = "many",
             ),
             progressLabel = "1/2",
+            onSubmit = {},
+            onClose = {},
+        )
+    }
+}
+
+@Preview(
+    name = "Options - single line",
+    showBackground = true,
+    backgroundColor = 0xFFF3F1EB,
+    widthDp = 412,
+)
+@Composable
+private fun OptionsSheetSingleLinePreview() {
+    AppTheme {
+        OptionsSheetContent(
+            card = ChatCard.Options(
+                prompt = "Example question here",
+                items = (1..4).map { index ->
+                    OptionItem(
+                        id = "${index - 1}",
+                        label = "Option $index title",
+                    )
+                },
+                allowFreeText = true,
+                select = "one",
+            ),
+            progressLabel = "1/2",
+            onSubmit = {},
+            onClose = {},
+        )
+    }
+}
+
+@Preview(
+    name = "Options - multiline",
+    showBackground = true,
+    backgroundColor = 0xFFF3F1EB,
+    widthDp = 412,
+)
+@Composable
+private fun OptionsSheetMultilinePreview() {
+    AppTheme {
+        OptionsSheetContent(
+            card = ChatCard.Options(
+                prompt = "Which parts of this plan would you like to prioritize first?",
+                items = listOf(
+                    OptionItem(
+                        id = "0",
+                        label = "1",
+                        description = "A description that wraps onto multiple lines at this width.",
+                    ),
+                    OptionItem(
+                        id = "1",
+                        label = "A much longer option title that wraps onto multiple lines for alignment checks",
+                        description = "Short description.",
+                    ),
+                    OptionItem(
+                        id = "2",
+                        label = "Option without a description",
+                    ),
+                ),
+                allowFreeText = true,
+                select = "many",
+            ),
+            progressLabel = "2/2",
             onSubmit = {},
             onClose = {},
         )
