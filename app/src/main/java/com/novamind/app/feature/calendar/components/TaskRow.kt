@@ -80,7 +80,7 @@ private fun TodoCardRow(
         // 勾选圈：点击切换完成/未完成。未完成=黑色描边空圈；已完成=slate 实心 + 白色对勾
         Box(
             modifier = Modifier
-                .size(24.dp)
+                .size(28.dp)
                 .offset(y = 4.dp)
                 .clip(CircleShape)
                 .then(
