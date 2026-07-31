@@ -203,7 +203,7 @@ fun NoteAskNovieSheet(
     val sheetHeightPx = with(density) {
         configuration.screenHeightDp.dp.toPx() * NOTE_ASK_SHEET_HEIGHT_FRACTION
     }
-    val dismissThresholdPx = sheetHeightPx / 3f
+    val dismissThresholdPx = sheetHeightPx / 4f
     val maxPullDistancePx = sheetHeightPx
     var pullOffsetPx by remember { mutableFloatStateOf(0f) }
     val pullToDismissConnection = remember(listState, sheetState, dismissThresholdPx) {
@@ -240,7 +240,7 @@ fun NoteAskNovieSheet(
                 consumed: Velocity,
                 available: Velocity,
             ): Velocity {
-                // fling 只负责把消息列表送到顶部；关闭必须由用户继续主动下拉到 1/3 高度。
+                // fling 只负责把消息列表送到顶部；关闭必须由用户继续主动下拉到 1/4 高度。
                 val shouldDismiss = pullOffsetPx >= dismissThresholdPx
                 if (shouldDismiss) {
                     // 保留手势产生的位移直到 Material 隐藏动画结束，避免弹窗先跳回展开位置闪一帧。
