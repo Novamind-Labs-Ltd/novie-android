@@ -886,7 +886,7 @@ private fun AudioTranscriptionContent(
                 color = TextColors.Primary.default.current(),
             )
             Text(
-                text = "Stay on this screen for just a moment, and it\nwill be ready shortly.",
+                text = "Stay on this screen for just a moment, and it will be ready shortly.",
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 color = TextColors.Primary.default.current(),
