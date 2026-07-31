@@ -24,7 +24,6 @@ internal fun SectionHeader(
     title: String,
     onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
-    prominentTitle: Boolean = false,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -33,9 +32,9 @@ internal fun SectionHeader(
     ) {
         Text(
             text = title,
-            fontSize = if (prominentTitle) 22.sp else 16.sp,
-            fontWeight = if (prominentTitle) FontWeight.Medium else FontWeight.Bold,
-            lineHeight = if (prominentTitle) 28.sp else 20.sp,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 20.sp,
             color = ColorTextTitle,
         )
         IconButton(onClick = onSeeAll, modifier = Modifier.size(36.dp)) {
