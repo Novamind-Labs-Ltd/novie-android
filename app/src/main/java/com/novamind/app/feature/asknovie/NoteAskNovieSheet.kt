@@ -2,7 +2,6 @@ package com.novamind.app.feature.asknovie
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,14 +12,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -67,9 +67,9 @@ import com.novamind.app.ui.components.VoiceRecordingBar
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.PermissionUtils
 import com.novamind.app.util.ToastUtils
-import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /** 编辑页内基于当前笔记上下文的 Ask Novie 对话弹层（Figma 1656:36837）。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,9 +94,7 @@ fun NoteAskNovieSheet(
     var messages by remember(conversationId) {
         mutableStateOf(
             ChatSessionStore.load(context)
-                .firstOrNull { it.id == conversationId }
-                ?.messages
-                .orEmpty(),
+                .firstOrNull { it.id == conversationId }?.messages.orEmpty(),
         )
     }
     var streamingText by remember { mutableStateOf("") }
@@ -151,11 +149,13 @@ fun NoteAskNovieSheet(
                 ).collect { event ->
                     when (event) {
                         is ChatStreamEvent.TextDelta -> streamingText += event.delta
-                        is ChatStreamEvent.Failure -> failure = event.message ?: "Something went wrong. Please try again."
+                        is ChatStreamEvent.Failure -> failure =
+                            event.message ?: "Something went wrong. Please try again."
+
                         is ChatStreamEvent.Card,
                         is ChatStreamEvent.Status,
                         is ChatStreamEvent.Done,
-                        -> Unit
+                            -> Unit
                     }
                 }
             } finally {
@@ -186,6 +186,7 @@ fun NoteAskNovieSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        sheetGesturesEnabled = false,
         dragHandle = null,
         shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
         containerColor = Bg,
@@ -200,7 +201,9 @@ fun NoteAskNovieSheet(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.Top,
             ) {
                 Text(
@@ -208,15 +211,18 @@ fun NoteAskNovieSheet(
                     modifier = Modifier.weight(1f),
                     color = TextTitle,
                     fontSize = 16.sp,
-                    lineHeight = 20.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                 )
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(24.dp),
+                ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_close),
                         contentDescription = "Close",
                         tint = TextTitle,
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
@@ -225,7 +231,9 @@ fun NoteAskNovieSheet(
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 items(messages) { message ->
@@ -263,6 +271,7 @@ fun NoteAskNovieSheet(
                                 ToastUtils.short(context, "Voice input can be up to 60 seconds.")
                                 RecordingUploadOutcome.DiscardFailure
                             }
+
                             !java.io.File(path).isFile -> {
                                 ToastUtils.short(
                                     context,
@@ -270,12 +279,11 @@ fun NoteAskNovieSheet(
                                 )
                                 RecordingUploadOutcome.DiscardFailure
                             }
-                            else -> when (
-                                val result = AskNovieTranscriptionRepository.transcribe(
-                                    path,
-                                    durationSeconds,
-                                )
-                            ) {
+
+                            else -> when (val result = AskNovieTranscriptionRepository.transcribe(
+                                path,
+                                durationSeconds,
+                            )) {
                                 is ApiResult.Success -> {
                                     val transcription = result.data
                                     if (transcription?.text.isNullOrBlank()) {
@@ -286,40 +294,38 @@ fun NoteAskNovieSheet(
                                         RecordingUploadOutcome.DiscardFailure
                                     } else {
                                         val baseInput = input.trimEnd()
-                                        transcription.partialTexts
-                                            .ifEmpty { listOf(transcription.text) }
+                                        transcription.partialTexts.ifEmpty { listOf(transcription.text) }
                                             .forEachIndexed { index, partialText ->
-                                                input = listOf(baseInput, partialText)
-                                                    .filter { it.isNotBlank() }
-                                                    .joinToString(" ")
+                                                input = listOf(
+                                                    baseInput,
+                                                    partialText
+                                                ).filter { it.isNotBlank() }.joinToString(" ")
                                                 if (index < transcription.partialTexts.lastIndex) {
                                                     delay(
-                                                        AppConfig.AskNovie
-                                                            .VOICE_TRANSCRIPTION_STEP_DELAY_MS,
+                                                        AppConfig.AskNovie.VOICE_TRANSCRIPTION_STEP_DELAY_MS,
                                                     )
                                                 }
                                             }
-                                        input = listOf(baseInput, transcription.text)
-                                            .filter { it.isNotBlank() }
-                                            .joinToString(" ")
+                                        input = listOf(
+                                            baseInput,
+                                            transcription.text
+                                        ).filter { it.isNotBlank() }.joinToString(" ")
                                         RecordingUploadOutcome.Success
                                     }
                                 }
+
                                 is ApiResult.BizError -> {
                                     ToastUtils.short(
                                         context,
                                         result.message ?: "Couldn't transcribe the recording.",
                                     )
-                                    if (
-                                        result.httpStatus >= 500 ||
-                                        result.httpStatus == 408 ||
-                                        result.httpStatus == 429
-                                    ) {
+                                    if (result.httpStatus >= 500 || result.httpStatus == 408 || result.httpStatus == 429) {
                                         RecordingUploadOutcome.RetryableFailure
                                     } else {
                                         RecordingUploadOutcome.DiscardFailure
                                     }
                                 }
+
                                 is ApiResult.NetworkError -> {
                                     ToastUtils.short(
                                         context,
@@ -405,9 +411,9 @@ private fun NoteAskComposer(
     }
 }
 
-@Preview(showBackground = true, heightDp = 760)
+@Preview(showBackground = true, name = "Note Ask Novie · Composer")
 @Composable
-private fun NoteAskNovieSheetPreview() {
+private fun NoteAskNovieComposerPreview() {
     AppTheme {
         NoteAskComposer(
             input = "",
@@ -416,5 +422,102 @@ private fun NoteAskNovieSheetPreview() {
             onVoice = {},
             onSend = {},
         )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    widthDp = 412,
+    heightDp = 760,
+    name = "Note Ask Novie · Conversation",
+)
+@Composable
+private fun NoteAskNovieSheetPreview() {
+    val previewMessages = listOf(
+        ChatMessage(
+            role = Role.User,
+            text = "What are the most important follow-up actions?",
+        ),
+        ChatMessage(
+            role = Role.Assistant,
+            text = "The key follow-ups are to confirm the guest list, assign the event devices, " + "and send the calendar invitation before Friday.",
+        ),
+        ChatMessage(
+            role = Role.User,
+            text = "Turn that into a short checklist.",
+        ),
+    )
+
+    AppTheme {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(),
+            shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
+            color = Bg,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = "Ask for Q3 marketing campaign…",
+                        modifier = Modifier.weight(1f),
+                        color = TextTitle,
+                        fontSize = 16.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                    )
+                    IconButton(
+                        onClick = {},
+                        modifier = Modifier.size(24.dp),
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_close),
+                            contentDescription = "Close",
+                            tint = TextTitle,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    items(previewMessages) { message ->
+                        when (message.role) {
+                            Role.User -> UserBubble(message)
+                            Role.Assistant -> AssistantText(message.text)
+                        }
+                    }
+                    item {
+                        AssistantText(
+                            text = "1. Confirm the guest list\n2. Assign devices\n3. Send invites",
+                            isTyping = true,
+                        )
+                    }
+                }
+
+                NoteAskComposer(
+                    input = "",
+                    onInputChange = {},
+                    responding = true,
+                    onVoice = {},
+                    onSend = {},
+                )
+            }
+        }
     }
 }

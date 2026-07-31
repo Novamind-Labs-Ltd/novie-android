@@ -182,6 +182,16 @@ fun CreateScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // 编辑页键盘由显示切换为隐藏时同步清除焦点，避免正文继续残留光标。
+    // Ask Novie 弹窗拥有独立输入框，不干预其键盘和焦点状态。
+    var previousImeVisible by remember { mutableStateOf(imeVisible) }
+    LaunchedEffect(imeVisible, showNoteAskNovie) {
+        if (previousImeVisible && !imeVisible && !showNoteAskNovie) {
+            focusManager.clearFocus(force = true)
+        }
+        previousImeVisible = imeVisible
+    }
+
     // 图文正文编辑器状态（文本 + 图片块），文档 JSON 同步给 ViewModel
     val editor = remember { NoteEditorState() }
     var pendingPolish by remember { mutableStateOf<Pair<PolishSnapshot, String>?>(null) }
