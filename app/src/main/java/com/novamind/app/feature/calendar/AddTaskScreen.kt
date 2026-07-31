@@ -19,12 +19,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -55,6 +53,7 @@ import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.TextColors
 import com.novamind.app.ui.colors.current
+import com.novamind.app.ui.components.AppAlertDialog
 import com.novamind.app.ui.components.TopBarBackButton
 import com.novamind.app.ui.theme.AppTheme
 import java.time.LocalDate
@@ -78,10 +77,8 @@ private val ColorPrimary: Color
     @Composable @ReadOnlyComposable get() = IconColors.Brand.default.current()
 private val ColorSuccess: Color
     @Composable @ReadOnlyComposable get() = IconColors.Success.default.current()
-private val ColorError: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Error.default.current()
-
 private val dueFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
+private const val TODO_TITLE_MAX_CHARS = 50
 
 /**
  * 新增/编辑任务（To-do）页：标题 + 截止日期 + 描述（对应 Google Tasks 的 title/due/notes）。
@@ -121,7 +118,7 @@ fun AddTaskScreen(
     // 内容是否有变更：驱动 Save 可用性与返回时的放弃确认（本页只编辑标题与截止日）。
     val dirty = title != initialTitle || dueEpochDay != initialDue.toEpochDay()
     // 标题非空且有变更才可保存（内容没变时 Save 置灰）。
-    val canSave = title.isNotBlank() && dirty
+    val canSave = title.isNotBlank() && title.length <= TODO_TITLE_MAX_CHARS && dirty
 
     // 关闭页面前**立即**收起键盘：AnimatedVisibility 退出动画期间文本框仍持有焦点，
     // 若等其销毁后 IME 才开始收起，会与页面滑出串行、观感迟滞（Activity 为
@@ -198,7 +195,12 @@ fun AddTaskScreen(
             // 标题输入
             BasicTextField(
                 value = title,
-                onValueChange = { title = it },
+                onValueChange = { newTitle ->
+                    val shrinking = newTitle.length < title.length
+                    if (newTitle.length <= TODO_TITLE_MAX_CHARS || shrinking) {
+                        title = newTitle
+                    }
+                },
                 textStyle = TextStyle(fontSize = 16.sp, color = ColorTextTitle),
                 cursorBrush = SolidColor(ColorPrimary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -299,36 +301,31 @@ fun AddTaskScreen(
 
     // 放弃变更确认：内容已修改但未保存时，返回先确认。
     if (showDiscardConfirm) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDiscardConfirm = false },
-            title = { Text("Discard changes?") },
-            text = { Text("Your edits haven't been saved.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDiscardConfirm = false
-                    onBack()
-                }) { Text("Discard", color = ColorError) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDiscardConfirm = false }) { Text("Keep editing") }
+            title = "Discard changes?",
+            message = "Your edits haven't been saved.",
+            confirmLabel = "Discard",
+            dismissLabel = "Keep",
+            onConfirm = {
+                showDiscardConfirm = false
+                onBack()
             },
         )
     }
 
     // 删除确认：Google Tasks 无回收站，删除不可恢复。
     if (showDeleteConfirm && onDelete != null) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete this task?") },
-            text = { Text("This can't be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    onDelete()
-                }) { Text("Delete", color = ColorError) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            title = "Delete this task?",
+            message = "This task will be permanently deleted and can't be restored.",
+            confirmLabel = "Delete",
+            dismissLabel = "Cancel",
+            destructive = true,
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
             },
         )
     }
