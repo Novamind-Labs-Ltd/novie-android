@@ -261,6 +261,7 @@ fun NoteAskNovieSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        modifier = Modifier.graphicsLayer { translationY = pullOffsetPx },
         sheetState = sheetState,
         sheetGesturesEnabled = false,
         dragHandle = null,
@@ -272,7 +273,6 @@ fun NoteAskNovieSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(NOTE_ASK_SHEET_HEIGHT_FRACTION)
-                .graphicsLayer { translationY = pullOffsetPx }
                 .navigationBarsPadding()
                 .imePadding()
                 .padding(horizontal = 16.dp, vertical = 24.dp),
