@@ -189,7 +189,12 @@ fun CalendarScreen(
             )
 
             // 星期表头（静态）：S M T W T F S
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .padding(top = 12.dp),
+            ) {
                 weekLetters.forEach { letter ->
                     Text(
                         text = letter,
