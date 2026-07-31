@@ -70,7 +70,7 @@ private val ColorTextTitle: Color
 private val ColorTextSub: Color
     @Composable @ReadOnlyComposable get() = TextColors.Primary.secondary.current()
 private val ColorTextFaint: Color
-    @Composable @ReadOnlyComposable get() = TextColors.Primary.tertiary.current()
+    @Composable @ReadOnlyComposable get() = TextColors.Primary.default.current()
 private val ColorBorder: Color
     @Composable @ReadOnlyComposable get() = BorderColors.Default.default.current()
 private val ColorPrimary: Color
