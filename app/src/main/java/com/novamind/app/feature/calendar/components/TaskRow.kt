@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -74,12 +75,13 @@ private fun TodoCardRow(
             .clickable(onClick = onClick)
             .padding(20.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
         // 勾选圈：点击切换完成/未完成。未完成=黑色描边空圈；已完成=slate 实心 + 白色对勾
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(24.dp)
+                .offset(y = 4.dp)
                 .clip(CircleShape)
                 .then(
                     if (done) Modifier.background(TodoCheckedBg)
@@ -98,8 +100,7 @@ private fun TodoCardRow(
             }
         }
         Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.weight(1f)
         ) {
             Text(
                 text = title,
@@ -111,7 +112,13 @@ private fun TodoCardRow(
                 overflow = TextOverflow.Ellipsis,
             )
             subtitle?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 12.sp, color = ColorTextSub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    it,
+                    fontSize = 12.sp,
+                    color = ColorTextSub,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -127,12 +134,26 @@ private fun TaskRowPreview() {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             TaskRow(
-                task = CalendarTask("t1", "list1", "Submit expense report", day, isCompleted = false, notes = "Include receipts"),
+                task = CalendarTask(
+                    "t1",
+                    "list1",
+                    "Submit expense report",
+                    day,
+                    isCompleted = false,
+                    notes = "Include receipts"
+                ),
                 onToggleComplete = {},
                 onClick = {},
             )
             TaskRow(
-                task = CalendarTask("t2", "list1", "Reply to Alice", day, isCompleted = true, notes = "description"),
+                task = CalendarTask(
+                    "t2",
+                    "list1",
+                    "Reply to Alice",
+                    day,
+                    isCompleted = true,
+                    notes = "description"
+                ),
                 onToggleComplete = {},
                 onClick = {},
             )
