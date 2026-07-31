@@ -225,7 +225,7 @@ private fun CradleBar(
             verticalAlignment = Alignment.Bottom,
         ) {
             // 左组：无左边距，Home / Calendar 平分左侧可用空间。
-            Row(modifier = Modifier.weight(1f)) {
+            Row(modifier = Modifier.weight(1f).padding(10.dp,0.dp,10.dp,0.dp)) {
                 NavTab(
                     BottomNavDestination.Home,
                     currentRoute,
@@ -242,7 +242,7 @@ private fun CradleBar(
             // 中央凹槽严格按 FAB 宽度让位，左右两组因此各占剩余空间的一半。
             Spacer(Modifier.width(FabSize))
             // 右组：Library / Profile 平分右侧可用空间。
-            Row(modifier = Modifier.weight(1f)) {
+            Row(modifier = Modifier.weight(1f).padding(10.dp,0.dp,10.dp,0.dp)) {
                 NavTab(
                     BottomNavDestination.Library,
                     currentRoute,
