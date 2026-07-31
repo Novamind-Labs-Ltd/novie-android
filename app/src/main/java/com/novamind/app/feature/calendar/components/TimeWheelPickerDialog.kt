@@ -69,18 +69,14 @@ private val FarText: Color
 private const val VISIBLE_COUNT = 5
 private val ItemHeight = 44.dp
 
-/** 上午 / 下午。用枚举而非裸字符串，避免 12 小时制拼接时的语义歧义。 */
-enum class DayPeriod(val label: String) { AM("AM"), PM("PM") }
-
 /**
  * 时间选择弹窗（Figma: Alert dialog / 时间滚轮）。
  *
- * 三列滚轮：小时(1–12) · 分钟(00–59) · 上午/下午。中间高亮带为选中位，
+ * 两列滚轮：小时(00–23) · 分钟(00–59)。中间高亮带为选中位，
  * 选中值用品牌绿加粗、相邻行正常、远处行弱化，贴合设计稿的纵深层次。
  * 底部复用通用 [Button]：左「Cancel」(描边) / 右「Ok」(深色实心)。
  *
- * 采用 12 小时制 + AM/PM，[onConfirm] 统一回传 24 小时制的 [LocalTime]，
- * 调用方无需关心显示态与存储态的换算。
+ * 采用 24 小时制，[onConfirm] 直接回传所选 [LocalTime]。
  *
  * 交互最佳实践：
  * - 惯性滑动后自动吸附到整行（[rememberSnapFlingBehavior]）；
@@ -102,16 +98,12 @@ fun TimeWheelPickerDialog(
 ) {
     val minutes = remember(minuteStep) { (0 until 60 step minuteStep).toList() }
 
-    // 12 小时制拆解：0 点与 12 点均显示为 12。
-    val initialHour12 = ((initial.hour + 11) % 12) + 1
-    val initialPeriod = if (initial.hour < 12) DayPeriod.AM else DayPeriod.PM
     // 分钟按步进就近对齐到可选项，避免 07 分在 5 分步进下无对应行。
     val initialMinuteIndex = minutes.indexOfFirst { it >= initial.minute }.coerceAtLeast(0)
 
     // 弹窗内的瞬态选择，进程重建后可恢复。
-    var hour12 by rememberSaveable { mutableIntStateOf(initialHour12) }       // 1..12
+    var hour24 by rememberSaveable { mutableIntStateOf(initial.hour) }       // 0..23
     var minuteIndex by rememberSaveable { mutableIntStateOf(initialMinuteIndex) }
-    var periodOrdinal by rememberSaveable { mutableIntStateOf(initialPeriod.ordinal) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -132,7 +124,7 @@ fun TimeWheelPickerDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                // 滚轮区：中间高亮带铺满宽度，三列滚轮叠在其上。
+                // 滚轮区：中间高亮带铺满宽度，两列滚轮叠在其上。
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -152,10 +144,10 @@ fun TimeWheelPickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         WheelPickerColumn(
-                            itemCount = 12,
-                            selectedIndex = hour12 - 1,
-                            onSelectedIndexChange = { hour12 = it + 1 },
-                            label = { "%d".format(it + 1) },
+                            itemCount = 24,
+                            selectedIndex = hour24,
+                            onSelectedIndexChange = { hour24 = it },
+                            label = { "%02d".format(it) },
                             contentDescription = "Hour",
                             modifier = Modifier.width(72.dp),
                         )
@@ -165,14 +157,6 @@ fun TimeWheelPickerDialog(
                             onSelectedIndexChange = { minuteIndex = it },
                             label = { "%02d".format(minutes[it]) },
                             contentDescription = "Minute",
-                            modifier = Modifier.width(72.dp),
-                        )
-                        WheelPickerColumn(
-                            itemCount = DayPeriod.entries.size,
-                            selectedIndex = periodOrdinal,
-                            onSelectedIndexChange = { periodOrdinal = it },
-                            label = { DayPeriod.entries[it].label },
-                            contentDescription = "AM or PM",
                             modifier = Modifier.width(72.dp),
                         )
                     }
@@ -191,12 +175,6 @@ fun TimeWheelPickerDialog(
                     Button(
                         text = "Ok",
                         onClick = {
-                            val period = DayPeriod.entries[periodOrdinal]
-                            val hour24 = when {
-                                period == DayPeriod.AM && hour12 == 12 -> 0
-                                period == DayPeriod.PM && hour12 != 12 -> hour12 + 12
-                                else -> hour12
-                            }
                             onConfirm(LocalTime.of(hour24, minutes[minuteIndex]))
                         },
                         variant = ButtonVariant.Primary,
@@ -283,7 +261,7 @@ private fun WheelPickerColumn(
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
-@Preview(name = "TimeWheelPicker · 7:40 PM", showBackground = true, backgroundColor = 0xFFF3F1EB)
+@Preview(name = "TimeWheelPicker · 19:40", showBackground = true, backgroundColor = 0xFFF3F1EB)
 @Composable
 private fun TimeWheelPickerPreview() {
     AppTheme {

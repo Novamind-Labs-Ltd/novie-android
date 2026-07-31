@@ -65,7 +65,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val editDateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH)
-private val editTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private val editTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 /**
  * 编辑会议页（由 [MeetingDetailScreen] 铅笔进入）：可改标题 / 日期 / 起止时间 / 地点 / 描述，

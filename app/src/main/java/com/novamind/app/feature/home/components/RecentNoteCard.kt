@@ -85,7 +85,7 @@ internal fun RecentNoteCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                // 同年：1 AUG 10:18AM；跨年：1 AUG 2025。
+                // 同年：1 AUG 22:18；跨年：1 AUG 2025。
                 val stamp = note.updatedAt.takeIf { it > 0L } ?: note.createdAt
                 if (stamp > 0L) {
                     Text(

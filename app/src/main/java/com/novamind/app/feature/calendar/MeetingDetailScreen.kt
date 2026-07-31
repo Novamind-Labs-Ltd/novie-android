@@ -48,7 +48,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val detailDateFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
-private val detailTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private val detailTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 /** 去除 Google Calendar description 里的 HTML 标签与实体，得到纯文本（模型注释要求 UI 层按需清洗）。 */
 private fun String.stripHtml(): String =

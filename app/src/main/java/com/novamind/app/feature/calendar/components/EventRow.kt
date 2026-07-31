@@ -31,9 +31,8 @@ import com.novamind.app.data.calendar.isPast
 import com.novamind.app.ui.theme.AppTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
-private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 /**
  * 会议行（Figma 1032-42476）：圆角卡片 + 左侧**深色圆角方块**图标框（白色双人图标）+ 标题 + 时间段。
