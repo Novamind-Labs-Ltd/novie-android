@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -80,6 +81,8 @@ import com.novamind.app.util.ToastUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
+
+private const val NOTE_ASK_SHEET_HEIGHT_FRACTION = 0.86f
 
 /** 编辑页内基于当前笔记上下文的 Ask Novie 对话弹层（Figma 1656:36837）。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -195,9 +198,13 @@ fun NoteAskNovieSheet(
     }
 
     val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
     val latestOnDismiss by rememberUpdatedState(onDismiss)
-    val dismissThresholdPx = with(density) { 96.dp.toPx() }
-    val maxPullDistancePx = with(density) { 320.dp.toPx() }
+    val sheetHeightPx = with(density) {
+        configuration.screenHeightDp.dp.toPx() * NOTE_ASK_SHEET_HEIGHT_FRACTION
+    }
+    val dismissThresholdPx = sheetHeightPx / 3f
+    val maxPullDistancePx = sheetHeightPx
     var pullOffsetPx by remember { mutableFloatStateOf(0f) }
     val pullToDismissConnection = remember(listState, sheetState, dismissThresholdPx) {
         object : NestedScrollConnection {
@@ -233,8 +240,8 @@ fun NoteAskNovieSheet(
                 consumed: Velocity,
                 available: Velocity,
             ): Velocity {
-                val shouldDismiss =
-                    pullOffsetPx >= dismissThresholdPx || available.y >= 1_200f
+                // fling 只负责把消息列表送到顶部；关闭必须由用户继续主动下拉到 1/3 高度。
+                val shouldDismiss = pullOffsetPx >= dismissThresholdPx
                 if (shouldDismiss) {
                     pullOffsetPx = 0f
                     sheetState.hide()
@@ -264,7 +271,7 @@ fun NoteAskNovieSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.86f)
+                .fillMaxHeight(NOTE_ASK_SHEET_HEIGHT_FRACTION)
                 .graphicsLayer { translationY = pullOffsetPx }
                 .navigationBarsPadding()
                 .imePadding()
