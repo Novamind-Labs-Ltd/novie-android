@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -61,16 +62,28 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteAskNovieSheet(
+    noteId: String,
     noteTitle: String,
     noteBody: String,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val conversationId = remember(noteTitle) { UUID.randomUUID().toString() }
+    // 同一笔记始终映射为同一个合法 UUID；应用重启或重新打开页面后也不会新建会话。
+    val conversationId = remember(noteId) {
+        UUID.nameUUIDFromBytes("note:$noteId".encodeToByteArray()).toString()
+    }
     var input by remember { mutableStateOf("") }
-    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    var messages by remember(conversationId) {
+        mutableStateOf(
+            ChatSessionStore.load(context)
+                .firstOrNull { it.id == conversationId }
+                ?.messages
+                .orEmpty(),
+        )
+    }
     var streamingText by remember { mutableStateOf("") }
     var responding by remember { mutableStateOf(false) }
 
@@ -111,6 +124,17 @@ fun NoteAskNovieSheet(
             } finally {
                 val answer = streamingText.ifBlank { failure.orEmpty() }
                 if (answer.isNotBlank()) messages = messages + ChatMessage(Role.Assistant, answer)
+                if (messages.isNotEmpty()) {
+                    ChatSessionStore.upsert(
+                        context,
+                        ChatSession(
+                            id = conversationId,
+                            title = noteTitle.ifBlank { "Note conversation" },
+                            updatedAt = System.currentTimeMillis(),
+                            messages = messages,
+                        ),
+                    )
+                }
                 streamingText = ""
                 responding = false
             }
