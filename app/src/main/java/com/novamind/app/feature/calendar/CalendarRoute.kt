@@ -22,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -129,17 +130,24 @@ fun CalendarRoute(
                     }
                     // 新增任务：仅已连接时打开（未连接创建必然失败）。
                     CalendarUiEvent.AddTaskClicked -> if (uiState.isConnected) {
+                        showDetail = false
+                        showEditMeeting = false
                         editingTask = null
                         showAddTask = true
                     }
                     // 点击任务行 → 编辑模式打开同一覆盖层。
                     is CalendarUiEvent.TaskClicked -> {
+                        showDetail = false
+                        showEditMeeting = false
                         editingTask = event.task
                         showAddTask = true
                     }
                     // 点击活动/会议行 → 打开只读详情页（Figma 1032-42662，含提醒/邀请人等）；
                     // 详情页点右上角铅笔再进编辑页（详情→编辑的连接见下方 MeetingDetailScreen.onEdit）。
                     is CalendarUiEvent.EventClicked -> {
+                        showAddTask = false
+                        editingTask = null
+                        showEditMeeting = false
                         selectedEvent = event.event
                         showDetail = true
                     }
@@ -154,40 +162,43 @@ fun CalendarRoute(
             enter = slideInHorizontally { it } + fadeIn(),
             exit = slideOutHorizontally { it } + fadeOut(),
         ) {
-            // key：在「新增 ↔ 编辑不同任务」之间切换时强制重建表单状态（rememberSaveable 只取首次初值）。
-            key(editingTask?.id) {
-                AddTaskScreen(
-                    initialDue = editingTask?.due ?: uiState.selectedDate,
-                    initialTitle = editingTask?.title.orEmpty(),
-                    initialNotes = editingTask?.notes.orEmpty(),
-                    onSave = { title, notes, due ->
-                        showAddTask = false
-                        val editing = editingTask
-                        viewModel.onEvent(
-                            if (editing != null) {
-                                CalendarUiEvent.UpdateTask(editing, title, notes, due)
-                            } else {
-                                CalendarUiEvent.CreateTask(title, notes, due)
-                            },
-                        )
-                    },
-                    onBack = { showAddTask = false },
-                    completed = editingTask?.isCompleted,
-                    onToggleCompleted = {
-                        editingTask?.let { task ->
+            Box(Modifier.fillMaxSize()) {
+                FullScreenInputBarrier()
+                // key：在「新增 ↔ 编辑不同任务」之间切换时强制重建表单状态（rememberSaveable 只取首次初值）。
+                key(editingTask?.id) {
+                    AddTaskScreen(
+                        initialDue = editingTask?.due ?: uiState.selectedDate,
+                        initialTitle = editingTask?.title.orEmpty(),
+                        initialNotes = editingTask?.notes.orEmpty(),
+                        onSave = { title, notes, due ->
                             showAddTask = false
+                            val editing = editingTask
                             viewModel.onEvent(
-                                CalendarUiEvent.SetTaskCompleted(task, completed = !task.isCompleted),
+                                if (editing != null) {
+                                    CalendarUiEvent.UpdateTask(editing, title, notes, due)
+                                } else {
+                                    CalendarUiEvent.CreateTask(title, notes, due)
+                                },
                             )
-                        }
-                    },
-                    onDelete = editingTask?.let { task ->
-                        {
-                            showAddTask = false
-                            viewModel.onEvent(CalendarUiEvent.DeleteTask(task))
-                        }
-                    },
-                )
+                        },
+                        onBack = { showAddTask = false },
+                        completed = editingTask?.isCompleted,
+                        onToggleCompleted = {
+                            editingTask?.let { task ->
+                                showAddTask = false
+                                viewModel.onEvent(
+                                    CalendarUiEvent.SetTaskCompleted(task, completed = !task.isCompleted),
+                                )
+                            }
+                        },
+                        onDelete = editingTask?.let { task ->
+                            {
+                                showAddTask = false
+                                viewModel.onEvent(CalendarUiEvent.DeleteTask(task))
+                            }
+                        },
+                    )
+                }
             }
         }
 
@@ -197,17 +208,20 @@ fun CalendarRoute(
             enter = slideInHorizontally { it } + fadeIn(),
             exit = slideOutHorizontally { it } + fadeOut(),
         ) {
-            // key：切换到另一个活动时强制重建。关闭时仅置 showDetail=false，
-            // 保留 selectedEvent 供退出动画期间继续渲染（与 AddTaskScreen 一致）。
-            key(selectedEvent?.id) {
-                selectedEvent?.let { event ->
-                    MeetingDetailScreen(
-                        event = event,
-                        onBack = { showDetail = false },
-                        // 暂隐藏编辑入口：不传 onEdit（默认 null）→ 详情页不显示右上角铅笔。
-                        // 编辑会议流程（showEditMeeting）保留以便日后恢复。
-                        onEdit = null,
-                    )
+            Box(Modifier.fillMaxSize()) {
+                FullScreenInputBarrier()
+                // key：切换到另一个活动时强制重建。关闭时仅置 showDetail=false，
+                // 保留 selectedEvent 供退出动画期间继续渲染（与 AddTaskScreen 一致）。
+                key(selectedEvent?.id) {
+                    selectedEvent?.let { event ->
+                        MeetingDetailScreen(
+                            event = event,
+                            onBack = { showDetail = false },
+                            // 暂隐藏编辑入口：不传 onEdit（默认 null）→ 详情页不显示右上角铅笔。
+                            // 编辑会议流程（showEditMeeting）保留以便日后恢复。
+                            onEdit = null,
+                        )
+                    }
                 }
             }
         }
@@ -218,20 +232,39 @@ fun CalendarRoute(
             enter = slideInHorizontally { it } + fadeIn(),
             exit = slideOutHorizontally { it } + fadeOut(),
         ) {
-            key(selectedEvent?.id) {
-                selectedEvent?.let { event ->
-                    EditMeetingScreen(
-                        event = event,
-                        onSave = { updated ->
-                            showEditMeeting = false
-                            showDetail = false
-                            selectedEvent = updated
-                            viewModel.onEvent(CalendarUiEvent.UpdateMeeting(updated))
-                        },
-                        onBack = { showEditMeeting = false },
-                    )
+            Box(Modifier.fillMaxSize()) {
+                FullScreenInputBarrier()
+                key(selectedEvent?.id) {
+                    selectedEvent?.let { event ->
+                        EditMeetingScreen(
+                            event = event,
+                            onSave = { updated ->
+                                showEditMeeting = false
+                                showDetail = false
+                                selectedEvent = updated
+                                viewModel.onEvent(CalendarUiEvent.UpdateMeeting(updated))
+                            },
+                            onBack = { showEditMeeting = false },
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+/** 拦截全屏覆盖层未被子控件消费的触摸，避免点击落到下方 Calendar 列表。 */
+@Composable
+private fun FullScreenInputBarrier() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent().changes.forEach { it.consume() }
+                    }
+                }
+            },
+    )
 }
