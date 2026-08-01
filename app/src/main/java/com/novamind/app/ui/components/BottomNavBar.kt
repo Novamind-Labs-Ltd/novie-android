@@ -1,6 +1,5 @@
 package com.novamind.app.ui.components
 
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -67,26 +66,23 @@ sealed class BottomNavDestination(
  * object 构造里——后者会在类初始化（<clinit>）期引用资源 ID，在 Compose 预览(layoutlib)
  * 下易触发「Could not initialize class」而导致预览崩溃。
  */
-@DrawableRes
 private fun BottomNavDestination.iconRes(): Int = when (this) {
-    BottomNavDestination.Home -> R.drawable.ic_nav_home
-    BottomNavDestination.Calendar -> R.drawable.ic_nav_calendar
-    BottomNavDestination.Create -> R.drawable.ic_nav_create
-    BottomNavDestination.Library -> R.drawable.ic_nav_library
-    BottomNavDestination.Profile -> R.drawable.ic_nav_profile
+    BottomNavDestination.Home -> R.drawable.nav_home
+    BottomNavDestination.Calendar -> R.drawable.nav_calendar
+    BottomNavDestination.Library -> R.drawable.nav_library
+    BottomNavDestination.Profile -> R.drawable.nav_profile
+    else -> error("No bottom navigation icon for route: $route")
 }
 
 /**
  * 选中态专属图标（设计 selected 变体：填充绿 #145436 + 白色内容）。为双色素材，
- * 渲染时不 tint（tint = Color.Unspecified），保留自带配色；返回 null 表示该 tab 无
- * 专属选中图（如 Home 沿用实心图标，靠 tint 变绿）。
+ * 选中态保留素材自带的绿白配色；返回 null 表示该 tab 没有专属选中图。
  */
-@DrawableRes
 private fun BottomNavDestination.selectedIconRes(): Int? = when (this) {
-    BottomNavDestination.Home -> R.drawable.ic_nav_home_selected
-    BottomNavDestination.Calendar -> R.drawable.ic_nav_calendar_selected
-    BottomNavDestination.Library -> R.drawable.ic_nav_library_selected
-    BottomNavDestination.Profile -> R.drawable.ic_nav_profile_selected
+    BottomNavDestination.Home -> R.drawable.nav_home_selected
+    BottomNavDestination.Calendar -> R.drawable.nav_calendar_selected
+    BottomNavDestination.Library -> R.drawable.nav_library_selected
+    BottomNavDestination.Profile -> R.drawable.nav_profile_selected
     else -> null
 }
 
@@ -393,7 +389,7 @@ private fun NavTab(
             Icon(
                 painter = painterResource(id = selectedRes),
                 contentDescription = destination.label,
-                tint = Color.Unspecified,   // 双色素材，保留自带绿+白
+                tint = Color.Unspecified,
                 modifier = Modifier.size(NavIconSize),
             )
         } else {
