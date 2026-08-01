@@ -19,12 +19,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
+import com.novamind.app.ui.colors.BorderColors
 import com.novamind.app.ui.theme.AppTheme
 
 /**
@@ -38,11 +41,21 @@ internal fun NoteTipBanner(
     onDismiss: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val bottomBorderColor = BorderColors.Error.default.current()
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(38.dp)
             .background(BackgroundColors.Error.tertiary.current())   // 设计：red-50 #fdf1ec
+            .drawBehind {
+                val strokeWidth = 0.5.dp.toPx()
+                drawLine(
+                    color = bottomBorderColor,
+                    start = Offset(0f, size.height - strokeWidth / 2f),
+                    end = Offset(size.width, size.height - strokeWidth / 2f),
+                    strokeWidth = strokeWidth,
+                )
+            }
             .padding(start = 16.dp, end = if (onDismiss == null) 16.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
