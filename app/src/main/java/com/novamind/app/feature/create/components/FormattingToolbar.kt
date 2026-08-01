@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -21,11 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.ui.theme.AppTheme
 
@@ -62,13 +59,13 @@ fun FormattingToolbar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToolbarIcon(R.drawable.ic_mic, "Voice", onClick = onVoice)
-            ToolbarIcon(R.drawable.ic_attach, "Insert image", onClick = onInsertImage)
-            ToolbarIcon(R.drawable.ic_magic, "Magic", onClick = onMagic)
-            ToolbarTextBtn("B", FontWeight.ExtraBold, active = isBoldActive, onClick = onBold)
-            ToolbarTextBtn("I", FontWeight.Bold, fontStyle = FontStyle.Italic, active = isItalicActive, onClick = onItalic)
-            ToolbarIcon(R.drawable.ic_format_list, "Bullet list", onClick = onBulletList)
-            ToolbarIcon(R.drawable.ic_format_list_numbered, "Numbered list", onClick = onNumberedList)
+            ToolbarIcon(R.drawable.ic_toolbar_voice, "Voice", iconSize = 36.dp, onClick = onVoice)
+            ToolbarIcon(R.drawable.ic_toolbar_attachment, "Insert image", iconSize = 36.dp, onClick = onInsertImage)
+            ToolbarIcon(R.drawable.ic_toolbar_magic, "Magic", iconSize = 36.dp, onClick = onMagic)
+            ToolbarIcon(R.drawable.ic_toolbar_bold, "Bold", iconSize = 36.dp, active = isBoldActive, onClick = onBold)
+            ToolbarIcon(R.drawable.ic_toolbar_italic, "Italic", iconSize = 36.dp, active = isItalicActive, onClick = onItalic)
+            ToolbarIcon(R.drawable.ic_toolbar_bullet_list, "Bullet list", iconSize = 36.dp, onClick = onBulletList)
+            ToolbarIcon(R.drawable.ic_toolbar_numbered_list, "Numbered list", iconSize = 36.dp, onClick = onNumberedList)
         }
         Spacer(Modifier.width(8.dp))
         // 右：收起键盘（固定）
@@ -80,33 +77,7 @@ fun FormattingToolbar(
 private fun ToolbarIcon(
     iconResId: Int,
     contentDescription: String,
-    onClick: () -> Unit = {},
-) {
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(RoundedCornerShape(100))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = false),
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            painter = painterResource(id = iconResId),
-            contentDescription = contentDescription,
-            tint = TextColors.Primary.default.current(),
-            modifier = Modifier.size(24.dp),
-        )
-    }
-}
-
-@Composable
-private fun ToolbarTextBtn(
-    text: String,
-    fontWeight: FontWeight,
-    fontStyle: FontStyle = FontStyle.Normal,
+    iconSize: Dp = 24.dp,
     active: Boolean = false,
     onClick: () -> Unit = {},
 ) {
@@ -122,12 +93,11 @@ private fun ToolbarTextBtn(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text,
-            fontSize = 20.sp,
-            fontWeight = fontWeight,
-            fontStyle = fontStyle,
-            color = if (active) IconColors.Brand.default.current() else TextColors.Primary.default.current(),
+        Icon(
+            painter = painterResource(id = iconResId),
+            contentDescription = contentDescription,
+            tint = if (active) IconColors.Brand.default.current() else TextColors.Primary.default.current(),
+            modifier = Modifier.size(iconSize),
         )
     }
 }
