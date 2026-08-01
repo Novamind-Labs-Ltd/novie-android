@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.novamind.app.R
 import com.novamind.app.ui.colors.ButtonColors
-import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.current
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -44,7 +43,7 @@ private val EdgePad = 8.dp
 private val RevealWidth = ButtonSize * 2 + ButtonGap + EdgePad + ButtonGap
 
 /**
- * 文件夹行左滑交互（Figma 879-26226）：整行向左拖拽，露出右侧「编辑(绿)/删除(红)」两枚圆形按钮。
+ * 文件夹行左滑交互（Figma 879-26226）：整行向左拖拽，露出右侧「编辑/删除」两枚圆形按钮。
  * 与外层长按拖拽排序共存（长按=排序、横向拖=露出）。[content] 收到 (isOpen, close)：
  * 展开时点击整行应先收起而非进入文件夹。
  */
@@ -82,16 +81,17 @@ internal fun FolderSwipeRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ActionCircle(
-                bg = ButtonColors.Success.background.current(),
-                tint = ButtonColors.Success.text.current(),
-                iconRes = R.drawable.ic_pencil_line,
+                // Figma 879:26304：44dp 深色圆钮 + 20dp action-writing 图标。
+                bg = ButtonColors.Primary.backgroundSecondary.current(),
+                tint = ButtonColors.Primary.text.current(),
+                iconRes = R.drawable.ic_action_writing,
                 desc = "Rename",
                 onClick = { close(); onEdit() },
             )
             ActionCircle(
-                // Figma：删除按钮为深色(炭黑)圆钮 + 白色垃圾桶（非红色）
-                bg = IconColors.Default.default.current(),
-                tint = IconColors.Default.onDark.current(),
+                // Figma 879:26303：与编辑按钮使用同一个 primary/background-secondary。
+                bg = ButtonColors.Primary.backgroundSecondary.current(),
+                tint = ButtonColors.Primary.text.current(),
                 iconRes = R.drawable.ic_trash_line,
                 desc = "Delete",
                 onClick = { close(); onDelete() },

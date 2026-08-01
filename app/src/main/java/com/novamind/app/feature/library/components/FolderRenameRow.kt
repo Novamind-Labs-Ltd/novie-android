@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.novamind.app.R
 import com.novamind.app.common.config.AppConfig
 import com.novamind.app.ui.colors.BorderColors
+import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.IconColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
@@ -60,7 +61,7 @@ internal fun FolderRenameRow(
         mutableStateOf(TextFieldValue(initialName, TextRange(initialName.length)))
     }
     val trimmed = value.text.trim()
-    val canConfirm = trimmed.isNotEmpty()
+    val canConfirm = trimmed.isNotEmpty() && !trimmed.equals(initialName.trim(), ignoreCase = true)
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -113,12 +114,18 @@ internal fun FolderRenameRow(
                 )
             }
         }
-        // ✓ 确认（绿色实心圆钮 + 白色对勾；名称为空时置灰）
+        // ✓ 确认（绿色实心圆钮 + 白色对勾；名称为空或与原名一致时置灰）
         Box(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (canConfirm) IconColors.Brand.default.current() else ColorBorder)
+                .background(
+                    if (canConfirm) {
+                        IconColors.Brand.default.current()
+                    } else {
+                        ButtonColors.Secondary.backgroundDisabled.current()
+                    },
+                )
                 .clickable(enabled = canConfirm) { confirm() },
             contentAlignment = Alignment.Center,
         ) {
