@@ -671,10 +671,11 @@ fun AskNovieScreen(
                         BareIconButton(
                             R.drawable.ic_more,
                             "More",
+                            enabled = messages.isNotEmpty(),
                             onClick = { showMoreMenu = true },
                         )
                         MoreMenu(
-                            expanded = showMoreMenu,
+                            expanded = showMoreMenu && messages.isNotEmpty(),
                             hasConversation = messages.isNotEmpty(),
                             onDismiss = { showMoreMenu = false },
                             onShare = { showMoreMenu = false; onShare() },
