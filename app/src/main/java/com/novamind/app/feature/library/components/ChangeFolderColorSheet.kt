@@ -63,8 +63,8 @@ private fun ChangeFolderColorContent(currentHex: String?, onPick: (String?) -> U
     ) {
         Text(
             text = "Folder colour",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
             color = ColorTextTitle,
         )
         Row(
