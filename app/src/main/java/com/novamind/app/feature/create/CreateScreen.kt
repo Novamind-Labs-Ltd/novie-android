@@ -521,7 +521,14 @@ fun CreateScreen(
                     // 字数达/超上限：红色提示条吸顶，随正文向上滚动常驻顶部（回收站只读态不展示）
                     stickyBanner = when {
                         polishActive -> { { PolishStatusBanner(completed = polishCompleted) } }
-                        uiState.hasTranscriptionFailed -> { { NoteTipBanner(message = "Transcript failed") } }
+                        uiState.hasTranscriptionFailed -> {
+                            {
+                                NoteTipBanner(
+                                    message = "Transcript couldn't be completed.",
+                                    onDismiss = { onEvent(CreateEvent.DismissTranscriptionFailure) },
+                                )
+                            }
+                        }
                         !readOnly && totalChars >= maxInputChars -> {
                             {
                                 NoteTipBanner(

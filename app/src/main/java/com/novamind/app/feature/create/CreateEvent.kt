@@ -26,6 +26,8 @@ sealed class CreateEvent {
     object ShowFolderPicker : CreateEvent()
     object ShowColorPicker : CreateEvent()
     object DismissColorPicker : CreateEvent()
+    /** 隐藏本次详情页中的转写失败提示；重新进入时会按服务端任务状态再次显示。 */
+    object DismissTranscriptionFailure : CreateEvent()
     /** 选中边框颜色；null = 恢复默认边框 */
     data class BorderColorSelected(val color: Color?) : CreateEvent()
 }

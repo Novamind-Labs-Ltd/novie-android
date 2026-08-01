@@ -368,6 +368,9 @@ class CreateViewModel @Inject constructor(
             is CreateEvent.DismissColorPicker ->
                 _uiState.update { it.copy(showColorPicker = false) }
 
+            is CreateEvent.DismissTranscriptionFailure ->
+                _uiState.update { it.copy(hasTranscriptionFailed = false) }
+
             is CreateEvent.BorderColorSelected -> {
                 _uiState.update { it.copy(borderColor = event.color, showColorPicker = false) }
                 viewModelScope.launch { applyBorderColor(event.color?.toHex()) }
