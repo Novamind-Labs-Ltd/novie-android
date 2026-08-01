@@ -9,29 +9,20 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,7 +35,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
@@ -59,7 +49,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Velocity
@@ -69,7 +58,6 @@ import androidx.compose.ui.util.lerp
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
-import com.novamind.app.R
 import com.novamind.app.ui.colors.Palette
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -79,8 +67,6 @@ import kotlin.math.min
 // Figma 1541:58490：预览器始终使用固定深色画布和 on-dark 前景，不随 App 深浅主题切换。
 private val PreviewBg: Color = Palette.gray800
 private val PreviewText: Color = Palette.sand300
-private val PreviewBtnBg: Color = Palette.white
-private val PreviewCloseIcon: Color = Palette.neutral800
 
 /** 图片按 Fit 放入视口后的实际显示尺寸；图片尺寸未知时回退为视口尺寸。 */
 internal fun fittedPreviewSize(container: IntSize, image: IntSize): Size {
@@ -417,33 +403,7 @@ fun ImagePreviewScreen(
                         .weight(1f)
                         .padding(start = 8.dp),
                 )
-                Spacer(modifier = Modifier.width(24.dp))
-                CloseButton(onClick = onBack)
             }
-        }
-    }
-}
-
-@Composable
-private fun CloseButton(onClick: () -> Unit) {
-    Surface(shape = CircleShape, color = PreviewBtnBg) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_close),
-                contentDescription = "Close",
-                tint = PreviewCloseIcon,
-                modifier = Modifier.size(24.dp),
-            )
         }
     }
 }
