@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -75,10 +74,6 @@ private val IconBackground: Color
     @Composable @ReadOnlyComposable get() = ButtonColors.Primary.backgroundTertiary.current()
 private val IconOnDark: Color
     @Composable @ReadOnlyComposable get() = IconColors.Default.onDark.current()
-private val PrimaryButtonBackground: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.background.current()
-private val PrimaryButtonText: Color
-    @Composable @ReadOnlyComposable get() = ButtonColors.Primary.text.current()
 
 /* ---------------------------------------------------------------------------
  * 数据模型
@@ -260,7 +255,6 @@ fun PermissionManagerScreen(
                 }
             }
         },
-        onOpenSystemSettings = { openAppSettings(context) },
     )
 }
 
@@ -273,7 +267,6 @@ fun PermissionManagerContent(
     items: List<PermissionUiItem>,
     onBack: () -> Unit,
     onItemClick: (PermissionUiItem) -> Unit,
-    onOpenSystemSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -309,10 +302,6 @@ fun PermissionManagerContent(
         ) {
             items(items, key = { it.permission.key }) { item ->
                 PermissionRow(item = item, onClick = { onItemClick(item) })
-            }
-
-            item {
-                SystemSettingsEntry(onClick = onOpenSystemSettings)
             }
         }
     }
@@ -389,31 +378,6 @@ private fun PermissionStatusLabel(granted: Boolean) {
     }
 }
 
-@Composable
-private fun SystemSettingsEntry(onClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(100.dp), color = PrimaryButtonBackground, shadowElevation = 2.dp) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp)
-                .clip(RoundedCornerShape(100.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(),
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                "Manage in System Settings",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = PrimaryButtonText,
-            )
-        }
-    }
-}
-
 /* ---------------------------------------------------------------------------
  * 预览
  * ------------------------------------------------------------------------- */
@@ -439,6 +403,6 @@ private fun PermissionManagerPreview() {
         ),
     )
     AppTheme {
-        PermissionManagerContent(items = sample, onBack = {}, onItemClick = {}, onOpenSystemSettings = {})
+        PermissionManagerContent(items = sample, onBack = {}, onItemClick = {})
     }
 }
