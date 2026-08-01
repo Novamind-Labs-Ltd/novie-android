@@ -160,9 +160,8 @@ fun LibraryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // 与 Profile 顶部对齐：状态栏后 22dp，左右 28dp，36dp 内容行，底部 14dp。
-                .padding(start = 28.dp, end = 28.dp, top = 22.dp, bottom = 14.dp)
-                .height(36.dp),
+                // 与 Profile 顶部对齐：状态栏后 22dp，左右 28dp，内容按字体自然高度，底部 14dp。
+                .padding(start = 28.dp, end = 28.dp, top = 22.dp, bottom = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -183,7 +182,6 @@ fun LibraryScreen(
                 Text(
                     text = "Library",
                     fontSize = 32.sp,
-                    lineHeight = 28.sp,
                     fontWeight = FontWeight.Medium,
                     color = ColorTextTitle,
                 )
