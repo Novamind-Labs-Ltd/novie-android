@@ -323,8 +323,8 @@ private fun AssistantMessageContent(
             Text(
                 text = activeTail,
                 color = TextTitle,
-                fontSize = 15.sp,
-                lineHeight = 21.sp,
+                fontSize = 16.sp,
+                lineHeight = 24.sp,
             )
         }
     }
@@ -383,8 +383,8 @@ private fun StableMarkdown(
         Text(
             text = pendingText,
             color = TextTitle,
-            fontSize = 15.sp,
-            lineHeight = 21.sp,
+            fontSize = 16.sp,
+            lineHeight = 24.sp,
         )
     }
 }
