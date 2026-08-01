@@ -2,6 +2,7 @@ package com.novamind.app.feature.create.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,10 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.novamind.app.R
 import com.novamind.app.feature.create.editor.ImageBlock
 import com.novamind.app.feature.create.editor.UploadState
 import com.novamind.app.ui.theme.AppTheme
@@ -38,9 +42,10 @@ internal fun ImageBlockView(
     onDelete: () -> Unit,
     onRetry: () -> Unit = {},
 ) {
+    val isPreview = LocalInspectionMode.current
     // 优先本地文件（即时、离线可看）；本地失效（他机加载）时用签名 downloadUrl 兜底。
-    val model = remember(block.path, block.remoteUrl) {
-        File(block.path).takeIf { it.exists() } ?: block.remoteUrl
+    val model = remember(isPreview, block.path, block.remoteUrl) {
+        if (isPreview) null else File(block.path).takeIf { it.exists() } ?: block.remoteUrl
     }
     Box(
         modifier = Modifier
@@ -56,19 +61,23 @@ internal fun ImageBlockView(
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFFE8E7E2)),
         ) {
-            AsyncImage(
-                model = model,
-                contentDescription = "Note image",
-                alignment = Alignment.Center,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = ripple(),
-                        onClick = onClick,
-                    ),
-            )
+            if (isPreview) {
+                Box(modifier = Modifier.fillMaxSize())
+            } else {
+                AsyncImage(
+                    model = model,
+                    contentDescription = "Note image",
+                    alignment = Alignment.Center,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(),
+                            onClick = onClick,
+                        ),
+                )
+            }
             // 上传态角标：上传中转圈；失败点击重试。UPLOADED/LOCAL 无遮罩。
             when (block.uploadState) {
                 UploadState.UPLOADING -> Box(
@@ -98,10 +107,9 @@ internal fun ImageBlockView(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(28.dp)
+                    .padding(16.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color(0x99000000))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = false),
@@ -109,7 +117,11 @@ internal fun ImageBlockView(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("×", color = Color.White, fontSize = 16.sp)
+                Image(
+                    painter = painterResource(R.drawable.ic_note_image_close),
+                    contentDescription = "Delete image",
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }
@@ -117,7 +129,7 @@ internal fun ImageBlockView(
 
 // ─── Preview ────────────────────────────────────────────────────────────────
 
-@Preview(showBackground = true, name = "Create · ImageBlockView")
+@Preview(showBackground = true, widthDp = 396, heightDp = 296, name = "Create · ImageBlockView")
 @Composable
 private fun ImageBlockViewPreview() {
     AppTheme {

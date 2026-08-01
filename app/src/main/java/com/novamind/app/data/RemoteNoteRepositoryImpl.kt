@@ -51,10 +51,15 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
     }
 
     override suspend fun createNote(title: String?, body: String): ApiResult<RemoteNote> {
+        val remoteBody = NoteDocument.forRemoteStorage(body)
         AppLog.i(TAG) { "createNote 开始 titleLen=${title?.length ?: 0} bodyLen=${body.length}" }
         return apiCall {
             NetworkModule.notesApi.create(
-                CreateNoteRequestDto(title = title, content = contentOf(body), preview = previewOf(body)),
+                CreateNoteRequestDto(
+                    title = title,
+                    content = contentOf(remoteBody),
+                    preview = previewOf(remoteBody),
+                ),
             )
         }.mapLogged(
             tag = TAG,
@@ -81,6 +86,7 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         body: String,
         schemaVersion: Int?,
     ): ApiResult<UpdateNoteOutcome> {
+        val remoteBody = NoteDocument.forRemoteStorage(body)
         AppLog.i(TAG) { "updateNote 开始 id=$id baseRev=$rev bodyLen=${body.length}" }
         return apiCall {
             NetworkModule.notesApi.update(
@@ -88,9 +94,9 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
                 UpdateNoteRequestDto(
                     rev = rev,
                     title = title,
-                    content = contentOf(body),
+                    content = contentOf(remoteBody),
                     schemaVersion = schemaVersion,
-                    preview = previewOf(body),
+                    preview = previewOf(remoteBody),
                 ),
             )
         }.mapLogged(

@@ -1,6 +1,8 @@
 package com.novamind.app.feature.create.editor
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -15,6 +17,25 @@ import org.json.JSONObject
  * 新数据是块结构 JSON，旧数据是纯文本，二者都能兼容解析。
  */
 object NoteDocument {
+
+    /**
+     * 生成提交到服务端的正文：图片只保存稳定的 [fileId]，绝不上传设备本地绝对路径。
+     * 尚未完成上传、没有 fileId 的图片暂不进入远端正文；上传成功后编辑器会再次触发保存。
+     */
+    fun forRemoteStorage(raw: String): String {
+        if (!raw.trimStart().startsWith("{")) return raw
+        return runCatching {
+            val root = Json.parseToJsonElement(raw).jsonObject
+            val blocks = root["blocks"]?.jsonArray ?: return raw
+            val remoteBlocks = blocks.mapNotNull { element ->
+                val block = element.jsonObject
+                if (block["type"]?.jsonPrimitive?.contentOrNull != "image") return@mapNotNull block
+                if (block["fileId"]?.jsonPrimitive?.contentOrNull.isNullOrBlank()) return@mapNotNull null
+                JsonObject(block - "path" - "remoteUrl")
+            }
+            JsonObject(root + ("blocks" to JsonArray(remoteBlocks))).toString()
+        }.getOrDefault(raw)
+    }
 
     /** 从正文文档提取用于列表预览/搜索的纯文本；图片以「[图片]」占位。 */
     fun previewText(raw: String?): String {

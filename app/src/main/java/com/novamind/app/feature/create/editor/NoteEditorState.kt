@@ -345,6 +345,18 @@ class NoteEditorState {
         val index = _blocks.indexOfFirst { it.id == target.id }
         val text = target.rich.annotatedString.text
         val caret = target.rich.selection.start.coerceIn(0, text.length)
+
+        // 连续插图时，上一张图片后方的空文本块只是为了保证仍可继续输入。
+        // 用新图片替换该占位块，避免两张图片中间渲染一个空输入框；末尾仍补一个输入块。
+        if (block is ImageBlock && text.isEmpty() && caret == 0 && _blocks.getOrNull(index - 1) is ImageBlock) {
+            val trailing = TextBlock()
+            _blocks[index] = block
+            _blocks.add(index + 1, trailing)
+            focusedTextId = trailing.id
+            pendingFocusId = trailing.id
+            return
+        }
+
         val before = text.substring(0, caret)
         val after = text.substring(caret)
 
