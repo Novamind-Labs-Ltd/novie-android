@@ -28,7 +28,6 @@ import com.novamind.app.feature.create.model.NoteItem
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
-import java.util.Locale
 
 /**
  * 列表态笔记项（Figma）：整宽卡片，左侧标题/摘要/日期，右侧可选缩略图（充满卡片高度）。
@@ -77,23 +76,13 @@ internal fun LibraryNoteRow(note: NoteItem, onClick: () -> Unit = {}) {
                 }
                 val stamp = note.updatedAt.takeIf { it > 0L } ?: note.createdAt
                 if (stamp > 0L) {
-                    Row(
+                    Text(
+                        text = TimeUtils.smart(stamp),
                         modifier = Modifier.padding(top = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text(
-                            text = TimeUtils.format(stamp, "MMM d", Locale.ENGLISH).uppercase(Locale.ENGLISH),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorDate,
-                        )
-                        Text(
-                            text = TimeUtils.format(stamp, "h:mma", Locale.ENGLISH),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorDate,
-                        )
-                    }
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorDate,
+                    )
                 }
             }
 

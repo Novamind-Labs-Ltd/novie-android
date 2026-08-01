@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -33,7 +32,6 @@ import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.TimeUtils
 import java.io.File
-import java.util.Locale
 
 // LibraryNoteCard 配色：对齐设计系统语义令牌（ui/colors），随主题深浅自动解析
 private val BgCard: Color
@@ -50,7 +48,7 @@ private val ColorDate: Color
 
 /**
  * 瀑布流笔记卡片（Figma）：随内容高度自适应。
- * 顶部可选缩略图 → 可选标题 → 可选摘要 → 底部日期（AUG 1 · 10:00AM）。
+ * 顶部可选缩略图 → 可选标题 → 可选摘要 → 底部时间（同首页 Recent）。
  * 仅在设置了自定义边框色时描边；否则为无边框白卡。
  */
 @Composable
@@ -112,23 +110,15 @@ internal fun LibraryNoteCard(note: NoteItem, onClick: () -> Unit = {}) {
                 }
             }
 
-            // 日期 · 时间（AUG 1 · 10:00AM）
+            // 与首页 Recent 统一：同年 1 AUG 22:18；跨年 1 AUG 2025。
             val stamp = note.updatedAt.takeIf { it > 0L } ?: note.createdAt
             if (stamp > 0L) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = TimeUtils.format(stamp, "MMM d", Locale.ENGLISH).uppercase(Locale.ENGLISH),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = ColorDate,
-                    )
-                    Text(
-                        text = TimeUtils.format(stamp, "h:mma", Locale.ENGLISH),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = ColorDate,
-                    )
-                }
+                Text(
+                    text = TimeUtils.smart(stamp),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ColorDate,
+                )
             }
         }
     }
