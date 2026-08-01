@@ -60,7 +60,17 @@ android {
             // （数据进 com.novamind.app.debug，不污染生产看板）。
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
-            // debug 无混淆，跳过 mapping 上传以加快构建
+            // 对外分发的 Debug 包同样走 R8：压缩代码、混淆类名并裁剪未使用资源，显著减小 APK。
+            // AGP 会强制跳过 debuggable 构建的优化与混淆，因此该包不能附加调试器；
+            // 仍保留 .debug 包名、Debug 签名和 Debug 工具箱，需要还原堆栈时使用 outputs/mapping 下的 mapping.txt。
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            // Debug 不上传 mapping，避免本地构建污染 Crashlytics 映射。
             configure<CrashlyticsExtension> {
                 mappingFileUploadEnabled = false
             }
@@ -199,6 +209,9 @@ dependencies {
 sentry {
     org.set("novamind")
     projectName.set("android")
+
+    // Debug 混淆包只在本地验证，不由 Sentry 处理或上传 mapping/source context，避免污染线上符号表。
+    ignoredBuildTypes.add("debug")
 
     // this will upload your source code to Sentry to show it as part of the stack traces
     // disable if you don't want to expose your sources
