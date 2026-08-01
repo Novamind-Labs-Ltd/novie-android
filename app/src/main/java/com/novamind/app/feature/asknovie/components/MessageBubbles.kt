@@ -334,7 +334,7 @@ internal fun MarkdownContent(content: String, modifier: Modifier = Modifier) {
 private fun AssistantActions(text: String) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         ActionIcon(R.drawable.ic_copy, "Copy") {
             clipboard.setText(AnnotatedString(text))
             ToastUtils.short(context, "Copied")
