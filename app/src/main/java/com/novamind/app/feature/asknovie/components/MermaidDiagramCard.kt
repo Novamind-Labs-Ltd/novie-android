@@ -1,6 +1,7 @@
 package com.novamind.app.feature.asknovie.components
 
 import android.annotation.SuppressLint
+import android.content.res.Configuration
 import android.graphics.Color as AndroidColor
 import android.util.Base64
 import android.util.LruCache
@@ -108,9 +109,7 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
             if (card.caption.isNotBlank()) {
                 Text(card.caption, color = TextTitle, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
-            if (inspectionMode) {
-                DiagramFallback("Diagram preview")
-            } else if (validationError != null || renderError != null) {
+            if (validationError != null || renderError != null) {
                 DiagramError(
                     message = validationError ?: "The diagram couldn't be rendered.",
                     source = card.mermaid,
@@ -119,6 +118,8 @@ internal fun MermaidDiagramCard(card: ChatCard.Diagram) {
                     onToggleSource = { showSource = !showSource },
                     onRetry = { retryToken++ },
                 )
+            } else if (inspectionMode) {
+                DiagramFallback("Diagram preview")
             } else {
                 val cached = cachedDiagram
                 val cachedSvg = cached?.svg
@@ -437,15 +438,76 @@ private fun forbiddenResponse() = WebResourceResponse(
     ByteArrayInputStream(ByteArray(0)),
 )
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, widthDp = 360, name = "Diagram · Flowchart")
 @Composable
-private fun MermaidDiagramCardPreview() {
+private fun MermaidFlowchartPreview() {
     AppTheme {
         MermaidDiagramCard(
             ChatCard.Diagram(
                 diagramType = "flowchart",
                 mermaid = "flowchart LR; A[Plan] --> B[Build] --> C[Review]",
                 caption = "Project workflow",
+            ),
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, name = "Diagram · Mindmap long caption")
+@Composable
+private fun MermaidMindmapPreview() {
+    AppTheme {
+        MermaidDiagramCard(
+            ChatCard.Diagram(
+                diagramType = "mindmap",
+                mermaid = "mindmap\n  root((English plan))\n    Vocabulary\n    Listening\n    Speaking",
+                caption = "English learning plan with a longer title that wraps onto multiple lines",
+            ),
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, name = "Diagram · Without caption")
+@Composable
+private fun MermaidWithoutCaptionPreview() {
+    AppTheme {
+        MermaidDiagramCard(
+            ChatCard.Diagram(
+                diagramType = "sequenceDiagram",
+                mermaid = "sequenceDiagram\n  User->>Novie: Ask\n  Novie-->>User: Answer",
+                caption = "",
+            ),
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, name = "Diagram · Empty source")
+@Composable
+private fun MermaidEmptySourcePreview() {
+    AppTheme {
+        MermaidDiagramCard(
+            ChatCard.Diagram(
+                diagramType = "flowchart",
+                mermaid = "",
+                caption = "Unable to render",
+            ),
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    widthDp = 360,
+    name = "Diagram · Dark mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun MermaidDarkModePreview() {
+    AppTheme {
+        MermaidDiagramCard(
+            ChatCard.Diagram(
+                diagramType = "flowchart",
+                mermaid = "flowchart TD; A[Capture] --> B[Organize] --> C[Review]",
+                caption = "Knowledge workflow",
             ),
         )
     }
