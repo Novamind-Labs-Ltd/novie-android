@@ -93,7 +93,7 @@ fun HomeScreen(
             avatarPath = avatarPath,
             notificationCount = notificationCount,
             // 设计 home_final：问候行距状态栏约 36dp（top_info 顶部留白 22 + 行内 padding 14）。
-            modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 36.dp, bottom = 14.dp),
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 36.dp, bottom = 14.dp),
         )
 
         // ── 自定义下拉刷新（非系统 PullToRefreshBox）：头部固定；下拉时内容整体下移，
