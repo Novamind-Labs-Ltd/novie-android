@@ -28,7 +28,7 @@ class TimeUtilsTest {
         val now = instant(2026, Calendar.AUGUST, 20, 12, 0)
         val timestamp = instant(2026, Calendar.AUGUST, 1, 22, 18)
 
-        assertEquals("1 AUG 22:18", TimeUtils.smart(timestamp, now))
+        assertEquals("1 AUG  22:18", TimeUtils.smart(timestamp, now))
     }
 
     @Test
