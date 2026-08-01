@@ -1,7 +1,6 @@
 # ProGuard / R8 规则（按本项目实际依赖整理）
 #
-# 说明：当前 release 的 isMinifyEnabled = false，下列规则尚未真正生效；
-# 开启代码压缩/混淆（isMinifyEnabled = true）后即按本文件保留必要类与成员。
+# 说明：Debug / Release 均开启代码压缩与混淆，下列规则用于保留必要类与成员。
 # Room / Coil / OkHttp / Retrofit / Firebase 等大多自带 consumer rules，
 # 这里只补充本项目特有、或需要显式保留的部分。
 
