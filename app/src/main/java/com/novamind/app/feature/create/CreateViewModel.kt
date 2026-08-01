@@ -653,7 +653,7 @@ class CreateViewModel @Inject constructor(
      * 转写结果同步 + 轮询（§9）。进页（[loadDetail]=true）与录音上传成功（[loadDetail]=false）统一走这里。
      * 取**最新未消费**（kind=X）任务；首轮**立即**拉取，之后每隔 [AppConfig.Transcription.POLL_INTERVAL_MS] 一次：
      * - `READY`：按段追加正文 → 保存成功后才 consume（三步串行）；追加前确保详情已加载。
-     * - `FAILED`：提示并停止。
+     * - `FAILED`：拉取详情并展示页内失败提示条，不弹 Toast。
      * - `PROCESSING`：标记 [CreateUiState.isTranscribing]（loading）继续轮询；此期间**暂不拉详情**。
      * - **无待处理任务**：结束，不空转、不显示 loading。
      * - 未确认 PROCESSING 前遇网络/业务错误即结束，避免每次进页空转。
@@ -663,6 +663,8 @@ class CreateViewModel @Inject constructor(
      */
     private fun startTranscriptionPolling(noteId: String, loadDetail: Boolean) {
         transcriptionJob?.cancel()
+        // 每次进入详情页或开始新一轮转写时先清除上一轮失败态；首轮接口结果会重新确认。
+        _uiState.update { it.copy(hasTranscriptionFailed = false) }
         transcriptionJob = viewModelScope.launch {
             var confirmed = false            // 是否已确认存在进行中的转写（据此显示 loading、容忍网络抖动）
             var detailLoaded = !loadDetail   // 上传路径：详情已在编辑器，视为已加载、不再拉
@@ -718,7 +720,7 @@ class CreateViewModel @Inject constructor(
                         "FAILED" -> {
                             AppLog.w(TAG) { "transcription FAILED noteId=$noteId jobId=${task.jobId}" }
                             ensureDetail()
-                            _saveError.tryEmit("Transcription failed")
+                            _uiState.update { it.copy(hasTranscriptionFailed = true) }
                             break
                         }
                         else -> {   // PROCESSING：确认在处理 → 显示 loading（暂不拉详情）并继续轮询

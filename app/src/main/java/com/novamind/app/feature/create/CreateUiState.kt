@@ -36,6 +36,9 @@ data class CreateUiState(
     // 转写轮询中（§9）：结果就绪前笔记只读，不可编辑
     val isTranscribing: Boolean = false,
 
+    // 最新未消费的源录音转写失败：在详情页 meta 行下方展示常驻提示条，不弹 Toast
+    val hasTranscriptionFailed: Boolean = false,
+
     // 打开笔记加载中（拉转写状态 + 拉详情）：展示 loading 遮罩，避免空白/旧内容
     val isLoading: Boolean = false,
 )

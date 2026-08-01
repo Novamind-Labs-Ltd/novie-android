@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -22,20 +23,21 @@ import com.novamind.app.R
 import com.novamind.app.ui.theme.AppTheme
 
 /**
- * 笔记编辑页字数超限提示条（home_final / notes_tips）：浅红底 + 错误图标 + 提示文案。
+ * 笔记编辑页错误提示条（home_final / notes_tips）：浅红底 + 错误图标 + 提示文案。
  * 用作 [NoteContentEditor] 的吸顶（stickyHeader）：正文向上滚动时常驻顶部。
  * 背景不透明（red-50），确保下方正文滚过时被完全遮挡。
  */
 @Composable
 internal fun NoteTipBanner(
-    maxChars: Int,
+    message: String,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .height(38.dp)
             .background(BackgroundColors.Error.tertiary.current())   // 设计：red-50 #fdf1ec
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -46,8 +48,9 @@ internal fun NoteTipBanner(
             modifier = Modifier.size(16.dp),
         )
         Text(
-            text = "Max length of %,d characters reached.".format(maxChars),
+            text = message,
             fontSize = 12.sp,
+            lineHeight = 16.sp,
             color = TextColors.Error.default.current(),
         )
     }
@@ -57,6 +60,6 @@ internal fun NoteTipBanner(
 @Composable
 private fun NoteTipBannerPreview() {
     AppTheme {
-        NoteTipBanner(maxChars = 50_000)
+        NoteTipBanner(message = "Transcript failed")
     }
 }

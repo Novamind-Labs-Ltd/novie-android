@@ -521,7 +521,14 @@ fun CreateScreen(
                     // 字数达/超上限：红色提示条吸顶，随正文向上滚动常驻顶部（回收站只读态不展示）
                     stickyBanner = when {
                         polishActive -> { { PolishStatusBanner(completed = polishCompleted) } }
-                        !readOnly && totalChars >= maxInputChars -> { { NoteTipBanner(maxChars = maxInputChars) } }
+                        uiState.hasTranscriptionFailed -> { { NoteTipBanner(message = "Transcript failed") } }
+                        !readOnly && totalChars >= maxInputChars -> {
+                            {
+                                NoteTipBanner(
+                                    message = "Max length of %,d characters reached.".format(maxInputChars),
+                                )
+                            }
+                        }
                         else -> null
                     },
                     coverTopWindowY = if (imeVisible) toolbarTopWindowY else Float.MAX_VALUE,
