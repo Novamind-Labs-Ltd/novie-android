@@ -48,9 +48,9 @@ class TextBlock(
     override val id: String = UUID.randomUUID().toString(),
 ) : EditorBlock {
     val rich = RichTextState().apply {
-        // 列表缩进：库默认偏大（约两个 tab），bullet/有序列表都会离屏幕左边太远；
-        // 收窄到约一个 tab（见 AppConfig.Editor.LIST_INDENT）。listIndent 同时作用于有序/无序列表。
-        config.listIndent = AppConfig.Editor.LIST_INDENT
+        // 有序列表需要为序号前缀保留更多空间；若与圆点列表共用 10sp，序号会因悬挂缩进被裁掉。
+        config.unorderedListIndent = AppConfig.Editor.UNORDERED_LIST_INDENT
+        config.orderedListIndent = AppConfig.Editor.ORDERED_LIST_INDENT
         when {
             !initialHtml.isNullOrBlank() -> setHtml(EditorHtml.normalize(initialHtml))
             initialText.isNotEmpty() -> setText(initialText)

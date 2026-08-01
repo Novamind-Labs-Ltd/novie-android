@@ -1,11 +1,23 @@
 package com.novamind.app.feature.create.editor
 
+import com.novamind.app.common.config.AppConfig
 import com.novamind.app.common.net.PolishRequestDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NoteEditorStatePolishTest {
+
+    @Test
+    fun `ordered list reserves enough room for its number prefix`() {
+        val block = TextBlock(
+            initialHtml = "<ul><li>bullet</li></ul><ol><li>first</li><li>second</li></ol>",
+        )
+
+        assertEquals(AppConfig.Editor.UNORDERED_LIST_INDENT, block.rich.config.unorderedListIndent)
+        assertEquals(AppConfig.Editor.ORDERED_LIST_INDENT, block.rich.config.orderedListIndent)
+        assertTrue(block.rich.config.orderedListIndent > block.rich.config.unorderedListIndent)
+    }
 
     @Test
     fun `editor html caps oversized heading spans`() {

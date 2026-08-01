@@ -84,8 +84,14 @@ object AppConfig {
         /** 字数计数展示阈值：低于此值隐藏，达到后显示「当前字数/上限」。 */
         const val COUNT_DISPLAY_THRESHOLD = 40000
 
-        /** 列表（有序/无序）左缩进（约一个 tab）；富文本库默认约 38，偏大。 */
-        const val LIST_INDENT = 10
+        /** 无序列表左缩进；圆点较窄，可以保持紧凑。 */
+        const val UNORDERED_LIST_INDENT = 10
+
+        /**
+         * 有序列表左缩进；必须覆盖序号前缀宽度，否则 RichEditor 的悬挂缩进会把数字裁到组件外。
+         * 富文本库默认值 38 偏大，28 在完整显示两位序号的同时保持紧凑。
+         */
+        const val ORDERED_LIST_INDENT = 28
 
         /**
          * 转写说话人配色（直接复用设计系统 [Palette]）；按说话人名 hash 稳定取色——同一 speaker 恒定同色，
