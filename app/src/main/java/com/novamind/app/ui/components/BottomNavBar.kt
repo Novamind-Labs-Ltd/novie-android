@@ -10,6 +10,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -239,8 +241,13 @@ private fun CradleBar(
                     onClick = onNavigate,
                 )
             }
-            // 中央凹槽严格按 FAB 宽度让位，左右两组因此各占剩余空间的一半。
-            Spacer(Modifier.width(FabSize))
+            // 中央凹槽严格按 FAB 宽度让位；该空白区单独消费触摸，避免点击透传到页面内容。
+            Spacer(
+                Modifier
+                    .width(FabSize)
+                    .fillMaxHeight()
+                    .pointerInput(Unit) { detectTapGestures(onTap = {}) },
+            )
             // 右组：Library / Profile 平分右侧可用空间。
             Row(modifier = Modifier.weight(1f).padding(10.dp,0.dp,10.dp,0.dp)) {
                 NavTab(
