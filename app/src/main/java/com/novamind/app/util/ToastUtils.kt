@@ -23,6 +23,9 @@ import com.novamind.app.ui.colors.Palette
  */
 object ToastUtils {
 
+    /** Toast 距屏幕底部的高度，避开系统手势区和应用底部导航栏。 */
+    private const val BOTTOM_OFFSET_DP = 200
+
     @SuppressLint("StaticFieldLeak") // 仅持有 applicationContext，无泄漏风险
     private var current: Toast? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -75,7 +78,11 @@ object ToastUtils {
             current = Toast(app).apply {
                 this.duration = duration
                 view = messageView
-                setGravity(Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, 0, (64 * density).toInt())
+                setGravity(
+                    Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+                    0,
+                    (BOTTOM_OFFSET_DP * density).toInt(),
+                )
             }.also { it.show() }
         }
         if (Looper.myLooper() == Looper.getMainLooper()) block() else mainHandler.post(block)

@@ -168,6 +168,36 @@ class MainActivity : FragmentActivity() {
                 // 认证状态（Auth0）：未登录时用登录页门控
                 val authViewModel: AuthViewModel = viewModel()
                 val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+                // 只记录用户是否真实进入过 Login 页面。冷启动会话恢复和生物识别解锁不算重新登录，
+                // 避免它们把 App Link 或已恢复的页面错误重置到 Home。
+                var wasShowingLogin by rememberSaveable { mutableStateOf(false) }
+                LaunchedEffect(
+                    authState.isCheckingSession,
+                    authState.isAuthenticated,
+                    authState.needsBiometricUnlock,
+                ) {
+                    val showingLogin = !authState.isCheckingSession &&
+                        !authState.isAuthenticated &&
+                        !authState.needsBiometricUnlock
+                    if (showingLogin) {
+                        wasShowingLogin = true
+                    } else if (authState.isAuthenticated && wasShowingLogin) {
+                        // 每次从 Login 页面登录成功后统一回到 Home，并清理旧页面/覆盖层堆栈。
+                        wasShowingLogin = false
+                        editingNoteId = null
+                        createReturnRoute = BottomNavDestination.Home.route
+                        createReturnsToAskNovie = false
+                        recentNotesActive = false
+                        hideBottomNav = false
+                        navExpanded = false
+                        showAskNovie = false
+                        showRecycleBin = false
+                        showTagManager = false
+                        showProfilePermissions = false
+                        showAbout = false
+                        currentRoute = BottomNavDestination.Home.route
+                    }
+                }
                 // 用户档案单一数据源：昵称/邮箱从全局会话派生（不再放在 AuthUiState）。
                 val userSession by UserSessionManager.session.collectAsStateWithLifecycle()
 
