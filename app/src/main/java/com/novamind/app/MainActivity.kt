@@ -48,6 +48,7 @@ import com.novamind.app.common.update.UpdateDialog
 import com.novamind.app.feature.calendar.CalendarRoute
 import com.novamind.app.feature.create.CreateRoute
 import com.novamind.app.feature.home.HomeRoute
+import com.novamind.app.feature.home.RecentNotesRoute
 import com.novamind.app.feature.library.LibraryRoute
 import com.novamind.app.feature.profile.ProfileRoute
 import com.novamind.app.feature.home.AboutMyNovieScreen
@@ -86,6 +87,8 @@ private val navOrder = listOf(
     BottomNavDestination.Profile.route,
 )
 
+private const val RECENT_NOTES_ROUTE = "recent_notes"
+
 // Hilt 入口：使 viewModel() 支持 @HiltViewModel
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -121,8 +124,8 @@ class MainActivity : FragmentActivity() {
                 }
                 // Create 详情页的上一层是否为 Ask Novie 覆盖页；与底部 route 一起组成返回栈。
                 var createReturnsToAskNovie by rememberSaveable { mutableStateOf(false) }
-                // Library 作为子页进入（首页 See all）：显示返回键、可回上一页
-                var libraryAsSubpage by rememberSaveable { mutableStateOf(false) }
+                // Recent notes 二级页打开期间保持底栏隐藏；返回动画结束后再恢复。
+                var recentNotesActive by rememberSaveable { mutableStateOf(false) }
                 // 全屏页（图片预览等）打开时隐藏底栏
                 var hideBottomNav by rememberSaveable { mutableStateOf(false) }
                 // 三个全屏覆盖层：Ask Novie（底栏品牌按钮）、回收站 / 标签管理（Library 侧栏）
@@ -144,17 +147,16 @@ class MainActivity : FragmentActivity() {
                 // 底栏「+」速拨展开态：提升到此，便于用全屏遮罩「点任意处收起」
                 var navExpanded by rememberSaveable { mutableStateOf(false) }
                 BackHandler(enabled = navExpanded) { navExpanded = false }
-                // Library 子页时，系统返回与左上角返回键行为一致
+                // Home Recent notes 二级页：系统返回与左上角返回键行为一致。
                 BackHandler(
-                    enabled = libraryAsSubpage && currentRoute == BottomNavDestination.Library.route,
+                    enabled = currentRoute == RECENT_NOTES_ROUTE,
                 ) {
                     currentRoute = BottomNavDestination.Home.route
                 }
-                // Recent 二级页返回动画结束后再恢复底栏，避免转场中底栏提前出现。
-                LaunchedEffect(currentRoute, libraryAsSubpage) {
-                    if (libraryAsSubpage && currentRoute == BottomNavDestination.Home.route) {
+                LaunchedEffect(currentRoute, recentNotesActive) {
+                    if (recentNotesActive && currentRoute == BottomNavDestination.Home.route) {
                         delay(450)
-                        libraryAsSubpage = false
+                        recentNotesActive = false
                     }
                 }
                 // 首启引导页
@@ -188,6 +190,7 @@ class MainActivity : FragmentActivity() {
                     deepLinkTarget?.let { target ->
                         when (target) {
                             is DeepLinkTarget.Tab -> {
+                                recentNotesActive = false
                                 currentRoute = target.route
                                 editingNoteId = null
                                 createReturnsToAskNovie = false
@@ -215,11 +218,11 @@ class MainActivity : FragmentActivity() {
                         transitionSpec = {
                             val createRoute = BottomNavDestination.Create.route
                             val involvesCreate = targetState == createRoute || initialState == createRoute
-                            val openingRecentFromHome = libraryAsSubpage &&
+                            val openingRecentFromHome =
                                 initialState == BottomNavDestination.Home.route &&
-                                targetState == BottomNavDestination.Library.route
-                            val closingRecentToHome = libraryAsSubpage &&
-                                initialState == BottomNavDestination.Library.route &&
+                                targetState == RECENT_NOTES_ROUTE
+                            val closingRecentToHome =
+                                initialState == RECENT_NOTES_ROUTE &&
                                 targetState == BottomNavDestination.Home.route
                             if (openingRecentFromHome) {
                                 // Home「Recent · See all」作为子页转场，节奏比底栏切页更舒缓。
@@ -293,8 +296,8 @@ class MainActivity : FragmentActivity() {
                                     currentRoute = BottomNavDestination.Create.route
                                 },
                                 onNotesSeeAll = {
-                                    libraryAsSubpage = true
-                                    currentRoute = BottomNavDestination.Library.route
+                                    recentNotesActive = true
+                                    currentRoute = RECENT_NOTES_ROUTE
                                 },
                                 // 首页「Ask Novie」入口每次创建新会话；底栏速拨仍继续当前会话。
                                 onAskNovie = {
@@ -324,8 +327,16 @@ class MainActivity : FragmentActivity() {
                                 },
                                 onFullscreenChange = { hideBottomNav = it },
                             )
+                            RECENT_NOTES_ROUTE -> RecentNotesRoute(
+                                onBack = { currentRoute = BottomNavDestination.Home.route },
+                                onOpenNote = { noteId ->
+                                    editingNoteId = noteId
+                                    createReturnRoute = RECENT_NOTES_ROUTE
+                                    createReturnsToAskNovie = false
+                                    currentRoute = BottomNavDestination.Create.route
+                                },
+                            )
                             BottomNavDestination.Library.route -> LibraryRoute(
-                                openRecent = libraryAsSubpage,
                                 onCreateNote = {
                                     editingNoteId = null
                                     createReturnRoute = BottomNavDestination.Library.route
@@ -342,14 +353,6 @@ class MainActivity : FragmentActivity() {
                                 onFullscreenChange = { hideBottomNav = it },
                                 onOpenRecycleBin = { showRecycleBin = true },
                                 onOpenTagManager = { showTagManager = true },
-                                // 子页进入时提供返回；底栏进入无返回键
-                                onBack = if (libraryAsSubpage) {
-                                    {
-                                        currentRoute = BottomNavDestination.Home.route
-                                    }
-                                } else {
-                                    null
-                                },
                             )
                             BottomNavDestination.Calendar.route -> CalendarRoute(
                                 onFullscreenChange = { hideBottomNav = it },
@@ -380,7 +383,7 @@ class MainActivity : FragmentActivity() {
                     AnimatedVisibility(
                         visible = !hideBottomNav &&
                             currentRoute != BottomNavDestination.Create.route &&
-                            !libraryAsSubpage,
+                            !recentNotesActive,
                         enter = slideInVertically { it } + fadeIn(),
                         exit = slideOutVertically { it } + fadeOut(),
                         modifier = Modifier.align(Alignment.BottomCenter),
@@ -388,8 +391,6 @@ class MainActivity : FragmentActivity() {
                         AppBottomNavBar(
                             currentRoute = currentRoute,
                             onNavigate = { route ->
-                                // 底栏进入 Library 清掉子页标记
-                                if (route == BottomNavDestination.Library.route) libraryAsSubpage = false
                                 // 已在当前页不重复跳转
                                 if (route == currentRoute) return@AppBottomNavBar
                                 currentRoute = route

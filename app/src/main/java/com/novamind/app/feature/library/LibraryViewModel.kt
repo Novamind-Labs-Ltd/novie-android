@@ -113,6 +113,12 @@ class LibraryViewModel @Inject constructor(
         startFoldersFirstPage()
     }
 
+    /** Home 的 Recent notes 二级页进入时仅重拉笔记，避免额外请求文件夹列表。 */
+    fun reloadNotes() {
+        cancelNotesRefresh()
+        startNotesFirstPage()
+    }
+
     /** Recent 页下拉刷新：只重拉笔记，不触碰文件夹列表。 */
     fun refreshNotes() {
         if (_uiState.value.isRefreshingNotes) return
