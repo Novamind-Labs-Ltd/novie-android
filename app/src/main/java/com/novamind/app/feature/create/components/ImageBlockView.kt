@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,67 +46,71 @@ internal fun ImageBlockView(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        val imageModifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (block.width > 0 && block.height > 0) {
-                    Modifier.aspectRatio(block.width.toFloat() / block.height)
-                } else {
-                    Modifier
-                },
-            )
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFE8E7E2))
-        // 点击图片进入预览。已知宽高时用 aspectRatio 预留高度，避免加载完成后高度突变导致滚动跳动。
-        AsyncImage(
-            model = model,
-            contentDescription = "Note image",
-            contentScale = ContentScale.FillWidth,
-            modifier = imageModifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            ),
-        )
-        // 上传态角标：上传中转圈；失败点击重试。UPLOADED/LOCAL 无遮罩。
-        when (block.uploadState) {
-            UploadState.UPLOADING -> Box(
-                modifier = imageModifier.background(Color(0x33000000)),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
-            }
-            UploadState.FAILED -> Box(
-                modifier = imageModifier
-                    .background(Color(0x66000000))
+        Box(
+            modifier = Modifier
+                .widthIn(max = 356.dp)
+                .fillMaxWidth()
+                .height(280.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFE8E7E2)),
+        ) {
+            AsyncImage(
+                model = model,
+                contentDescription = "Note image",
+                alignment = Alignment.Center,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(),
-                        onClick = onRetry,
+                        onClick = onClick,
+                    ),
+            )
+            // 上传态角标：上传中转圈；失败点击重试。UPLOADED/LOCAL 无遮罩。
+            when (block.uploadState) {
+                UploadState.UPLOADING -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0x33000000)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+                }
+                UploadState.FAILED -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0x66000000))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(),
+                            onClick = onRetry,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Upload failed · tap to retry", color = Color.White, fontSize = 13.sp)
+                }
+                else -> Unit
+            }
+            // 右上角删除按钮（与 PDF/文件块一致的删除能力，悬浮于图片之上）
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x99000000))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = ripple(bounded = false),
+                        onClick = onDelete,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Upload failed · tap to retry", color = Color.White, fontSize = 13.sp)
+                Text("×", color = Color.White, fontSize = 16.sp)
             }
-            else -> Unit
-        }
-        // 右上角删除按钮（与 PDF/文件块一致的删除能力，悬浮于图片之上）
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp)
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(Color(0x99000000))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = false),
-                    onClick = onDelete,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("×", color = Color.White, fontSize = 16.sp)
         }
     }
 }
