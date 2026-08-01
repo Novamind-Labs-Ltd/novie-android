@@ -26,17 +26,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.novamind.app.R
-import com.novamind.app.feature.home.components.BgCard
 import com.novamind.app.feature.home.components.BgPage
 import com.novamind.app.feature.home.components.ColorOnDark
 import com.novamind.app.feature.home.components.ColorTextSub
 import com.novamind.app.feature.home.components.ColorTextTitle
-import com.novamind.app.feature.home.components.ColorTimeStamp
+import com.novamind.app.feature.home.components.UpcomingCard
 import com.novamind.app.ui.colors.ButtonColors
 import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.components.AppPullToRefresh
@@ -334,123 +332,13 @@ private fun UpcomingCardGroup(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         items.forEach { displayItem ->
-            UpcomingFullCard(
-                displayItem = displayItem,
-                onItemClick = onItemClick,
-                onMeetingNotesClick = onMeetingNotesClick,
-            )
-        }
-    }
-}
-
-@Composable
-private fun UpcomingFullCard(
-    displayItem: UpcomingDisplayItem,
-    onItemClick: (UpcomingItem) -> Unit,
-    onMeetingNotesClick: (UpcomingItem) -> Unit,
-) {
-    Surface(
-        onClick = { onItemClick(displayItem.item) },
-        shape = RoundedCornerShape(12.dp),
-        color = BgCard,
-        shadowElevation = 1.dp,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(if (displayItem.showAction) 20.dp else 0.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
-            ) {
-                UpcomingTimeColumn(displayItem, Modifier.width(64.dp))
-                UpcomingDetails(displayItem.item, Modifier.width(251.dp))
-            }
-
-            if (displayItem.showAction) {
-                Surface(
-                    onClick = { onMeetingNotesClick(displayItem.item) },
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
-                    shape = RoundedCornerShape(100.dp),
-                    color = UpcomingActionColor,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = if (displayItem.item.noteId == null) "Start notes" else "View notes",
-                            fontSize = 14.sp,
-                            lineHeight = 24.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorOnDark,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UpcomingTimeColumn(
-    displayItem: UpcomingDisplayItem,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.Start,
-    ) {
-        displayItem.dateLabel?.let { date ->
-            Text(
-                text = date,
-                fontSize = 14.sp,
-                lineHeight = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = ColorTimeStamp,
-                maxLines = 1,
-                overflow = TextOverflow.Clip,
-            )
-        }
-        Text(
-            text = displayItem.timeLabel,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = ColorTimeStamp,
-            maxLines = 1,
-            overflow = TextOverflow.Clip,
-        )
-    }
-}
-
-@Composable
-private fun UpcomingDetails(
-    item: UpcomingItem,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = item.title,
-            fontSize = 16.sp,
-            lineHeight = 21.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = ColorTextTitle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (item.subtitle.isNotBlank()) {
-            Text(
-                text = item.subtitle,
-                fontSize = 14.sp,
-                lineHeight = 16.sp,
-                color = ColorTextSub,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+            UpcomingCard(
+                item = displayItem.item.copy(time = displayItem.timeLabel),
+                dateLabel = displayItem.dateLabel,
+                showAction = displayItem.showAction,
+                actionLabel = if (displayItem.item.noteId == null) "Start notes" else "View notes",
+                onAction = { onMeetingNotesClick(displayItem.item) },
+                onClick = { onItemClick(displayItem.item) },
             )
         }
     }

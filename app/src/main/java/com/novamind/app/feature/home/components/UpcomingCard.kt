@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +30,7 @@ import com.novamind.app.ui.theme.AppTheme
 internal fun UpcomingCard(
     item: UpcomingItem,
     modifier: Modifier = Modifier,
+    dateLabel: String? = null,
     showAction: Boolean = false,
     actionLabel: String = "Start notes",
     onAction: () -> Unit = {},
@@ -51,20 +52,41 @@ internal fun UpcomingCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                if (item.time.isNotBlank()) {
-                    Text(
-                        text = item.time,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = ColorTimeStamp,
-                        // 时间必须保持完整单行；用最小宽度而非固定宽度，兼容系统字体放大。
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.widthIn(min = 48.dp),
-                    )
+                if (dateLabel != null || item.time.isNotBlank()) {
+                    Column(
+                        modifier = Modifier
+                            .widthIn(min = 48.dp)
+                            .alignByBaseline(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        dateLabel?.let { date ->
+                            Text(
+                                text = date,
+                                fontSize = 14.sp,
+                                lineHeight = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ColorTimeStamp,
+                                maxLines = 1,
+                                softWrap = false,
+                            )
+                        }
+                        if (item.time.isNotBlank()) {
+                            Text(
+                                text = item.time,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = ColorTimeStamp,
+                                maxLines = 1,
+                                softWrap = false,
+                            )
+                        }
+                    }
                 }
                 Column(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .alignByBaseline(),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
@@ -87,7 +109,7 @@ internal fun UpcomingCard(
             if (showAction) {
                 Surface(
                     onClick = onAction,
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp),
                     shape = RoundedCornerShape(100.dp),
                     color = ColorButtonDark,
                 ) {
