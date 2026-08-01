@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -37,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -73,12 +74,42 @@ import com.novamind.app.ui.colors.Palette
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.min
 
 // Figma 1541:58490：预览器始终使用固定深色画布和 on-dark 前景，不随 App 深浅主题切换。
 private val PreviewBg: Color = Palette.gray800
 private val PreviewText: Color = Palette.sand300
 private val PreviewBtnBg: Color = Palette.white
 private val PreviewCloseIcon: Color = Palette.neutral800
+
+/** 图片按 Fit 放入视口后的实际显示尺寸；图片尺寸未知时回退为视口尺寸。 */
+internal fun fittedPreviewSize(container: IntSize, image: IntSize): Size {
+    if (container.width <= 0 || container.height <= 0) return Size.Zero
+    if (image.width <= 0 || image.height <= 0) {
+        return Size(container.width.toFloat(), container.height.toFloat())
+    }
+    val fitScale = min(
+        container.width.toFloat() / image.width,
+        container.height.toFloat() / image.height,
+    )
+    return Size(image.width * fitScale, image.height * fitScale)
+}
+
+/** 按 Fit 后的真实图片边界限制平移，未填满视口的方向不允许拖出空白。 */
+internal fun clampPreviewOffset(
+    offset: Offset,
+    scale: Float,
+    container: IntSize,
+    image: IntSize,
+): Offset {
+    val fitted = fittedPreviewSize(container, image)
+    val maxX = ((fitted.width * scale - container.width) / 2f).coerceAtLeast(0f)
+    val maxY = ((fitted.height * scale - container.height) / 2f).coerceAtLeast(0f)
+    return Offset(
+        offset.x.coerceIn(-maxX, maxX),
+        offset.y.coerceIn(-maxY, maxY),
+    )
+}
 
 /**
  * 图片预览全屏页：左右滑动翻页（[HorizontalPager]）、双指缩放 / 双击放大、下拉关闭，
@@ -129,14 +160,14 @@ fun ImagePreviewScreen(
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    val imageSizes = remember(paths) { mutableStateMapOf<Int, IntSize>() }
+    val currentImageSize = imageSizes[pagerState.currentPage] ?: IntSize.Zero
     val scope = rememberCoroutineScope()
     var zoomAnimJob by remember { mutableStateOf<Job?>(null) }
 
-    // 把平移夹紧在「放大后图片仍覆盖视口」的范围内：|t| ≤ 容器尺寸 × (scale−1) / 2
+    // 按图片 Fit 后的真实尺寸夹紧平移：未填满视口的方向保持居中，避免拖出空白。
     fun clampOffset(o: Offset, s: Float): Offset {
-        val maxX = (containerSize.width * (s - 1f) / 2f).coerceAtLeast(0f)
-        val maxY = (containerSize.height * (s - 1f) / 2f).coerceAtLeast(0f)
-        return Offset(o.x.coerceIn(-maxX, maxX), o.y.coerceIn(-maxY, maxY))
+        return clampPreviewOffset(o, s, containerSize, currentImageSize)
     }
 
     // 翻页时复位
@@ -144,6 +175,11 @@ fun ImagePreviewScreen(
         zoomAnimJob?.cancel()
         scale = 1f
         offset = Offset.Zero
+    }
+
+    // 旋转屏幕或图片加载完成后重新收紧边界，保持图片居中且不露空白。
+    LaunchedEffect(containerSize, currentImageSize) {
+        offset = clampOffset(offset, scale)
     }
 
     // 左右翻页的边界橡皮筋：首/末页继续外滑时，pager 整体随手平移，松手弹簧回弹
@@ -274,14 +310,19 @@ fun ImagePreviewScreen(
                             onTap = {
                                 if (isCurrent) immersive = !immersive
                             },
-                            onDoubleTap = {
+                            onDoubleTap = { tapPosition ->
                                 if (!isCurrent) return@detectTapGestures
-                                // 双击：在 1× 与 2.5× 间补间切换，不突变
+                                // 双击：在 1× 与 2.5× 间补间切换；放大时以点击位置为中心。
                                 val targetScale = if (scale > 1f) 1f else 2.5f
                                 val startScale = scale
                                 val startOffset = offset
                                 val targetOffset =
-                                    if (targetScale > 1f) clampOffset(startOffset, targetScale) else Offset.Zero
+                                    if (targetScale > 1f) {
+                                        val center = Offset(containerSize.width / 2f, containerSize.height / 2f)
+                                        clampOffset((center - tapPosition) * (targetScale - 1f), targetScale)
+                                    } else {
+                                        Offset.Zero
+                                    }
                                 zoomAnimJob?.cancel()
                                 zoomAnimJob = scope.launch {
                                     animate(0f, 1f, animationSpec = tween(250)) { t, _ ->
@@ -335,10 +376,14 @@ fun ImagePreviewScreen(
                 AsyncImage(
                     model = previewModel(paths[page]),
                     contentDescription = "Image ${page + 1}",
-                    contentScale = ContentScale.Crop,
+                    // 主流预览器默认完整展示原图；缩放后再允许用户平移查看细节。
+                    contentScale = ContentScale.Fit,
+                    onSuccess = { state ->
+                        val drawable = state.result.drawable
+                        imageSizes[page] = IntSize(drawable.intrinsicWidth, drawable.intrinsicHeight)
+                    },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(437.dp)
+                        .fillMaxSize()
                         .graphicsLayer {
                             scaleX = pageScale
                             scaleY = pageScale
