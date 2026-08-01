@@ -66,6 +66,8 @@ private fun TodoCardRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val hasSubtitle = !subtitle.isNullOrBlank()
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -75,13 +77,13 @@ private fun TodoCardRow(
             .clickable(onClick = onClick)
             .padding(20.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = if (hasSubtitle) Alignment.Top else Alignment.CenterVertically,
     ) {
         // 勾选圈：点击切换完成/未完成。未完成=黑色描边空圈；已完成=slate 实心 + 白色对勾
         Box(
             modifier = Modifier
                 .size(28.dp)
-                .offset(y = 4.dp)
+                .then(if (hasSubtitle) Modifier.offset(y = 4.dp) else Modifier)
                 .clip(CircleShape)
                 .then(
                     if (done) Modifier.background(TodoCheckedBg)
@@ -158,5 +160,24 @@ private fun TaskRowPreview() {
                 onClick = {},
             )
         }
+    }
+}
+
+@Preview(
+    showBackground = true,
+    backgroundColor = 0xFFF3F1EB,
+    name = "Calendar · Task row without description",
+)
+@Composable
+private fun TodoCardRowWithoutDescriptionPreview() {
+    AppTheme {
+        TodoCardRow(
+            done = false,
+            title = "Submit expense report",
+            subtitle = null,
+            onToggle = {},
+            onClick = {},
+            modifier = Modifier.padding(16.dp),
+        )
     }
 }
