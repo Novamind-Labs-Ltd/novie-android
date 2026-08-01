@@ -483,7 +483,11 @@ private fun NoteAskComposer(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ComposerRoundButton(R.drawable.ic_mic, "Voice", onClick = onVoice)
-                    SendButton(enabled = input.isNotBlank() && !responding, onClick = onSend)
+                    SendButton(
+                        enabled = input.isNotBlank() && !responding,
+                        size = 36.dp,
+                        onClick = onSend,
+                    )
                 }
             }
         }
@@ -504,6 +508,36 @@ private fun NoteAskNovieComposerPreview() {
     }
 }
 
+@Preview(showBackground = true, widthDp = 412, name = "Note Ask Novie · Multiline composer")
+@Composable
+private fun NoteAskNovieMultilineComposerPreview() {
+    AppTheme {
+        NoteAskComposer(
+            input = "Compare the decisions in this note and suggest\nwhat I should prioritize next week.",
+            onInputChange = {},
+            responding = false,
+            onVoice = {},
+            onSend = {},
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    widthDp = 412,
+    heightDp = 760,
+    name = "Note Ask Novie · Empty",
+)
+@Composable
+private fun NoteAskNovieEmptyPreview() {
+    AppTheme {
+        NoteAskNoviePreviewContent(
+            title = "Weekly planning notes",
+            messages = emptyList(),
+        )
+    }
+}
+
 @Preview(
     showBackground = true,
     widthDp = 412,
@@ -511,7 +545,7 @@ private fun NoteAskNovieComposerPreview() {
     name = "Note Ask Novie · Conversation",
 )
 @Composable
-private fun NoteAskNovieSheetPreview() {
+private fun NoteAskNovieConversationPreview() {
     val previewMessages = listOf(
         ChatMessage(
             role = Role.User,
@@ -528,75 +562,100 @@ private fun NoteAskNovieSheetPreview() {
     )
 
     AppTheme {
-        Surface(
+        NoteAskNoviePreviewContent(
+            title = "Q3 marketing campaign with a title that wraps onto a second line",
+            messages = previewMessages,
+            streamingText = "1. Confirm the guest list\n2. Assign devices\n3. Send invites",
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    widthDp = 412,
+    heightDp = 760,
+    name = "Note Ask Novie · Waiting for response",
+)
+@Composable
+private fun NoteAskNovieWaitingPreview() {
+    AppTheme {
+        NoteAskNoviePreviewContent(
+            title = "Product launch notes",
+            messages = listOf(
+                ChatMessage(Role.User, "Summarize the launch risks in this note."),
+            ),
+            streamingText = "",
+        )
+    }
+}
+
+@Composable
+private fun NoteAskNoviePreviewContent(
+    title: String,
+    messages: List<ChatMessage>,
+    streamingText: String? = null,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+        shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
+        color = Bg,
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(),
-            shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
-            color = Bg,
+                .fillMaxHeight()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Text(
-                        text = "Ask for Q3 marketing campaign…",
-                        modifier = Modifier.weight(1f),
-                        color = TextTitle,
-                        fontSize = 16.sp,
-                        lineHeight = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                    )
-                    IconButton(
-                        onClick = {},
-                        modifier = Modifier.size(24.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_close),
-                            contentDescription = "Close",
-                            tint = TextTitle,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                }
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
-                ) {
-                    items(previewMessages) { message ->
-                        when (message.role) {
-                            Role.User -> UserBubble(message)
-                            Role.Assistant -> AssistantText(message.text)
-                        }
-                    }
-                    item {
-                        AssistantText(
-                            text = "1. Confirm the guest list\n2. Assign devices\n3. Send invites",
-                            isTyping = true,
-                        )
-                    }
-                }
-
-                NoteAskComposer(
-                    input = "",
-                    onInputChange = {},
-                    responding = true,
-                    onVoice = {},
-                    onSend = {},
+                Text(
+                    text = "Ask for $title…",
+                    modifier = Modifier.weight(1f),
+                    color = TextTitle,
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
                 )
+                IconButton(onClick = {}, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_close),
+                        contentDescription = "Close",
+                        tint = TextTitle,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                items(messages) { message ->
+                    when (message.role) {
+                        Role.User -> UserBubble(message)
+                        Role.Assistant -> AssistantText(message.text)
+                    }
+                }
+                if (streamingText != null) {
+                    item {
+                        if (streamingText.isEmpty()) TypingIndicator()
+                        else AssistantText(streamingText, isTyping = true)
+                    }
+                }
+            }
+
+            NoteAskComposer(
+                input = "",
+                onInputChange = {},
+                responding = streamingText != null,
+                onVoice = {},
+                onSend = {},
+            )
         }
     }
 }

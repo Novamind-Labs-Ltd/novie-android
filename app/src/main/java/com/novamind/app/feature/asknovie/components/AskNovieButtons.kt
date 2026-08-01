@@ -58,12 +58,16 @@ internal fun BareIconButton(
 
 /** 发送按钮：品牌绿圆形；无输入内容（[enabled] = false）时置为中性灰且不可点击。 */
 @Composable
-internal fun SendButton(enabled: Boolean = true, onClick: () -> Unit) {
+internal fun SendButton(
+    enabled: Boolean = true,
+    size: Dp = 40.dp,
+    onClick: () -> Unit,
+) {
     val bg = if (enabled) SendGreen else DisabledBtnBg
     val iconTint = if (enabled) OnSendGreen else DisabledBtnIcon
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(size)
             .clip(CircleShape)
             .background(bg)
             .clickable(
