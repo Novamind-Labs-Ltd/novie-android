@@ -43,9 +43,13 @@ internal fun ImageBlockView(
     onRetry: () -> Unit = {},
 ) {
     val isPreview = LocalInspectionMode.current
-    // 优先本地文件（即时、离线可看）；本地失效（他机加载）时用签名 downloadUrl 兜底。
-    val model = remember(isPreview, block.path, block.remoteUrl) {
-        if (isPreview) null else File(block.path).takeIf { it.exists() } ?: block.remoteUrl
+    // 已有笔记优先加载缩略图，未生成缩略图时回退原图；新插入图片用本地文件即时显示。
+    val model = remember(isPreview, block.path, block.thumbnailUrl, block.remoteUrl) {
+        if (isPreview) {
+            null
+        } else {
+            block.thumbnailUrl ?: block.remoteUrl ?: File(block.path).takeIf { it.exists() }
+        }
     }
     Box(
         modifier = Modifier

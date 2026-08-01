@@ -21,6 +21,14 @@ data class RemoteNote(
     val folderId: String? = null,
     /** 所属文件夹名（后端随 NoteView 返回）；null = 未归档或文件夹无名。 */
     val folderName: String? = null,
+    /** 详情接口随笔记返回的图片资源；按 fileId 与正文图片块关联。 */
+    val images: List<RemoteNoteImage> = emptyList(),
+)
+
+data class RemoteNoteImage(
+    val fileId: String,
+    val thumbnailUrl: String?,
+    val downloadUrl: String?,
 )
 
 /**

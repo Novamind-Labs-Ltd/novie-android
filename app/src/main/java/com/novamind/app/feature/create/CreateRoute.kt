@@ -86,6 +86,7 @@ fun CreateRoute(
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val attachmentUrls by viewModel.attachmentUrls.collectAsStateWithLifecycle()
+    val attachmentThumbnailUrls by viewModel.attachmentThumbnailUrls.collectAsStateWithLifecycle()
     Box(modifier = modifier.fillMaxSize()) {
         CreateScreen(
             uiState = uiState,
@@ -101,6 +102,7 @@ fun CreateRoute(
             onUploadImage = viewModel::uploadImage,
             onPolish = viewModel::polish,
             attachmentUrls = attachmentUrls,
+            attachmentThumbnailUrls = attachmentThumbnailUrls,
             onUploadRecording = viewModel::uploadRecording,
             onCancelUploadRecording = viewModel::cancelAudioUpload,
             recordingUploaded = viewModel.recordingUploaded,

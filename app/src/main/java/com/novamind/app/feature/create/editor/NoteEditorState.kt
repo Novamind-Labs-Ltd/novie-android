@@ -67,7 +67,7 @@ enum class UploadState { LOCAL, UPLOADING, UPLOADED, FAILED }
  * [width]/[height] 为像素尺寸（0 = 未知）。
  *
  * 服务端相关：[fileId] 为上传成功后回填的服务端文件 id（**序列化进 content**，作稳定引用）；
- * [remoteUrl] 为运行期从 `GET attachments` 拿到的签名下载 URL（**不序列化**，有时效）；
+ * [thumbnailUrl]/[remoteUrl] 为详情接口返回的缩略图/原图签名 URL（**不序列化**，有时效）；
  * [uploadState] 为运行期上传态（**不序列化**）。
  */
 data class ImageBlock(
@@ -75,6 +75,7 @@ data class ImageBlock(
     val width: Int = 0,
     val height: Int = 0,
     val fileId: String? = null,
+    val thumbnailUrl: String? = null,
     val remoteUrl: String? = null,
     val uploadState: UploadState = UploadState.LOCAL,
     override val id: String = UUID.randomUUID().toString(),

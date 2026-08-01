@@ -121,6 +121,8 @@ fun CreateScreen(
     },
     // 附件 fileId → 签名下载 URL（打开已有笔记后由 ViewModel 提供，供本地图失效时兜底渲染）
     attachmentUrls: Map<String, String> = emptyMap(),
+    // 附件 fileId → 缩略图 URL（正文优先显示，缺失时回退原图）
+    attachmentThumbnailUrls: Map<String, String> = emptyMap(),
     // 录音发送后上传为笔记源录音（§7）：给本地路径 + 时长(ms)，由 CreateRoute 接 ViewModel
     onUploadRecording: (String, Long) -> Unit = { _, _ -> },
     // 取消进行中的源录音上传（进度条上的 ×）
@@ -271,11 +273,17 @@ fun CreateScreen(
     }
 
     // 打开已有笔记后拿到 fileId→签名 URL 时，回填到对应图片块，供本地路径失效时渲染
-    LaunchedEffect(attachmentUrls) {
-        if (attachmentUrls.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(attachmentUrls, attachmentThumbnailUrls, bodyLoaded) {
+        if (!bodyLoaded) return@LaunchedEffect
+        if (attachmentUrls.isEmpty() && attachmentThumbnailUrls.isEmpty()) return@LaunchedEffect
         editor.blocks.filterIsInstance<ImageBlock>().forEach { b ->
-            val url = b.fileId?.let { attachmentUrls[it] }
-            if (url != null && b.remoteUrl != url) editor.updateImage(b.id) { it.copy(remoteUrl = url) }
+            val originalUrl = b.fileId?.let { attachmentUrls[it] }
+            val thumbnailUrl = b.fileId?.let { attachmentThumbnailUrls[it] }
+            if (b.remoteUrl != originalUrl || b.thumbnailUrl != thumbnailUrl) {
+                editor.updateImage(b.id) {
+                    it.copy(remoteUrl = originalUrl, thumbnailUrl = thumbnailUrl)
+                }
+            }
         }
     }
 
@@ -885,7 +893,7 @@ fun CreateScreen(
         // 图片预览（全屏覆盖）：滑动/缩放/删除，带淡入+缩放转场
         // 每张解析为可渲染模型：本地文件存在用本地路径，否则用签名网络 URL（他机加载的笔记）
         val liveImages = editor.blocks.filterIsInstance<ImageBlock>().map { b ->
-            b.path.takeIf { File(it).exists() } ?: b.remoteUrl ?: b.path
+            b.remoteUrl ?: b.path.takeIf { File(it).exists() } ?: b.thumbnailUrl ?: b.path
         }
         // 退出动画期间 previewIndex 已置空，用上次快照续渲染避免闪白
         var lastPreviewPaths by remember { mutableStateOf<List<String>>(emptyList()) }

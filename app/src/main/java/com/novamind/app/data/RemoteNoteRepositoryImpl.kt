@@ -15,6 +15,7 @@ import com.novamind.app.common.net.response.apiCall
 import com.novamind.app.common.net.response.mapLogged
 import com.novamind.app.feature.create.editor.NoteDocument
 import com.novamind.app.feature.create.model.RemoteNote
+import com.novamind.app.feature.create.model.RemoteNoteImage
 import com.novamind.app.feature.create.model.RemoteNotePage
 import com.novamind.app.feature.create.model.RemoteNoteSummary
 import com.novamind.app.feature.create.model.UpdateNoteOutcome
@@ -221,6 +222,13 @@ class RemoteNoteRepositoryImpl : RemoteNoteRepository {
         updatedAt = updatedAt,
         folderId = folderId,
         folderName = folderName,
+        images = images.map { image ->
+            RemoteNoteImage(
+                fileId = image.fileId,
+                thumbnailUrl = image.thumbnailUrl,
+                downloadUrl = image.downloadUrl,
+            )
+        },
     )
 
     private companion object {

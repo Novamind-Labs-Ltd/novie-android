@@ -27,6 +27,28 @@ class NoteListItemDtoTest {
     }
 
     @Test
+    fun `decodes thumbnail and original urls returned by note detail`() {
+        val dto = Json.decodeFromString<NoteDto>(
+            """
+            {
+              "id": "note-1",
+              "images": [
+                {
+                  "fileId": "file-1",
+                  "thumbnailUrl": "https://example.com/thumbnail.jpg",
+                  "downloadUrl": "https://example.com/original.jpg"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        assertEquals("file-1", dto.images.single().fileId)
+        assertEquals("https://example.com/thumbnail.jpg", dto.images.single().thumbnailUrl)
+        assertEquals("https://example.com/original.jpg", dto.images.single().downloadUrl)
+    }
+
+    @Test
     fun `decodes empty recycle bin summary`() {
         val dto = Json.decodeFromString<EmptyRecycleBinResultDto>(
             """{"purged":3,"deferred":1,"failed":2,"remaining":true}""",

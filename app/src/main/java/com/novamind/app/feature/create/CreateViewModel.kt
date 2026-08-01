@@ -129,9 +129,13 @@ class CreateViewModel @Inject constructor(
     // 已挂载到该笔记的附件 fileId 集合（loadNote 从服务端拉取初始化；saveNow 对账时增删）。
     private val attachedFileIds = mutableSetOf<String>()
 
-    // 附件 fileId → 签名下载 URL（loadNote 后由 GET attachments 提供，供编辑器渲染兜底）。
+    // 图片 fileId → 原图签名 URL（由详情 images[] 提供，供全屏预览）。
     private val _attachmentUrls = MutableStateFlow<Map<String, String>>(emptyMap())
     val attachmentUrls: StateFlow<Map<String, String>> = _attachmentUrls.asStateFlow()
+
+    // 图片 fileId → 缩略图签名 URL（由详情 images[] 提供，供正文内联显示）。
+    private val _attachmentThumbnailUrls = MutableStateFlow<Map<String, String>>(emptyMap())
+    val attachmentThumbnailUrls: StateFlow<Map<String, String>> = _attachmentThumbnailUrls.asStateFlow()
 
     // ── 内部记账（撤销栈 / 保存限频 / 乐观锁版本 / 在途协程） ──────────────────────
 
@@ -186,6 +190,7 @@ class CreateViewModel @Inject constructor(
         savedSnapshot = null
         attachedFileIds.clear()
         _attachmentUrls.value = emptyMap()
+        _attachmentThumbnailUrls.value = emptyMap()
         _uiState.value =
             CreateUiState(availableFolders = availableFolders, availableTags = availableTags)
     }
@@ -231,8 +236,15 @@ class CreateViewModel @Inject constructor(
                     availableFolders = availableFolders,
                     availableTags = availableTags,
                 )
-                // 拉附件，得到 fileId→签名 URL，供编辑器渲染 path 失效时兜底
-                fetchAttachments(note.id)
+                // 详情已携带缩略图和原图 URL，无需再请求 attachments。
+                attachedFileIds.clear()
+                attachedFileIds.addAll(note.images.map { it.fileId })
+                _attachmentThumbnailUrls.value = note.images
+                    .mapNotNull { image -> image.thumbnailUrl?.let { image.fileId to it } }
+                    .toMap()
+                _attachmentUrls.value = note.images
+                    .mapNotNull { image -> image.downloadUrl?.let { image.fileId to it } }
+                    .toMap()
             },
             onFail = { logApiError("loadNote id=$noteId", it) },
         )
@@ -795,21 +807,6 @@ class CreateViewModel @Inject constructor(
 
     /** 调用 agent 的无状态润色接口；编辑器快照和结果回填由 UI 层的 NoteEditorState 管理。 */
     suspend fun polish(request: PolishRequestDto): Result<String> = PolishRepository.polish(request)
-
-    /** 打开已有笔记时拉附件：初始化已挂载集合与 fileId→URL 映射（供编辑器渲染兜底）。 */
-    private suspend fun fetchAttachments(noteId: String) {
-        attachmentsRepository.list(noteId).fold(
-            onSuccess = { data ->
-                val items = data.orEmpty()
-                attachedFileIds.clear()
-                attachedFileIds.addAll(items.map { it.fileId })
-                _attachmentUrls.value = items
-                    .mapNotNull { a -> a.downloadUrl?.let { a.fileId to it } }
-                    .toMap()
-            },
-            onFail = { logApiError("fetchAttachments noteId=$noteId", it) },
-        )
-    }
 
     /**
      * 附件对账：把正文里的图片 fileId 集合与已挂载集合求差，多的 attach、少的 detach（幂等）。

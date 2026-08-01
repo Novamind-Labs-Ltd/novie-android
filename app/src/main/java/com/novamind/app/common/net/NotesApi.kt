@@ -119,6 +119,18 @@ data class NoteDto(
     val folderId: String? = null,
     /** 所属文件夹名；null=未归档或文件夹无名。 */
     val folderName: String? = null,
+    /** 详情页图片资源；按 fileId 与正文图片块关联。非详情响应为空。 */
+    val images: List<NoteImageDto> = emptyList(),
+)
+
+@Serializable
+data class NoteImageDto(
+    val fileId: String,
+    val thumbnailUrl: String? = null,
+    val downloadUrl: String? = null,
+    val originalFilename: String? = null,
+    val sizeBytes: Long? = null,
+    val expiresAt: String? = null,
 )
 
 /** 笔记列表分页视图（NotePageView）：轻量条目 + 下一页游标。 */
