@@ -14,11 +14,11 @@ object TimeUtils {
 
     /**
      * 笔记时间戳：
-     * 同一年 → 日 月  时间（24 小时制，日期与时间间隔两个空格，如 1 AUG  22:18）；
+     * 同一年 → 日 月    时间（24 小时制，日期与时间间隔四个空格，如 1 AUG    22:18）；
      * 不同年份 → 日 月 年（如 1 AUG 2025）。
      */
     fun smart(ms: Long, now: Long = System.currentTimeMillis()): String {
-        val pattern = if (isSameYear(ms, now)) "d MMM  HH:mm" else "d MMM yyyy"
+        val pattern = if (isSameYear(ms, now)) "d MMM    HH:mm" else "d MMM yyyy"
         return format(ms, pattern, Locale.ENGLISH).uppercase(Locale.ENGLISH)
     }
 
