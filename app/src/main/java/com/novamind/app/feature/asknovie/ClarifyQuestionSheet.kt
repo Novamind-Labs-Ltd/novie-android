@@ -188,7 +188,6 @@ private fun OptionsSheetContent(
 
         Spacer(Modifier.height(12.dp))
         HorizontalDivider(color = FieldBorder, thickness = 1.dp)
-        Spacer(Modifier.height(8.dp))
 
         // 标题和底部输入区固定；只有选项列表在超过最大高度时滚动。
         LazyColumn(
@@ -203,6 +202,9 @@ private fun OptionsSheetContent(
             ) { index, item ->
                 val itemId = item.id.ifBlank { index.toString() }
                 val selected = itemId in selectedIds
+                val hasDescription = item.description.isNotBlank()
+                var labelIsMultiline by remember(itemId, item.label) { mutableStateOf(false) }
+                val isMultiline = hasDescription || labelIsMultiline
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -219,12 +221,12 @@ private fun OptionsSheetContent(
                             }
                         }
                         .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = if (isMultiline) Alignment.Top else Alignment.CenterVertically,
                 ) {
                     Box(
                         modifier = Modifier
-                            // 标记与右侧标题第一行顶部对齐（文字列自身有 4dp top padding）。
-                            .offset(y = 8.dp)
+                            // 多行内容贴齐标题首行顶部；单行内容由 Row 负责垂直居中。
+                            .offset(y = if (isMultiline) 7.dp else 0.dp)
                             .size(if (isMany) 20.dp else 28.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
@@ -268,7 +270,7 @@ private fun OptionsSheetContent(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = if (isMultiline) 4.dp else 0.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         Text(
@@ -277,8 +279,9 @@ private fun OptionsSheetContent(
                             fontSize = 16.sp,
                             lineHeight = 16.sp,
                             fontWeight = FontWeight.Medium,
+                            onTextLayout = { labelIsMultiline = it.lineCount > 1 },
                         )
-                        if (item.description.isNotBlank()) {
+                        if (hasDescription) {
                             Text(
                                 text = item.description,
                                 color = TitleColor,
@@ -288,7 +291,7 @@ private fun OptionsSheetContent(
                         }
                     }
                 }
-                HorizontalDivider(color = FieldBorder, thickness = 1.dp)
+                HorizontalDivider(color = FieldBorder, thickness = 0.5.dp)
                 if (index < card.items.lastIndex) Spacer(Modifier.height(4.dp))
             }
         }
