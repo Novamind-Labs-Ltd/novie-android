@@ -16,7 +16,8 @@ import com.mikepenz.markdown.model.MarkdownTypography
 @Composable
 fun novieMarkdownTypography(): MarkdownTypography {
     val type = MaterialTheme.typography
-    val body = type.bodyLarge.copy(fontSize = 16.sp, lineHeight = 24.sp)
+    // 与 CreateScreen 普通富文本正文保持一致，避免混合内容块之间出现行距跳变。
+    val body = type.bodyLarge.copy(fontSize = 16.sp, lineHeight = 26.sp)
     return markdownTypography(
         h1 = type.headlineMedium.copy(
             fontSize = 28.sp,
