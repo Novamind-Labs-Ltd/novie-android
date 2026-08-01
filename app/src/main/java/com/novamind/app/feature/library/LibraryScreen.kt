@@ -142,7 +142,6 @@ fun LibraryScreen(
     onChangeFolderColor: (id: String, colorHex: String?) -> Unit = { _, _ -> },
     // 分段标签页状态：由宿主托管，进入文件夹详情再返回时保持在 Folders 页
     pagerState: PagerState = rememberPagerState(pageCount = { 2 }),
-    onBack: (() -> Unit)? = null,   // 非 null：左上角显示返回键并触发；null：保持现状（侧栏入口）
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -155,7 +154,7 @@ fun LibraryScreen(
             .background(BgPage)
             .statusBarsPadding(),
     ) {
-        // 顶部应用栏（Figma top_info）：左侧「侧栏/返回 + Library 标题」内联一行，
+        // 顶部应用栏（Figma top_info）：左侧「侧栏 + Library 标题」内联一行，
         // 右侧为上下文操作（Recent 页 → 视图切换；Folders 页 → 新建文件夹）。
         // 新建笔记走底部导航中央 FAB，故此处不再放搜索/新建笔记按钮。
         Row(
@@ -171,22 +170,16 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (onBack != null) {
-                    // 作为子页进入（如首页 See all）：复用笔记编辑页的扁平顶栏返回键
-                    TopBarBackButton(onClick = onBack)
-                } else {
-                    // 侧栏入口 → 通知宿主打开抽屉
-                    TopIconButton(
-                        iconRes = R.drawable.ic_library_sidebar,
-                        desc = "Sidebar",
-                        shape = RoundedCornerShape(4.dp),
-                        bg = Color.Transparent,
-                        buttonSize = 32.dp,
-                        iconWidth = 20.dp,
-                        iconHeight = 22.dp,
-                        onClick = onOpenSidebar,
-                    )
-                }
+                TopIconButton(
+                    iconRes = R.drawable.ic_library_sidebar,
+                    desc = "Sidebar",
+                    shape = RoundedCornerShape(4.dp),
+                    bg = Color.Transparent,
+                    buttonSize = 32.dp,
+                    iconWidth = 20.dp,
+                    iconHeight = 22.dp,
+                    onClick = onOpenSidebar,
+                )
                 Text(
                     text = "Library",
                     fontSize = 32.sp,
@@ -693,14 +686,12 @@ internal fun FolderDetailScreen(
 
 @Composable
 fun LibraryRoute(
-    openRecent: Boolean = false,
     onCreateNote: () -> Unit = {},
     onOpenNote: (String) -> Unit = {},
     onOpenTagManager: () -> Unit = {},
     onOpenSharedWithMe: () -> Unit = {},
     onOpenRecycleBin: () -> Unit = {},
     onFullscreenChange: (Boolean) -> Unit = {},   // 抽屉打开 → 宿主隐藏底部导航，让抽屉盖住底栏
-    onBack: (() -> Unit)? = null,   // 非 null：作为子页进入，左上角为返回键
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = viewModel(),
 ) {
@@ -712,15 +703,6 @@ fun LibraryRoute(
     var selectedFolderId by rememberSaveable { mutableStateOf<String?>(null) }
     // 分段标签状态提升到这里：进入文件夹详情再返回时仍停留在 Folders 页（不回到 Recent）
     val pagerState = rememberPagerState(pageCount = { 2 })
-
-    // Home 的 Recent「See all」必须落到 Recent；底栏进入时仍恢复用户上次停留的标签。
-    LaunchedEffect(openRecent) {
-        if (openRecent) {
-            selectedFolderId = null
-            viewModel.closeFolder()
-            pagerState.scrollToPage(0)
-        }
-    }
 
     BackHandler(enabled = selectedFolderId != null) { selectedFolderId = null; viewModel.closeFolder() }
 
@@ -793,7 +775,6 @@ fun LibraryRoute(
                     onCannotDeleteFolderDismiss = viewModel::dismissCannotDeleteFolder,
                     onChangeFolderColor = viewModel::changeFolderColor,
                     pagerState = pagerState,
-                    onBack = onBack,
                     modifier = modifier,
                 )
             }
