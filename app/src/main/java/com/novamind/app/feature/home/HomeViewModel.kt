@@ -254,7 +254,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** 已有关联直接打开；未关联则先创建笔记，再绑定 calendarId，最后进入笔记页。 */
+    /** 已有关联直接打开；未关联则原子创建笔记并绑定 calendarId，最后进入笔记页。 */
     fun openMeetingNote(eventId: String, noteId: String?) {
         if (noteId != null) {
             _openNote.tryEmit(noteId)
@@ -267,38 +267,27 @@ class HomeViewModel @Inject constructor(
             )?.takeIf { it.isNotBlank() }
         viewModelScope.launch {
             try {
-                when (val createResult = notesRepository.createNote(title = meetingTitle, body = "")) {
+                when (val result = calendarNoteRepository.createNoteAndBind(eventId, meetingTitle)) {
                     is ApiResult.Success -> {
-                        val createdNoteId = createResult.data?.id
-                        if (createdNoteId == null) {
+                        val resolvedNoteId = result.data?.noteId
+                        if (resolvedNoteId == null) {
                             _uiState.update { it.copy(errorMessage = "Failed to create meeting notes") }
                             return@launch
                         }
-                        when (val bindResult = calendarNoteRepository.bindNote(eventId, createdNoteId)) {
-                            is ApiResult.Success -> {
-                                val resolvedNoteId = bindResult.data ?: createdNoteId
-                                _uiState.update { state ->
-                                    state.copy(
-                                        upcomingItems = state.upcomingItems.map { item ->
-                                            if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
-                                        },
-                                        upcomingRangeItems = state.upcomingRangeItems.map { item ->
-                                            if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
-                                        },
-                                    )
-                                }
-                                _openNote.emit(resolvedNoteId)
-                            }
-                            is ApiResult.BizError -> _uiState.update {
-                                it.copy(errorMessage = bindResult.message ?: "Failed to bind meeting notes")
-                            }
-                            is ApiResult.NetworkError -> _uiState.update {
-                                it.copy(errorMessage = "网络异常，请重试")
-                            }
+                        _uiState.update { state ->
+                            state.copy(
+                                upcomingItems = state.upcomingItems.map { item ->
+                                    if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
+                                },
+                                upcomingRangeItems = state.upcomingRangeItems.map { item ->
+                                    if (item.id == "evt_$eventId") item.copy(noteId = resolvedNoteId) else item
+                                },
+                            )
                         }
+                        _openNote.emit(resolvedNoteId)
                     }
                     is ApiResult.BizError -> _uiState.update {
-                        it.copy(errorMessage = createResult.message ?: "Failed to create meeting notes")
+                        it.copy(errorMessage = result.message ?: "Failed to create meeting notes")
                     }
                     is ApiResult.NetworkError -> _uiState.update {
                         it.copy(errorMessage = "网络异常，请重试")
