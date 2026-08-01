@@ -32,7 +32,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -46,7 +45,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
@@ -66,67 +64,7 @@ import com.novamind.app.ui.theme.AppTheme
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.parser.MarkdownParser
 
-/** 语音气泡：播放/暂停 + 名称（含时长）。点击播放录音文件；预览态不创建 MediaPlayer。 */
-@Composable
-internal fun AudioBubble(att: Attachment) {
-    val inPreview = LocalInspectionMode.current
-    val player = if (inPreview) null else remember { android.media.MediaPlayer() }
-    var playing by remember { mutableStateOf(false) }
-    var prepared by remember { mutableStateOf(false) }
-    DisposableEffect(Unit) {
-        onDispose { runCatching { player?.release() } }
-    }
-    player?.setOnCompletionListener { playing = false }
-
-    Surface(
-        color = Card,
-        shape = RoundedCornerShape(50),
-        shadowElevation = 1.dp,
-        modifier = Modifier.padding(bottom = 6.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(),
-                    onClick = {
-                        val p = player ?: return@clickable
-                        runCatching {
-                            if (playing) {
-                                p.pause(); playing = false
-                            } else {
-                                if (!prepared) {
-                                    p.setDataSource(att.path); p.prepare(); prepared = true
-                                }
-                                p.start(); playing = true
-                            }
-                        }
-                    },
-                )
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape).background(SendGreen),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(
-                        if (playing) R.drawable.ic_pause else R.drawable.ic_play,
-                    ),
-                    contentDescription = if (playing) "Pause" else "Play",
-                    tint = OnSendGreen,
-                    modifier = Modifier.size(15.dp),
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Text(att.name, color = TextTitle, fontSize = 14.sp)
-        }
-    }
-}
-
-/** 用户消息：图片、文件、语音和文本均靠右展示。 */
+/** 用户消息：图片、文件和文本均靠右展示。 */
 @Composable
 internal fun UserBubble(
     msg: ChatMessage,
@@ -189,10 +127,6 @@ internal fun UserBubble(
                     }
                 }
             }
-                // 语音附件：可播放气泡
-                msg.attachments.filter { it.type == AttachType.Audio }.forEach { att ->
-                    AudioBubble(att)
-                }
                 // 文本气泡（有文字才显示）
                 if (msg.text.isNotEmpty()) {
                     Surface(
@@ -485,18 +419,7 @@ private fun MessageBubblesPreview() {
                 ),
             )
             AssistantText(text = "Sure, here are the three key points of this quarterly report: revenue grew 12% year-over-year, gross margin stabilized, and cash flow turned positive.")
-            UserBubble(ChatMessage(Role.User, "", listOf(Attachment(AttachType.Audio, "/tmp/a.m4a", "Voice 0:08"))))
             TypingIndicator()
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFFF1EEE6, name = "AskNovie · AudioBubble")
-@Composable
-private fun AudioBubblePreview() {
-    AppTheme {
-        Column(modifier = Modifier.padding(16.dp)) {
-            AudioBubble(Attachment(AttachType.Audio, "/tmp/a.m4a", "Voice 0:08"))
         }
     }
 }
