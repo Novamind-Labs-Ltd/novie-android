@@ -128,6 +128,7 @@ internal fun ChatCard.Offer.isSupported(): Boolean =
     kind == "summary" || kind == "note" || kind == "diagram" || kind == "grilling"
 
 @Composable
+@Suppress("UNUSED_PARAMETER") // 暂时隐藏轮次进度；保留参数便于后续恢复展示。
 private fun OptionsSheetContent(
     card: ChatCard.Options,
     progressLabel: String? = null,
@@ -156,29 +157,20 @@ private fun OptionsSheetContent(
                 .fillMaxWidth()
                 .heightIn(min = 30.dp)
                 .padding(horizontal = 12.dp),
-            // 标题最多两行时，进度与关闭按钮仍固定贴齐标题首行顶部。
+            // 标题最多两行时，关闭按钮仍固定贴齐标题首行顶部。
             verticalAlignment = Alignment.Top,
         ) {
             Text(
                 text = card.prompt,
                 color = TitleColor,
                 fontSize = 16.sp,
-                lineHeight = 24.sp,
+                lineHeight = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(12.dp))
-            progressLabel?.let {
-                Text(
-                    text = it,
-                    color = SubColor,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp,
-                )
-                Spacer(Modifier.width(12.dp))
-            }
             Icon(
                 painter = painterResource(R.drawable.ic_close),
                 contentDescription = "Close",
@@ -226,13 +218,13 @@ private fun OptionsSheetContent(
                                 onSubmit(item.label)
                             }
                         }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
                     Box(
                         modifier = Modifier
                             // 标记与右侧标题第一行顶部对齐（文字列自身有 4dp top padding）。
-                            .offset(y = 4.dp)
+                            .offset(y = 8.dp)
                             .size(if (isMany) 20.dp else 28.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(
@@ -283,10 +275,16 @@ private fun OptionsSheetContent(
                             item.label,
                             color = TitleColor,
                             fontSize = 16.sp,
+                            lineHeight = 16.sp,
                             fontWeight = FontWeight.Medium,
                         )
                         if (item.description.isNotBlank()) {
-                            Text(item.description, color = TitleColor, fontSize = 15.sp)
+                            Text(
+                                text = item.description,
+                                color = TitleColor,
+                                fontSize = 15.sp,
+                                lineHeight = 18.sp,
+                            )
                         }
                     }
                 }
