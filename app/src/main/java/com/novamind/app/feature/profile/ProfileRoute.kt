@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.novamind.app.common.profile.AvatarViewerScreen
 import com.novamind.app.common.profile.ProfileStore
+import com.novamind.app.feature.profile.connectors.ConnectorsRoute
 
 /**
  * Profile 有状态路由：连接 [ProfileStore] 头像，转发账号/设置回调给无状态 [ProfileScreen]。
@@ -40,9 +41,10 @@ fun ProfileRoute(
     val avatarPath by ProfileStore.avatarPath.collectAsStateWithLifecycle()
     var showAccount by rememberSaveable { mutableStateOf(false) }
     var showAvatarEditor by rememberSaveable { mutableStateOf(false) }
+    var showConnectors by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(showAccount, showAvatarEditor) {
-        onFullscreenChange(showAccount || showAvatarEditor)
+    LaunchedEffect(showAccount, showAvatarEditor, showConnectors) {
+        onFullscreenChange(showAccount || showAvatarEditor || showConnectors)
     }
     DisposableEffect(Unit) {
         onDispose { onFullscreenChange(false) }
@@ -54,11 +56,23 @@ fun ProfileRoute(
             email = userEmail.orEmpty(),
             avatarPath = avatarPath,
             onEditAvatar = { showAccount = true },
+            onConnectors = { showConnectors = true },
             onOpenPermissions = onOpenPermissions,
             onAbout = onAbout,
             onLogout = onLogout,
             modifier = Modifier.fillMaxSize(),
         )
+
+        AnimatedVisibility(
+            visible = showConnectors,
+            enter = slideInHorizontally { it } + fadeIn(initialAlpha = 0.3f),
+            exit = slideOutHorizontally { it } + fadeOut(),
+        ) {
+            ConnectorsRoute(
+                onBack = { showConnectors = false },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         AnimatedVisibility(
             visible = showAccount,
