@@ -113,12 +113,16 @@ class AuthManager(context: Context) {
         TokenProvider.accessToken = null
     }
 
-    /** 完整登出：打开浏览器清空 SSO cookie 与本地凭证。失败抛 [AuthenticationException]。 */
+    /**
+     * 完整登出：清除 Auth0 会话，并请求上游 Google IdP 一并退出，再清本地凭证。
+     * 失败抛 [AuthenticationException]。
+     */
     suspend fun logout(activity: Activity) =
         suspendCancellableCoroutine { cont ->
             WebAuthProvider.logout(account)
                 .withScheme(BuildConfig.AUTH0_SCHEME)
                 .withCustomTabsOptions(buildCustomTabsOptions())
+                .withFederated()
                 .start(activity, object : Callback<Void?, AuthenticationException> {
                     override fun onSuccess(result: Void?) {
                         baseManager.clearCredentials()

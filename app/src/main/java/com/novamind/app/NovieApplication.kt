@@ -47,9 +47,12 @@ class NovieApplication : Application(), ImageLoaderFactory, Configuration.Provid
     @Inject lateinit var calendarBindingStore: Provider<CalendarBindingStore>
     @Inject lateinit var calendarEventCache: Provider<CalendarEventCache>
 
+    /** 当前本地绑定的 Google Calendar 账号；撤销授权必须在清理绑定前读取。 */
+    fun boundCalendarAccountEmail(): String? = calendarBindingStore.get().accountEmail
+
     /**
      * 清除日历本地会话（删 token + 绑定 + 缓存），供退出登录复用。
-     * 不 revoke Google 授权：退出 ≠ 取消授权，重新登录可静默恢复。
+     * Google 服务端授权由认证层在调用本方法前撤销。
      */
     fun clearCalendarLocalSession() {
         GoogleTokenProvider.clear()

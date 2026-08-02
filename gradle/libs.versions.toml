@@ -30,7 +30,7 @@ hilt = "2.59.2"
 # 认证 / 授权 / 生物识别
 auth0 = "3.14.0"
 # Google 身份授权：AuthorizationClient 申请 Calendar scope 并返回 OAuth access token
-playServicesAuth = "21.3.0"
+playServicesAuth = "21.6.0"
 playServicesAuthBase = "18.3.3"
 biometric = "1.1.0"
 fragment = "1.8.6"

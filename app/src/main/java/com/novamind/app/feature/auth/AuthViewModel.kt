@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.auth0.android.result.Credentials
 import com.novamind.app.NovieApplication
+import com.novamind.app.common.google.GoogleCalendarAuthManager
 import com.novamind.app.common.log.AppLog
 import com.novamind.app.common.session.AuthSessionSignal
 import com.novamind.app.common.session.UserSessionManager
@@ -24,6 +25,7 @@ import kotlinx.coroutines.launch
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authManager = AuthManager(app)
+    private val calendarAuthManager = GoogleCalendarAuthManager(app)
     private val biometricPrefs = BiometricPreferences()
 
     private val _uiState = MutableStateFlow(
@@ -46,10 +48,11 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
      * 被动强制登出：由 [AuthSessionSignal] 触发（token 续期失败 / 服务端鉴权失效）。
      * 已在未登录 / 游客态则忽略，避免重复清理与门控抖动。
      */
-    private fun forceLogout() {
+    private suspend fun forceLogout() {
         val state = _uiState.value
         if (!state.isAuthenticated) return
         AppLog.w(TAG) { "session expired -> force logout" }
+        revokeCalendarAuthorization()
         authManager.logoutLocal()
         clearCalendarSession()
         _uiState.update { loggedOutState() }
@@ -199,34 +202,43 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * 退出登录：仅清本地凭证、不打开浏览器，因而不会弹出浏览器「打开 App」确认框。
-     * 如需连同 Auth0 的 SSO 会话一起清除（彻底登出），改用 [logoutFederated]。
-     * 保留 activity 形参以兼容调用方。
-     */
+    /** 彻底退出：撤销 Calendar/Tasks 授权，并清除 Auth0 与上游 Google 登录会话。 */
     fun logout(activity: Activity) {
         if (_uiState.value.isLoading) return
-        authManager.logoutLocal()
-        clearCalendarSession()
-        _uiState.update { loggedOutState() }
+        performFullLogout(activity)
     }
 
-    /** 彻底登出：打开浏览器清空 Auth0 SSO 会话（会出现浏览器跳转 / 「打开 App」弹窗）。 */
+    /** 兼容 Profile 现有入口；所有主动退出统一执行彻底退出。 */
     fun logoutFederated(activity: Activity) {
         if (_uiState.value.isLoading) return
+        performFullLogout(activity)
+    }
+
+    private fun performFullLogout(activity: Activity) {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         viewModelScope.launch {
+            revokeCalendarAuthorization()
             runCatching { authManager.logout(activity) }
                 .onSuccess {
                     clearCalendarSession()
-                    _uiState.update {
-                        AuthUiState(isCheckingSession = false, isAuthenticated = false)
-                    }
+                    _uiState.update { loggedOutState() }
                 }
                 .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "Sign-out failed") }
+                    authManager.logoutLocal()
+                    clearCalendarSession()
+                    _uiState.update {
+                        loggedOutState().copy(errorMessage = e.message ?: "Remote sign-out failed")
+                    }
                 }
         }
+    }
+
+    /** 撤销 Calendar / Tasks 授权；失败不阻断本地退出。 */
+    private suspend fun revokeCalendarAuthorization() {
+        val app = getApplication<NovieApplication>()
+        val accountEmail = app.boundCalendarAccountEmail() ?: return
+        runCatching { calendarAuthManager.revokeAccount(accountEmail) }
+            .onFailure { AppLog.w(TAG, it) { "revoke Calendar authorization failed" } }
     }
 
     fun dismissError() {
@@ -243,8 +255,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * 清除日历本地会话并清空全局用户会话。所有登出路径调用：
-     * 退出登录 → 清日历；不 revoke Google grant（重新登录同账号可静默恢复）。
+     * 清除日历本地会话并清空全局用户会话。调用前应先撤销 Google grant。
      */
     private fun clearCalendarSession() {
         // 全局会话同步登出：清缓存 + MMKV 并迁未登录（账户切换时亦清旧号缓存，随后由登录流重建）。

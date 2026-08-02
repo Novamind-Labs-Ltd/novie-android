@@ -10,6 +10,7 @@ import com.google.android.gms.auth.UserRecoverableAuthException
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.RevokeAccessRequest
 import com.google.android.gms.common.api.Scope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -48,6 +49,9 @@ interface GoogleCalendarAuthSource {
 
     /** 服务端吊销该 token（换账号时，best-effort，失败不抛）。 */
     suspend fun revoke(token: String)
+
+    /** 撤销指定账号授予本 App 的 Calendar / Tasks scopes。 */
+    suspend fun revokeAccount(accountName: String)
 }
 
 /**
@@ -80,12 +84,17 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
     }
 
     /**
-     * 首次连接使用 AuthorizationClient，让用户选择设备上真实存在的 Google 账号。
+     * 连接时使用 AuthorizationClient，并且始终让用户明确选择设备上的 Google 账号。
+     *
+     * AuthorizationClient 默认会复用该 App 上次已授权的 eligible account，可能直接返回
+     * 旧账号 token 而不展示账号选择器。Novie 登录用户切换后，这会把新用户错误绑定到旧用户
+     * 的 Calendar。SELECT_ACCOUNT 禁止这种静默复用，让每次建立本地绑定都由用户明确确认账号。
      * 不再假设 Novie/Auth0 登录邮箱也是 Android 系统 Google 账号。
      */
     suspend fun requestAuthorization(): AuthorizationOutcome = suspendCancellableCoroutine { continuation ->
         val request = AuthorizationRequest.builder()
             .setRequestedScopes(requestedScopes)
+            .setPrompt(AuthorizationRequest.Prompt.SELECT_ACCOUNT)
             .build()
         authorizationClient.authorize(request)
             .addOnSuccessListener { result ->
@@ -164,6 +173,22 @@ class GoogleCalendarAuthManager(context: Context) : GoogleCalendarAuthSource {
         }.onFailure { AppLog.w(TAG, it) { "revoke token failed" } }
         Unit
     }
+
+    override suspend fun revokeAccount(accountName: String): Unit =
+        suspendCancellableCoroutine { continuation ->
+            val request = RevokeAccessRequest.builder()
+                .setAccount(Account(accountName, GOOGLE_ACCOUNT_TYPE))
+                .setScopes(requestedScopes)
+                .build()
+            authorizationClient.revokeAccess(request)
+                .addOnSuccessListener {
+                    AppLog.d(TAG) { "revokeAccount success for $accountName" }
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+                .addOnFailureListener { error ->
+                    if (continuation.isActive) continuation.resumeWithException(error)
+                }
+        }
 
     companion object {
         const val SCOPE_CALENDAR_READONLY = "https://www.googleapis.com/auth/calendar.readonly"
