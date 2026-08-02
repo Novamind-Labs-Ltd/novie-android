@@ -277,7 +277,7 @@ object AppConfig {
     /** Debug 工具相关配置。 */
     object Debug {
         /** 是否允许在 Debug 构建中通过摇一摇打开 Debug 工具箱。 */
-        const val ALLOW_SHAKE_TO_OPEN_PANEL = false
+        const val ALLOW_SHAKE_TO_OPEN_PANEL = true
     }
 
     /** 回收站。 */
