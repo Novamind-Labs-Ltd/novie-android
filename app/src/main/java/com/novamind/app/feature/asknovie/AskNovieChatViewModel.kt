@@ -64,6 +64,19 @@ class AskNovieChatViewModel @Inject constructor(
     val notePreviews = mutableStateOf<Map<String, NoteCardPreview>>(emptyMap())
 
     private val sessionMessages = mutableMapOf<String, List<ChatMessage>>()
+
+    /**
+     * 每个会话最后已知的标题快照，与 [sessionMessages] 同一套生命周期。
+     *
+     * 存在的理由:[customTitle] 只有一个,描述的永远是**当前展示**的那个会话。而后台会话的流
+     * 结束时,`finally` 会为它调用 [persistSession] —— 那时 `sessionId.value` 可能早就是别的
+     * 会话了,于是取不到它的标题,只能退回"第一句话",把用户改过的名字覆盖掉。
+     * 切走一个会话时顺手把它的标题存进来(与切走时存 messages 完全对称),就补上了这个缺口。
+     *
+     * 用 `String?` 而不是只存非空值:用户可以把标题改回空(重命名对话框里
+     * `newTitle.ifBlank { null }`),那时必须记住"没有自定义标题",而不是留着上一次的旧值。
+     */
+    private val sessionTitles = mutableMapOf<String, String?>()
     private val streamJobs = mutableMapOf<String, Job>()
     private val respondingSessions = mutableSetOf<String>()
     private val streamingSessions = mutableSetOf<String>()
@@ -305,9 +318,19 @@ class AskNovieChatViewModel @Inject constructor(
     /** 切换展示会话；不会取消其他会话的 SSE。 */
     fun selectSession(session: ChatSession) {
         sessionMessages[sessionId.value] = messages.value
+        sessionTitles[sessionId.value] = customTitle.value   // 切走前记下它的标题(同上一行存 messages)
         val selectedMessages = sessionMessages.getOrPut(session.id) { session.messages }
+        // 标题与 messages 同样"内存优先、磁盘兜底"(上一行的 getOrPut 就是这个语义)。
+        // 不能直接用 session.title:重命名发生在流式期间时不会被立刻写盘 —— AskNovieScreen 的
+        // 持久化 LaunchedEffect 带 `if (!isStreaming)` 守卫 —— 所以此刻磁盘上还是旧标题,
+        // 直接采信它会把用户刚改的名字当场覆盖掉(切走再切回来就没了)。
+        // 用 containsKey 而不是 getOrPut:值类型是 String?,而 getOrPut 把 null 当成"不存在",
+        // 会把"用户特意清空了标题"这个状态错当成没记录、又退回磁盘上的旧标题。
+        val selectedTitle =
+            if (sessionTitles.containsKey(session.id)) sessionTitles[session.id] else session.title
         sessionId.value = session.id
-        customTitle.value = session.title
+        customTitle.value = selectedTitle
+        sessionTitles[session.id] = selectedTitle
         messages.value = selectedMessages
         refreshActiveSession(session.id)
     }
@@ -315,6 +338,7 @@ class AskNovieChatViewModel @Inject constructor(
     /** 开启新会话；当前会话若仍在流式回复，会继续在后台接收并保存。 */
     fun startNewSession() {
         sessionMessages[sessionId.value] = messages.value
+        sessionTitles[sessionId.value] = customTitle.value   // 同 selectSession:切走前记下标题
         sessionId.value = UUID.randomUUID().toString()
         customTitle.value = null
         messages.value = emptyList()
@@ -338,6 +362,7 @@ class AskNovieChatViewModel @Inject constructor(
         respondingSessions -= deletedSessionId
         streamingSessions -= deletedSessionId
         sessionMessages.remove(deletedSessionId)
+        sessionTitles.remove(deletedSessionId)
         ChatSessionStore.delete(getApplication(), deletedSessionId)
 
         sessionId.value = UUID.randomUUID().toString()
@@ -365,10 +390,17 @@ class AskNovieChatViewModel @Inject constructor(
     private fun persistSession(targetSessionId: String) {
         val sessionMessages = sessionMessages[targetSessionId].orEmpty()
         if (sessionMessages.isEmpty()) return
+        // 展示中的会话以 customTitle 为准(它才是最新的,包括刚刚在重命名对话框里改的);
+        // 不在展示的会话取切走时留下的快照。
+        //
+        // 原来这里的 else 分支直接是 `null`,意味着**后台会话的流一结束,标题就被重置成第一句话**
+        // —— 用户改的名字无声消失,而且 ChatSessionStore.upsert 是整条记录替换,改完就找不回来了。
+        // 而后台流是这个类明确支持的用法(见类 KDoc:切换历史不会停掉旧会话的回复),所以这不是
+        // 极端竞态,是正常操作路径:重命名 A → 在 A 发消息 → 切到 B → A 的流结束 → A 的名字没了。
         val title = if (sessionId.value == targetSessionId) {
             customTitle.value
         } else {
-            null
+            sessionTitles[targetSessionId]
         }?.takeIf { it.isNotBlank() }
             ?: sessionMessages.first().text.trim().takeIf { it.isNotEmpty() }
             ?: sessionMessages.first().attachments.firstOrNull()?.name
