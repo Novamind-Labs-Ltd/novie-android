@@ -1,11 +1,10 @@
 package com.novamind.app.feature.create.tag.tagmanager
 
-/** Tag 管理页的标签行模型：名称 + 颜色 + 关联笔记数。 */
+/** Tag 管理页的标签行模型：名称 + 颜色。 */
 data class TagRowItem(
     val id: String,
     val name: String,
     val colorHex: String,
-    val noteCount: Int,
 )
 
 data class TagManagerUiState(

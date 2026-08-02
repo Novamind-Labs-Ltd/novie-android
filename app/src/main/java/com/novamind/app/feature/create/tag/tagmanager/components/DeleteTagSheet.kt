@@ -70,7 +70,7 @@ private fun DeleteTagContent(
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "This removes the tag from all notes.",
+            text = "This removes the tag from this device.",
             fontSize = 14.sp,
             color = ColorTextSub,
             textAlign = TextAlign.Center,

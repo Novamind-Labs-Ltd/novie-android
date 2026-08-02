@@ -2,14 +2,11 @@ package com.novamind.app.feature.create.tag.tagmanager
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.novamind.app.data.LocalNoteRepository
 import com.novamind.app.data.TagRepository
-import com.novamind.app.feature.create.model.Note
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -24,26 +21,15 @@ private const val DEFAULT_TAG_COLOR = "#3D7A5A"
  */
 @HiltViewModel
 class TagManagerViewModel @Inject constructor(
-    private val noteRepository: LocalNoteRepository,
     private val tagRepository: TagRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TagManagerUiState())
     val uiState = _uiState.asStateFlow()
 
-    private var domainNotes: List<Note> = emptyList()
-
     init {
-        combine(tagRepository.tags, noteRepository.notes) { tags, notes ->
-            tags to notes
-        }
-            .onEach { (tags, notes) ->
-                domainNotes = notes
-                // 统计每个标签名关联的笔记数
-                val counts = HashMap<String, Int>()
-                notes.forEach { note ->
-                    note.tags.forEach { t -> counts[t.name] = (counts[t.name] ?: 0) + 1 }
-                }
+        tagRepository.tags
+            .onEach { tags ->
                 _uiState.update {
                     it.copy(
                         tags = tags.map { tag ->
@@ -51,7 +37,6 @@ class TagManagerViewModel @Inject constructor(
                                 id = tag.id,
                                 name = tag.name,
                                 colorHex = tag.colorHex,
-                                noteCount = counts[tag.name] ?: 0,
                             )
                         },
                     )
@@ -66,17 +51,13 @@ class TagManagerViewModel @Inject constructor(
         viewModelScope.launch { tagRepository.create(name.trim(), colorHex.ifBlank { DEFAULT_TAG_COLOR }) }
     }
 
-    /** 重命名标签：改写标签库与所有笔记中的同名标签。 */
+    /** 重命名本地标签。 */
     fun renameTag(oldName: String, newName: String) {
         val from = oldName.trim()
         val to = newName.trim()
         if (from.isEmpty() || to.isEmpty() || from.equals(to, ignoreCase = true)) return
         viewModelScope.launch {
             tagRepository.rename(from, to)
-            domainNotes.filter { note -> note.tags.any { it.name == from } }.forEach { note ->
-                val newTags = note.tags.map { if (it.name == from) it.copy(name = to) else it }
-                noteRepository.addOrUpdate(note.copy(tags = newTags))
-            }
         }
     }
 
@@ -85,28 +66,21 @@ class TagManagerViewModel @Inject constructor(
         viewModelScope.launch { tagRepository.setOrder(orderedNames) }
     }
 
-    /** 修改标签颜色：更新标签库与所有笔记中同名标签的颜色。 */
+    /** 修改本地标签颜色。 */
     fun changeTagColor(name: String, colorHex: String) {
         val target = name.trim()
         if (target.isEmpty() || colorHex.isBlank()) return
         viewModelScope.launch {
             tagRepository.setColor(target, colorHex)
-            domainNotes.filter { note -> note.tags.any { it.name == target } }.forEach { note ->
-                val newTags = note.tags.map { if (it.name == target) it.copy(colorHex = colorHex) else it }
-                noteRepository.addOrUpdate(note.copy(tags = newTags))
-            }
         }
     }
 
-    /** 删除标签：从标签库与所有笔记中移除该标签。 */
+    /** 删除本地标签。 */
     fun deleteTag(name: String) {
         val target = name.trim()
         if (target.isEmpty()) return
         viewModelScope.launch {
             tagRepository.delete(target)
-            domainNotes.filter { note -> note.tags.any { it.name == target } }.forEach { note ->
-                noteRepository.addOrUpdate(note.copy(tags = note.tags.filterNot { it.name == target }))
-            }
         }
     }
 }

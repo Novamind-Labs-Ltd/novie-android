@@ -275,15 +275,15 @@ fun TagManagerScreen(
 // ─── Preview ──────────────────────────────────────────────────────────────────
 
 // 预览数据：颜色取自 AppConfig.Folder.COLORS（Palette 各色系代表色），
-// 覆盖多色系 + 长短名称 + 不同关联笔记数（含 0），以检验色板、换行与计数渲染。
+// 覆盖多色系 + 长短名称，以检验色板和换行渲染。
 private val sampleTags = listOf(
-    TagRowItem("1", "Brand Identity", "#1B6B45", 12), // forrest600
-    TagRowItem("2", "Competitive Intelligence", "#567828", 128), // green600
-    TagRowItem("3", "Finance", "#FF8C00", 3), // orange600
-    TagRowItem("4", "Human Resources", "#C8391A", 0), // red500
-    TagRowItem("5", "Quality Assurance", "#4A8292", 47), // teal600
-    TagRowItem("6", "Roadmap & Planning", "#708090", 9), // slate600
-    TagRowItem("7", "Miscellaneous", "#656565", 1), // neutral700
+    TagRowItem("1", "Brand Identity", "#1B6B45"), // forrest600
+    TagRowItem("2", "Competitive Intelligence", "#567828"), // green600
+    TagRowItem("3", "Finance", "#FF8C00"), // orange600
+    TagRowItem("4", "Human Resources", "#C8391A"), // red500
+    TagRowItem("5", "Quality Assurance", "#4A8292"), // teal600
+    TagRowItem("6", "Roadmap & Planning", "#708090"), // slate600
+    TagRowItem("7", "Miscellaneous", "#656565"), // neutral700
 )
 
 @Preview(showBackground = true, showSystemUi = true, name = "Create · TagManagerScreen")

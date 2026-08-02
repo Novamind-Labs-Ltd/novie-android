@@ -1,7 +1,6 @@
 package com.novamind.app.data.db
 
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -19,14 +18,6 @@ enum class UploadStatus { LOCAL_ONLY, PENDING, UPLOADING, UPLOADED, FAILED, VERI
  */
 @Entity(
     tableName = "recordings",
-    foreignKeys = [
-        ForeignKey(
-            entity = NoteEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["noteId"],
-            onDelete = ForeignKey.CASCADE,
-        ),
-    ],
     indices = [Index("noteId")],
 )
 data class RecordingEntity(

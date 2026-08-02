@@ -37,7 +37,7 @@ import com.novamind.app.ui.colors.current
 import com.novamind.app.ui.theme.AppTheme
 import com.novamind.app.util.ColorUtils
 
-/** 标签行：标签图标（点击改色）+ 名称 + 笔记数 + 更多菜单（重命名/删除），边框映射标签颜色。 */
+/** 标签行：标签图标（点击改色）+ 名称 + 更多菜单（重命名/删除），边框映射标签颜色。 */
 @Composable
 internal fun TagRow(
     tag: TagRowItem,
@@ -81,7 +81,6 @@ internal fun TagRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Text(tag.noteCount.toString(), fontSize = 14.sp, color = ColorTextSub)
             Box {
                 Box(
                     modifier = Modifier
@@ -125,7 +124,7 @@ internal fun TagRow(
 private fun TagRowPreview() {
     AppTheme {
         TagRow(
-            tag = TagRowItem("1", "Brand Identity", "#3D7A5A", 10),
+            tag = TagRowItem("1", "Brand Identity", "#3D7A5A"),
             onRename = {},
             onDelete = {},
         )

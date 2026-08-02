@@ -74,7 +74,6 @@ import com.novamind.app.debug.speech.SpeechToTextActivity
 import com.novamind.app.common.google.GoogleCalendarAuthSource
 import com.novamind.app.common.google.GoogleTokenProvider
 import com.novamind.app.common.google.TokenOutcome
-import com.novamind.app.data.LocalNoteRepository
 import com.novamind.app.data.calendar.CalendarEventCache
 import com.novamind.app.feature.calendar.CalendarBindingStore
 import dagger.hilt.EntryPoint
@@ -98,7 +97,6 @@ private val Danger = Color(0xFFD13C3C)
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 internal interface DebugPanelEntryPoint {
-    fun noteRepository(): LocalNoteRepository
     fun googleCalendarAuthSource(): GoogleCalendarAuthSource
     fun calendarBindingStore(): CalendarBindingStore
     fun calendarEventCache(): CalendarEventCache
@@ -119,7 +117,6 @@ fun DebugPanel(
         EntryPointAccessors
             .fromApplication(context.applicationContext, DebugPanelEntryPoint::class.java)
     }
-    val noteRepository = remember(entry) { entry.noteRepository() }
     val calAuthSource = remember(entry) { entry.googleCalendarAuthSource() }
     val calBinding = remember(entry) { entry.calendarBindingStore() }
     val calCache = remember(entry) { entry.calendarEventCache() }
@@ -127,7 +124,6 @@ fun DebugPanel(
 
     val fingerprint = remember { DeviceIdentity.fingerprint(context) }
 
-    var noteCount by remember { mutableStateOf(-1) }
     var recCount by remember { mutableStateOf(-1) }
     var availMb by remember { mutableStateOf(-1L) }
     var totalMb by remember { mutableStateOf(-1L) }
@@ -152,9 +148,6 @@ fun DebugPanel(
     // 录音实际存放在 filesDir/note_audio（见 AudioRecorder）
     val audioDir = remember { File(context.filesDir, "note_audio") }
     LaunchedEffect(refresh) {
-        noteCount = runCatching { noteRepository.count() }
-            .onFailure { if (it is CancellationException) throw it }
-            .getOrDefault(-1)
         recCount = audioDir.listFiles()?.count { it.isFile } ?: 0
         // 内部存储分区可用/总空间（与录音、附件同一分区）
         val stat = runCatching { StatFs(context.filesDir.absolutePath) }.getOrNull()
@@ -361,7 +354,6 @@ fun DebugPanel(
 
             // ── 本地数据 ──
             Section("Local Data") {
-                InfoRow("Note Count", if (noteCount < 0) "…" else "$noteCount")
                 InfoRow("Recording Count", if (recCount < 0) "…" else "$recCount")
                 // 内部存储空间（MB）
                 InfoRow("Available Space", if (availMb < 0) "…" else "$availMb MB")
@@ -375,9 +367,6 @@ fun DebugPanel(
                     }
                     Chip("Open filesDir") {
                         FileBrowserActivity.start(context, context.filesDir.absolutePath)
-                    }
-                    Chip("Clear Notes", danger = true) {
-                        scope.launch { noteRepository.clearAll(); refresh++ }
                     }
                     Chip("Clear Recordings", danger = true) {
                         scope.launch {
